@@ -5,14 +5,16 @@ export const colors = {
   primary: '#FFD700',
   secondary: '#FFA500',
   accent: '#FF6B35',
-  success: '#4CAF50',
+  success: '#10b981',
   warning: '#FF9800',
   error: '#F44336',
   background: '#0A0E27',
+  card: '#1A1F3A',
   cardBackground: '#1A1F3A',
   text: '#FFFFFF',
   textSecondary: '#A0A0A0',
   border: '#2A2F4A',
+  highlight: 'rgba(255, 215, 0, 0.1)',
 };
 
 export const commonStyles = StyleSheet.create({

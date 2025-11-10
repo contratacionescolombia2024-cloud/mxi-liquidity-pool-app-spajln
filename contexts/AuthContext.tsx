@@ -29,6 +29,9 @@ interface User {
   lastWithdrawalDate?: string;
   joinedDate: string;
   isActiveContributor: boolean;
+  yieldRatePerMinute: number;
+  lastYieldUpdate: string;
+  accumulatedYield: number;
 }
 
 interface AuthContextType {
@@ -45,6 +48,8 @@ interface AuthContextType {
   withdrawMXI: (amount: number, walletAddress: string) => Promise<{ success: boolean; error?: string }>;
   resendVerificationEmail: () => Promise<{ success: boolean; error?: string }>;
   checkWithdrawalEligibility: () => Promise<boolean>;
+  claimYield: () => Promise<{ success: boolean; yieldEarned?: number; error?: string }>;
+  getCurrentYield: () => number;
 }
 
 interface RegisterData {
@@ -183,6 +188,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         lastWithdrawalDate: userData.last_withdrawal_date,
         joinedDate: userData.joined_date,
         isActiveContributor: userData.is_active_contributor || false,
+        yieldRatePerMinute: parseFloat(userData.yield_rate_per_minute?.toString() || '0'),
+        lastYieldUpdate: userData.last_yield_update || new Date().toISOString(),
+        accumulatedYield: parseFloat(userData.accumulated_yield?.toString() || '0'),
       };
 
       console.log('User data loaded:', mappedUser);
@@ -650,6 +658,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const claimYield = async (): Promise<{ success: boolean; yieldEarned?: number; error?: string }> => {
+    if (!user) return { success: false, error: 'Not authenticated' };
+
+    try {
+      const { data, error } = await supabase.rpc('claim_yield', {
+        p_user_id: user.id,
+      });
+
+      if (error) {
+        console.error('Claim yield error:', error);
+        return { success: false, error: error.message };
+      }
+
+      // Reload user data to reflect new balance
+      await loadUserData(user.id);
+
+      return { success: true, yieldEarned: parseFloat(data?.toString() || '0') };
+    } catch (error: any) {
+      console.error('Claim yield exception:', error);
+      return { success: false, error: error.message || 'Failed to claim yield' };
+    }
+  };
+
+  const getCurrentYield = (): number => {
+    if (!user || user.yieldRatePerMinute === 0) return 0;
+
+    const lastUpdate = new Date(user.lastYieldUpdate);
+    const now = new Date();
+    const minutesElapsed = (now.getTime() - lastUpdate.getTime()) / (1000 * 60);
+    
+    return user.yieldRatePerMinute * minutesElapsed;
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -666,6 +707,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         withdrawMXI,
         resendVerificationEmail,
         checkWithdrawalEligibility,
+        claimYield,
+        getCurrentYield,
       }}
     >
       {children}

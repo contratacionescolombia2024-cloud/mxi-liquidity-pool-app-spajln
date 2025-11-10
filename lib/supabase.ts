@@ -63,6 +63,10 @@ export interface Database {
           joined_date: string;
           created_at: string;
           updated_at: string;
+          is_active_contributor: boolean;
+          yield_rate_per_minute: number;
+          last_yield_update: string;
+          accumulated_yield: number;
         };
         Insert: {
           id?: string;
@@ -81,6 +85,10 @@ export interface Database {
           joined_date?: string;
           created_at?: string;
           updated_at?: string;
+          is_active_contributor?: boolean;
+          yield_rate_per_minute?: number;
+          last_yield_update?: string;
+          accumulated_yield?: number;
         };
         Update: {
           id?: string;
@@ -99,6 +107,10 @@ export interface Database {
           joined_date?: string;
           created_at?: string;
           updated_at?: string;
+          is_active_contributor?: boolean;
+          yield_rate_per_minute?: number;
+          last_yield_update?: string;
+          accumulated_yield?: number;
         };
       };
       contributions: {

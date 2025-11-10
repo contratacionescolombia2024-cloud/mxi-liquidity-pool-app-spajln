@@ -28,6 +28,12 @@ export default function ContributeScreen() {
     return amount / 10; // 1 MXI = 10 USDT
   };
 
+  const calculateYieldRate = (investment: number) => {
+    const baseInvestment = 50; // Minimum investment
+    const baseYieldRate = 0.00002; // Base yield per minute
+    return baseYieldRate * (investment / baseInvestment);
+  };
+
   const handleContribute = async () => {
     const amount = parseFloat(usdtAmount);
 
@@ -175,6 +181,42 @@ export default function ContributeScreen() {
               <Text style={styles.instantUpdateText}>Balance updated instantly</Text>
             </View>
           </View>
+
+          {/* Yield Rate Information */}
+          {parseFloat(usdtAmount || '0') >= 50 && (
+            <View style={styles.yieldCard}>
+              <View style={styles.yieldHeader}>
+                <IconSymbol name="chart.line.uptrend.xyaxis" size={20} color={colors.success} />
+                <Text style={styles.yieldTitle}>Mining Yield Rate</Text>
+              </View>
+              <View style={styles.yieldInfo}>
+                <View style={styles.yieldRow}>
+                  <Text style={styles.yieldLabel}>Per Minute:</Text>
+                  <Text style={styles.yieldValue}>
+                    {calculateYieldRate(parseFloat(usdtAmount || '0')).toFixed(8)} MXI
+                  </Text>
+                </View>
+                <View style={styles.yieldRow}>
+                  <Text style={styles.yieldLabel}>Per Hour:</Text>
+                  <Text style={styles.yieldValue}>
+                    {(calculateYieldRate(parseFloat(usdtAmount || '0')) * 60).toFixed(8)} MXI
+                  </Text>
+                </View>
+                <View style={styles.yieldRow}>
+                  <Text style={styles.yieldLabel}>Per Day:</Text>
+                  <Text style={styles.yieldValue}>
+                    {(calculateYieldRate(parseFloat(usdtAmount || '0')) * 60 * 24).toFixed(6)} MXI
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.yieldNote}>
+                <IconSymbol name="info.circle" size={14} color={colors.textSecondary} />
+                <Text style={styles.yieldNoteText}>
+                  Your investment will generate MXI continuously. The yield is calculated and displayed in real-time on your dashboard.
+                </Text>
+              </View>
+            </View>
+          )}
 
           <View style={styles.commissionCard}>
             <Text style={styles.commissionTitle}>Referral Commissions Generated:</Text>
@@ -480,5 +522,56 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
     lineHeight: 18,
+  },
+  yieldCard: {
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.success,
+  },
+  yieldHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  yieldTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  yieldInfo: {
+    backgroundColor: colors.card,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  yieldRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  yieldLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  yieldValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.success,
+    fontFamily: 'monospace',
+  },
+  yieldNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+  },
+  yieldNoteText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 16,
   },
 });

@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, commonStyles } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
+import YieldDisplay from '@/components/YieldDisplay';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -97,7 +98,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Active Contributor Badge - NEW */}
+        {/* Active Contributor Badge */}
         {user.isActiveContributor && (
           <View style={[commonStyles.card, styles.activeContributorCard]}>
             <View style={styles.activeContributorContent}>
@@ -113,6 +114,9 @@ export default function HomeScreen() {
             </View>
           </View>
         )}
+
+        {/* Yield Display - Real-time mining */}
+        <YieldDisplay />
 
         {/* Countdown Card */}
         <View style={[commonStyles.card, styles.countdownCard]}>
