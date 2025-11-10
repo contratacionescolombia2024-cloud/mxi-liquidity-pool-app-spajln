@@ -84,10 +84,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       console.log('Auth state changed:', _event, session);
       setSession(session);
-      if (session) {
+      
+      if (_event === 'SIGNED_IN' && session) {
+        // Check if user record exists, if not create it
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (!existingUser && session.user.email) {
+          // User just verified email, update email_verified status
+          await supabase
+            .from('users')
+            .update({ email_verified: true })
+            .eq('email', session.user.email);
+        }
+        
+        loadUserData(session.user.id);
+      } else if (session) {
         loadUserData(session.user.id);
       } else {
         setUser(null);
@@ -201,7 +219,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (userData && !userData.email_verified) {
-        return { success: false, error: 'Please verify your email before logging in' };
+        // Sign out the user since email is not verified
+        await supabase.auth.signOut();
+        return { success: false, error: 'Please verify your email before logging in. Check your inbox for the verification link.' };
       }
 
       console.log('Login successful');
@@ -238,12 +258,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'ID number already registered. Only one account per person is allowed.' };
       }
 
-      // Sign up with Supabase Auth
+      // Sign up with Supabase Auth - using Natively standard redirect URL
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: userData.email,
         password: userData.password,
         options: {
-          emailRedirectTo: 'maxcoinpool://auth/callback',
+          emailRedirectTo: 'https://natively.dev/email-confirmed',
           data: {
             name: userData.name,
           },
@@ -293,9 +313,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (insertError) {
         console.error('User insert error:', insertError);
-        // Clean up auth user if database insert fails
-        await supabase.auth.admin.deleteUser(authData.user.id);
-        return { success: false, error: 'Failed to create user profile' };
+        return { success: false, error: 'Failed to create user profile. Please try again.' };
       }
 
       // Create referral relationships if referred by someone
@@ -588,6 +606,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email: session.user.email,
+        options: {
+          emailRedirectTo: 'https://natively.dev/email-confirmed',
+        },
       });
 
       if (error) {
