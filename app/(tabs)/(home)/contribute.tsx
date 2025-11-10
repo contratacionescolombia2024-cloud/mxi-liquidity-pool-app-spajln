@@ -8,6 +8,7 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,202 +19,239 @@ import { IconSymbol } from '@/components/IconSymbol';
 export default function ContributeScreen() {
   const router = useRouter();
   const { user, addContribution } = useAuth();
-  const [amount, setAmount] = useState('');
-  const [binanceWallet, setBinanceWallet] = useState('');
-
-  const minContribution = 50;
-  const maxContribution = 100000;
-  const mxiPerUsdt = 0.2; // 5 MXI for 50 USDT = 0.1 MXI per USDT
+  const [usdtAmount, setUsdtAmount] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [transactionType, setTransactionType] = useState<'initial' | 'increase' | 'reinvestment'>('initial');
 
   const calculateMxi = () => {
-    const usdtAmount = parseFloat(amount) || 0;
-    return (usdtAmount * mxiPerUsdt).toFixed(2);
+    const amount = parseFloat(usdtAmount);
+    if (isNaN(amount)) return 0;
+    return amount / 10; // 1 MXI = 10 USDT
   };
 
   const handleContribute = async () => {
-    const usdtAmount = parseFloat(amount);
+    const amount = parseFloat(usdtAmount);
 
-    if (!binanceWallet) {
-      Alert.alert('Error', 'Please enter your Binance wallet address');
-      return;
-    }
-
-    if (!amount || isNaN(usdtAmount)) {
+    if (isNaN(amount) || amount <= 0) {
       Alert.alert('Error', 'Please enter a valid amount');
       return;
     }
 
-    if (usdtAmount < minContribution) {
-      Alert.alert('Error', `Minimum contribution is ${minContribution} USDT`);
+    if (amount < 50) {
+      Alert.alert('Error', 'Minimum contribution is 50 USDT');
       return;
     }
 
-    if (usdtAmount > maxContribution) {
-      Alert.alert('Error', `Maximum contribution is ${maxContribution} USDT`);
+    if (amount > 100000) {
+      Alert.alert('Error', 'Maximum contribution is 100,000 USDT');
       return;
     }
 
-    const totalContribution = (user?.usdtContributed || 0) + usdtAmount;
-    if (totalContribution > maxContribution) {
-      Alert.alert(
-        'Error',
-        `Your total contribution would exceed the maximum of ${maxContribution} USDT`
-      );
-      return;
+    // Determine transaction type
+    let txType: 'initial' | 'increase' | 'reinvestment' = 'initial';
+    if (user && user.usdtContributed > 0) {
+      txType = 'increase';
     }
 
     Alert.alert(
       'Confirm Contribution',
-      `You will receive ${calculateMxi()} MXI for ${usdtAmount} USDT.\n\nPlease send ${usdtAmount} USDT to the pool address from your Binance wallet:\n\n${binanceWallet}\n\nAfter sending, your MXI will be credited within 24 hours.`,
+      `You are about to contribute ${amount} USDT and receive ${calculateMxi()} MXI tokens.\n\nThis will generate referral commissions for your upline.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Confirm',
           onPress: async () => {
-            await addContribution(usdtAmount);
-            Alert.alert('Success', 'Contribution recorded! Your MXI will be credited soon.', [
-              { text: 'OK', onPress: () => router.back() },
-            ]);
+            setLoading(true);
+            const result = await addContribution(amount, txType);
+            setLoading(false);
+
+            if (result.success) {
+              Alert.alert(
+                'Success',
+                `Contribution successful! You received ${calculateMxi()} MXI tokens.`,
+                [{ text: 'OK', onPress: () => router.back() }]
+              );
+              setUsdtAmount('');
+            } else {
+              Alert.alert('Error', result.error || 'Failed to process contribution');
+            }
           },
         },
       ]
     );
   };
 
-  const quickAmounts = [50, 100, 500, 1000, 5000];
+  const handleReinvest = async () => {
+    if (!user) return;
+
+    const availableCommission = user.commissions.available;
+
+    if (availableCommission < 50) {
+      Alert.alert('Error', 'You need at least 50 USDT in available commissions to reinvest');
+      return;
+    }
+
+    Alert.alert(
+      'Confirm Reinvestment',
+      `You are about to reinvest ${availableCommission.toFixed(2)} USDT from your available commissions.\n\nYou will receive ${(availableCommission / 10).toFixed(1)} MXI tokens and generate new referral commissions.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm',
+          onPress: async () => {
+            setLoading(true);
+            const result = await addContribution(availableCommission, 'reinvestment');
+            setLoading(false);
+
+            if (result.success) {
+              Alert.alert(
+                'Success',
+                `Reinvestment successful! You received ${(availableCommission / 10).toFixed(1)} MXI tokens.`,
+                [{ text: 'OK', onPress: () => router.back() }]
+              );
+            } else {
+              Alert.alert('Error', result.error || 'Failed to process reinvestment');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const mxiAmount = calculateMxi();
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
           >
-            <IconSymbol name="chevron.left" size={24} color={colors.text} />
+            <IconSymbol name="chevron.left" size={24} color={colors.primary} />
           </TouchableOpacity>
-          <Text style={styles.title}>Add Funds</Text>
+          <Text style={styles.title}>Contribute to Pool</Text>
+          <Text style={styles.subtitle}>Increase your MXI holdings</Text>
         </View>
 
-        {/* Info Card */}
-        <View style={[commonStyles.card, styles.infoCard]}>
-          <IconSymbol name="info.circle.fill" size={24} color={colors.primary} />
-          <View style={styles.infoContent}>
-            <Text style={styles.infoTitle}>Contribution Limits</Text>
+        <View style={styles.infoCard}>
+          <View style={styles.infoRow}>
+            <IconSymbol name="info.circle" size={20} color={colors.primary} />
             <Text style={styles.infoText}>
-              - Minimum: {minContribution} USDT{'\n'}
-              - Maximum: {maxContribution.toLocaleString()} USDT per user{'\n'}
-              - Rate: 5 MXI per 50 USDT
+              Contributions generate referral commissions for your upline (3%, 2%, 1% for levels 1-3)
             </Text>
           </View>
         </View>
 
-        {/* Binance Wallet Input */}
-        <View style={styles.section}>
-          <Text style={commonStyles.label}>Binance Wallet Address *</Text>
-          <TextInput
-            style={commonStyles.input}
-            placeholder="Enter your Binance wallet address"
-            placeholderTextColor={colors.textSecondary}
-            value={binanceWallet}
-            onChangeText={setBinanceWallet}
-            autoCapitalize="none"
-          />
-          <Text style={styles.helperText}>
-            This is where you&apos;ll send USDT from
+        <View style={styles.form}>
+          <View style={styles.inputContainer}>
+            <Text style={commonStyles.label}>USDT Amount</Text>
+            <View style={styles.inputWrapper}>
+              <TextInput
+                style={commonStyles.input}
+                placeholder="Enter amount (50 - 100,000)"
+                placeholderTextColor={colors.textSecondary}
+                value={usdtAmount}
+                onChangeText={setUsdtAmount}
+                keyboardType="decimal-pad"
+              />
+              <Text style={styles.currency}>USDT</Text>
+            </View>
+            <Text style={styles.helperText}>
+              Minimum: 50 USDT • Maximum: 100,000 USDT
+            </Text>
+          </View>
+
+          <View style={styles.conversionCard}>
+            <View style={styles.conversionRow}>
+              <Text style={styles.conversionLabel}>You will receive:</Text>
+              <View style={styles.conversionValue}>
+                <Text style={styles.conversionAmount}>{mxiAmount.toFixed(1)}</Text>
+                <Text style={styles.conversionCurrency}>MXI</Text>
+              </View>
+            </View>
+            <Text style={styles.conversionRate}>1 MXI = 10 USDT</Text>
+          </View>
+
+          <View style={styles.commissionCard}>
+            <Text style={styles.commissionTitle}>Referral Commissions Generated:</Text>
+            <View style={styles.commissionRow}>
+              <Text style={styles.commissionLevel}>Level 1 (3%):</Text>
+              <Text style={styles.commissionAmount}>
+                {(parseFloat(usdtAmount || '0') * 0.03).toFixed(2)} USDT
+              </Text>
+            </View>
+            <View style={styles.commissionRow}>
+              <Text style={styles.commissionLevel}>Level 2 (2%):</Text>
+              <Text style={styles.commissionAmount}>
+                {(parseFloat(usdtAmount || '0') * 0.02).toFixed(2)} USDT
+              </Text>
+            </View>
+            <View style={styles.commissionRow}>
+              <Text style={styles.commissionLevel}>Level 3 (1%):</Text>
+              <Text style={styles.commissionAmount}>
+                {(parseFloat(usdtAmount || '0') * 0.01).toFixed(2)} USDT
+              </Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={[buttonStyles.primary, styles.contributeButton]}
+            onPress={handleContribute}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <IconSymbol name="plus.circle.fill" size={20} color="#fff" />
+                <Text style={styles.buttonText}>
+                  {user && user.usdtContributed > 0 ? 'Increase Participation' : 'Make Contribution'}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {user && user.commissions.available >= 50 && (
+            <View style={styles.reinvestSection}>
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>or</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
+              <View style={styles.reinvestCard}>
+                <View style={styles.reinvestHeader}>
+                  <IconSymbol name="arrow.clockwise.circle.fill" size={24} color={colors.success} />
+                  <Text style={styles.reinvestTitle}>Reinvest Commissions</Text>
+                </View>
+                <Text style={styles.reinvestDescription}>
+                  You have {user.commissions.available.toFixed(2)} USDT available to reinvest
+                </Text>
+                <TouchableOpacity
+                  style={[buttonStyles.outline, styles.reinvestButton]}
+                  onPress={handleReinvest}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color={colors.primary} />
+                  ) : (
+                    <Text style={styles.reinvestButtonText}>
+                      Reinvest {user.commissions.available.toFixed(2)} USDT
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.noteCard}>
+          <IconSymbol name="exclamationmark.circle" size={20} color={colors.warning} />
+          <Text style={styles.noteText}>
+            Note: All contributions are final and cannot be refunded. MXI tokens will be available for withdrawal after the official launch on January 15, 2025.
           </Text>
         </View>
-
-        {/* Amount Input */}
-        <View style={styles.section}>
-          <Text style={commonStyles.label}>Amount (USDT) *</Text>
-          <View style={styles.amountInputContainer}>
-            <TextInput
-              style={[commonStyles.input, styles.amountInput]}
-              placeholder="0.00"
-              placeholderTextColor={colors.textSecondary}
-              value={amount}
-              onChangeText={setAmount}
-              keyboardType="decimal-pad"
-            />
-            <Text style={styles.currencyLabel}>USDT</Text>
-          </View>
-
-          {/* Quick Amount Buttons */}
-          <View style={styles.quickAmounts}>
-            {quickAmounts.map((quickAmount) => (
-              <TouchableOpacity
-                key={quickAmount}
-                style={styles.quickAmountButton}
-                onPress={() => setAmount(quickAmount.toString())}
-              >
-                <Text style={styles.quickAmountText}>${quickAmount}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* MXI Preview */}
-        {amount && parseFloat(amount) >= minContribution && (
-          <View style={[commonStyles.card, styles.previewCard]}>
-            <Text style={styles.previewLabel}>You will receive</Text>
-            <View style={styles.previewAmount}>
-              <IconSymbol name="bitcoinsign.circle.fill" size={32} color={colors.primary} />
-              <Text style={styles.previewValue}>{calculateMxi()}</Text>
-              <Text style={styles.previewCurrency}>MXI</Text>
-            </View>
-            <View style={styles.previewDetails}>
-              <View style={styles.previewRow}>
-                <Text style={styles.previewDetailLabel}>Current Balance</Text>
-                <Text style={styles.previewDetailValue}>
-                  {user?.mxiBalance.toFixed(2)} MXI
-                </Text>
-              </View>
-              <View style={styles.previewRow}>
-                <Text style={styles.previewDetailLabel}>New Balance</Text>
-                <Text style={[styles.previewDetailValue, styles.highlightValue]}>
-                  {((user?.mxiBalance || 0) + parseFloat(calculateMxi())).toFixed(2)} MXI
-                </Text>
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* Instructions */}
-        <View style={[commonStyles.card, styles.instructionsCard]}>
-          <Text style={styles.instructionsTitle}>How to Contribute</Text>
-          <View style={styles.instructionStep}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>1</Text>
-            </View>
-            <Text style={styles.stepText}>
-              Enter your Binance wallet address and contribution amount
-            </Text>
-          </View>
-          <View style={styles.instructionStep}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>2</Text>
-            </View>
-            <Text style={styles.stepText}>
-              Send USDT from your Binance wallet to the pool address
-            </Text>
-          </View>
-          <View style={styles.instructionStep}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>3</Text>
-            </View>
-            <Text style={styles.stepText}>
-              Your MXI tokens will be credited within 24 hours
-            </Text>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={[buttonStyles.primary, styles.contributeButton]}
-          onPress={handleContribute}
-        >
-          <Text style={styles.buttonText}>Confirm Contribution</Text>
-        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -225,175 +263,203 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
+    flexGrow: 1,
+    padding: 24,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: 24,
   },
   backButton: {
-    marginRight: 16,
-    padding: 4,
+    marginBottom: 16,
+    alignSelf: 'flex-start',
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
     color: colors.text,
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: colors.textSecondary,
   },
   infoCard: {
-    flexDirection: 'row',
-    backgroundColor: colors.highlight,
+    backgroundColor: colors.cardBackground,
+    padding: 16,
+    borderRadius: 12,
     marginBottom: 24,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
   },
-  infoContent: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  infoTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   infoText: {
+    flex: 1,
     fontSize: 14,
-    color: colors.text,
+    color: colors.textSecondary,
     lineHeight: 20,
   },
-  section: {
+  form: {
+    width: '100%',
+  },
+  inputContainer: {
     marginBottom: 24,
+  },
+  inputWrapper: {
+    position: 'relative',
+  },
+  currency: {
+    position: 'absolute',
+    right: 16,
+    top: 12,
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textSecondary,
   },
   helperText: {
     fontSize: 12,
     color: colors.textSecondary,
-    marginTop: -8,
-    marginBottom: 8,
+    marginTop: 4,
   },
-  amountInputContainer: {
-    position: 'relative',
-  },
-  amountInput: {
-    paddingRight: 70,
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  currencyLabel: {
-    position: 'absolute',
-    right: 16,
-    top: 12,
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  quickAmounts: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 12,
-  },
-  quickAmountButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    backgroundColor: colors.card,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  quickAmountText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  previewCard: {
-    marginBottom: 24,
-    backgroundColor: colors.card,
-  },
-  previewLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 12,
-  },
-  previewAmount: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  conversionCard: {
+    backgroundColor: colors.cardBackground,
+    padding: 20,
+    borderRadius: 12,
     marginBottom: 16,
   },
-  previewValue: {
-    fontSize: 36,
-    fontWeight: '700',
-    color: colors.text,
-    marginLeft: 12,
+  conversionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  previewCurrency: {
-    fontSize: 20,
+  conversionLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  conversionValue: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  conversionAmount: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  conversionCurrency: {
+    fontSize: 16,
     fontWeight: '600',
     color: colors.textSecondary,
-    marginLeft: 8,
   },
-  previewDetails: {
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+  conversionRate: {
+    fontSize: 12,
+    color: colors.textSecondary,
   },
-  previewRow: {
+  commissionCard: {
+    backgroundColor: colors.cardBackground,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 24,
+  },
+  commissionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  commissionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 8,
   },
-  previewDetailLabel: {
+  commissionLevel: {
     fontSize: 14,
     color: colors.textSecondary,
   },
-  previewDetailValue: {
+  commissionAmount: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.text,
-  },
-  highlightValue: {
-    color: colors.secondary,
-  },
-  instructionsCard: {
-    marginBottom: 24,
-  },
-  instructionsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 16,
-  },
-  instructionStep: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  stepNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  stepNumberText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  stepText: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
-    paddingTop: 4,
+    color: colors.success,
   },
   contributeButton: {
-    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
   buttonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  reinvestSection: {
+    marginTop: 24,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    color: colors.textSecondary,
+    fontSize: 14,
+  },
+  reinvestCard: {
+    backgroundColor: colors.cardBackground,
+    padding: 20,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.success,
+  },
+  reinvestHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
+  reinvestTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  reinvestDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 16,
+  },
+  reinvestButton: {
+    marginTop: 8,
+  },
+  reinvestButtonText: {
+    color: colors.primary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  noteCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.cardBackground,
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 24,
+    gap: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.warning,
+  },
+  noteText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 18,
   },
 });

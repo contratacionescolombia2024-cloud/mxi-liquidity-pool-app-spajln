@@ -49,8 +49,15 @@ export default function RegisterScreen() {
       return;
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Error', 'Please enter a valid email address');
+      return;
+    }
+
     setLoading(true);
-    const success = await register({
+    const result = await register({
       name,
       idNumber,
       address,
@@ -60,12 +67,16 @@ export default function RegisterScreen() {
     });
     setLoading(false);
 
-    if (success) {
-      Alert.alert('Success', 'Account created successfully!', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)/(home)/') },
-      ]);
+    if (result.success) {
+      Alert.alert(
+        'Success',
+        'Account created successfully! Please check your email to verify your account before logging in.',
+        [
+          { text: 'OK', onPress: () => router.replace('/(auth)/login') },
+        ]
+      );
     } else {
-      Alert.alert('Error', 'Failed to create account. Please try again.');
+      Alert.alert('Error', result.error || 'Failed to create account. Please try again.');
     }
   };
 
@@ -188,6 +199,13 @@ export default function RegisterScreen() {
             />
           </View>
 
+          <View style={styles.infoBox}>
+            <IconSymbol name="info.circle" size={20} color={colors.primary} />
+            <Text style={styles.infoText}>
+              Only one account per person is allowed. Your ID number will be verified.
+            </Text>
+          </View>
+
           <TouchableOpacity
             style={[buttonStyles.primary, styles.registerButton]}
             onPress={handleRegister}
@@ -257,6 +275,21 @@ const styles = StyleSheet.create({
     right: 16,
     top: 12,
     padding: 4,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.cardBackground,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    gap: 8,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 18,
   },
   registerButton: {
     marginTop: 8,

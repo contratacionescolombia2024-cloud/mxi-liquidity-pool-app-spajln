@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,83 +8,106 @@ import {
   ScrollView,
   Alert,
   Share,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
-import * as Clipboard from 'expo-clipboard';
 
 export default function ReferralsScreen() {
   const router = useRouter();
-  const { user, withdrawCommission } = useAuth();
-  const [withdrawing, setWithdrawing] = useState(false);
+  const { user, withdrawCommission, checkWithdrawalEligibility } = useAuth();
+  const [walletAddress, setWalletAddress] = useState('');
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [checkingEligibility, setCheckingEligibility] = useState(false);
 
-  if (!user) return null;
+  useEffect(() => {
+    if (user) {
+      checkEligibility();
+    }
+  }, [user]);
 
-  const canWithdraw =
-    user.activeReferrals >= 5 &&
-    user.commissions.available > 0 &&
-    (!user.lastWithdrawalDate ||
-      new Date().getTime() - new Date(user.lastWithdrawalDate).getTime() >=
-        10 * 24 * 60 * 60 * 1000);
-
-  const daysUntilWithdrawal = user.lastWithdrawalDate
-    ? Math.max(
-        0,
-        10 -
-          Math.floor(
-            (new Date().getTime() - new Date(user.lastWithdrawalDate).getTime()) /
-              (24 * 60 * 60 * 1000)
-          )
-      )
-    : 0;
+  const checkEligibility = async () => {
+    setCheckingEligibility(true);
+    await checkWithdrawalEligibility();
+    setCheckingEligibility(false);
+  };
 
   const handleCopyCode = async () => {
-    await Clipboard.setStringAsync(user.referralCode);
-    Alert.alert('Copied!', 'Referral code copied to clipboard');
+    if (user?.referralCode) {
+      await Clipboard.setStringAsync(user.referralCode);
+      Alert.alert('Success', 'Referral code copied to clipboard!');
+    }
   };
 
   const handleShare = async () => {
+    if (!user?.referralCode) return;
+
     try {
       await Share.share({
-        message: `Join the Maxcoin Liquidity Pool using my referral code: ${user.referralCode}\n\nEarn MXI tokens and participate in the future of crypto!`,
+        message: `Join the Maxcoin Liquidity Pool and earn MXI tokens! Use my referral code: ${user.referralCode}`,
       });
     } catch (error) {
-      console.log('Share error:', error);
+      console.error('Share error:', error);
     }
   };
 
   const handleWithdraw = async () => {
-    if (!canWithdraw) {
-      let message = '';
-      if (user.activeReferrals < 5) {
-        message = `You need at least 5 active referrals to withdraw. Current: ${user.activeReferrals}`;
-      } else if (daysUntilWithdrawal > 0) {
-        message = `You can withdraw in ${daysUntilWithdrawal} days`;
-      } else if (user.commissions.available === 0) {
-        message = 'No commissions available to withdraw';
-      }
-      Alert.alert('Cannot Withdraw', message);
+    if (!user) return;
+
+    if (!user.canWithdraw) {
+      Alert.alert(
+        'Withdrawal Not Available',
+        `To withdraw commissions, you need:\n\n- At least 5 active referrals (you have ${user.activeReferrals})\n- 10 days since joining\n\nKeep inviting friends to unlock withdrawals!`
+      );
+      return;
+    }
+
+    const amount = parseFloat(withdrawAmount);
+
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('Error', 'Please enter a valid amount');
+      return;
+    }
+
+    if (amount > user.commissions.available) {
+      Alert.alert('Error', `You only have ${user.commissions.available.toFixed(2)} USDT available`);
+      return;
+    }
+
+    if (!walletAddress || walletAddress.length < 10) {
+      Alert.alert('Error', 'Please enter a valid USDT wallet address');
       return;
     }
 
     Alert.alert(
       'Confirm Withdrawal',
-      `Withdraw $${user.commissions.available.toFixed(2)} USDT to your Binance wallet?`,
+      `You are about to withdraw ${amount.toFixed(2)} USDT to:\n\n${walletAddress}\n\nThis action cannot be undone.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Confirm',
           onPress: async () => {
-            setWithdrawing(true);
-            const success = await withdrawCommission();
-            setWithdrawing(false);
-            if (success) {
-              Alert.alert('Success', 'Withdrawal processed successfully!');
+            setLoading(true);
+            const result = await withdrawCommission(amount, walletAddress);
+            setLoading(false);
+
+            if (result.success) {
+              Alert.alert(
+                'Success',
+                'Withdrawal request submitted! Your USDT will be processed within 24-48 hours.',
+                [{ text: 'OK', onPress: () => {
+                  setWalletAddress('');
+                  setWithdrawAmount('');
+                }}]
+              );
             } else {
-              Alert.alert('Error', 'Failed to process withdrawal');
+              Alert.alert('Error', result.error || 'Failed to process withdrawal');
             }
           },
         },
@@ -92,177 +115,174 @@ export default function ReferralsScreen() {
     );
   };
 
+  if (!user) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const daysUntilWithdrawal = user.canWithdraw ? 0 : Math.max(0, 10 - Math.floor((Date.now() - new Date(user.joinedDate).getTime()) / (1000 * 60 * 60 * 24)));
+
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
           >
-            <IconSymbol name="chevron.left" size={24} color={colors.text} />
+            <IconSymbol name="chevron.left" size={24} color={colors.primary} />
           </TouchableOpacity>
-          <Text style={styles.title}>Referral System</Text>
+          <Text style={styles.title}>Referrals</Text>
+          <Text style={styles.subtitle}>Earn commissions by inviting friends</Text>
         </View>
 
-        {/* Referral Code Card */}
-        <View style={[commonStyles.card, styles.codeCard]}>
+        <View style={styles.codeCard}>
           <Text style={styles.codeLabel}>Your Referral Code</Text>
           <View style={styles.codeContainer}>
-            <Text style={styles.codeText}>{user.referralCode}</Text>
+            <Text style={styles.code}>{user.referralCode}</Text>
             <View style={styles.codeActions}>
-              <TouchableOpacity style={styles.codeButton} onPress={handleCopyCode}>
+              <TouchableOpacity style={styles.iconButton} onPress={handleCopyCode}>
                 <IconSymbol name="doc.on.doc" size={20} color={colors.primary} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.codeButton} onPress={handleShare}>
+              <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
                 <IconSymbol name="square.and.arrow.up" size={20} color={colors.primary} />
               </TouchableOpacity>
             </View>
           </View>
         </View>
 
-        {/* Commission Overview */}
-        <View style={[commonStyles.card, styles.commissionCard]}>
-          <Text style={styles.sectionTitle}>Commission Overview</Text>
-          <View style={styles.commissionGrid}>
-            <View style={styles.commissionItem}>
-              <Text style={styles.commissionValue}>
-                ${user.commissions.total.toFixed(2)}
-              </Text>
-              <Text style={styles.commissionLabel}>Total Earned</Text>
-            </View>
-            <View style={styles.commissionItem}>
-              <Text style={[styles.commissionValue, styles.availableValue]}>
-                ${user.commissions.available.toFixed(2)}
-              </Text>
-              <Text style={styles.commissionLabel}>Available</Text>
-            </View>
-            <View style={styles.commissionItem}>
-              <Text style={styles.commissionValue}>
-                ${user.commissions.withdrawn.toFixed(2)}
-              </Text>
-              <Text style={styles.commissionLabel}>Withdrawn</Text>
-            </View>
+        <View style={styles.statsGrid}>
+          <View style={styles.statCard}>
+            <IconSymbol name="person.3.fill" size={24} color={colors.primary} />
+            <Text style={styles.statValue}>{user.referrals.level1}</Text>
+            <Text style={styles.statLabel}>Level 1 (3%)</Text>
           </View>
+          <View style={styles.statCard}>
+            <IconSymbol name="person.2.fill" size={24} color={colors.secondary} />
+            <Text style={styles.statValue}>{user.referrals.level2}</Text>
+            <Text style={styles.statLabel}>Level 2 (2%)</Text>
+          </View>
+          <View style={styles.statCard}>
+            <IconSymbol name="person.fill" size={24} color={colors.accent} />
+            <Text style={styles.statValue}>{user.referrals.level3}</Text>
+            <Text style={styles.statLabel}>Level 3 (1%)</Text>
+          </View>
+        </View>
 
-          <TouchableOpacity
-            style={[
-              buttonStyles.primary,
-              styles.withdrawButton,
-              !canWithdraw && styles.disabledButton,
-            ]}
-            onPress={handleWithdraw}
-            disabled={!canWithdraw || withdrawing}
-          >
-            <Text style={styles.buttonText}>
-              {withdrawing ? 'Processing...' : 'Withdraw Commission'}
+        <View style={styles.commissionsCard}>
+          <Text style={styles.sectionTitle}>Commission Summary</Text>
+          <View style={styles.commissionRow}>
+            <Text style={styles.commissionLabel}>Total Earned:</Text>
+            <Text style={styles.commissionValue}>{user.commissions.total.toFixed(2)} USDT</Text>
+          </View>
+          <View style={styles.commissionRow}>
+            <Text style={styles.commissionLabel}>Available:</Text>
+            <Text style={[styles.commissionValue, styles.availableValue]}>
+              {user.commissions.available.toFixed(2)} USDT
             </Text>
-          </TouchableOpacity>
+          </View>
+          <View style={styles.commissionRow}>
+            <Text style={styles.commissionLabel}>Withdrawn:</Text>
+            <Text style={styles.commissionValue}>{user.commissions.withdrawn.toFixed(2)} USDT</Text>
+          </View>
+        </View>
 
-          {!canWithdraw && (
-            <View style={styles.withdrawInfo}>
-              <IconSymbol name="info.circle" size={16} color={colors.textSecondary} />
-              <Text style={styles.withdrawInfoText}>
-                {user.activeReferrals < 5
-                  ? `Need ${5 - user.activeReferrals} more active referrals`
-                  : daysUntilWithdrawal > 0
-                  ? `Available in ${daysUntilWithdrawal} days`
-                  : 'No commissions available'}
-              </Text>
+        <View style={styles.eligibilityCard}>
+          <View style={styles.eligibilityHeader}>
+            <IconSymbol
+              name={user.canWithdraw ? 'checkmark.circle.fill' : 'clock.fill'}
+              size={24}
+              color={user.canWithdraw ? colors.success : colors.warning}
+            />
+            <Text style={styles.eligibilityTitle}>
+              {user.canWithdraw ? 'Withdrawal Available' : 'Withdrawal Requirements'}
+            </Text>
+          </View>
+          
+          {!user.canWithdraw && (
+            <View style={styles.requirementsList}>
+              <View style={styles.requirementItem}>
+                <IconSymbol
+                  name={user.activeReferrals >= 5 ? 'checkmark.circle.fill' : 'circle'}
+                  size={20}
+                  color={user.activeReferrals >= 5 ? colors.success : colors.textSecondary}
+                />
+                <Text style={styles.requirementText}>
+                  {user.activeReferrals}/5 active referrals
+                </Text>
+              </View>
+              <View style={styles.requirementItem}>
+                <IconSymbol
+                  name={daysUntilWithdrawal === 0 ? 'checkmark.circle.fill' : 'circle'}
+                  size={20}
+                  color={daysUntilWithdrawal === 0 ? colors.success : colors.textSecondary}
+                />
+                <Text style={styles.requirementText}>
+                  {daysUntilWithdrawal === 0 ? '10 days completed' : `${daysUntilWithdrawal} days remaining`}
+                </Text>
+              </View>
             </View>
           )}
-        </View>
 
-        {/* Referral Levels */}
-        <View style={[commonStyles.card, styles.levelsCard]}>
-          <Text style={styles.sectionTitle}>Referral Levels</Text>
-          
-          <View style={styles.levelItem}>
-            <View style={styles.levelHeader}>
-              <View style={[styles.levelBadge, { backgroundColor: colors.primary }]}>
-                <Text style={styles.levelBadgeText}>1</Text>
-              </View>
-              <View style={styles.levelInfo}>
-                <Text style={styles.levelTitle}>Level 1 - Direct Referrals</Text>
-                <Text style={styles.levelCommission}>3% Commission</Text>
-              </View>
-            </View>
-            <Text style={styles.levelCount}>{user.referrals.level1} referrals</Text>
-          </View>
-
-          <View style={styles.levelItem}>
-            <View style={styles.levelHeader}>
-              <View style={[styles.levelBadge, { backgroundColor: colors.secondary }]}>
-                <Text style={styles.levelBadgeText}>2</Text>
-              </View>
-              <View style={styles.levelInfo}>
-                <Text style={styles.levelTitle}>Level 2 - Indirect Referrals</Text>
-                <Text style={styles.levelCommission}>2% Commission</Text>
-              </View>
-            </View>
-            <Text style={styles.levelCount}>{user.referrals.level2} referrals</Text>
-          </View>
-
-          <View style={styles.levelItem}>
-            <View style={styles.levelHeader}>
-              <View style={[styles.levelBadge, { backgroundColor: colors.accent }]}>
-                <Text style={styles.levelBadgeText}>3</Text>
-              </View>
-              <View style={styles.levelInfo}>
-                <Text style={styles.levelTitle}>Level 3 - Extended Network</Text>
-                <Text style={styles.levelCommission}>1% Commission</Text>
-              </View>
-            </View>
-            <Text style={styles.levelCount}>{user.referrals.level3} referrals</Text>
-          </View>
-        </View>
-
-        {/* Active Referrals */}
-        <View style={[commonStyles.card, styles.activeCard]}>
-          <View style={styles.activeHeader}>
-            <IconSymbol name="checkmark.circle.fill" size={24} color={colors.secondary} />
-            <Text style={styles.activeTitle}>Active Referrals</Text>
-          </View>
-          <Text style={styles.activeCount}>{user.activeReferrals}</Text>
-          <Text style={styles.activeDescription}>
-            Referrals who have made their first contribution
-          </Text>
-          {user.activeReferrals < 5 && (
-            <View style={styles.progressContainer}>
-              <View style={styles.progressBar}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    { width: `${(user.activeReferrals / 5) * 100}%` },
-                  ]}
+          {user.canWithdraw && user.commissions.available > 0 && (
+            <View style={styles.withdrawForm}>
+              <View style={styles.inputContainer}>
+                <Text style={commonStyles.label}>Withdrawal Amount (USDT)</Text>
+                <TextInput
+                  style={commonStyles.input}
+                  placeholder={`Max: ${user.commissions.available.toFixed(2)}`}
+                  placeholderTextColor={colors.textSecondary}
+                  value={withdrawAmount}
+                  onChangeText={setWithdrawAmount}
+                  keyboardType="decimal-pad"
                 />
               </View>
-              <Text style={styles.progressText}>
-                {5 - user.activeReferrals} more needed to unlock withdrawals
-              </Text>
+
+              <View style={styles.inputContainer}>
+                <Text style={commonStyles.label}>USDT Wallet Address</Text>
+                <TextInput
+                  style={commonStyles.input}
+                  placeholder="Enter your USDT wallet address"
+                  placeholderTextColor={colors.textSecondary}
+                  value={walletAddress}
+                  onChangeText={setWalletAddress}
+                  autoCapitalize="none"
+                />
+              </View>
+
+              <TouchableOpacity
+                style={[buttonStyles.primary, styles.withdrawButton]}
+                onPress={handleWithdraw}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <IconSymbol name="arrow.down.circle.fill" size={20} color="#fff" />
+                    <Text style={styles.buttonText}>Withdraw USDT</Text>
+                  </>
+                )}
+              </TouchableOpacity>
             </View>
           )}
         </View>
 
-        {/* How It Works */}
-        <View style={[commonStyles.card, styles.howItWorksCard]}>
-          <Text style={styles.sectionTitle}>How It Works</Text>
-          <View style={styles.howItWorksItem}>
-            <IconSymbol name="1.circle.fill" size={24} color={colors.primary} />
-            <Text style={styles.howItWorksText}>
-              Share your referral code with friends and family
-            </Text>
-          </View>
-          <View style={styles.howItWorksItem}>
-            <IconSymbol name="2.circle.fill" size={24} color={colors.primary} />
-            <Text style={styles.howItWorksText}>
-              Earn commissions when they contribute to the pool
-            </Text>
-          </View>
-          <View style={styles.howItWorksItem}>
-            <IconSymbol name="3.circle.fill" size={24} color={colors.primary} />
-            <Text style={styles.howItWorksText}>
-              Withdraw after 10 days with 5+ active referrals
+        <View style={styles.infoCard}>
+          <IconSymbol name="info.circle" size={20} color={colors.primary} />
+          <View style={styles.infoContent}>
+            <Text style={styles.infoTitle}>How it works:</Text>
+            <Text style={styles.infoText}>
+              - Earn 3% commission from Level 1 referrals{'\n'}
+              - Earn 2% commission from Level 2 referrals{'\n'}
+              - Earn 1% commission from Level 3 referrals{'\n'}
+              - Commissions are generated on all contributions{'\n'}
+              - Withdrawals available after 10 days with 5+ active referrals
             </Text>
           </View>
         </View>
@@ -276,31 +296,41 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
+    flexGrow: 1,
+    padding: 24,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: 24,
   },
   backButton: {
-    marginRight: 16,
-    padding: 4,
+    marginBottom: 16,
+    alignSelf: 'flex-start',
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
     color: colors.text,
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: colors.textSecondary,
   },
   codeCard: {
-    marginBottom: 16,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.cardBackground,
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 24,
   },
   codeLabel: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: colors.textSecondary,
     marginBottom: 8,
   },
   codeContainer: {
@@ -308,183 +338,144 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  codeText: {
-    fontSize: 28,
+  code: {
+    fontSize: 24,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.primary,
     letterSpacing: 2,
   },
   codeActions: {
     flexDirection: 'row',
     gap: 8,
   },
-  codeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  iconButton: {
+    padding: 8,
+    backgroundColor: colors.background,
+    borderRadius: 8,
   },
-  commissionCard: {
-    marginBottom: 16,
+  statsGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: colors.cardBackground,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: 8,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  commissionsCard: {
+    backgroundColor: colors.cardBackground,
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.text,
     marginBottom: 16,
   },
-  commissionGrid: {
+  commissionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  commissionItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  commissionValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  availableValue: {
-    color: colors.secondary,
-  },
-  commissionLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  withdrawButton: {
     marginBottom: 12,
   },
-  disabledButton: {
-    backgroundColor: colors.border,
+  commissionLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  commissionValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  availableValue: {
+    color: colors.success,
+    fontSize: 16,
+  },
+  eligibilityCard: {
+    backgroundColor: colors.cardBackground,
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 24,
+  },
+  eligibilityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  eligibilityTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  requirementsList: {
+    gap: 12,
+  },
+  requirementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  requirementText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  withdrawForm: {
+    marginTop: 16,
+  },
+  inputContainer: {
+    marginBottom: 16,
+  },
+  withdrawButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 8,
   },
   buttonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
-  withdrawInfo: {
+  infoCard: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
+    alignItems: 'flex-start',
+    backgroundColor: colors.cardBackground,
+    padding: 16,
+    borderRadius: 12,
+    gap: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
   },
-  withdrawInfoText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  levelsCard: {
-    marginBottom: 16,
-  },
-  levelItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  levelHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  infoContent: {
     flex: 1,
   },
-  levelBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  levelBadgeText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  levelInfo: {
-    flex: 1,
-  },
-  levelTitle: {
+  infoTitle: {
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
-    marginBottom: 2,
-  },
-  levelCommission: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  levelCount: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  activeCard: {
-    marginBottom: 16,
-    alignItems: 'center',
-  },
-  activeHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
-  },
-  activeTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  activeCount: {
-    fontSize: 48,
-    fontWeight: '700',
-    color: colors.secondary,
-    marginBottom: 4,
-  },
-  activeDescription: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  progressContainer: {
-    width: '100%',
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: colors.border,
-    borderRadius: 4,
-    overflow: 'hidden',
     marginBottom: 8,
   },
-  progressFill: {
-    height: '100%',
-    backgroundColor: colors.secondary,
-    borderRadius: 4,
-  },
-  progressText: {
+  infoText: {
     fontSize: 12,
     color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  howItWorksCard: {
-    marginBottom: 16,
-  },
-  howItWorksItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 12,
-  },
-  howItWorksText: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
+    lineHeight: 18,
   },
 });

@@ -18,11 +18,12 @@ import { IconSymbol } from '@/components/IconSymbol';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, resendVerificationEmail } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -31,13 +32,37 @@ export default function LoginScreen() {
     }
 
     setLoading(true);
-    const success = await login(email, password);
+    const result = await login(email, password);
     setLoading(false);
 
-    if (success) {
+    if (result.success) {
       router.replace('/(tabs)/(home)/');
     } else {
-      Alert.alert('Error', 'Invalid email or password');
+      if (result.error?.includes('verify your email')) {
+        setNeedsVerification(true);
+        Alert.alert(
+          'Email Verification Required',
+          'Please verify your email address before logging in. Check your inbox for the verification link.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Resend Email', onPress: handleResendVerification },
+          ]
+        );
+      } else {
+        Alert.alert('Error', result.error || 'Invalid email or password');
+      }
+    }
+  };
+
+  const handleResendVerification = async () => {
+    setLoading(true);
+    const result = await resendVerificationEmail();
+    setLoading(false);
+
+    if (result.success) {
+      Alert.alert('Success', 'Verification email sent! Please check your inbox.');
+    } else {
+      Alert.alert('Error', result.error || 'Failed to resend verification email');
     }
   };
 
@@ -91,6 +116,18 @@ export default function LoginScreen() {
               </TouchableOpacity>
             </View>
           </View>
+
+          {needsVerification && (
+            <View style={styles.verificationBox}>
+              <IconSymbol name="exclamationmark.triangle" size={20} color={colors.warning} />
+              <Text style={styles.verificationText}>
+                Please verify your email before logging in.
+              </Text>
+              <TouchableOpacity onPress={handleResendVerification}>
+                <Text style={styles.resendLink}>Resend Email</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           <TouchableOpacity
             style={[buttonStyles.primary, styles.loginButton]}
@@ -172,6 +209,27 @@ const styles = StyleSheet.create({
     right: 16,
     top: 12,
     padding: 4,
+  },
+  verificationBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.cardBackground,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    gap: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.warning,
+  },
+  verificationText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  resendLink: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
   },
   loginButton: {
     marginTop: 8,

@@ -1,0 +1,225 @@
+
+import { createClient } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// These will be automatically populated when you connect Supabase in Natively
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+  },
+});
+
+// Database types
+export interface Database {
+  public: {
+    Tables: {
+      users: {
+        Row: {
+          id: string;
+          name: string;
+          id_number: string;
+          address: string;
+          email: string;
+          email_verified: boolean;
+          mxi_balance: number;
+          usdt_contributed: number;
+          referral_code: string;
+          referred_by: string | null;
+          active_referrals: number;
+          can_withdraw: boolean;
+          last_withdrawal_date: string | null;
+          joined_date: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          id_number: string;
+          address: string;
+          email: string;
+          email_verified?: boolean;
+          mxi_balance?: number;
+          usdt_contributed?: number;
+          referral_code: string;
+          referred_by?: string | null;
+          active_referrals?: number;
+          can_withdraw?: boolean;
+          last_withdrawal_date?: string | null;
+          joined_date?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          id_number?: string;
+          address?: string;
+          email?: string;
+          email_verified?: boolean;
+          mxi_balance?: number;
+          usdt_contributed?: number;
+          referral_code?: string;
+          referred_by?: string | null;
+          active_referrals?: number;
+          can_withdraw?: boolean;
+          last_withdrawal_date?: string | null;
+          joined_date?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      contributions: {
+        Row: {
+          id: string;
+          user_id: string;
+          usdt_amount: number;
+          mxi_amount: number;
+          transaction_type: 'initial' | 'increase' | 'reinvestment';
+          status: 'pending' | 'completed' | 'failed';
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          usdt_amount: number;
+          mxi_amount: number;
+          transaction_type: 'initial' | 'increase' | 'reinvestment';
+          status?: 'pending' | 'completed' | 'failed';
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          usdt_amount?: number;
+          mxi_amount?: number;
+          transaction_type?: 'initial' | 'increase' | 'reinvestment';
+          status?: 'pending' | 'completed' | 'failed';
+          created_at?: string;
+        };
+      };
+      commissions: {
+        Row: {
+          id: string;
+          user_id: string;
+          from_user_id: string;
+          level: number;
+          amount: number;
+          percentage: number;
+          status: 'pending' | 'available' | 'withdrawn';
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          from_user_id: string;
+          level: number;
+          amount: number;
+          percentage: number;
+          status?: 'pending' | 'available' | 'withdrawn';
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          from_user_id?: string;
+          level?: number;
+          amount?: number;
+          percentage?: number;
+          status?: 'pending' | 'available' | 'withdrawn';
+          created_at?: string;
+        };
+      };
+      withdrawals: {
+        Row: {
+          id: string;
+          user_id: string;
+          amount: number;
+          currency: 'USDT' | 'MXI';
+          wallet_address: string;
+          status: 'pending' | 'processing' | 'completed' | 'failed';
+          created_at: string;
+          completed_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          amount: number;
+          currency: 'USDT' | 'MXI';
+          wallet_address: string;
+          status?: 'pending' | 'processing' | 'completed' | 'failed';
+          created_at?: string;
+          completed_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          amount?: number;
+          currency?: 'USDT' | 'MXI';
+          wallet_address?: string;
+          status?: 'pending' | 'processing' | 'completed' | 'failed';
+          created_at?: string;
+          completed_at?: string | null;
+        };
+      };
+      referrals: {
+        Row: {
+          id: string;
+          referrer_id: string;
+          referred_id: string;
+          level: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          referrer_id: string;
+          referred_id: string;
+          level: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          referrer_id?: string;
+          referred_id?: string;
+          level?: number;
+          created_at?: string;
+        };
+      };
+      metrics: {
+        Row: {
+          id: string;
+          total_members: number;
+          total_usdt_contributed: number;
+          total_mxi_distributed: number;
+          pool_close_date: string;
+          mxi_launch_date: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          total_members?: number;
+          total_usdt_contributed?: number;
+          total_mxi_distributed?: number;
+          pool_close_date?: string;
+          mxi_launch_date?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          total_members?: number;
+          total_usdt_contributed?: number;
+          total_mxi_distributed?: number;
+          pool_close_date?: string;
+          mxi_launch_date?: string;
+          updated_at?: string;
+        };
+      };
+    };
+  };
+}
