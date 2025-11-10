@@ -1,161 +1,404 @@
-import React from "react";
-import { Stack, Link } from "expo-router";
-import { FlatList, Pressable, StyleSheet, View, Text, Alert, Platform } from "react-native";
-import { IconSymbol } from "@/components/IconSymbol";
-import { GlassView } from "expo-glass-effect";
-import { useTheme } from "@react-navigation/native";
 
-const ICON_COLOR = "#007AFF";
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  RefreshControl,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors, commonStyles } from '@/styles/commonStyles';
+import { useAuth } from '@/contexts/AuthContext';
+import { IconSymbol } from '@/components/IconSymbol';
 
 export default function HomeScreen() {
-  const theme = useTheme();
-  const modalDemos = [
-    {
-      title: "Standard Modal",
-      description: "Full screen modal presentation",
-      route: "/modal",
-      color: "#007AFF",
-    },
-    {
-      title: "Form Sheet",
-      description: "Bottom sheet with detents and grabber",
-      route: "/formsheet",
-      color: "#34C759",
-    },
-    {
-      title: "Transparent Modal",
-      description: "Overlay without obscuring background",
-      route: "/transparent-modal",
-      color: "#FF9500",
-    }
-  ];
+  const router = useRouter();
+  const { user } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState('');
+  const [mxiPrice, setMxiPrice] = useState(10.0); // Simulated price in USDT
+  const [totalPoolMembers, setTotalPoolMembers] = useState(56527);
 
-  const renderModalDemo = ({ item }: { item: (typeof modalDemos)[0] }) => (
-    <GlassView style={[
-      styles.demoCard,
-      Platform.OS !== 'ios' && { backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
-    ]} glassEffectStyle="regular">
-      <View style={[styles.demoIcon, { backgroundColor: item.color }]}>
-        <IconSymbol name="square.grid.3x3" color="white" size={24} />
-      </View>
-      <View style={styles.demoContent}>
-        <Text style={[styles.demoTitle, { color: theme.colors.text }]}>{item.title}</Text>
-        <Text style={[styles.demoDescription, { color: theme.dark ? '#98989D' : '#666' }]}>{item.description}</Text>
-      </View>
-      <Link href={item.route as any} asChild>
-        <Pressable>
-          <GlassView style={[
-            styles.tryButton,
-            Platform.OS !== 'ios' && { backgroundColor: theme.dark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)' }
-          ]} glassEffectStyle="clear">
-            <Text style={[styles.tryButtonText, { color: theme.colors.primary }]}>Try It</Text>
-          </GlassView>
-        </Pressable>
-      </Link>
-    </GlassView>
-  );
+  // Target date: January 15, 2025, 12:00 UTC
+  const targetDate = new Date('2025-01-15T12:00:00Z');
 
-  const renderHeaderRight = () => (
-    <Pressable
-      onPress={() => Alert.alert("Not Implemented", "This feature is not implemented yet")}
-      style={styles.headerButtonContainer}
-    >
-      <IconSymbol name="plus" color={theme.colors.primary} />
-    </Pressable>
-  );
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      const diff = targetDate.getTime() - now.getTime();
 
-  const renderHeaderLeft = () => (
-    <Pressable
-      onPress={() => Alert.alert("Not Implemented", "This feature is not implemented yet")}
-      style={styles.headerButtonContainer}
-    >
-      <IconSymbol
-        name="gear"
-        color={theme.colors.primary}
-      />
-    </Pressable>
-  );
+      if (diff <= 0) {
+        setTimeRemaining('Pool Closed');
+        clearInterval(interval);
+        return;
+      }
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      setTimeRemaining(`${days}d ${hours}h ${minutes}m ${seconds}s`);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    // Simulate real-time pool member updates
+    const interval = setInterval(() => {
+      setTotalPoolMembers((prev) => {
+        if (prev < 250000) {
+          return prev + Math.floor(Math.random() * 3);
+        }
+        return prev;
+      });
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    // Simulate API call
+    setTimeout(() => {
+      setMxiPrice(10.0 + Math.random() * 0.5);
+      setRefreshing(false);
+    }, 1000);
+  };
+
+  if (!user) {
+    return null;
+  }
+
+  const totalValue = user.mxiBalance * mxiPrice;
 
   return (
-    <>
-      {Platform.OS === 'ios' && (
-        <Stack.Screen
-          options={{
-            title: "Building the app...",
-            headerRight: renderHeaderRight,
-            headerLeft: renderHeaderLeft,
-          }}
-        />
-      )}
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <FlatList
-          data={modalDemos}
-          renderItem={renderModalDemo}
-          keyExtractor={(item) => item.route}
-          contentContainerStyle={[
-            styles.listContainer,
-            Platform.OS !== 'ios' && styles.listContainerWithTabBar
-          ]}
-          contentInsetAdjustmentBehavior="automatic"
-          showsVerticalScrollIndicator={false}
-        />
-      </View>
-    </>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.greeting}>Welcome back,</Text>
+            <Text style={styles.userName}>{user.name}</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.settingsButton}
+            onPress={() => router.push('/(tabs)/profile')}
+          >
+            <IconSymbol name="person.circle.fill" size={40} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Countdown Card */}
+        <View style={[commonStyles.card, styles.countdownCard]}>
+          <View style={styles.countdownHeader}>
+            <IconSymbol name="clock.fill" size={24} color={colors.accent} />
+            <Text style={styles.countdownTitle}>Pool Closes In</Text>
+          </View>
+          <Text style={styles.countdownTime}>{timeRemaining}</Text>
+          <Text style={styles.countdownDate}>January 15, 2025 - 12:00 UTC</Text>
+        </View>
+
+        {/* MXI Balance Card */}
+        <View style={[commonStyles.card, styles.balanceCard]}>
+          <Text style={styles.balanceLabel}>Your MXI Balance</Text>
+          <View style={styles.balanceRow}>
+            <IconSymbol name="bitcoinsign.circle.fill" size={32} color={colors.primary} />
+            <Text style={styles.balanceAmount}>{user.mxiBalance.toFixed(2)}</Text>
+            <Text style={styles.balanceCurrency}>MXI</Text>
+          </View>
+          <View style={styles.balanceDetails}>
+            <View style={styles.balanceDetailItem}>
+              <Text style={styles.balanceDetailLabel}>Current Price</Text>
+              <Text style={styles.balanceDetailValue}>${mxiPrice.toFixed(2)} USDT</Text>
+            </View>
+            <View style={styles.balanceDetailItem}>
+              <Text style={styles.balanceDetailLabel}>Total Value</Text>
+              <Text style={styles.balanceDetailValue}>${totalValue.toFixed(2)}</Text>
+            </View>
+          </View>
+          <View style={styles.contributionInfo}>
+            <Text style={styles.contributionLabel}>Total Contributed</Text>
+            <Text style={styles.contributionAmount}>${user.usdtContributed.toFixed(2)} USDT</Text>
+          </View>
+        </View>
+
+        {/* Pool Statistics */}
+        <View style={[commonStyles.card, styles.statsCard]}>
+          <Text style={styles.statsTitle}>Pool Statistics</Text>
+          <View style={styles.statRow}>
+            <View style={styles.statItem}>
+              <IconSymbol name="person.3.fill" size={24} color={colors.secondary} />
+              <Text style={styles.statValue}>{totalPoolMembers.toLocaleString()}</Text>
+              <Text style={styles.statLabel}>Total Members</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <IconSymbol name="target" size={24} color={colors.accent} />
+              <Text style={styles.statValue}>250,000</Text>
+              <Text style={styles.statLabel}>Target</Text>
+            </View>
+          </View>
+          <View style={styles.progressBar}>
+            <View
+              style={[
+                styles.progressFill,
+                { width: `${(totalPoolMembers / 250000) * 100}%` },
+              ]}
+            />
+          </View>
+          <Text style={styles.progressText}>
+            {((totalPoolMembers / 250000) * 100).toFixed(2)}% Complete
+          </Text>
+        </View>
+
+        {/* Quick Actions */}
+        <View style={styles.actionsContainer}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.primaryAction]}
+            onPress={() => router.push('/(tabs)/(home)/contribute')}
+          >
+            <IconSymbol name="plus.circle.fill" size={24} color="#fff" />
+            <Text style={styles.actionButtonText}>Add Funds</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.secondaryAction]}
+            onPress={() => router.push('/(tabs)/(home)/referrals')}
+          >
+            <IconSymbol name="person.2.fill" size={24} color={colors.primary} />
+            <Text style={styles.actionButtonTextSecondary}>Referrals</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Info Banner */}
+        <View style={[commonStyles.card, styles.infoBanner]}>
+          <IconSymbol name="info.circle.fill" size={20} color={colors.primary} />
+          <Text style={styles.infoBannerText}>
+            Earn up to 6% commission through our 3-level referral system!
+          </Text>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // backgroundColor handled dynamically
+    backgroundColor: colors.background,
   },
-  listContainer: {
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 100,
   },
-  listContainerWithTabBar: {
-    paddingBottom: 100, // Extra padding for floating tab bar
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
   },
-  demoCard: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+  greeting: {
+    fontSize: 16,
+    color: colors.textSecondary,
+  },
+  userName: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  settingsButton: {
+    padding: 4,
+  },
+  countdownCard: {
+    backgroundColor: colors.primary,
+    marginBottom: 16,
+  },
+  countdownHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 12,
   },
-  demoIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
+  countdownTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+    marginLeft: 8,
+  },
+  countdownTime: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  countdownDate: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  balanceCard: {
+    marginBottom: 16,
+  },
+  balanceLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 12,
+  },
+  balanceRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 16,
+    marginBottom: 16,
   },
-  demoContent: {
+  balanceAmount: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: colors.text,
+    marginLeft: 12,
+  },
+  balanceCurrency: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginLeft: 8,
+  },
+  balanceDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    marginBottom: 12,
+  },
+  balanceDetailItem: {
     flex: 1,
   },
-  demoTitle: {
+  balanceDetailLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  balanceDetailValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  contributionInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  contributionLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  contributionAmount: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.secondary,
+  },
+  statsCard: {
+    marginBottom: 16,
+  },
+  statsTitle: {
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 4,
-    // color handled dynamically
+    color: colors.text,
+    marginBottom: 16,
   },
-  demoDescription: {
-    fontSize: 14,
-    lineHeight: 18,
-    // color handled dynamically
+  statRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 16,
   },
-  headerButtonContainer: {
-    padding: 6,
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
   },
-  tryButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
+  statDivider: {
+    width: 1,
+    backgroundColor: colors.border,
+    marginHorizontal: 16,
   },
-  tryButtonText: {
-    fontSize: 14,
+  statValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: 8,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: colors.border,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: colors.secondary,
+    borderRadius: 4,
+  },
+  progressText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  actionsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  primaryAction: {
+    backgroundColor: colors.primary,
+  },
+  secondaryAction: {
+    backgroundColor: colors.card,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  actionButtonText: {
+    fontSize: 16,
     fontWeight: '600',
-    // color handled dynamically
+    color: '#fff',
+  },
+  actionButtonTextSecondary: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  infoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.highlight,
+    gap: 12,
+  },
+  infoBannerText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
   },
 });
