@@ -1,0 +1,533 @@
+
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
+import { useAuth } from '@/contexts/AuthContext';
+import { IconSymbol } from '@/components/IconSymbol';
+
+export default function WithdrawMXIScreen() {
+  const router = useRouter();
+  const { user, withdrawMXI, checkMXIWithdrawalEligibility, getPoolStatus } = useAuth();
+  const [walletAddress, setWalletAddress] = useState('');
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [canWithdrawMXI, setCanWithdrawMXI] = useState(false);
+  const [poolStatus, setPoolStatus] = useState<any>(null);
+  const [checkingEligibility, setCheckingEligibility] = useState(true);
+
+  useEffect(() => {
+    loadEligibility();
+  }, []);
+
+  const loadEligibility = async () => {
+    setCheckingEligibility(true);
+    const eligible = await checkMXIWithdrawalEligibility();
+    const status = await getPoolStatus();
+    setCanWithdrawMXI(eligible);
+    setPoolStatus(status);
+    setCheckingEligibility(false);
+  };
+
+  const handleWithdraw = async () => {
+    if (!user) return;
+
+    const amount = parseFloat(withdrawAmount);
+
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('Error', 'Please enter a valid amount');
+      return;
+    }
+
+    if (amount > user.mxiBalance) {
+      Alert.alert('Error', `You only have ${user.mxiBalance.toFixed(2)} MXI available`);
+      return;
+    }
+
+    if (!walletAddress || walletAddress.length < 10) {
+      Alert.alert('Error', 'Please enter a valid MXI wallet address');
+      return;
+    }
+
+    Alert.alert(
+      'Confirm MXI Withdrawal',
+      `You are about to withdraw ${amount.toFixed(2)} MXI to:\n\n${walletAddress}\n\nThis action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm',
+          onPress: async () => {
+            setLoading(true);
+            const result = await withdrawMXI(amount, walletAddress);
+            setLoading(false);
+
+            if (result.success) {
+              Alert.alert(
+                'Success',
+                'MXI withdrawal request submitted! Your tokens will be processed within 24-48 hours.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => {
+                      setWalletAddress('');
+                      setWithdrawAmount('');
+                      router.back();
+                    },
+                  },
+                ]
+              );
+            } else {
+              Alert.alert('Error', result.error || 'Failed to process withdrawal');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  if (!user) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const activeReferralsProgress = Math.min((user.activeReferrals / 10) * 100, 100);
+  const referralsNeeded = Math.max(0, 10 - user.activeReferrals);
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <IconSymbol name="chevron.left" size={24} color={colors.primary} />
+          </TouchableOpacity>
+          <Text style={styles.title}>Withdraw MXI</Text>
+          <Text style={styles.subtitle}>Withdraw your mined MXI tokens</Text>
+        </View>
+
+        {/* Balance Card */}
+        <View style={[commonStyles.card, styles.balanceCard]}>
+          <Text style={styles.balanceLabel}>Available MXI Balance</Text>
+          <View style={styles.balanceRow}>
+            <IconSymbol name="bitcoinsign.circle.fill" size={40} color={colors.primary} />
+            <Text style={styles.balanceAmount}>{user.mxiBalance.toFixed(2)}</Text>
+            <Text style={styles.balanceCurrency}>MXI</Text>
+          </View>
+        </View>
+
+        {/* Eligibility Status */}
+        <View
+          style={[
+            commonStyles.card,
+            styles.eligibilityCard,
+            canWithdrawMXI ? styles.eligibleCard : styles.notEligibleCard,
+          ]}
+        >
+          <View style={styles.eligibilityHeader}>
+            <IconSymbol
+              name={canWithdrawMXI ? 'checkmark.seal.fill' : 'lock.fill'}
+              size={32}
+              color={canWithdrawMXI ? colors.success : colors.warning}
+            />
+            <View style={styles.eligibilityHeaderText}>
+              <Text style={styles.eligibilityTitle}>
+                {canWithdrawMXI ? 'Withdrawal Available!' : 'Withdrawal Requirements'}
+              </Text>
+              <Text style={styles.eligibilitySubtitle}>
+                {canWithdrawMXI
+                  ? 'You can now withdraw your mined MXI'
+                  : 'Complete requirements to unlock withdrawals'}
+              </Text>
+            </View>
+          </View>
+
+          {checkingEligibility ? (
+            <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 16 }} />
+          ) : (
+            <View style={styles.requirementsList}>
+              {/* Active Referrals Requirement */}
+              <View style={styles.requirementItem}>
+                <View style={styles.requirementHeader}>
+                  <IconSymbol
+                    name={user.activeReferrals >= 10 ? 'checkmark.circle.fill' : 'circle'}
+                    size={24}
+                    color={user.activeReferrals >= 10 ? colors.success : colors.textSecondary}
+                  />
+                  <Text style={styles.requirementText}>
+                    {user.activeReferrals}/10 Active Referrals
+                  </Text>
+                </View>
+                <View style={styles.progressBar}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      {
+                        width: `${activeReferralsProgress}%`,
+                        backgroundColor:
+                          user.activeReferrals >= 10 ? colors.success : colors.warning,
+                      },
+                    ]}
+                  />
+                </View>
+                {referralsNeeded > 0 && (
+                  <Text style={styles.requirementNote}>
+                    You need {referralsNeeded} more active referral{referralsNeeded > 1 ? 's' : ''}
+                  </Text>
+                )}
+              </View>
+
+              {/* Pool Launch Date Requirement */}
+              <View style={styles.requirementItem}>
+                <View style={styles.requirementHeader}>
+                  <IconSymbol
+                    name={
+                      poolStatus?.is_mxi_launched ? 'checkmark.circle.fill' : 'clock.fill'
+                    }
+                    size={24}
+                    color={poolStatus?.is_mxi_launched ? colors.success : colors.textSecondary}
+                  />
+                  <Text style={styles.requirementText}>Pool Launch Date</Text>
+                </View>
+                {poolStatus && (
+                  <>
+                    <Text style={styles.requirementDate}>
+                      {new Date(poolStatus.mxi_launch_date).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        timeZone: 'UTC',
+                      })}
+                    </Text>
+                    {!poolStatus.is_mxi_launched && (
+                      <Text style={styles.requirementNote}>
+                        {poolStatus.days_until_launch} days remaining
+                      </Text>
+                    )}
+                  </>
+                )}
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* Withdrawal Form */}
+        {canWithdrawMXI && user.mxiBalance > 0 && (
+          <View style={[commonStyles.card, styles.withdrawForm]}>
+            <Text style={styles.formTitle}>Withdrawal Details</Text>
+
+            <View style={styles.inputContainer}>
+              <Text style={commonStyles.label}>Amount (MXI)</Text>
+              <TextInput
+                style={commonStyles.input}
+                placeholder={`Max: ${user.mxiBalance.toFixed(2)}`}
+                placeholderTextColor={colors.textSecondary}
+                value={withdrawAmount}
+                onChangeText={setWithdrawAmount}
+                keyboardType="decimal-pad"
+              />
+              <TouchableOpacity
+                style={styles.maxButton}
+                onPress={() => setWithdrawAmount(user.mxiBalance.toString())}
+              >
+                <Text style={styles.maxButtonText}>MAX</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={commonStyles.label}>MXI Wallet Address</Text>
+              <TextInput
+                style={[commonStyles.input, styles.addressInput]}
+                placeholder="Enter your MXI wallet address"
+                placeholderTextColor={colors.textSecondary}
+                value={walletAddress}
+                onChangeText={setWalletAddress}
+                autoCapitalize="none"
+                multiline
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[buttonStyles.primary, styles.withdrawButton]}
+              onPress={handleWithdraw}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <IconSymbol name="arrow.down.circle.fill" size={20} color="#fff" />
+                  <Text style={styles.buttonText}>Withdraw MXI</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Info Card */}
+        <View style={[commonStyles.card, styles.infoCard]}>
+          <IconSymbol name="info.circle.fill" size={20} color={colors.primary} />
+          <View style={styles.infoContent}>
+            <Text style={styles.infoTitle}>Important Information:</Text>
+            <Text style={styles.infoText}>
+              - MXI withdrawals require 10 active referrals{'\n'}
+              - Withdrawals are only available after the pool launch date{'\n'}
+              - Processing time: 24-48 hours{'\n'}
+              - Make sure your wallet address is correct{'\n'}
+              - Transactions cannot be reversed once confirmed
+            </Text>
+          </View>
+        </View>
+
+        {/* Referral Promotion */}
+        {!canWithdrawMXI && referralsNeeded > 0 && (
+          <TouchableOpacity
+            style={[commonStyles.card, styles.promotionCard]}
+            onPress={() => router.push('/(tabs)/(home)/referrals')}
+          >
+            <View style={styles.promotionContent}>
+              <IconSymbol name="person.3.fill" size={32} color={colors.primary} />
+              <View style={styles.promotionText}>
+                <Text style={styles.promotionTitle}>Invite Friends to Unlock</Text>
+                <Text style={styles.promotionSubtitle}>
+                  Share your referral code to reach 10 active referrals
+                </Text>
+              </View>
+              <IconSymbol name="chevron.right" size={24} color={colors.textSecondary} />
+            </View>
+          </TouchableOpacity>
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    padding: 24,
+    paddingBottom: 100,
+  },
+  header: {
+    marginBottom: 24,
+  },
+  backButton: {
+    marginBottom: 16,
+    alignSelf: 'flex-start',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: colors.textSecondary,
+  },
+  balanceCard: {
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  balanceLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 12,
+  },
+  balanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  balanceAmount: {
+    fontSize: 40,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  balanceCurrency: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  eligibilityCard: {
+    marginBottom: 16,
+  },
+  eligibleCard: {
+    borderWidth: 2,
+    borderColor: colors.success,
+  },
+  notEligibleCard: {
+    borderWidth: 2,
+    borderColor: colors.warning,
+  },
+  eligibilityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 20,
+  },
+  eligibilityHeaderText: {
+    flex: 1,
+  },
+  eligibilityTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  eligibilitySubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  requirementsList: {
+    gap: 20,
+  },
+  requirementItem: {
+    gap: 12,
+  },
+  requirementHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  requirementText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  requirementDate: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginLeft: 36,
+  },
+  requirementNote: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginLeft: 36,
+    fontStyle: 'italic',
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: colors.border,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginLeft: 36,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  withdrawForm: {
+    marginBottom: 16,
+  },
+  formTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 16,
+  },
+  inputContainer: {
+    marginBottom: 16,
+    position: 'relative',
+  },
+  addressInput: {
+    minHeight: 60,
+    textAlignVertical: 'top',
+    paddingTop: 12,
+  },
+  maxButton: {
+    position: 'absolute',
+    right: 12,
+    top: 38,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  maxButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  withdrawButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  infoCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+    marginBottom: 16,
+  },
+  infoContent: {
+    flex: 1,
+  },
+  infoTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  infoText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  promotionCard: {
+    backgroundColor: colors.highlight,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  promotionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  promotionText: {
+    flex: 1,
+  },
+  promotionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  promotionSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+});

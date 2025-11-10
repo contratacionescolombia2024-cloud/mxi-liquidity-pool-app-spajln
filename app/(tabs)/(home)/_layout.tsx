@@ -8,6 +8,8 @@ export default function HomeLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="contribute" />
       <Stack.Screen name="referrals" />
+      <Stack.Screen name="withdrawals" />
+      <Stack.Screen name="withdraw-mxi" />
     </Stack>
   );
 }

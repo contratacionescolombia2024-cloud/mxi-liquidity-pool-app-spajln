@@ -34,6 +34,15 @@ interface User {
   accumulatedYield: number;
 }
 
+interface PoolStatus {
+  pool_close_date: string;
+  mxi_launch_date: string;
+  is_pool_closed: boolean;
+  is_mxi_launched: boolean;
+  days_until_close: number;
+  days_until_launch: number;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -50,6 +59,8 @@ interface AuthContextType {
   checkWithdrawalEligibility: () => Promise<boolean>;
   claimYield: () => Promise<{ success: boolean; yieldEarned?: number; error?: string }>;
   getCurrentYield: () => number;
+  getPoolStatus: () => Promise<PoolStatus | null>;
+  checkMXIWithdrawalEligibility: () => Promise<boolean>;
 }
 
 interface RegisterData {
@@ -558,19 +569,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ): Promise<{ success: boolean; error?: string }> => {
     if (!user) return { success: false, error: 'Not authenticated' };
 
-    // Check if MXI launch date has passed - Updated to 2026
-    const launchDate = new Date('2026-01-15T12:00:00Z');
-    const now = new Date();
-
-    if (now < launchDate) {
-      return { success: false, error: 'MXI withdrawals will be available on January 15, 2026 at 12:00 UTC' };
-    }
-
-    if (amount > user.mxiBalance) {
-      return { success: false, error: 'Insufficient MXI balance' };
-    }
-
     try {
+      // Check MXI withdrawal eligibility (10 active referrals + launch date passed)
+      const { data: canWithdrawMXI, error: eligibilityError } = await supabase
+        .rpc('check_mxi_withdrawal_eligibility', { p_user_id: user.id });
+
+      if (eligibilityError) {
+        console.error('MXI eligibility check error:', eligibilityError);
+        return { success: false, error: 'Failed to check withdrawal eligibility' };
+      }
+
+      if (!canWithdrawMXI) {
+        // Get pool status to provide detailed error message
+        const { data: poolStatus } = await supabase.rpc('get_pool_status');
+        const status = poolStatus?.[0];
+
+        if (user.activeReferrals < 10) {
+          return { 
+            success: false, 
+            error: `You need 10 active referrals to withdraw mined MXI. You currently have ${user.activeReferrals} active referrals. Keep inviting friends!` 
+          };
+        }
+
+        if (status && !status.is_mxi_launched) {
+          const daysUntil = status.days_until_launch;
+          return { 
+            success: false, 
+            error: `MXI withdrawals will be available in ${daysUntil} days after the pool closes. Current launch date: ${new Date(status.mxi_launch_date).toLocaleDateString()}` 
+          };
+        }
+
+        return { success: false, error: 'MXI withdrawals are not yet available' };
+      }
+
+      if (amount > user.mxiBalance) {
+        return { success: false, error: 'Insufficient MXI balance' };
+      }
+
       // Create withdrawal record
       const { error: withdrawalError } = await supabase
         .from('withdrawals')
@@ -691,6 +726,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return user.yieldRatePerMinute * minutesElapsed;
   };
 
+  const getPoolStatus = async (): Promise<PoolStatus | null> => {
+    try {
+      const { data, error } = await supabase.rpc('get_pool_status');
+
+      if (error) {
+        console.error('Get pool status error:', error);
+        return null;
+      }
+
+      return data?.[0] || null;
+    } catch (error) {
+      console.error('Get pool status exception:', error);
+      return null;
+    }
+  };
+
+  const checkMXIWithdrawalEligibility = async (): Promise<boolean> => {
+    if (!user) return false;
+
+    try {
+      const { data, error } = await supabase.rpc('check_mxi_withdrawal_eligibility', {
+        p_user_id: user.id,
+      });
+
+      if (error) {
+        console.error('Check MXI eligibility error:', error);
+        return false;
+      }
+
+      return data || false;
+    } catch (error) {
+      console.error('Check MXI eligibility exception:', error);
+      return false;
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -709,6 +780,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         checkWithdrawalEligibility,
         claimYield,
         getCurrentYield,
+        getPoolStatus,
+        checkMXIWithdrawalEligibility,
       }}
     >
       {children}

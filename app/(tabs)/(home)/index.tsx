@@ -17,23 +17,46 @@ import YieldDisplay from '@/components/YieldDisplay';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, getPoolStatus } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState('');
   const [mxiPrice, setMxiPrice] = useState(10.0); // Simulated price in USDT
   const [totalPoolMembers, setTotalPoolMembers] = useState(56527);
-
-  // Target date: January 15, 2026, 12:00 UTC - UPDATED TO 2026
-  const targetDate = new Date('2026-01-15T12:00:00Z');
+  const [poolCloseDate, setPoolCloseDate] = useState<Date | null>(null);
+  const [poolCloseDateString, setPoolCloseDateString] = useState('');
 
   useEffect(() => {
+    loadPoolStatus();
+  }, []);
+
+  const loadPoolStatus = async () => {
+    const status = await getPoolStatus();
+    if (status) {
+      const closeDate = new Date(status.pool_close_date);
+      setPoolCloseDate(closeDate);
+      setPoolCloseDateString(closeDate.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'UTC',
+        timeZoneName: 'short',
+      }));
+    }
+  };
+
+  useEffect(() => {
+    if (!poolCloseDate) return;
+
     const interval = setInterval(() => {
       const now = new Date();
-      const diff = targetDate.getTime() - now.getTime();
+      const diff = poolCloseDate.getTime() - now.getTime();
 
       if (diff <= 0) {
-        setTimeRemaining('Pool Closed');
-        clearInterval(interval);
+        setTimeRemaining('Pool Closed - Extending...');
+        // Reload pool status to get new extended date
+        loadPoolStatus();
         return;
       }
 
@@ -46,7 +69,7 @@ export default function HomeScreen() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [poolCloseDate]);
 
   useEffect(() => {
     // Simulate real-time pool member updates
@@ -64,6 +87,7 @@ export default function HomeScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
+    await loadPoolStatus();
     // Simulate API call
     setTimeout(() => {
       setMxiPrice(10.0 + Math.random() * 0.5);
@@ -125,7 +149,10 @@ export default function HomeScreen() {
             <Text style={styles.countdownTitle}>Pool Closes In</Text>
           </View>
           <Text style={styles.countdownTime}>{timeRemaining}</Text>
-          <Text style={styles.countdownDate}>January 15, 2026 - 12:00 UTC</Text>
+          <Text style={styles.countdownDate}>{poolCloseDateString || 'Loading...'}</Text>
+          <Text style={styles.countdownNote}>
+            Pool extends by 30 days after closing
+          </Text>
         </View>
 
         {/* MXI Balance Card */}
@@ -199,6 +226,20 @@ export default function HomeScreen() {
             <Text style={styles.actionButtonTextSecondary}>Referrals</Text>
           </TouchableOpacity>
         </View>
+
+        {/* MXI Withdrawal Button */}
+        <TouchableOpacity
+          style={[styles.actionButton, styles.mxiWithdrawAction]}
+          onPress={() => router.push('/(tabs)/(home)/withdraw-mxi')}
+        >
+          <IconSymbol name="bitcoinsign.circle.fill" size={24} color={colors.accent} />
+          <Text style={styles.actionButtonTextMXI}>Withdraw MXI</Text>
+          <View style={styles.withdrawBadge}>
+            <Text style={styles.withdrawBadgeText}>
+              {user.activeReferrals}/10
+            </Text>
+          </View>
+        </TouchableOpacity>
 
         {/* Info Banner */}
         <View style={[commonStyles.card, styles.infoBanner]}>
@@ -296,6 +337,12 @@ const styles = StyleSheet.create({
   countdownDate: {
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 8,
+  },
+  countdownNote: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontStyle: 'italic',
   },
   balanceCard: {
     marginBottom: 16,
@@ -442,6 +489,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.primary,
+  },
+  mxiWithdrawAction: {
+    backgroundColor: colors.card,
+    borderWidth: 2,
+    borderColor: colors.accent,
+    marginBottom: 16,
+    position: 'relative',
+  },
+  actionButtonTextMXI: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.accent,
+  },
+  withdrawBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: colors.accent,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    minWidth: 40,
+    alignItems: 'center',
+  },
+  withdrawBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fff',
   },
   infoBanner: {
     flexDirection: 'row',

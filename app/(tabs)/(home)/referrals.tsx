@@ -282,7 +282,8 @@ export default function ReferralsScreen() {
               - Earn 2% commission from Level 2 referrals{'\n'}
               - Earn 1% commission from Level 3 referrals{'\n'}
               - Commissions are generated on all contributions{'\n'}
-              - Withdrawals available after 10 days with 5+ active referrals
+              - USDT commission withdrawals: 5+ active referrals + 10 days{'\n'}
+              - MXI withdrawals: 10+ active referrals + pool launch date
             </Text>
           </View>
         </View>

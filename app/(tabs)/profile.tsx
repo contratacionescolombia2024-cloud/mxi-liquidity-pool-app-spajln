@@ -137,6 +137,20 @@ export default function ProfileScreen() {
               <Text style={styles.referralValue}>{user.commissions.withdrawn.toFixed(2)} USDT</Text>
             </View>
           </View>
+
+          {/* MXI Withdrawal Eligibility */}
+          <View style={[styles.eligibilityBanner, user.activeReferrals >= 10 ? styles.eligibleBanner : styles.notEligibleBanner]}>
+            <IconSymbol 
+              name={user.activeReferrals >= 10 ? 'checkmark.seal.fill' : 'lock.fill'} 
+              size={20} 
+              color={user.activeReferrals >= 10 ? colors.success : colors.warning} 
+            />
+            <Text style={styles.eligibilityText}>
+              {user.activeReferrals >= 10 
+                ? 'MXI Withdrawal Unlocked!' 
+                : `${10 - user.activeReferrals} more referrals to unlock MXI withdrawals`}
+            </Text>
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -186,10 +200,10 @@ export default function ProfileScreen() {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            Pool closes on January 15, 2025 at 12:00 UTC
+            Pool extends by 30 days after closing
           </Text>
           <Text style={styles.footerText}>
-            MXI withdrawals available after launch
+            MXI withdrawals require 10 active referrals + launch date
           </Text>
         </View>
       </ScrollView>
@@ -333,6 +347,30 @@ const styles = StyleSheet.create({
   },
   availableValue: {
     color: colors.success,
+  },
+  eligibilityBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  eligibleBanner: {
+    backgroundColor: colors.success + '20',
+    borderWidth: 1,
+    borderColor: colors.success,
+  },
+  notEligibleBanner: {
+    backgroundColor: colors.warning + '20',
+    borderWidth: 1,
+    borderColor: colors.warning,
+  },
+  eligibilityText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
   },
   menuItem: {
     flexDirection: 'row',
