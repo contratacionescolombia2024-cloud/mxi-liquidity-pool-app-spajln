@@ -28,6 +28,7 @@ interface User {
   canWithdraw: boolean;
   lastWithdrawalDate?: string;
   joinedDate: string;
+  isActiveContributor: boolean;
 }
 
 interface AuthContextType {
@@ -181,6 +182,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         canWithdraw: userData.can_withdraw,
         lastWithdrawalDate: userData.last_withdrawal_date,
         joinedDate: userData.joined_date,
+        isActiveContributor: userData.is_active_contributor || false,
       };
 
       console.log('User data loaded:', mappedUser);
@@ -309,6 +311,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           referral_code: referralCode,
           referred_by: referrerId,
           email_verified: false,
+          is_active_contributor: false,
         });
 
       if (insertError) {
@@ -399,6 +402,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (updates.activeReferrals !== undefined) dbUpdates.active_referrals = updates.activeReferrals;
       if (updates.canWithdraw !== undefined) dbUpdates.can_withdraw = updates.canWithdraw;
       if (updates.lastWithdrawalDate) dbUpdates.last_withdrawal_date = updates.lastWithdrawalDate;
+      if (updates.isActiveContributor !== undefined) dbUpdates.is_active_contributor = updates.isActiveContributor;
 
       const { error } = await supabase
         .from('users')
@@ -442,7 +446,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'Failed to record contribution' };
       }
 
-      // Update user balance
+      // Update user balance and set as active contributor
       const newMxiBalance = user.mxiBalance + mxiTokens;
       const newUsdtContributed = user.usdtContributed + usdtAmount;
 
@@ -451,6 +455,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .update({
           mxi_balance: newMxiBalance,
           usdt_contributed: newUsdtContributed,
+          is_active_contributor: true,
         })
         .eq('id', user.id);
 
@@ -472,7 +477,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
 
-      // Reload user data
+      // Reload user data to reflect changes immediately
       await loadUserData(user.id);
 
       return { success: true };
@@ -545,12 +550,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ): Promise<{ success: boolean; error?: string }> => {
     if (!user) return { success: false, error: 'Not authenticated' };
 
-    // Check if MXI launch date has passed
-    const launchDate = new Date('2025-01-15T12:00:00Z');
+    // Check if MXI launch date has passed - Updated to 2026
+    const launchDate = new Date('2026-01-15T12:00:00Z');
     const now = new Date();
 
     if (now < launchDate) {
-      return { success: false, error: 'MXI withdrawals will be available on January 15, 2025 at 12:00 UTC' };
+      return { success: false, error: 'MXI withdrawals will be available on January 15, 2026 at 12:00 UTC' };
     }
 
     if (amount > user.mxiBalance) {

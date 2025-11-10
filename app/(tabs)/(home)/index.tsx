@@ -22,8 +22,8 @@ export default function HomeScreen() {
   const [mxiPrice, setMxiPrice] = useState(10.0); // Simulated price in USDT
   const [totalPoolMembers, setTotalPoolMembers] = useState(56527);
 
-  // Target date: January 15, 2025, 12:00 UTC
-  const targetDate = new Date('2025-01-15T12:00:00Z');
+  // Target date: January 15, 2026, 12:00 UTC - UPDATED TO 2026
+  const targetDate = new Date('2026-01-15T12:00:00Z');
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -97,6 +97,23 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Active Contributor Badge - NEW */}
+        {user.isActiveContributor && (
+          <View style={[commonStyles.card, styles.activeContributorCard]}>
+            <View style={styles.activeContributorContent}>
+              <View style={styles.activeContributorIcon}>
+                <IconSymbol name="checkmark.seal.fill" size={32} color="#fff" />
+              </View>
+              <View style={styles.activeContributorText}>
+                <Text style={styles.activeContributorTitle}>Colaborador Activo</Text>
+                <Text style={styles.activeContributorSubtitle}>
+                  You are an active contributor to the MXI liquidity pool
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Countdown Card */}
         <View style={[commonStyles.card, styles.countdownCard]}>
           <View style={styles.countdownHeader}>
@@ -104,7 +121,7 @@ export default function HomeScreen() {
             <Text style={styles.countdownTitle}>Pool Closes In</Text>
           </View>
           <Text style={styles.countdownTime}>{timeRemaining}</Text>
-          <Text style={styles.countdownDate}>January 15, 2025 - 12:00 UTC</Text>
+          <Text style={styles.countdownDate}>January 15, 2026 - 12:00 UTC</Text>
         </View>
 
         {/* MXI Balance Card */}
@@ -217,6 +234,39 @@ const styles = StyleSheet.create({
   },
   settingsButton: {
     padding: 4,
+  },
+  activeContributorCard: {
+    backgroundColor: colors.success,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#10b981',
+  },
+  activeContributorContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  activeContributorIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeContributorText: {
+    flex: 1,
+  },
+  activeContributorTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  activeContributorSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.9)',
+    lineHeight: 20,
   },
   countdownCard: {
     backgroundColor: colors.primary,

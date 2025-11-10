@@ -21,7 +21,6 @@ export default function ContributeScreen() {
   const { user, addContribution } = useAuth();
   const [usdtAmount, setUsdtAmount] = useState('');
   const [loading, setLoading] = useState(false);
-  const [transactionType, setTransactionType] = useState<'initial' | 'increase' | 'reinvestment'>('initial');
 
   const calculateMxi = () => {
     const amount = parseFloat(usdtAmount);
@@ -55,7 +54,7 @@ export default function ContributeScreen() {
 
     Alert.alert(
       'Confirm Contribution',
-      `You are about to contribute ${amount} USDT and receive ${calculateMxi()} MXI tokens.\n\nThis will generate referral commissions for your upline.`,
+      `You are about to contribute ${amount} USDT and receive ${calculateMxi()} MXI tokens.\n\nYour MXI balance will be updated immediately upon confirmation.\n\nThis will generate referral commissions for your upline.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -68,7 +67,7 @@ export default function ContributeScreen() {
             if (result.success) {
               Alert.alert(
                 'Success',
-                `Contribution successful! You received ${calculateMxi()} MXI tokens.`,
+                `Contribution successful!\n\nYou received ${calculateMxi()} MXI tokens.\n\nYour balance has been updated and you are now an Active Contributor!`,
                 [{ text: 'OK', onPress: () => router.back() }]
               );
               setUsdtAmount('');
@@ -93,7 +92,7 @@ export default function ContributeScreen() {
 
     Alert.alert(
       'Confirm Reinvestment',
-      `You are about to reinvest ${availableCommission.toFixed(2)} USDT from your available commissions.\n\nYou will receive ${(availableCommission / 10).toFixed(1)} MXI tokens and generate new referral commissions.`,
+      `You are about to reinvest ${availableCommission.toFixed(2)} USDT from your available commissions.\n\nYou will receive ${(availableCommission / 10).toFixed(1)} MXI tokens immediately and generate new referral commissions.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -106,7 +105,7 @@ export default function ContributeScreen() {
             if (result.success) {
               Alert.alert(
                 'Success',
-                `Reinvestment successful! You received ${(availableCommission / 10).toFixed(1)} MXI tokens.`,
+                `Reinvestment successful!\n\nYou received ${(availableCommission / 10).toFixed(1)} MXI tokens.\n\nYour balance has been updated!`,
                 [{ text: 'OK', onPress: () => router.back() }]
               );
             } else {
@@ -138,7 +137,7 @@ export default function ContributeScreen() {
           <View style={styles.infoRow}>
             <IconSymbol name="info.circle" size={20} color={colors.primary} />
             <Text style={styles.infoText}>
-              Contributions generate referral commissions for your upline (3%, 2%, 1% for levels 1-3)
+              Your MXI balance will be updated immediately after confirming the transaction. Contributions also generate referral commissions for your upline (3%, 2%, 1% for levels 1-3).
             </Text>
           </View>
         </View>
@@ -171,6 +170,10 @@ export default function ContributeScreen() {
               </View>
             </View>
             <Text style={styles.conversionRate}>1 MXI = 10 USDT</Text>
+            <View style={styles.instantUpdateBadge}>
+              <IconSymbol name="bolt.fill" size={16} color={colors.success} />
+              <Text style={styles.instantUpdateText}>Balance updated instantly</Text>
+            </View>
           </View>
 
           <View style={styles.commissionCard}>
@@ -249,7 +252,7 @@ export default function ContributeScreen() {
         <View style={styles.noteCard}>
           <IconSymbol name="exclamationmark.circle" size={20} color={colors.warning} />
           <Text style={styles.noteText}>
-            Note: All contributions are final and cannot be refunded. MXI tokens will be available for withdrawal after the official launch on January 15, 2025.
+            Note: All contributions are final and cannot be refunded. MXI tokens will be available for withdrawal after the official launch on January 15, 2026 at 12:00 UTC.
           </Text>
         </View>
       </ScrollView>
@@ -358,6 +361,22 @@ const styles = StyleSheet.create({
   conversionRate: {
     fontSize: 12,
     color: colors.textSecondary,
+    marginBottom: 12,
+  },
+  instantUpdateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  instantUpdateText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.success,
   },
   commissionCard: {
     backgroundColor: colors.cardBackground,
