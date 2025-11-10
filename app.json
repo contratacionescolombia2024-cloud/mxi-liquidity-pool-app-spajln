@@ -26,7 +26,24 @@
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.maxcoinpool.app"
+      "package": "com.maxcoinpool.app",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "natively.dev",
+              "pathPrefix": "/email-confirmed"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/images/final_quest_240x240.png",
@@ -35,7 +52,12 @@
     "plugins": [
       "expo-font",
       "expo-router",
-      "expo-web-browser"
+      [
+        "expo-web-browser",
+        {
+          "preferredBrowserPackage": "com.android.chrome"
+        }
+      ]
     ],
     "scheme": "maxcoinpool",
     "experiments": {

@@ -1,6 +1,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Linking from 'expo-linking';
 
 // Supabase configuration
 const supabaseUrl = 'https://aeyfnjuatbtcauiumbhn.supabase.co';
@@ -11,9 +12,34 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     storage: AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    detectSessionInUrl: true,
+    flowType: 'pkce',
   },
 });
+
+// Handle deep linking for email confirmation
+export const handleDeepLink = async (url: string) => {
+  console.log('Handling deep link:', url);
+  
+  try {
+    const { data, error } = await supabase.auth.getSessionFromUrl({ url });
+    
+    if (error) {
+      console.error('Error getting session from URL:', error);
+      return { success: false, error: error.message };
+    }
+    
+    if (data.session) {
+      console.log('Session obtained from URL:', data.session);
+      return { success: true, session: data.session };
+    }
+    
+    return { success: false, error: 'No session found' };
+  } catch (error: any) {
+    console.error('Exception handling deep link:', error);
+    return { success: false, error: error.message };
+  }
+};
 
 // Database types
 export interface Database {

@@ -8,6 +8,7 @@ import { SystemBars } from "react-native-edge-to-edge";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useColorScheme, Alert } from "react-native";
 import { useNetworkState } from "expo-network";
+import * as Linking from "expo-linking";
 import {
   DarkTheme,
   DefaultTheme,
@@ -17,6 +18,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { WidgetProvider } from "@/contexts/WidgetContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -31,6 +33,12 @@ function RootLayoutNav() {
 
   useEffect(() => {
     const inAuthGroup = segments[0] === "(auth)";
+    const inEmailConfirmed = segments[0] === "email-confirmed";
+
+    // Don't redirect if on email confirmation screen
+    if (inEmailConfirmed) {
+      return;
+    }
 
     if (!isAuthenticated && !inAuthGroup) {
       router.replace("/(auth)/login");
@@ -38,6 +46,36 @@ function RootLayoutNav() {
       router.replace("/(tabs)/(home)/");
     }
   }, [isAuthenticated, segments]);
+
+  // Handle deep linking for email confirmation
+  useEffect(() => {
+    const handleDeepLink = async (event: { url: string }) => {
+      console.log('Deep link received:', event.url);
+      
+      if (event.url.includes('email-confirmed') || event.url.includes('access_token')) {
+        console.log('Email confirmation link detected');
+        router.push('/email-confirmed');
+      }
+    };
+
+    // Listen for deep links
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+
+    // Check if app was opened with a deep link
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        console.log('Initial URL:', url);
+        if (url.includes('email-confirmed') || url.includes('access_token')) {
+          console.log('Email confirmation link detected on launch');
+          router.push('/email-confirmed');
+        }
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   const CustomDefaultTheme: Theme = {
     ...DefaultTheme,
@@ -71,6 +109,7 @@ function RootLayoutNav() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="email-confirmed" />
       </Stack>
     </ThemeProvider>
   );
