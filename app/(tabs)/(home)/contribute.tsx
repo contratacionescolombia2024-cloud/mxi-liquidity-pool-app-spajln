@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,18 +9,57 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
+import { supabase } from '@/lib/supabase';
+import * as Clipboard from 'expo-clipboard';
+
+interface BinancePayment {
+  paymentId: string;
+  usdtAmount: number;
+  mxiAmount: number;
+  paymentAddress: string;
+  status: string;
+  expiresAt: string;
+}
 
 export default function ContributeScreen() {
   const router = useRouter();
   const { user, addContribution } = useAuth();
   const [usdtAmount, setUsdtAmount] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [currentPayment, setCurrentPayment] = useState<BinancePayment | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState('');
+  const [transactionId, setTransactionId] = useState('');
+
+  useEffect(() => {
+    if (!currentPayment) return;
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      const expires = new Date(currentPayment.expiresAt);
+      const diff = expires.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setTimeRemaining('Expired');
+        clearInterval(interval);
+        return;
+      }
+
+      const minutes = Math.floor(diff / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      setTimeRemaining(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [currentPayment]);
 
   const calculateMxi = () => {
     const amount = parseFloat(usdtAmount);
@@ -29,12 +68,12 @@ export default function ContributeScreen() {
   };
 
   const calculateYieldRate = (investment: number) => {
-    const baseInvestment = 50; // Minimum investment
-    const baseYieldRate = 0.00002; // Base yield per minute
+    const baseInvestment = 50;
+    const baseYieldRate = 0.00002;
     return baseYieldRate * (investment / baseInvestment);
   };
 
-  const handleContribute = async () => {
+  const handleCreatePayment = async () => {
     const amount = parseFloat(usdtAmount);
 
     if (isNaN(amount) || amount <= 0) {
@@ -52,38 +91,147 @@ export default function ContributeScreen() {
       return;
     }
 
-    // Determine transaction type
     let txType: 'initial' | 'increase' | 'reinvestment' = 'initial';
     if (user && user.usdtContributed > 0) {
       txType = 'increase';
     }
 
-    Alert.alert(
-      'Confirm Contribution',
-      `You are about to contribute ${amount} USDT and receive ${calculateMxi()} MXI tokens.\n\nYour MXI balance will be updated immediately upon confirmation.\n\nThis will generate referral commissions for your upline.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          onPress: async () => {
-            setLoading(true);
-            const result = await addContribution(amount, txType);
-            setLoading(false);
+    setLoading(true);
 
-            if (result.success) {
-              Alert.alert(
-                'Success',
-                `Contribution successful!\n\nYou received ${calculateMxi()} MXI tokens.\n\nYour balance has been updated and you are now an Active Contributor!`,
-                [{ text: 'OK', onPress: () => router.back() }]
-              );
-              setUsdtAmount('');
-            } else {
-              Alert.alert('Error', result.error || 'Failed to process contribution');
-            }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        Alert.alert('Error', 'Please log in to continue');
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch(
+        `https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/create-binance-payment`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
           },
-        },
-      ]
-    );
+          body: JSON.stringify({
+            usdtAmount: amount,
+            transactionType: txType,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to create payment');
+      }
+
+      setCurrentPayment(result.payment);
+      setShowPaymentModal(true);
+      setLoading(false);
+    } catch (error: any) {
+      console.error('Error creating payment:', error);
+      Alert.alert('Error', error.message || 'Failed to create payment');
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyPayment = async () => {
+    if (!currentPayment || !transactionId.trim()) {
+      Alert.alert('Error', 'Please enter your Binance transaction ID');
+      return;
+    }
+
+    setVerifying(true);
+
+    try {
+      // First, update the payment with the transaction ID
+      const { error: updateError } = await supabase
+        .from('binance_payments')
+        .update({ 
+          binance_transaction_id: transactionId.trim(),
+          status: 'confirming'
+        })
+        .eq('payment_id', currentPayment.paymentId);
+
+      if (updateError) {
+        throw new Error('Failed to update payment');
+      }
+
+      // Now verify the payment
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        Alert.alert('Error', 'Please log in to continue');
+        setVerifying(false);
+        return;
+      }
+
+      const response = await fetch(
+        `https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/verify-binance-payment`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            paymentId: currentPayment.paymentId,
+            userId: user?.id,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (result.success && result.status === 'confirmed') {
+        Alert.alert(
+          'Payment Confirmed! 🎉',
+          `Your payment has been verified!\n\nYou received ${result.mxiAmount} MXI tokens.\n\nYour new balance: ${result.newBalance.toFixed(2)} MXI\n\nYou are now an Active Contributor!`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                setShowPaymentModal(false);
+                setCurrentPayment(null);
+                setTransactionId('');
+                setUsdtAmount('');
+                router.back();
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Verification Pending',
+          result.message || 'Payment is being verified. This may take a few minutes. Please check back shortly.',
+          [
+            { text: 'Try Again', onPress: () => setVerifying(false) },
+            { text: 'Cancel', onPress: () => {
+              setShowPaymentModal(false);
+              setCurrentPayment(null);
+              setTransactionId('');
+              setVerifying(false);
+            }},
+          ]
+        );
+      }
+
+      setVerifying(false);
+    } catch (error: any) {
+      console.error('Error verifying payment:', error);
+      Alert.alert('Error', error.message || 'Failed to verify payment');
+      setVerifying(false);
+    }
+  };
+
+  const handleCopyAddress = async () => {
+    if (currentPayment) {
+      await Clipboard.setStringAsync(currentPayment.paymentAddress);
+      Alert.alert('Copied!', 'Payment address copied to clipboard');
+    }
   };
 
   const handleReinvest = async () => {
@@ -136,14 +284,14 @@ export default function ContributeScreen() {
             <IconSymbol name="chevron.left" size={24} color={colors.primary} />
           </TouchableOpacity>
           <Text style={styles.title}>Contribute to Pool</Text>
-          <Text style={styles.subtitle}>Increase your MXI holdings</Text>
+          <Text style={styles.subtitle}>Pay with Binance USDT</Text>
         </View>
 
         <View style={styles.infoCard}>
           <View style={styles.infoRow}>
             <IconSymbol name="info.circle" size={20} color={colors.primary} />
             <Text style={styles.infoText}>
-              Your MXI balance will be updated immediately after confirming the transaction. Contributions also generate referral commissions for your upline (3%, 2%, 1% for levels 1-3).
+              Payments are processed through Binance. Your MXI balance will be updated automatically after payment verification. The process typically takes 2-5 minutes.
             </Text>
           </View>
         </View>
@@ -178,11 +326,10 @@ export default function ContributeScreen() {
             <Text style={styles.conversionRate}>1 MXI = 10 USDT</Text>
             <View style={styles.instantUpdateBadge}>
               <IconSymbol name="bolt.fill" size={16} color={colors.success} />
-              <Text style={styles.instantUpdateText}>Balance updated instantly</Text>
+              <Text style={styles.instantUpdateText}>Auto-verified via Binance</Text>
             </View>
           </View>
 
-          {/* Yield Rate Information */}
           {parseFloat(usdtAmount || '0') >= 50 && (
             <View style={styles.yieldCard}>
               <View style={styles.yieldHeader}>
@@ -208,12 +355,6 @@ export default function ContributeScreen() {
                     {(calculateYieldRate(parseFloat(usdtAmount || '0')) * 60 * 24).toFixed(6)} MXI
                   </Text>
                 </View>
-              </View>
-              <View style={styles.yieldNote}>
-                <IconSymbol name="info.circle" size={14} color={colors.textSecondary} />
-                <Text style={styles.yieldNoteText}>
-                  Your investment will generate MXI continuously. The yield is calculated and displayed in real-time on your dashboard.
-                </Text>
               </View>
             </View>
           )}
@@ -242,17 +383,15 @@ export default function ContributeScreen() {
 
           <TouchableOpacity
             style={[buttonStyles.primary, styles.contributeButton]}
-            onPress={handleContribute}
+            onPress={handleCreatePayment}
             disabled={loading}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
               <>
-                <IconSymbol name="plus.circle.fill" size={20} color="#fff" />
-                <Text style={styles.buttonText}>
-                  {user && user.usdtContributed > 0 ? 'Increase Participation' : 'Make Contribution'}
-                </Text>
+                <IconSymbol name="creditcard.fill" size={20} color="#fff" />
+                <Text style={styles.buttonText}>Pay with Binance</Text>
               </>
             )}
           </TouchableOpacity>
@@ -294,10 +433,156 @@ export default function ContributeScreen() {
         <View style={styles.noteCard}>
           <IconSymbol name="exclamationmark.circle" size={20} color={colors.warning} />
           <Text style={styles.noteText}>
-            Note: All contributions are final and cannot be refunded. MXI tokens will be available for withdrawal after the official launch on January 15, 2026 at 12:00 UTC.
+            Note: All contributions are final and cannot be refunded. MXI tokens will be available for withdrawal after the official launch on February 15, 2026 at 12:00 UTC.
           </Text>
         </View>
       </ScrollView>
+
+      {/* Binance Payment Modal */}
+      <Modal
+        visible={showPaymentModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => {
+          if (!verifying) {
+            setShowPaymentModal(false);
+            setCurrentPayment(null);
+            setTransactionId('');
+          }
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Complete Payment</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  if (!verifying) {
+                    setShowPaymentModal(false);
+                    setCurrentPayment(null);
+                    setTransactionId('');
+                  }
+                }}
+                disabled={verifying}
+              >
+                <IconSymbol name="xmark.circle.fill" size={28} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalScroll}>
+              {currentPayment && (
+                <>
+                  <View style={styles.paymentInfoCard}>
+                    <View style={styles.paymentInfoRow}>
+                      <Text style={styles.paymentInfoLabel}>Amount:</Text>
+                      <Text style={styles.paymentInfoValue}>
+                        {currentPayment.usdtAmount} USDT
+                      </Text>
+                    </View>
+                    <View style={styles.paymentInfoRow}>
+                      <Text style={styles.paymentInfoLabel}>You&apos;ll receive:</Text>
+                      <Text style={styles.paymentInfoValue}>
+                        {currentPayment.mxiAmount} MXI
+                      </Text>
+                    </View>
+                    <View style={styles.paymentInfoRow}>
+                      <Text style={styles.paymentInfoLabel}>Expires in:</Text>
+                      <Text style={[styles.paymentInfoValue, styles.timerText]}>
+                        {timeRemaining}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.instructionsCard}>
+                    <Text style={styles.instructionsTitle}>Payment Instructions:</Text>
+                    <View style={styles.instructionStep}>
+                      <View style={styles.stepNumber}>
+                        <Text style={styles.stepNumberText}>1</Text>
+                      </View>
+                      <Text style={styles.stepText}>
+                        Open your Binance app and go to Wallet → Spot
+                      </Text>
+                    </View>
+                    <View style={styles.instructionStep}>
+                      <View style={styles.stepNumber}>
+                        <Text style={styles.stepNumberText}>2</Text>
+                      </View>
+                      <Text style={styles.stepText}>
+                        Select USDT and tap &quot;Withdraw&quot;
+                      </Text>
+                    </View>
+                    <View style={styles.instructionStep}>
+                      <View style={styles.stepNumber}>
+                        <Text style={styles.stepNumberText}>3</Text>
+                      </View>
+                      <Text style={styles.stepText}>
+                        Send {currentPayment.usdtAmount} USDT to the address below
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.addressCard}>
+                    <Text style={styles.addressLabel}>Payment Address:</Text>
+                    <View style={styles.addressBox}>
+                      <Text style={styles.addressText} numberOfLines={2}>
+                        {currentPayment.paymentAddress}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.copyButton}
+                      onPress={handleCopyAddress}
+                    >
+                      <IconSymbol name="doc.on.doc.fill" size={18} color={colors.primary} />
+                      <Text style={styles.copyButtonText}>Copy Address</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.transactionIdCard}>
+                    <Text style={styles.transactionIdLabel}>
+                      After sending, enter your Binance Transaction ID:
+                    </Text>
+                    <TextInput
+                      style={styles.transactionIdInput}
+                      placeholder="Enter transaction ID (TxID)"
+                      placeholderTextColor={colors.textSecondary}
+                      value={transactionId}
+                      onChangeText={setTransactionId}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                    <Text style={styles.transactionIdHelp}>
+                      You can find this in your Binance transaction history
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[buttonStyles.primary, styles.verifyButton]}
+                    onPress={handleVerifyPayment}
+                    disabled={verifying || !transactionId.trim()}
+                  >
+                    {verifying ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <>
+                        <IconSymbol name="checkmark.circle.fill" size={20} color="#fff" />
+                        <Text style={styles.buttonText}>Verify Payment</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+
+                  <View style={styles.warningCard}>
+                    <IconSymbol name="exclamationmark.triangle.fill" size={18} color={colors.warning} />
+                    <Text style={styles.warningText}>
+                      Make sure to send the exact amount to the correct address. 
+                      Payments expire in 30 minutes.
+                    </Text>
+                  </View>
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -546,7 +831,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     padding: 12,
     borderRadius: 8,
-    marginBottom: 12,
   },
   yieldRow: {
     flexDirection: 'row',
@@ -563,15 +847,183 @@ const styles = StyleSheet.create({
     color: colors.success,
     fontFamily: 'monospace',
   },
-  yieldNote: {
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '90%',
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  modalScroll: {
+    padding: 20,
+  },
+  paymentInfoCard: {
+    backgroundColor: colors.cardBackground,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  paymentInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  paymentInfoLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  paymentInfoValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  timerText: {
+    color: colors.accent,
+    fontFamily: 'monospace',
+  },
+  instructionsCard: {
+    backgroundColor: colors.cardBackground,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  instructionsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  instructionStep: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 6,
+    marginBottom: 12,
+    gap: 12,
   },
-  yieldNoteText: {
+  stepNumber: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepNumberText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  stepText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
+  },
+  addressCard: {
+    backgroundColor: colors.cardBackground,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  addressLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  addressBox: {
+    backgroundColor: colors.background,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  addressText: {
+    fontSize: 12,
+    fontFamily: 'monospace',
+    color: colors.text,
+  },
+  copyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  copyButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  transactionIdCard: {
+    backgroundColor: colors.cardBackground,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  transactionIdLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  transactionIdInput: {
+    backgroundColor: colors.background,
+    padding: 12,
+    borderRadius: 8,
+    fontSize: 14,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 8,
+  },
+  transactionIdHelp: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  verifyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  warningCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(251, 191, 36, 0.1)',
+    padding: 12,
+    borderRadius: 8,
+    gap: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.warning,
+  },
+  warningText: {
     flex: 1,
     fontSize: 12,
     color: colors.textSecondary,
-    lineHeight: 16,
+    lineHeight: 18,
   },
 });

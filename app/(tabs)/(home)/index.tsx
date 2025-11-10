@@ -241,6 +241,15 @@ export default function HomeScreen() {
           </View>
         </TouchableOpacity>
 
+        {/* Binance Payments Button */}
+        <TouchableOpacity
+          style={[styles.actionButton, styles.binancePaymentsAction]}
+          onPress={() => router.push('/(tabs)/(home)/binance-payments')}
+        >
+          <IconSymbol name="creditcard.fill" size={24} color={colors.secondary} />
+          <Text style={styles.actionButtonTextBinance}>View Binance Payments</Text>
+        </TouchableOpacity>
+
         {/* Info Banner */}
         <View style={[commonStyles.card, styles.infoBanner]}>
           <IconSymbol name="info.circle.fill" size={20} color={colors.primary} />
@@ -517,6 +526,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#fff',
+  },
+  binancePaymentsAction: {
+    backgroundColor: colors.card,
+    borderWidth: 2,
+    borderColor: colors.secondary,
+    marginBottom: 16,
+  },
+  actionButtonTextBinance: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.secondary,
   },
   infoBanner: {
     flexDirection: 'row',
