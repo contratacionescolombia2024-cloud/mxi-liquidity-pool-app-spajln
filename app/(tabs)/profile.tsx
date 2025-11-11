@@ -22,6 +22,7 @@ export default function ProfileScreen() {
   const { user, logout, checkAdminStatus: checkAdmin } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingAdmin, setCheckingAdmin] = useState(true);
+  const [adminCheckAttempts, setAdminCheckAttempts] = useState(0);
 
   useEffect(() => {
     if (user) {
@@ -37,9 +38,28 @@ export default function ProfileScreen() {
     }
 
     try {
-      console.log('Performing admin check for user:', user.id, user.email);
+      console.log('=== ADMIN CHECK START ===');
+      console.log('User ID:', user.id);
+      console.log('User Email:', user.email);
+      console.log('Check attempt:', adminCheckAttempts + 1);
+      
+      setAdminCheckAttempts(prev => prev + 1);
+
+      // Direct database query for debugging
+      const { data: adminData, error: adminError } = await supabase
+        .from('admin_users')
+        .select('id, role, permissions')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      console.log('Direct admin query result:', adminData);
+      console.log('Direct admin query error:', adminError);
+
+      // Use the context method
       const isAdminUser = await checkAdmin();
-      console.log('Admin check result:', isAdminUser);
+      console.log('Context checkAdmin result:', isAdminUser);
+      console.log('=== ADMIN CHECK END ===');
+      
       setIsAdmin(isAdminUser);
     } catch (error) {
       console.error('Exception during admin check:', error);
@@ -65,6 +85,11 @@ export default function ProfileScreen() {
         },
       ]
     );
+  };
+
+  const handleRefreshAdminStatus = () => {
+    setCheckingAdmin(true);
+    performAdminCheck();
   };
 
   if (!user) {
@@ -125,7 +150,14 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Quick Actions</Text>
+            {checkingAdmin && (
+              <TouchableOpacity onPress={handleRefreshAdminStatus}>
+                <IconSymbol name="arrow.clockwise" size={20} color={colors.primary} />
+              </TouchableOpacity>
+            )}
+          </View>
 
           {checkingAdmin ? (
             <View style={[commonStyles.card, styles.menuItem]}>
@@ -151,7 +183,19 @@ export default function ProfileScreen() {
               </View>
               <IconSymbol name="chevron.right" size={24} color={colors.error} />
             </TouchableOpacity>
-          ) : null}
+          ) : (
+            <TouchableOpacity
+              style={[commonStyles.card, styles.menuItem, styles.debugItem]}
+              onPress={handleRefreshAdminStatus}
+            >
+              <View style={styles.menuItemContent}>
+                <IconSymbol name="arrow.clockwise" size={24} color={colors.textSecondary} />
+                <Text style={[styles.menuItemText, styles.debugText]}>
+                  Refresh Admin Status (Attempts: {adminCheckAttempts})
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={[commonStyles.card, styles.menuItem]}
@@ -283,11 +327,16 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 24,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 12,
   },
   infoCard: {
     padding: 0,
@@ -330,6 +379,11 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     padding: 18,
   },
+  debugItem: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+  },
   menuItemContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -366,6 +420,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+  debugText: {
+    fontSize: 14,
+    color: colors.textSecondary,
   },
   logoutButton: {
     flexDirection: 'row',
