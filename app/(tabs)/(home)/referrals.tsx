@@ -50,7 +50,7 @@ export default function ReferralsScreen() {
 
     try {
       await Share.share({
-        message: `Join the Maxcoin Liquidity Pool and earn MXI tokens! Use my referral code: ${user.referralCode}`,
+        message: `Join the MXI Strategic Pre-Sale and earn MXI tokens! Use my referral code: ${user.referralCode}`,
       });
     } catch (error) {
       console.error('Share error:', error);
@@ -60,10 +60,22 @@ export default function ReferralsScreen() {
   const handleWithdraw = async () => {
     if (!user) return;
 
+    if (user.kycStatus !== 'approved') {
+      Alert.alert(
+        'KYC Verification Required',
+        'You must complete KYC verification before withdrawing commissions. Would you like to start the KYC process now?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Start KYC', onPress: () => router.push('/(tabs)/(home)/kyc-verification') },
+        ]
+      );
+      return;
+    }
+
     if (!user.canWithdraw) {
       Alert.alert(
         'Withdrawal Not Available',
-        `To withdraw commissions, you need:\n\n- At least 5 active referrals (you have ${user.activeReferrals})\n- 10 days since joining\n\nKeep inviting friends to unlock withdrawals!`
+        `To withdraw commissions, you need:\n\n- At least 5 active referrals (you have ${user.activeReferrals})\n- 10 days since joining\n- KYC verification approved\n\nKeep inviting friends to unlock withdrawals!`
       );
       return;
     }
@@ -226,6 +238,16 @@ export default function ReferralsScreen() {
                   {daysUntilWithdrawal === 0 ? '10 days completed' : `${daysUntilWithdrawal} days remaining`}
                 </Text>
               </View>
+              <View style={styles.requirementItem}>
+                <IconSymbol
+                  name={user.kycStatus === 'approved' ? 'checkmark.circle.fill' : 'circle'}
+                  size={20}
+                  color={user.kycStatus === 'approved' ? colors.success : colors.textSecondary}
+                />
+                <Text style={styles.requirementText}>
+                  KYC verification {user.kycStatus === 'approved' ? 'approved' : 'required'}
+                </Text>
+              </View>
             </View>
           )}
 
@@ -281,9 +303,9 @@ export default function ReferralsScreen() {
               - Earn 3% commission from Level 1 referrals{'\n'}
               - Earn 2% commission from Level 2 referrals{'\n'}
               - Earn 1% commission from Level 3 referrals{'\n'}
-              - Commissions are generated on all contributions{'\n'}
-              - USDT commission withdrawals: 5+ active referrals + 10 days{'\n'}
-              - MXI withdrawals: 10+ active referrals + pool launch date
+              - Commissions are generated on all purchases{'\n'}
+              - USDT commission withdrawals: 5+ active referrals + 10 days + KYC{'\n'}
+              - MXI withdrawals: 5+ active referrals + pool launch date + KYC
             </Text>
           </View>
         </View>

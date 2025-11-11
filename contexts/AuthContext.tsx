@@ -32,6 +32,8 @@ interface User {
   yieldRatePerMinute: number;
   lastYieldUpdate: string;
   accumulatedYield: number;
+  kycStatus: 'not_submitted' | 'pending' | 'approved' | 'rejected';
+  kycVerifiedAt?: string;
 }
 
 interface PoolStatus {
@@ -89,7 +91,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       console.log('Initial session:', session);
       setSession(session);
@@ -100,13 +101,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       console.log('Auth state changed:', _event, session);
       setSession(session);
       
       if (_event === 'SIGNED_IN' && session) {
-        // Check if user record exists, if not create it
         const { data: existingUser } = await supabase
           .from('users')
           .select('id')
@@ -114,7 +113,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .single();
         
         if (!existingUser && session.user.email) {
-          // User just verified email, update email_verified status
           await supabase
             .from('users')
             .update({ email_verified: true })
@@ -138,7 +136,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('Loading user data for:', userId);
       
-      // Fetch user data from database
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
@@ -157,7 +154,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      // Fetch referral counts
       const { data: referralData } = await supabase
         .from('referrals')
         .select('level')
@@ -169,7 +165,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         level3: referralData?.filter(r => r.level === 3).length || 0,
       };
 
-      // Fetch commission data
       const { data: commissionData } = await supabase
         .from('commissions')
         .select('amount, status')
@@ -202,6 +197,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         yieldRatePerMinute: parseFloat(userData.yield_rate_per_minute?.toString() || '0'),
         lastYieldUpdate: userData.last_yield_update || new Date().toISOString(),
         accumulatedYield: parseFloat(userData.accumulated_yield?.toString() || '0'),
+        kycStatus: userData.kyc_status || 'not_submitted',
+        kycVerifiedAt: userData.kyc_verified_at,
       };
 
       console.log('User data loaded:', mappedUser);
@@ -232,7 +229,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'No session created' };
       }
 
-      // Check if email is verified
       const { data: userData } = await supabase
         .from('users')
         .select('email_verified')
@@ -240,7 +236,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (userData && !userData.email_verified) {
-        // Sign out the user since email is not verified
         await supabase.auth.signOut();
         return { success: false, error: 'Please verify your email before logging in. Check your inbox for the verification link.' };
       }
@@ -257,7 +252,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('Attempting registration for:', userData.email);
 
-      // Check if email already exists
       const { data: existingUser } = await supabase
         .from('users')
         .select('email')
@@ -268,7 +262,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'Email already registered' };
       }
 
-      // Check if ID number already exists
       const { data: existingId } = await supabase
         .from('users')
         .select('id_number')
@@ -279,7 +272,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'ID number already registered. Only one account per person is allowed.' };
       }
 
-      // Sign up with Supabase Auth - using Natively standard redirect URL
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: userData.email,
         password: userData.password,
@@ -300,11 +292,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'Failed to create user' };
       }
 
-      // Generate referral code
       const { data: codeData } = await supabase.rpc('generate_referral_code');
       const referralCode = codeData || `MXI${Date.now().toString().slice(-6)}`;
 
-      // Verify referral code if provided
       let referrerId: string | null = null;
       if (userData.referralCode) {
         const { data: referrerData } = await supabase
@@ -318,7 +308,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // Create user record in database
       const { error: insertError } = await supabase
         .from('users')
         .insert({
@@ -331,6 +320,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           referred_by: referrerId,
           email_verified: false,
           is_active_contributor: false,
+          kyc_status: 'not_submitted',
         });
 
       if (insertError) {
@@ -338,12 +328,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'Failed to create user profile. Please try again.' };
       }
 
-      // Create referral relationships if referred by someone
       if (referrerId) {
         await createReferralChain(authData.user.id, referrerId);
       }
 
-      // Update metrics
       await supabase.rpc('increment_total_members');
 
       console.log('Registration successful. Please verify your email.');
@@ -356,14 +344,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const createReferralChain = async (newUserId: string, directReferrerId: string) => {
     try {
-      // Level 1: Direct referrer
       await supabase.from('referrals').insert({
         referrer_id: directReferrerId,
         referred_id: newUserId,
         level: 1,
       });
 
-      // Level 2: Referrer's referrer
       const { data: level2Data } = await supabase
         .from('users')
         .select('referred_by')
@@ -377,7 +363,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           level: 2,
         });
 
-        // Level 3: Referrer's referrer's referrer
         const { data: level3Data } = await supabase
           .from('users')
           .select('referred_by')
@@ -422,6 +407,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (updates.canWithdraw !== undefined) dbUpdates.can_withdraw = updates.canWithdraw;
       if (updates.lastWithdrawalDate) dbUpdates.last_withdrawal_date = updates.lastWithdrawalDate;
       if (updates.isActiveContributor !== undefined) dbUpdates.is_active_contributor = updates.isActiveContributor;
+      if (updates.kycStatus) dbUpdates.kyc_status = updates.kycStatus;
 
       const { error } = await supabase
         .from('users')
@@ -446,10 +432,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) return { success: false, error: 'Not authenticated' };
 
     try {
-      // Calculate MXI tokens (1 MXI = 10 USDT)
-      const mxiTokens = usdtAmount / 10;
+      // New pricing: 1 MXI = 0.4 USDT
+      const mxiTokens = usdtAmount / 0.4;
 
-      // Create contribution record
       const { error: contributionError } = await supabase
         .from('contributions')
         .insert({
@@ -465,7 +450,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'Failed to record contribution' };
       }
 
-      // Update user balance and set as active contributor
       const newMxiBalance = user.mxiBalance + mxiTokens;
       const newUsdtContributed = user.usdtContributed + usdtAmount;
 
@@ -483,20 +467,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'Failed to update balance' };
       }
 
-      // Process referral commissions
       await supabase.rpc('process_referral_commissions', {
         p_user_id: user.id,
         p_contribution_amount: usdtAmount,
       });
 
-      // Update active referrals count for referrer
       if (user.referredBy && transactionType === 'initial') {
         await supabase.rpc('increment_active_referrals', {
           p_user_id: user.referredBy,
         });
       }
 
-      // Reload user data to reflect changes immediately
       await loadUserData(user.id);
 
       return { success: true };
@@ -512,6 +493,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ): Promise<{ success: boolean; error?: string }> => {
     if (!user) return { success: false, error: 'Not authenticated' };
 
+    // Check KYC status
+    if (user.kycStatus !== 'approved') {
+      return { 
+        success: false, 
+        error: 'KYC verification required. Please complete KYC verification before withdrawing.' 
+      };
+    }
+
     if (!user.canWithdraw) {
       return { success: false, error: 'Withdrawal not available. You need 5 active referrals and 10 days since joining.' };
     }
@@ -521,7 +510,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      // Create withdrawal record
       const { error: withdrawalError } = await supabase
         .from('withdrawals')
         .insert({
@@ -537,7 +525,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'Failed to create withdrawal request' };
       }
 
-      // Update commission status to withdrawn
       const { error: commissionError } = await supabase
         .from('commissions')
         .update({ status: 'withdrawn' })
@@ -550,10 +537,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'Failed to update commission status' };
       }
 
-      // Update user's last withdrawal date
       await updateUser({ lastWithdrawalDate: new Date().toISOString() });
-
-      // Reload user data
       await loadUserData(user.id);
 
       return { success: true };
@@ -569,8 +553,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ): Promise<{ success: boolean; error?: string }> => {
     if (!user) return { success: false, error: 'Not authenticated' };
 
+    // Check KYC status
+    if (user.kycStatus !== 'approved') {
+      return { 
+        success: false, 
+        error: 'KYC verification required. Please complete KYC verification before withdrawing.' 
+      };
+    }
+
     try {
-      // Check MXI withdrawal eligibility (10 active referrals + launch date passed)
       const { data: canWithdrawMXI, error: eligibilityError } = await supabase
         .rpc('check_mxi_withdrawal_eligibility', { p_user_id: user.id });
 
@@ -580,14 +571,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (!canWithdrawMXI) {
-        // Get pool status to provide detailed error message
         const { data: poolStatus } = await supabase.rpc('get_pool_status');
         const status = poolStatus?.[0];
 
-        if (user.activeReferrals < 10) {
+        if (user.activeReferrals < 5) {
           return { 
             success: false, 
-            error: `You need 10 active referrals to withdraw mined MXI. You currently have ${user.activeReferrals} active referrals. Keep inviting friends!` 
+            error: `You need 5 active referrals to withdraw mined MXI. You currently have ${user.activeReferrals} active referrals. Keep inviting friends!` 
           };
         }
 
@@ -606,7 +596,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'Insufficient MXI balance' };
       }
 
-      // Create withdrawal record
       const { error: withdrawalError } = await supabase
         .from('withdrawals')
         .insert({
@@ -622,7 +611,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'Failed to create withdrawal request' };
       }
 
-      // Update user MXI balance
       const { error: updateError } = await supabase
         .from('users')
         .update({
@@ -635,7 +623,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'Failed to update balance' };
       }
 
-      // Reload user data
       await loadUserData(user.id);
 
       return { success: true };
@@ -673,7 +660,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) return false;
 
     try {
-      const { data, error } = await supabase.rpc('check_withdrawal_eligibility', {
+      const { data, error } = await supabase.rpc('check_withdrawal_eligibility_with_kyc', {
         p_user_id: user.id,
       });
 
@@ -706,7 +693,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: error.message };
       }
 
-      // Reload user data to reflect new balance
       await loadUserData(user.id);
 
       return { success: true, yieldEarned: parseFloat(data?.toString() || '0') };

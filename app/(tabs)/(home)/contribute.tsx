@@ -64,7 +64,8 @@ export default function ContributeScreen() {
   const calculateMxi = () => {
     const amount = parseFloat(usdtAmount);
     if (isNaN(amount)) return 0;
-    return amount / 10; // 1 MXI = 10 USDT
+    // New pricing: 1 MXI = 0.4 USDT, so amount / 0.4 = MXI tokens
+    return amount / 0.4;
   };
 
   const calculateYieldRate = (investment: number) => {
@@ -82,12 +83,12 @@ export default function ContributeScreen() {
     }
 
     if (amount < 50) {
-      Alert.alert('Error', 'Minimum contribution is 50 USDT');
+      Alert.alert('Error', 'Minimum purchase is 50 USDT');
       return;
     }
 
-    if (amount > 100000) {
-      Alert.alert('Error', 'Maximum contribution is 100,000 USDT');
+    if (amount > 25000) {
+      Alert.alert('Error', 'Maximum purchase per transaction is 25,000 USDT');
       return;
     }
 
@@ -147,7 +148,6 @@ export default function ContributeScreen() {
     setVerifying(true);
 
     try {
-      // First, update the payment with the transaction ID
       const { error: updateError } = await supabase
         .from('binance_payments')
         .update({ 
@@ -160,7 +160,6 @@ export default function ContributeScreen() {
         throw new Error('Failed to update payment');
       }
 
-      // Now verify the payment
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
@@ -246,7 +245,7 @@ export default function ContributeScreen() {
 
     Alert.alert(
       'Confirm Reinvestment',
-      `You are about to reinvest ${availableCommission.toFixed(2)} USDT from your available commissions.\n\nYou will receive ${(availableCommission / 10).toFixed(1)} MXI tokens immediately and generate new referral commissions.`,
+      `You are about to reinvest ${availableCommission.toFixed(2)} USDT from your available commissions.\n\nYou will receive ${(availableCommission / 0.4).toFixed(1)} MXI tokens immediately and generate new referral commissions.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -259,7 +258,7 @@ export default function ContributeScreen() {
             if (result.success) {
               Alert.alert(
                 'Success',
-                `Reinvestment successful!\n\nYou received ${(availableCommission / 10).toFixed(1)} MXI tokens.\n\nYour balance has been updated!`,
+                `Reinvestment successful!\n\nYou received ${(availableCommission / 0.4).toFixed(1)} MXI tokens.\n\nYour balance has been updated!`,
                 [{ text: 'OK', onPress: () => router.back() }]
               );
             } else {
@@ -283,8 +282,8 @@ export default function ContributeScreen() {
           >
             <IconSymbol name="chevron.left" size={24} color={colors.primary} />
           </TouchableOpacity>
-          <Text style={styles.title}>Contribute to Pool</Text>
-          <Text style={styles.subtitle}>Pay with Binance USDT</Text>
+          <Text style={styles.title}>MXI Pre-Sale</Text>
+          <Text style={styles.subtitle}>Purchase MXI tokens with USDT</Text>
         </View>
 
         <View style={styles.infoCard}>
@@ -302,7 +301,7 @@ export default function ContributeScreen() {
             <View style={styles.inputWrapper}>
               <TextInput
                 style={commonStyles.input}
-                placeholder="Enter amount (50 - 100,000)"
+                placeholder="Enter amount (50 - 25,000)"
                 placeholderTextColor={colors.textSecondary}
                 value={usdtAmount}
                 onChangeText={setUsdtAmount}
@@ -311,7 +310,7 @@ export default function ContributeScreen() {
               <Text style={styles.currency}>USDT</Text>
             </View>
             <Text style={styles.helperText}>
-              Minimum: 50 USDT • Maximum: 100,000 USDT
+              Minimum: 50 USDT • Maximum: 25,000 USDT per transaction
             </Text>
           </View>
 
@@ -323,7 +322,7 @@ export default function ContributeScreen() {
                 <Text style={styles.conversionCurrency}>MXI</Text>
               </View>
             </View>
-            <Text style={styles.conversionRate}>1 MXI = 10 USDT</Text>
+            <Text style={styles.conversionRate}>1 MXI = 0.4 USDT</Text>
             <View style={styles.instantUpdateBadge}>
               <IconSymbol name="bolt.fill" size={16} color={colors.success} />
               <Text style={styles.instantUpdateText}>Auto-verified via Binance</Text>
@@ -391,7 +390,7 @@ export default function ContributeScreen() {
             ) : (
               <>
                 <IconSymbol name="creditcard.fill" size={20} color="#fff" />
-                <Text style={styles.buttonText}>Pay with Binance</Text>
+                <Text style={styles.buttonText}>Purchase MXI</Text>
               </>
             )}
           </TouchableOpacity>
@@ -433,12 +432,11 @@ export default function ContributeScreen() {
         <View style={styles.noteCard}>
           <IconSymbol name="exclamationmark.circle" size={20} color={colors.warning} />
           <Text style={styles.noteText}>
-            Note: All contributions are final and cannot be refunded. MXI tokens will be available for withdrawal after the official launch on February 15, 2026 at 12:00 UTC.
+            Note: All purchases are final and cannot be refunded. MXI tokens will be available for withdrawal after the official launch on February 15, 2026 at 12:00 UTC.
           </Text>
         </View>
       </ScrollView>
 
-      {/* Binance Payment Modal */}
       <Modal
         visible={showPaymentModal}
         animationType="slide"

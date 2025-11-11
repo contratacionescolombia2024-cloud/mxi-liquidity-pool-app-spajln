@@ -95,6 +95,10 @@ export default function WithdrawMXIScreen() {
     );
   };
 
+  const handleKYCNavigation = () => {
+    router.push('/(tabs)/(home)/kyc-verification');
+  };
+
   if (!user) {
     return (
       <SafeAreaView style={styles.container}>
@@ -105,8 +109,8 @@ export default function WithdrawMXIScreen() {
     );
   }
 
-  const activeReferralsProgress = Math.min((user.activeReferrals / 10) * 100, 100);
-  const referralsNeeded = Math.max(0, 10 - user.activeReferrals);
+  const activeReferralsProgress = Math.min((user.activeReferrals / 5) * 100, 100);
+  const referralsNeeded = Math.max(0, 5 - user.activeReferrals);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -119,7 +123,6 @@ export default function WithdrawMXIScreen() {
           <Text style={styles.subtitle}>Withdraw your mined MXI tokens</Text>
         </View>
 
-        {/* Balance Card */}
         <View style={[commonStyles.card, styles.balanceCard]}>
           <Text style={styles.balanceLabel}>Available MXI Balance</Text>
           <View style={styles.balanceRow}>
@@ -129,7 +132,6 @@ export default function WithdrawMXIScreen() {
           </View>
         </View>
 
-        {/* Eligibility Status */}
         <View
           style={[
             commonStyles.card,
@@ -159,16 +161,15 @@ export default function WithdrawMXIScreen() {
             <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 16 }} />
           ) : (
             <View style={styles.requirementsList}>
-              {/* Active Referrals Requirement */}
               <View style={styles.requirementItem}>
                 <View style={styles.requirementHeader}>
                   <IconSymbol
-                    name={user.activeReferrals >= 10 ? 'checkmark.circle.fill' : 'circle'}
+                    name={user.activeReferrals >= 5 ? 'checkmark.circle.fill' : 'circle'}
                     size={24}
-                    color={user.activeReferrals >= 10 ? colors.success : colors.textSecondary}
+                    color={user.activeReferrals >= 5 ? colors.success : colors.textSecondary}
                   />
                   <Text style={styles.requirementText}>
-                    {user.activeReferrals}/10 Active Referrals
+                    {user.activeReferrals}/5 Active Referrals
                   </Text>
                 </View>
                 <View style={styles.progressBar}>
@@ -178,7 +179,7 @@ export default function WithdrawMXIScreen() {
                       {
                         width: `${activeReferralsProgress}%`,
                         backgroundColor:
-                          user.activeReferrals >= 10 ? colors.success : colors.warning,
+                          user.activeReferrals >= 5 ? colors.success : colors.warning,
                       },
                     ]}
                   />
@@ -190,7 +191,42 @@ export default function WithdrawMXIScreen() {
                 )}
               </View>
 
-              {/* Pool Launch Date Requirement */}
+              <View style={styles.requirementItem}>
+                <View style={styles.requirementHeader}>
+                  <IconSymbol
+                    name={
+                      user.kycStatus === 'approved' ? 'checkmark.circle.fill' : 
+                      user.kycStatus === 'pending' ? 'clock.fill' :
+                      user.kycStatus === 'rejected' ? 'xmark.circle.fill' : 'circle'
+                    }
+                    size={24}
+                    color={
+                      user.kycStatus === 'approved' ? colors.success : 
+                      user.kycStatus === 'pending' ? colors.warning :
+                      user.kycStatus === 'rejected' ? colors.error : colors.textSecondary
+                    }
+                  />
+                  <Text style={styles.requirementText}>KYC Verification</Text>
+                </View>
+                <Text style={styles.requirementDate}>
+                  Status: {user.kycStatus === 'not_submitted' ? 'Not Submitted' : 
+                           user.kycStatus === 'pending' ? 'Under Review' :
+                           user.kycStatus === 'approved' ? 'Approved' : 'Rejected'}
+                </Text>
+                {user.kycStatus !== 'approved' && (
+                  <TouchableOpacity
+                    style={styles.kycButton}
+                    onPress={handleKYCNavigation}
+                  >
+                    <Text style={styles.kycButtonText}>
+                      {user.kycStatus === 'not_submitted' ? 'Start KYC Verification' :
+                       user.kycStatus === 'pending' ? 'View KYC Status' :
+                       'Resubmit KYC'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
               <View style={styles.requirementItem}>
                 <View style={styles.requirementHeader}>
                   <IconSymbol
@@ -226,7 +262,6 @@ export default function WithdrawMXIScreen() {
           )}
         </View>
 
-        {/* Withdrawal Form */}
         {canWithdrawMXI && user.mxiBalance > 0 && (
           <View style={[commonStyles.card, styles.withdrawForm]}>
             <Text style={styles.formTitle}>Withdrawal Details</Text>
@@ -279,13 +314,13 @@ export default function WithdrawMXIScreen() {
           </View>
         )}
 
-        {/* Info Card */}
         <View style={[commonStyles.card, styles.infoCard]}>
           <IconSymbol name="info.circle.fill" size={20} color={colors.primary} />
           <View style={styles.infoContent}>
             <Text style={styles.infoTitle}>Important Information:</Text>
             <Text style={styles.infoText}>
-              - MXI withdrawals require 10 active referrals{'\n'}
+              - MXI withdrawals require 5 active referrals{'\n'}
+              - KYC verification is mandatory for all withdrawals{'\n'}
               - Withdrawals are only available after the pool launch date{'\n'}
               - Processing time: 24-48 hours{'\n'}
               - Make sure your wallet address is correct{'\n'}
@@ -294,7 +329,6 @@ export default function WithdrawMXIScreen() {
           </View>
         </View>
 
-        {/* Referral Promotion */}
         {!canWithdrawMXI && referralsNeeded > 0 && (
           <TouchableOpacity
             style={[commonStyles.card, styles.promotionCard]}
@@ -305,7 +339,7 @@ export default function WithdrawMXIScreen() {
               <View style={styles.promotionText}>
                 <Text style={styles.promotionTitle}>Invite Friends to Unlock</Text>
                 <Text style={styles.promotionSubtitle}>
-                  Share your referral code to reach 10 active referrals
+                  Share your referral code to reach 5 active referrals
                 </Text>
               </View>
               <IconSymbol name="chevron.right" size={24} color={colors.textSecondary} />
@@ -440,6 +474,20 @@ const styles = StyleSheet.create({
   progressFill: {
     height: '100%',
     borderRadius: 4,
+  },
+  kycButton: {
+    marginLeft: 36,
+    marginTop: 8,
+    backgroundColor: colors.primary,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  kycButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   withdrawForm: {
     marginBottom: 16,
