@@ -9,6 +9,7 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,23 +17,47 @@ import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
+import * as ImagePicker from 'expo-image-picker';
 
 type DocumentType = 'passport' | 'national_id' | 'drivers_license';
+
+interface ImageUpload {
+  uri: string;
+  type: string;
+  name: string;
+}
 
 export default function KYCVerificationScreen() {
   const router = useRouter();
   const { user, updateUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingFront, setUploadingFront] = useState(false);
+  const [uploadingBack, setUploadingBack] = useState(false);
   const [kycData, setKycData] = useState<any>(null);
   
   const [fullName, setFullName] = useState('');
   const [documentType, setDocumentType] = useState<DocumentType>('national_id');
   const [documentNumber, setDocumentNumber] = useState('');
+  const [documentFrontUri, setDocumentFrontUri] = useState<string | null>(null);
+  const [documentBackUri, setDocumentBackUri] = useState<string | null>(null);
+  const [documentFrontUrl, setDocumentFrontUrl] = useState<string | null>(null);
+  const [documentBackUrl, setDocumentBackUrl] = useState<string | null>(null);
 
   useEffect(() => {
     loadKYCData();
+    requestPermissions();
   }, []);
+
+  const requestPermissions = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(
+        'Permission Required',
+        'Please grant camera roll permissions to upload documents.'
+      );
+    }
+  };
 
   const loadKYCData = async () => {
     if (!user) return;
@@ -52,11 +77,85 @@ export default function KYCVerificationScreen() {
         setFullName(data.full_name || '');
         setDocumentType(data.document_type || 'national_id');
         setDocumentNumber(data.document_number || '');
+        setDocumentFrontUrl(data.document_front_url);
+        setDocumentBackUrl(data.document_back_url);
       }
     } catch (error) {
       console.log('No existing KYC data found');
     }
     setLoading(false);
+  };
+
+  const pickImage = async (side: 'front' | 'back') => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        if (side === 'front') {
+          setDocumentFrontUri(asset.uri);
+          await uploadImage(asset.uri, 'front');
+        } else {
+          setDocumentBackUri(asset.uri);
+          await uploadImage(asset.uri, 'back');
+        }
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
+    }
+  };
+
+  const uploadImage = async (uri: string, side: 'front' | 'back') => {
+    if (!user) return;
+
+    const setUploading = side === 'front' ? setUploadingFront : setUploadingBack;
+    setUploading(true);
+
+    try {
+      // Get file extension
+      const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
+      const fileName = `${user.id}/${side}_${Date.now()}.${fileExt}`;
+
+      // Fetch the image as a blob
+      const response = await fetch(uri);
+      const blob = await response.blob();
+
+      // Upload to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('kyc-documents')
+        .upload(fileName, blob, {
+          contentType: `image/${fileExt}`,
+          upsert: true,
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('kyc-documents')
+        .getPublicUrl(fileName);
+
+      if (side === 'front') {
+        setDocumentFrontUrl(urlData.publicUrl);
+      } else {
+        setDocumentBackUrl(urlData.publicUrl);
+      }
+
+      Alert.alert('Success', `Document ${side} uploaded successfully!`);
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      Alert.alert('Upload Error', error.message || 'Failed to upload document. Please try again.');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -69,6 +168,16 @@ export default function KYCVerificationScreen() {
 
     if (!documentNumber.trim()) {
       Alert.alert('Error', 'Please enter your document number');
+      return;
+    }
+
+    if (!documentFrontUrl) {
+      Alert.alert('Error', 'Please upload the front of your ID document');
+      return;
+    }
+
+    if (!documentBackUrl && documentType !== 'passport') {
+      Alert.alert('Error', 'Please upload the back of your ID document');
       return;
     }
 
@@ -89,6 +198,8 @@ export default function KYCVerificationScreen() {
                   full_name: fullName.trim(),
                   document_type: documentType,
                   document_number: documentNumber.trim(),
+                  document_front_url: documentFrontUrl,
+                  document_back_url: documentBackUrl,
                   status: 'pending',
                   submitted_at: new Date().toISOString(),
                 });
@@ -334,10 +445,76 @@ export default function KYCVerificationScreen() {
                     />
                   </View>
 
+                  <View style={styles.inputContainer}>
+                    <Text style={commonStyles.label}>Document Front *</Text>
+                    <Text style={styles.uploadHint}>
+                      Upload a clear photo of the front of your ID document
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.uploadButton}
+                      onPress={() => pickImage('front')}
+                      disabled={uploadingFront}
+                    >
+                      {uploadingFront ? (
+                        <ActivityIndicator color={colors.primary} />
+                      ) : documentFrontUri || documentFrontUrl ? (
+                        <View style={styles.uploadedContainer}>
+                          <Image
+                            source={{ uri: documentFrontUri || documentFrontUrl || '' }}
+                            style={styles.uploadedImage}
+                          />
+                          <View style={styles.uploadedOverlay}>
+                            <IconSymbol name="checkmark.circle.fill" size={32} color={colors.success} />
+                            <Text style={styles.uploadedText}>Tap to change</Text>
+                          </View>
+                        </View>
+                      ) : (
+                        <View style={styles.uploadContent}>
+                          <IconSymbol name="photo" size={32} color={colors.primary} />
+                          <Text style={styles.uploadText}>Tap to upload front</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+
+                  {documentType !== 'passport' && (
+                    <View style={styles.inputContainer}>
+                      <Text style={commonStyles.label}>Document Back *</Text>
+                      <Text style={styles.uploadHint}>
+                        Upload a clear photo of the back of your ID document
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.uploadButton}
+                        onPress={() => pickImage('back')}
+                        disabled={uploadingBack}
+                      >
+                        {uploadingBack ? (
+                          <ActivityIndicator color={colors.primary} />
+                        ) : documentBackUri || documentBackUrl ? (
+                          <View style={styles.uploadedContainer}>
+                            <Image
+                              source={{ uri: documentBackUri || documentBackUrl || '' }}
+                              style={styles.uploadedImage}
+                            />
+                            <View style={styles.uploadedOverlay}>
+                              <IconSymbol name="checkmark.circle.fill" size={32} color={colors.success} />
+                              <Text style={styles.uploadedText}>Tap to change</Text>
+                            </View>
+                          </View>
+                        ) : (
+                          <View style={styles.uploadContent}>
+                            <IconSymbol name="photo" size={32} color={colors.primary} />
+                            <Text style={styles.uploadText}>Tap to upload back</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
                   <TouchableOpacity
                     style={[buttonStyles.primary, styles.submitButton]}
                     onPress={handleSubmit}
-                    disabled={submitting}
+                    disabled={submitting || uploadingFront || uploadingBack}
                   >
                     {submitting ? (
                       <ActivityIndicator color="#fff" />
@@ -355,7 +532,7 @@ export default function KYCVerificationScreen() {
                   <View style={styles.securityContent}>
                     <Text style={styles.securityTitle}>Your Data is Secure</Text>
                     <Text style={styles.securityText}>
-                      All personal information is encrypted and stored securely. We comply with
+                      All personal information and documents are encrypted and stored securely. We comply with
                       international data protection regulations and will never share your
                       information with third parties without your consent.
                     </Text>
@@ -534,6 +711,57 @@ const styles = StyleSheet.create({
   },
   documentTypeTextActive: {
     color: '#fff',
+  },
+  uploadHint: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  uploadButton: {
+    height: 200,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  uploadContent: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  uploadText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  uploadedContainer: {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+  },
+  uploadedImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  uploadedOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  uploadedText: {
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: '600',
   },
   submitButton: {
     flexDirection: 'row',
