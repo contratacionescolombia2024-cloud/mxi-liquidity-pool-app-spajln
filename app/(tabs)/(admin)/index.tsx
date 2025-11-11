@@ -38,35 +38,51 @@ export default function AdminDashboard() {
     totalUSDT: 0,
   });
   const [isAdmin, setIsAdmin] = useState(false);
+  const [checkingAccess, setCheckingAccess] = useState(true);
 
   useEffect(() => {
     checkAdminAccess();
-  }, []);
+  }, [user]);
 
   const checkAdminAccess = async () => {
     if (!user) {
+      console.log('No user found, redirecting to login');
       Alert.alert('Error', 'Please login first');
       router.replace('/(auth)/login');
       return;
     }
 
     try {
+      console.log('Checking admin access for user:', user.id, user.email);
+      
       const { data: adminData, error } = await supabase
         .from('admin_users')
-        .select('*')
+        .select('id, role, permissions')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (error || !adminData) {
-        Alert.alert('Access Denied', 'You do not have admin privileges');
+      console.log('Admin check result:', { adminData, error });
+
+      if (error) {
+        console.error('Admin check error:', error);
+        Alert.alert('Error', 'Failed to verify admin access: ' + error.message);
         router.replace('/(tabs)/(home)');
         return;
       }
 
+      if (!adminData) {
+        console.log('No admin data found for user');
+        Alert.alert('Access Denied', 'You do not have admin privileges. Please contact support if you believe this is an error.');
+        router.replace('/(tabs)/(home)');
+        return;
+      }
+
+      console.log('Admin access granted:', adminData);
       setIsAdmin(true);
+      setCheckingAccess(false);
       loadStats();
     } catch (error) {
-      console.error('Admin check error:', error);
+      console.error('Admin check exception:', error);
       Alert.alert('Error', 'Failed to verify admin access');
       router.replace('/(tabs)/(home)');
     }
@@ -123,12 +139,14 @@ export default function AdminDashboard() {
     }
   };
 
-  if (!isAdmin) {
+  if (checkingAccess || !isAdmin) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Verifying admin access...</Text>
+          <Text style={styles.loadingText}>
+            {checkingAccess ? 'Verifying admin access...' : 'Loading dashboard...'}
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -138,8 +156,15 @@ export default function AdminDashboard() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.title}>Admin Dashboard</Text>
-          <Text style={styles.subtitle}>MXI Strategic PreSale Management</Text>
+          <View style={styles.headerTop}>
+            <View>
+              <Text style={styles.title}>Admin Dashboard</Text>
+              <Text style={styles.subtitle}>MXI Strategic PreSale Management</Text>
+            </View>
+            <View style={styles.adminBadge}>
+              <IconSymbol name="shield.lefthalf.filled" size={20} color="#FFFFFF" />
+            </View>
+          </View>
         </View>
 
         {loading ? (
@@ -249,54 +274,6 @@ export default function AdminDashboard() {
                   <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
                 </View>
               </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[commonStyles.card, styles.menuItem]}
-                onPress={() => router.push('/(tabs)/(admin)/user-management')}
-              >
-                <View style={styles.menuItemContent}>
-                  <View style={styles.menuItemLeft}>
-                    <IconSymbol name="person.2.fill" size={28} color={colors.primary} />
-                    <View style={styles.menuItemText}>
-                      <Text style={styles.menuItemTitle}>User Management</Text>
-                      <Text style={styles.menuItemSubtitle}>View and manage user accounts</Text>
-                    </View>
-                  </View>
-                  <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[commonStyles.card, styles.menuItem]}
-                onPress={() => router.push('/(tabs)/(admin)/database-viewer')}
-              >
-                <View style={styles.menuItemContent}>
-                  <View style={styles.menuItemLeft}>
-                    <IconSymbol name="cylinder.fill" size={28} color={colors.error} />
-                    <View style={styles.menuItemText}>
-                      <Text style={styles.menuItemTitle}>Database Viewer</Text>
-                      <Text style={styles.menuItemSubtitle}>Review database records</Text>
-                    </View>
-                  </View>
-                  <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[commonStyles.card, styles.menuItem]}
-                onPress={() => router.push('/(tabs)/(admin)/settings')}
-              >
-                <View style={styles.menuItemContent}>
-                  <View style={styles.menuItemLeft}>
-                    <IconSymbol name="gearshape.fill" size={28} color={colors.textSecondary} />
-                    <View style={styles.menuItemText}>
-                      <Text style={styles.menuItemTitle}>System Settings</Text>
-                      <Text style={styles.menuItemSubtitle}>Configure app values and parameters</Text>
-                    </View>
-                  </View>
-                  <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
-                </View>
-              </TouchableOpacity>
             </View>
 
             <TouchableOpacity
@@ -336,6 +313,11 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 24,
   },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
   title: {
     fontSize: 32,
     fontWeight: '700',
@@ -345,6 +327,19 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     color: colors.textSecondary,
+  },
+  adminBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.error,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: colors.error,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 4,
   },
   statsGrid: {
     flexDirection: 'row',

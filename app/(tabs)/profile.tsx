@@ -7,6 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,26 +19,33 @@ import { useState, useEffect } from 'react';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, checkAdminStatus: checkAdmin } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [checkingAdmin, setCheckingAdmin] = useState(true);
 
   useEffect(() => {
-    checkAdminStatus();
+    if (user) {
+      performAdminCheck();
+    }
   }, [user]);
 
-  const checkAdminStatus = async () => {
-    if (!user) return;
+  const performAdminCheck = async () => {
+    if (!user) {
+      console.log('No user found, skipping admin check');
+      setCheckingAdmin(false);
+      return;
+    }
 
     try {
-      const { data } = await supabase
-        .from('admin_users')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-
-      setIsAdmin(!!data);
+      console.log('Performing admin check for user:', user.id, user.email);
+      const isAdminUser = await checkAdmin();
+      console.log('Admin check result:', isAdminUser);
+      setIsAdmin(isAdminUser);
     } catch (error) {
-      console.error('Error checking admin status:', error);
+      console.error('Exception during admin check:', error);
+      setIsAdmin(false);
+    } finally {
+      setCheckingAdmin(false);
     }
   };
 
@@ -63,7 +71,8 @@ export default function ProfileScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading...</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading profile...</Text>
         </View>
       </SafeAreaView>
     );
@@ -82,6 +91,12 @@ export default function ProfileScreen() {
             <View style={styles.verifiedBadge}>
               <IconSymbol name="checkmark.seal.fill" size={16} color={colors.success} />
               <Text style={styles.verifiedText}>KYC Verified</Text>
+            </View>
+          )}
+          {isAdmin && (
+            <View style={styles.adminBadge}>
+              <IconSymbol name="shield.lefthalf.filled" size={16} color={colors.error} />
+              <Text style={styles.adminBadgeText}>Administrator</Text>
             </View>
           )}
         </View>
@@ -112,18 +127,31 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
 
-          {isAdmin && (
+          {checkingAdmin ? (
+            <View style={[commonStyles.card, styles.menuItem]}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.menuItemText}>Checking admin access...</Text>
+            </View>
+          ) : isAdmin ? (
             <TouchableOpacity
               style={[commonStyles.card, styles.menuItem, styles.adminMenuItem]}
-              onPress={() => router.push('/(tabs)/(admin)')}
+              onPress={() => {
+                console.log('Navigating to admin dashboard');
+                router.push('/(tabs)/(admin)');
+              }}
             >
               <View style={styles.menuItemContent}>
-                <IconSymbol name="shield.lefthalf.filled" size={24} color={colors.error} />
-                <Text style={[styles.menuItemText, styles.adminMenuText]}>Admin Dashboard</Text>
+                <View style={styles.adminIconContainer}>
+                  <IconSymbol name="shield.lefthalf.filled" size={28} color="#FFFFFF" />
+                </View>
+                <View style={styles.menuItemTextContainer}>
+                  <Text style={[styles.menuItemText, styles.adminMenuText]}>Admin Dashboard</Text>
+                  <Text style={styles.adminMenuSubtext}>Manage users, KYC, and withdrawals</Text>
+                </View>
               </View>
-              <IconSymbol name="chevron.right" size={20} color={colors.error} />
+              <IconSymbol name="chevron.right" size={24} color={colors.error} />
             </TouchableOpacity>
-          )}
+          ) : null}
 
           <TouchableOpacity
             style={[commonStyles.card, styles.menuItem]}
@@ -191,6 +219,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 12,
   },
   loadingText: {
     fontSize: 16,
@@ -227,11 +256,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
+    marginBottom: 8,
   },
   verifiedText: {
     fontSize: 12,
     fontWeight: '600',
     color: colors.success,
+  },
+  adminBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.error,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginTop: 4,
+  },
+  adminBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   section: {
     marginBottom: 24,
@@ -272,14 +319,38 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   adminMenuItem: {
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: colors.error,
-    backgroundColor: colors.error + '10',
+    backgroundColor: colors.error + '15',
+    shadowColor: colors.error,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    marginBottom: 20,
+    padding: 18,
   },
   menuItemContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    flex: 1,
+  },
+  adminIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.error,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: colors.error,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  menuItemTextContainer: {
+    flex: 1,
   },
   menuItemText: {
     fontSize: 16,
@@ -288,6 +359,13 @@ const styles = StyleSheet.create({
   },
   adminMenuText: {
     color: colors.error,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  adminMenuSubtext: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   logoutButton: {
     flexDirection: 'row',

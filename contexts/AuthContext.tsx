@@ -67,6 +67,7 @@ interface AuthContextType {
   getPoolStatus: () => Promise<PoolStatus | null>;
   checkMXIWithdrawalEligibility: () => Promise<boolean>;
   getAvailableMXI: () => Promise<number>;
+  checkAdminStatus: () => Promise<boolean>;
 }
 
 interface RegisterData {
@@ -796,6 +797,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const checkAdminStatus = async (): Promise<boolean> => {
+    if (!user) return false;
+
+    try {
+      console.log('Checking admin status for user:', user.id, user.email);
+      
+      const { data, error } = await supabase
+        .from('admin_users')
+        .select('id, role')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Admin check error:', error);
+        return false;
+      }
+
+      console.log('Admin check result:', data);
+      return !!data;
+    } catch (error) {
+      console.error('Admin check exception:', error);
+      return false;
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -817,6 +843,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         getPoolStatus,
         checkMXIWithdrawalEligibility,
         getAvailableMXI,
+        checkAdminStatus,
       }}
     >
       {children}
