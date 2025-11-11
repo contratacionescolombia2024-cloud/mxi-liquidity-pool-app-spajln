@@ -22,7 +22,6 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState('');
   const [mxiPrice, setMxiPrice] = useState(0.4); // Pre-sale price in USDT
-  const [totalPoolMembers, setTotalPoolMembers] = useState(56527);
   const [poolCloseDate, setPoolCloseDate] = useState<Date | null>(null);
   const [poolCloseDateString, setPoolCloseDateString] = useState('');
 
@@ -71,20 +70,6 @@ export default function HomeScreen() {
 
     return () => clearInterval(interval);
   }, [poolCloseDate]);
-
-  useEffect(() => {
-    // Simulate real-time pool member updates
-    const interval = setInterval(() => {
-      setTotalPoolMembers((prev) => {
-        if (prev < 250000) {
-          return prev + Math.floor(Math.random() * 3);
-        }
-        return prev;
-      });
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -185,35 +170,6 @@ export default function HomeScreen() {
             <Text style={styles.contributionLabel}>Total Contributed</Text>
             <Text style={styles.contributionAmount}>${user.usdtContributed.toFixed(2)} USDT</Text>
           </View>
-        </View>
-
-        {/* Pool Statistics */}
-        <View style={[commonStyles.card, styles.statsCard]}>
-          <Text style={styles.statsTitle}>Pre-Sale Statistics</Text>
-          <View style={styles.statRow}>
-            <View style={styles.statItem}>
-              <IconSymbol name="person.2.fill" size={24} color={colors.secondary} />
-              <Text style={styles.statValue}>{totalPoolMembers.toLocaleString()}</Text>
-              <Text style={styles.statLabel}>Total Participants</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <IconSymbol name="star.fill" size={24} color={colors.accent} />
-              <Text style={styles.statValue}>250,000</Text>
-              <Text style={styles.statLabel}>Target</Text>
-            </View>
-          </View>
-          <View style={styles.progressBar}>
-            <View
-              style={[
-                styles.progressFill,
-                { width: `${(totalPoolMembers / 250000) * 100}%` },
-              ]}
-            />
-          </View>
-          <Text style={styles.progressText}>
-            {((totalPoolMembers / 250000) * 100).toFixed(2)}% Complete
-          </Text>
         </View>
 
         {/* Quick Actions */}
@@ -435,57 +391,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.secondary,
-  },
-  statsCard: {
-    marginBottom: 16,
-  },
-  statsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 16,
-  },
-  statRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 16,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: colors.border,
-    marginHorizontal: 16,
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.text,
-    marginTop: 8,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: colors.border,
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: colors.secondary,
-    borderRadius: 4,
-  },
-  progressText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: 'center',
   },
   actionsContainer: {
     flexDirection: 'row',
