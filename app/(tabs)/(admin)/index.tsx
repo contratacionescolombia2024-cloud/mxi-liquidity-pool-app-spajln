@@ -274,6 +274,22 @@ export default function AdminDashboard() {
                   <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
                 </View>
               </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[commonStyles.card, styles.menuItem]}
+                onPress={() => router.push('/(tabs)/(admin)/settings')}
+              >
+                <View style={styles.menuItemContent}>
+                  <View style={styles.menuItemLeft}>
+                    <IconSymbol name="gearshape.fill" size={28} color={colors.primary} />
+                    <View style={styles.menuItemText}>
+                      <Text style={styles.menuItemTitle}>System Settings</Text>
+                      <Text style={styles.menuItemSubtitle}>Configure MXI price and mining rate</Text>
+                    </View>
+                  </View>
+                  <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+                </View>
+              </TouchableOpacity>
             </View>
 
             <TouchableOpacity
