@@ -107,11 +107,11 @@ export default function HomeScreen() {
   const getPhaseDescription = (phase: number) => {
     switch (phase) {
       case 1:
-        return '20M MXI at 0.30 USDT';
+        return '10M MXI at 0.30 USDT';
       case 2:
-        return '20M MXI at 0.60 USDT';
+        return '10M MXI at 0.60 USDT';
       case 3:
-        return 'Price at 0.90 USDT';
+        return '10M MXI at 0.90 USDT';
       default:
         return '';
     }
@@ -120,10 +120,14 @@ export default function HomeScreen() {
   const getPhaseProgress = () => {
     if (!phaseInfo) return 0;
     
+    const PHASE_LIMIT = 10000000; // 10M tokens per phase
+    
     if (phaseInfo.currentPhase === 1) {
-      return (phaseInfo.phase1TokensSold / 20000000) * 100;
+      return (phaseInfo.phase1TokensSold / PHASE_LIMIT) * 100;
     } else if (phaseInfo.currentPhase === 2) {
-      return (phaseInfo.phase2TokensSold / 20000000) * 100;
+      return (phaseInfo.phase2TokensSold / PHASE_LIMIT) * 100;
+    } else if (phaseInfo.currentPhase === 3) {
+      return (phaseInfo.phase3TokensSold / PHASE_LIMIT) * 100;
     }
     return 100;
   };
@@ -193,9 +197,12 @@ export default function HomeScreen() {
               <Text style={styles.tokensSoldValue}>
                 {phaseInfo.totalTokensSold.toLocaleString('en-US', { maximumFractionDigits: 0 })} MXI
               </Text>
+              <Text style={styles.tokensSoldSubtext}>
+                of 30,000,000 MXI Pre-Sale
+              </Text>
             </View>
 
-            {phaseInfo.currentPhase < 3 && (
+            {phaseInfo.currentPhase <= 3 && (
               <>
                 <View style={styles.progressBarContainer}>
                   <View style={styles.progressBarBackground}>
@@ -217,7 +224,9 @@ export default function HomeScreen() {
                     <Text style={styles.phaseStatValue}>
                       {(phaseInfo.currentPhase === 1 
                         ? phaseInfo.phase1TokensSold 
-                        : phaseInfo.phase2TokensSold
+                        : phaseInfo.currentPhase === 2
+                        ? phaseInfo.phase2TokensSold
+                        : phaseInfo.phase3TokensSold
                       ).toLocaleString('en-US', { maximumFractionDigits: 0 })}
                     </Text>
                   </View>
@@ -231,15 +240,6 @@ export default function HomeScreen() {
               </>
             )}
 
-            {phaseInfo.currentPhase === 3 && (
-              <View style={styles.phase3Notice}>
-                <IconSymbol name="info.circle.fill" size={20} color={colors.accent} />
-                <Text style={styles.phase3NoticeText}>
-                  Phase 3 pricing: 0.90 USDT per MXI
-                </Text>
-              </View>
-            )}
-
             {/* Phase Timeline */}
             <View style={styles.phaseTimeline}>
               <View style={styles.timelineItem}>
@@ -250,6 +250,7 @@ export default function HomeScreen() {
                 <View style={styles.timelineContent}>
                   <Text style={styles.timelinePhase}>Phase 1</Text>
                   <Text style={styles.timelinePrice}>$0.30</Text>
+                  <Text style={styles.timelineAmount}>10M</Text>
                 </View>
               </View>
               <View style={[
@@ -264,6 +265,7 @@ export default function HomeScreen() {
                 <View style={styles.timelineContent}>
                   <Text style={styles.timelinePhase}>Phase 2</Text>
                   <Text style={styles.timelinePrice}>$0.60</Text>
+                  <Text style={styles.timelineAmount}>10M</Text>
                 </View>
               </View>
               <View style={[
@@ -278,6 +280,7 @@ export default function HomeScreen() {
                 <View style={styles.timelineContent}>
                   <Text style={styles.timelinePhase}>Phase 3</Text>
                   <Text style={styles.timelinePrice}>$0.90</Text>
+                  <Text style={styles.timelineAmount}>10M</Text>
                 </View>
               </View>
             </View>
@@ -502,6 +505,12 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     color: colors.primary,
+    marginBottom: 4,
+  },
+  tokensSoldSubtext: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
   },
   progressBarContainer: {
     marginBottom: 16,
@@ -544,20 +553,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
-  phase3Notice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: colors.highlight,
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  phase3NoticeText: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.text,
-  },
   phaseTimeline: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -590,12 +585,18 @@ const styles = StyleSheet.create({
   timelinePrice: {
     fontSize: 10,
     color: colors.textSecondary,
+    marginBottom: 2,
+  },
+  timelineAmount: {
+    fontSize: 9,
+    color: colors.textSecondary,
+    fontWeight: '600',
   },
   timelineLine: {
     flex: 1,
     height: 2,
     backgroundColor: colors.border,
-    marginBottom: 32,
+    marginBottom: 40,
   },
   timelineLineActive: {
     backgroundColor: colors.accent,

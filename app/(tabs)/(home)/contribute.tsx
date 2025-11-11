@@ -261,11 +261,11 @@ export default function ContributeScreen() {
   const getPhaseDescription = () => {
     switch (currentPhase) {
       case 1:
-        return 'Phase 1: 20M MXI at 0.30 USDT';
+        return 'Phase 1: 10M MXI at 0.30 USDT';
       case 2:
-        return 'Phase 2: 20M MXI at 0.60 USDT';
+        return 'Phase 2: 10M MXI at 0.60 USDT';
       case 3:
-        return 'Phase 3: Price at 0.90 USDT';
+        return 'Phase 3: 10M MXI at 0.90 USDT';
       default:
         return '';
     }
@@ -292,6 +292,12 @@ export default function ContributeScreen() {
           <View style={styles.priceDisplay}>
             <Text style={styles.priceLabel}>Current Price</Text>
             <Text style={styles.priceValue}>${currentPrice.toFixed(2)} USDT per MXI</Text>
+          </View>
+          <View style={styles.phaseNotice}>
+            <IconSymbol name="info.circle.fill" size={16} color={colors.primary} />
+            <Text style={styles.phaseNoticeText}>
+              Total Pre-Sale: 30,000,000 MXI (10M per phase)
+            </Text>
           </View>
         </View>
 
@@ -399,7 +405,8 @@ export default function ContributeScreen() {
               - Send the exact USDT amount to the provided address{'\n'}
               - Verify your payment to receive MXI tokens{'\n'}
               - Start earning mining rewards immediately{'\n'}
-              - Price varies by phase: Phase 1 (0.30), Phase 2 (0.60), Phase 3 (0.90)
+              - Price varies by phase: Phase 1 (0.30), Phase 2 (0.60), Phase 3 (0.90){'\n'}
+              - Total Pre-Sale: 30M MXI (10M per phase)
             </Text>
           </View>
         </View>
@@ -545,6 +552,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     padding: 12,
     borderRadius: 8,
+    marginBottom: 12,
   },
   priceLabel: {
     fontSize: 12,
@@ -555,6 +563,20 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: colors.accent,
+  },
+  phaseNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.highlight,
+    padding: 10,
+    borderRadius: 8,
+  },
+  phaseNoticeText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.text,
+    fontWeight: '600',
   },
   sectionTitle: {
     fontSize: 18,
