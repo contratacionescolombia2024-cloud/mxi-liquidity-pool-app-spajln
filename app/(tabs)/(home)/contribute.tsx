@@ -263,9 +263,9 @@ export default function ContributeScreen() {
       case 1:
         return 'Phase 1: 20M MXI at 0.30 USDT';
       case 2:
-        return 'Phase 2: 20M MXI at 0.80 USDT';
+        return 'Phase 2: 20M MXI at 0.60 USDT';
       case 3:
-        return 'Phase 3: Price by Liquidity Pool';
+        return 'Phase 3: Price at 0.90 USDT';
       default:
         return '';
     }
@@ -399,7 +399,7 @@ export default function ContributeScreen() {
               - Send the exact USDT amount to the provided address{'\n'}
               - Verify your payment to receive MXI tokens{'\n'}
               - Start earning mining rewards immediately{'\n'}
-              - Price varies by phase: Phase 1 (0.30), Phase 2 (0.80), Phase 3 (liquidity-based)
+              - Price varies by phase: Phase 1 (0.30), Phase 2 (0.60), Phase 3 (0.90)
             </Text>
           </View>
         </View>

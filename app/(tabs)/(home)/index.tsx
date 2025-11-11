@@ -109,9 +109,9 @@ export default function HomeScreen() {
       case 1:
         return '20M MXI at 0.30 USDT';
       case 2:
-        return '20M MXI at 0.80 USDT';
+        return '20M MXI at 0.60 USDT';
       case 3:
-        return 'Price by Liquidity Pool';
+        return 'Price at 0.90 USDT';
       default:
         return '';
     }
@@ -235,7 +235,7 @@ export default function HomeScreen() {
               <View style={styles.phase3Notice}>
                 <IconSymbol name="info.circle.fill" size={20} color={colors.accent} />
                 <Text style={styles.phase3NoticeText}>
-                  Price is now determined by the liquidity pool
+                  Phase 3 pricing: 0.90 USDT per MXI
                 </Text>
               </View>
             )}
@@ -263,7 +263,7 @@ export default function HomeScreen() {
                 ]} />
                 <View style={styles.timelineContent}>
                   <Text style={styles.timelinePhase}>Phase 2</Text>
-                  <Text style={styles.timelinePrice}>$0.80</Text>
+                  <Text style={styles.timelinePrice}>$0.60</Text>
                 </View>
               </View>
               <View style={[
@@ -277,7 +277,7 @@ export default function HomeScreen() {
                 ]} />
                 <View style={styles.timelineContent}>
                   <Text style={styles.timelinePhase}>Phase 3</Text>
-                  <Text style={styles.timelinePrice}>Liquidity</Text>
+                  <Text style={styles.timelinePrice}>$0.90</Text>
                 </View>
               </View>
             </View>
