@@ -9,6 +9,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -71,10 +72,14 @@ export default function LoginScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <View style={styles.logoContainer}>
-            <IconSymbol name="bitcoinsign.circle.fill" size={64} color={colors.primary} />
+            <Image
+              source={require('@/assets/images/04a4d9ac-4539-41d2-bafd-67dd75925bde.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
           </View>
-          <Text style={styles.title}>Maxcoin Pool</Text>
-          <Text style={styles.subtitle}>Liquidity Pool MXI</Text>
+          <Text style={styles.title}>MXI Strategic PreSale</Text>
+          <Text style={styles.subtitle}>Secure Your Position in the Future</Text>
         </View>
 
         <View style={styles.form}>
@@ -109,7 +114,7 @@ export default function LoginScreen() {
                 onPress={() => setShowPassword(!showPassword)}
               >
                 <IconSymbol
-                  name={showPassword ? 'eye.slash' : 'eye'}
+                  name={showPassword ? 'eye.slash.fill' : 'eye.fill'}
                   size={20}
                   color={colors.textSecondary}
                 />
@@ -119,7 +124,7 @@ export default function LoginScreen() {
 
           {needsVerification && (
             <View style={styles.verificationBox}>
-              <IconSymbol name="exclamationmark.triangle" size={20} color={colors.warning} />
+              <IconSymbol name="exclamationmark.triangle.fill" size={20} color={colors.warning} />
               <Text style={styles.verificationText}>
                 Please verify your email before logging in.
               </Text>
@@ -157,7 +162,7 @@ export default function LoginScreen() {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            Pool closes on January 15, 2025 at 12:00 UTC
+            Pre-Sale closes on January 15, 2025 at 12:00 UTC
           </Text>
         </View>
       </ScrollView>
@@ -180,17 +185,27 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   logoContainer: {
-    marginBottom: 16,
+    marginBottom: 20,
+    width: 120,
+    height: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logo: {
+    width: '100%',
+    height: '100%',
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 4,
+    marginBottom: 8,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
     color: colors.textSecondary,
+    textAlign: 'center',
   },
   form: {
     width: '100%',

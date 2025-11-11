@@ -9,6 +9,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -94,8 +95,15 @@ export default function RegisterScreen() {
           >
             <IconSymbol name="chevron.left" size={24} color={colors.primary} />
           </TouchableOpacity>
-          <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Join the Maxcoin Liquidity Pool</Text>
+          <View style={styles.logoContainer}>
+            <Image
+              source={require('@/assets/images/04a4d9ac-4539-41d2-bafd-67dd75925bde.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </View>
+          <Text style={styles.title}>Join MXI Strategic PreSale</Text>
+          <Text style={styles.subtitle}>Secure Your Position in the Future</Text>
         </View>
 
         <View style={styles.form}>
@@ -166,7 +174,7 @@ export default function RegisterScreen() {
                 onPress={() => setShowPassword(!showPassword)}
               >
                 <IconSymbol
-                  name={showPassword ? 'eye.slash' : 'eye'}
+                  name={showPassword ? 'eye.slash.fill' : 'eye.fill'}
                   size={20}
                   color={colors.textSecondary}
                 />
@@ -200,7 +208,7 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.infoBox}>
-            <IconSymbol name="info.circle" size={20} color={colors.primary} />
+            <IconSymbol name="info.circle.fill" size={20} color={colors.primary} />
             <Text style={styles.infoText}>
               Only one account per person is allowed. Your ID number will be verified.
             </Text>
@@ -243,20 +251,34 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 32,
+    alignItems: 'center',
   },
   backButton: {
     marginBottom: 16,
     alignSelf: 'flex-start',
   },
+  logoContainer: {
+    marginBottom: 16,
+    width: 100,
+    height: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logo: {
+    width: '100%',
+    height: '100%',
+  },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 4,
+    marginBottom: 8,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
     color: colors.textSecondary,
+    textAlign: 'center',
   },
   form: {
     width: '100%',

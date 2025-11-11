@@ -1,3 +1,4 @@
+
 // This file is a fallback for using MaterialIcons on Android and web.
 
 import React from "react";
@@ -45,6 +46,7 @@ const MAPPING = {
 
   // Actions & Controls
   "plus": "add",
+  "plus.circle.fill": "add-circle",
   "minus": "remove",
   "xmark": "close",
   "checkmark": "check",
@@ -139,6 +141,7 @@ const MAPPING = {
   "person.fill": "person",
   "person.2.fill": "group",
   "person.2": "group",
+  "person.3.fill": "groups",
   "person.circle.fill": "account-circle",
   "person.circle": "account-circle",
   "person.crop.circle.fill": "account-circle",
@@ -156,11 +159,17 @@ const MAPPING = {
   "arrow.up.arrow.down": "sort",
 
   // Visibility & Display
+  "eye": "visibility",
   "eye.fill": "visibility",
+  "eye.slash": "visibility-off",
   "eye.slash.fill": "visibility-off",
   "lightbulb.fill": "lightbulb",
   "moon.fill": "dark-mode",
   "sun.max.fill": "light-mode",
+
+  // Crypto & Finance
+  "bitcoinsign.circle.fill": "currency-bitcoin",
+  "target": "track-changes",
 } as Partial<
   Record<
     import("expo-symbols").SymbolViewProps["name"],

@@ -7,6 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,7 +21,7 @@ export default function HomeScreen() {
   const { user, getPoolStatus } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState('');
-  const [mxiPrice, setMxiPrice] = useState(10.0); // Simulated price in USDT
+  const [mxiPrice, setMxiPrice] = useState(0.4); // Pre-sale price in USDT
   const [totalPoolMembers, setTotalPoolMembers] = useState(56527);
   const [poolCloseDate, setPoolCloseDate] = useState<Date | null>(null);
   const [poolCloseDateString, setPoolCloseDateString] = useState('');
@@ -90,7 +91,7 @@ export default function HomeScreen() {
     await loadPoolStatus();
     // Simulate API call
     setTimeout(() => {
-      setMxiPrice(10.0 + Math.random() * 0.5);
+      setMxiPrice(0.4); // Fixed pre-sale price
       setRefreshing(false);
     }, 1000);
   };
@@ -110,9 +111,16 @@ export default function HomeScreen() {
         }
       >
         <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Welcome back,</Text>
-            <Text style={styles.userName}>{user.name}</Text>
+          <View style={styles.headerLeft}>
+            <Image
+              source={require('@/assets/images/04a4d9ac-4539-41d2-bafd-67dd75925bde.png')}
+              style={styles.headerLogo}
+              resizeMode="contain"
+            />
+            <View>
+              <Text style={styles.appName}>MXI Strategic PreSale</Text>
+              <Text style={styles.userName}>{user.name}</Text>
+            </View>
           </View>
           <TouchableOpacity
             style={styles.settingsButton}
@@ -127,12 +135,12 @@ export default function HomeScreen() {
           <View style={[commonStyles.card, styles.activeContributorCard]}>
             <View style={styles.activeContributorContent}>
               <View style={styles.activeContributorIcon}>
-                <IconSymbol name="checkmark.seal.fill" size={32} color="#fff" />
+                <IconSymbol name="checkmark.circle.fill" size={32} color="#fff" />
               </View>
               <View style={styles.activeContributorText}>
-                <Text style={styles.activeContributorTitle}>Colaborador Activo</Text>
+                <Text style={styles.activeContributorTitle}>Active Contributor</Text>
                 <Text style={styles.activeContributorSubtitle}>
-                  You are an active contributor to the MXI liquidity pool
+                  You are an active contributor to the MXI Strategic PreSale
                 </Text>
               </View>
             </View>
@@ -146,12 +154,12 @@ export default function HomeScreen() {
         <View style={[commonStyles.card, styles.countdownCard]}>
           <View style={styles.countdownHeader}>
             <IconSymbol name="clock.fill" size={24} color={colors.accent} />
-            <Text style={styles.countdownTitle}>Pool Closes In</Text>
+            <Text style={styles.countdownTitle}>Pre-Sale Closes In</Text>
           </View>
           <Text style={styles.countdownTime}>{timeRemaining}</Text>
           <Text style={styles.countdownDate}>{poolCloseDateString || 'Loading...'}</Text>
           <Text style={styles.countdownNote}>
-            Pool extends by 30 days after closing
+            Pre-Sale extends by 30 days after closing
           </Text>
         </View>
 
@@ -159,13 +167,13 @@ export default function HomeScreen() {
         <View style={[commonStyles.card, styles.balanceCard]}>
           <Text style={styles.balanceLabel}>Your MXI Balance</Text>
           <View style={styles.balanceRow}>
-            <IconSymbol name="bitcoinsign.circle.fill" size={32} color={colors.primary} />
+            <IconSymbol name="dollarsign.circle.fill" size={32} color={colors.primary} />
             <Text style={styles.balanceAmount}>{user.mxiBalance.toFixed(2)}</Text>
             <Text style={styles.balanceCurrency}>MXI</Text>
           </View>
           <View style={styles.balanceDetails}>
             <View style={styles.balanceDetailItem}>
-              <Text style={styles.balanceDetailLabel}>Current Price</Text>
+              <Text style={styles.balanceDetailLabel}>Pre-Sale Price</Text>
               <Text style={styles.balanceDetailValue}>${mxiPrice.toFixed(2)} USDT</Text>
             </View>
             <View style={styles.balanceDetailItem}>
@@ -181,16 +189,16 @@ export default function HomeScreen() {
 
         {/* Pool Statistics */}
         <View style={[commonStyles.card, styles.statsCard]}>
-          <Text style={styles.statsTitle}>Pool Statistics</Text>
+          <Text style={styles.statsTitle}>Pre-Sale Statistics</Text>
           <View style={styles.statRow}>
             <View style={styles.statItem}>
-              <IconSymbol name="person.3.fill" size={24} color={colors.secondary} />
+              <IconSymbol name="person.2.fill" size={24} color={colors.secondary} />
               <Text style={styles.statValue}>{totalPoolMembers.toLocaleString()}</Text>
-              <Text style={styles.statLabel}>Total Members</Text>
+              <Text style={styles.statLabel}>Total Participants</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <IconSymbol name="target" size={24} color={colors.accent} />
+              <IconSymbol name="star.fill" size={24} color={colors.accent} />
               <Text style={styles.statValue}>250,000</Text>
               <Text style={styles.statLabel}>Target</Text>
             </View>
@@ -214,8 +222,8 @@ export default function HomeScreen() {
             style={[styles.actionButton, styles.primaryAction]}
             onPress={() => router.push('/(tabs)/(home)/contribute')}
           >
-            <IconSymbol name="plus.circle.fill" size={24} color="#fff" />
-            <Text style={styles.actionButtonText}>Add Funds</Text>
+            <IconSymbol name="plus" size={24} color="#fff" />
+            <Text style={styles.actionButtonText}>Buy MXI</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -232,11 +240,11 @@ export default function HomeScreen() {
           style={[styles.actionButton, styles.mxiWithdrawAction]}
           onPress={() => router.push('/(tabs)/(home)/withdraw-mxi')}
         >
-          <IconSymbol name="bitcoinsign.circle.fill" size={24} color={colors.accent} />
+          <IconSymbol name="dollarsign.circle.fill" size={24} color={colors.accent} />
           <Text style={styles.actionButtonTextMXI}>Withdraw MXI</Text>
           <View style={styles.withdrawBadge}>
             <Text style={styles.withdrawBadgeText}>
-              {user.activeReferrals}/10
+              {user.activeReferrals}/5
             </Text>
           </View>
         </TouchableOpacity>
@@ -277,12 +285,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
-  greeting: {
-    fontSize: 16,
-    color: colors.textSecondary,
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  headerLogo: {
+    width: 50,
+    height: 50,
+  },
+  appName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+    marginBottom: 2,
   },
   userName: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '700',
     color: colors.text,
   },
