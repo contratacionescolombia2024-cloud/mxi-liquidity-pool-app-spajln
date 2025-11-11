@@ -34,6 +34,9 @@ interface User {
   accumulatedYield: number;
   kycStatus: 'not_submitted' | 'pending' | 'approved' | 'rejected';
   kycVerifiedAt?: string;
+  availableMXI?: number;
+  nextReleaseDate?: string;
+  releasePercentage?: number;
 }
 
 interface PoolStatus {
@@ -63,6 +66,7 @@ interface AuthContextType {
   getCurrentYield: () => number;
   getPoolStatus: () => Promise<PoolStatus | null>;
   checkMXIWithdrawalEligibility: () => Promise<boolean>;
+  getAvailableMXI: () => Promise<number>;
 }
 
 interface RegisterData {
@@ -176,6 +180,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         withdrawn: commissionData?.filter(c => c.status === 'withdrawn').reduce((sum, c) => sum + parseFloat(c.amount.toString()), 0) || 0,
       };
 
+      // Get MXI withdrawal schedule
+      const { data: scheduleData } = await supabase
+        .from('mxi_withdrawal_schedule')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
       const mappedUser: User = {
         id: userData.id,
         name: userData.name,
@@ -199,6 +210,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         accumulatedYield: parseFloat(userData.accumulated_yield?.toString() || '0'),
         kycStatus: userData.kyc_status || 'not_submitted',
         kycVerifiedAt: userData.kyc_verified_at,
+        availableMXI: scheduleData ? parseFloat(scheduleData.released_mxi?.toString() || '0') : 0,
+        nextReleaseDate: scheduleData?.next_release_date,
+        releasePercentage: scheduleData ? parseFloat(scheduleData.release_percentage?.toString() || '10') : 10,
       };
 
       console.log('User data loaded:', mappedUser);
@@ -562,6 +576,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
+      // Check available MXI from phased release
+      const availableMXI = await getAvailableMXI();
+
+      if (availableMXI === 0) {
+        return { 
+          success: false, 
+          error: 'No MXI available for withdrawal yet. Please wait for the next release cycle.' 
+        };
+      }
+
+      if (amount > availableMXI) {
+        return { 
+          success: false, 
+          error: `You can only withdraw up to ${availableMXI.toFixed(2)} MXI at this time. The remaining balance will be released in weekly cycles.` 
+        };
+      }
+
+      // Check basic eligibility
       const { data: canWithdrawMXI, error: eligibilityError } = await supabase
         .rpc('check_mxi_withdrawal_eligibility', { p_user_id: user.id });
 
@@ -571,31 +603,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (!canWithdrawMXI) {
-        const { data: poolStatus } = await supabase.rpc('get_pool_status');
-        const status = poolStatus?.[0];
-
         if (user.activeReferrals < 5) {
           return { 
             success: false, 
-            error: `You need 5 active referrals to withdraw mined MXI. You currently have ${user.activeReferrals} active referrals. Keep inviting friends!` 
+            error: `You need 5 active referrals to withdraw mined MXI. You currently have ${user.activeReferrals} active referrals.` 
           };
         }
+
+        const { data: poolStatus } = await supabase.rpc('get_pool_status');
+        const status = poolStatus?.[0];
 
         if (status && !status.is_mxi_launched) {
           const daysUntil = status.days_until_launch;
           return { 
             success: false, 
-            error: `MXI withdrawals will be available in ${daysUntil} days after the pool closes. Current launch date: ${new Date(status.mxi_launch_date).toLocaleDateString()}` 
+            error: `MXI withdrawals will be available in ${daysUntil} days after the pool closes.` 
           };
         }
 
         return { success: false, error: 'MXI withdrawals are not yet available' };
       }
 
-      if (amount > user.mxiBalance) {
-        return { success: false, error: 'Insufficient MXI balance' };
-      }
-
+      // Create withdrawal request
       const { error: withdrawalError } = await supabase
         .from('withdrawals')
         .insert({
@@ -611,16 +640,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'Failed to create withdrawal request' };
       }
 
-      const { error: updateError } = await supabase
-        .from('users')
+      // Update withdrawal schedule
+      const { error: scheduleError } = await supabase
+        .from('mxi_withdrawal_schedule')
         .update({
-          mxi_balance: user.mxiBalance - amount,
+          released_mxi: user.availableMXI! - amount,
         })
-        .eq('id', user.id);
+        .eq('user_id', user.id);
 
-      if (updateError) {
-        console.error('Update MXI balance error:', updateError);
-        return { success: false, error: 'Failed to update balance' };
+      if (scheduleError) {
+        console.error('Schedule update error:', scheduleError);
       }
 
       await loadUserData(user.id);
@@ -629,6 +658,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error: any) {
       console.error('Withdraw MXI exception:', error);
       return { success: false, error: error.message || 'Withdrawal failed' };
+    }
+  };
+
+  const getAvailableMXI = async (): Promise<number> => {
+    if (!user) return 0;
+
+    try {
+      const { data, error } = await supabase
+        .rpc('get_available_mxi_for_withdrawal', { p_user_id: user.id });
+
+      if (error) {
+        console.error('Error getting available MXI:', error);
+        return 0;
+      }
+
+      return parseFloat(data?.toString() || '0');
+    } catch (error) {
+      console.error('Exception getting available MXI:', error);
+      return 0;
     }
   };
 
@@ -768,6 +816,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         getCurrentYield,
         getPoolStatus,
         checkMXIWithdrawalEligibility,
+        getAvailableMXI,
       }}
     >
       {children}

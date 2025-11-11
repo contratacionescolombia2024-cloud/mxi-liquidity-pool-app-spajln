@@ -18,13 +18,14 @@ import { IconSymbol } from '@/components/IconSymbol';
 
 export default function WithdrawMXIScreen() {
   const router = useRouter();
-  const { user, withdrawMXI, checkMXIWithdrawalEligibility, getPoolStatus } = useAuth();
+  const { user, withdrawMXI, checkMXIWithdrawalEligibility, getPoolStatus, getAvailableMXI } = useAuth();
   const [walletAddress, setWalletAddress] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [canWithdrawMXI, setCanWithdrawMXI] = useState(false);
   const [poolStatus, setPoolStatus] = useState<any>(null);
   const [checkingEligibility, setCheckingEligibility] = useState(true);
+  const [availableMXI, setAvailableMXI] = useState(0);
 
   useEffect(() => {
     loadEligibility();
@@ -34,8 +35,10 @@ export default function WithdrawMXIScreen() {
     setCheckingEligibility(true);
     const eligible = await checkMXIWithdrawalEligibility();
     const status = await getPoolStatus();
+    const available = await getAvailableMXI();
     setCanWithdrawMXI(eligible);
     setPoolStatus(status);
+    setAvailableMXI(available);
     setCheckingEligibility(false);
   };
 
@@ -49,8 +52,8 @@ export default function WithdrawMXIScreen() {
       return;
     }
 
-    if (amount > user.mxiBalance) {
-      Alert.alert('Error', `You only have ${user.mxiBalance.toFixed(2)} MXI available`);
+    if (amount > availableMXI) {
+      Alert.alert('Error', `You can only withdraw up to ${availableMXI.toFixed(2)} MXI at this time`);
       return;
     }
 
@@ -111,6 +114,7 @@ export default function WithdrawMXIScreen() {
 
   const activeReferralsProgress = Math.min((user.activeReferrals / 5) * 100, 100);
   const referralsNeeded = Math.max(0, 5 - user.activeReferrals);
+  const releaseProgress = user.mxiBalance > 0 ? (availableMXI / user.mxiBalance) * 100 : 0;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -120,16 +124,49 @@ export default function WithdrawMXIScreen() {
             <IconSymbol name="chevron.left" size={24} color={colors.primary} />
           </TouchableOpacity>
           <Text style={styles.title}>Withdraw MXI</Text>
-          <Text style={styles.subtitle}>Withdraw your mined MXI tokens</Text>
+          <Text style={styles.subtitle}>Phased release withdrawal system</Text>
         </View>
 
         <View style={[commonStyles.card, styles.balanceCard]}>
-          <Text style={styles.balanceLabel}>Available MXI Balance</Text>
+          <Text style={styles.balanceLabel}>Total MXI Balance</Text>
           <View style={styles.balanceRow}>
             <IconSymbol name="bitcoinsign.circle.fill" size={40} color={colors.primary} />
             <Text style={styles.balanceAmount}>{user.mxiBalance.toFixed(2)}</Text>
             <Text style={styles.balanceCurrency}>MXI</Text>
           </View>
+          <View style={styles.divider} />
+          <View style={styles.availableRow}>
+            <View>
+              <Text style={styles.availableLabel}>Available for Withdrawal</Text>
+              <Text style={styles.availableAmount}>{availableMXI.toFixed(2)} MXI</Text>
+            </View>
+            <View style={styles.progressCircle}>
+              <Text style={styles.progressText}>{releaseProgress.toFixed(0)}%</Text>
+            </View>
+          </View>
+          {user.nextReleaseDate && (
+            <Text style={styles.nextReleaseText}>
+              Next release: {new Date(user.nextReleaseDate).toLocaleDateString()} ({user.releasePercentage}%)
+            </Text>
+          )}
+        </View>
+
+        <View style={[commonStyles.card, styles.infoCard]}>
+          <View style={styles.infoHeader}>
+            <IconSymbol name="info.circle.fill" size={24} color={colors.primary} />
+            <Text style={styles.infoTitle}>Phased Release System</Text>
+          </View>
+          <Text style={styles.infoText}>
+            To prevent market overselling and price drops, MXI withdrawals are released in phases:
+            {'\n\n'}
+            - <Text style={styles.boldText}>10% initial release</Text> on launch date
+            {'\n'}
+            - <Text style={styles.boldText}>10% every 7 days</Text> thereafter
+            {'\n'}
+            - Protects token value and ensures stability
+            {'\n'}
+            - All MXI will be fully available over time
+          </Text>
         </View>
 
         <View
@@ -151,7 +188,7 @@ export default function WithdrawMXIScreen() {
               </Text>
               <Text style={styles.eligibilitySubtitle}>
                 {canWithdrawMXI
-                  ? 'You can now withdraw your mined MXI'
+                  ? 'You can now withdraw your available MXI'
                   : 'Complete requirements to unlock withdrawals'}
               </Text>
             </View>
@@ -262,7 +299,7 @@ export default function WithdrawMXIScreen() {
           )}
         </View>
 
-        {canWithdrawMXI && user.mxiBalance > 0 && (
+        {canWithdrawMXI && availableMXI > 0 && (
           <View style={[commonStyles.card, styles.withdrawForm]}>
             <Text style={styles.formTitle}>Withdrawal Details</Text>
 
@@ -270,7 +307,7 @@ export default function WithdrawMXIScreen() {
               <Text style={commonStyles.label}>Amount (MXI)</Text>
               <TextInput
                 style={commonStyles.input}
-                placeholder={`Max: ${user.mxiBalance.toFixed(2)}`}
+                placeholder={`Max: ${availableMXI.toFixed(2)}`}
                 placeholderTextColor={colors.textSecondary}
                 value={withdrawAmount}
                 onChangeText={setWithdrawAmount}
@@ -278,7 +315,7 @@ export default function WithdrawMXIScreen() {
               />
               <TouchableOpacity
                 style={styles.maxButton}
-                onPress={() => setWithdrawAmount(user.mxiBalance.toString())}
+                onPress={() => setWithdrawAmount(availableMXI.toString())}
               >
                 <Text style={styles.maxButtonText}>MAX</Text>
               </TouchableOpacity>
@@ -314,17 +351,18 @@ export default function WithdrawMXIScreen() {
           </View>
         )}
 
-        <View style={[commonStyles.card, styles.infoCard]}>
-          <IconSymbol name="info.circle.fill" size={20} color={colors.primary} />
-          <View style={styles.infoContent}>
-            <Text style={styles.infoTitle}>Important Information:</Text>
-            <Text style={styles.infoText}>
+        <View style={[commonStyles.card, styles.warningCard]}>
+          <IconSymbol name="exclamationmark.triangle.fill" size={20} color={colors.warning} />
+          <View style={styles.warningContent}>
+            <Text style={styles.warningTitle}>Important Information:</Text>
+            <Text style={styles.warningText}>
               - MXI withdrawals require 5 active referrals{'\n'}
-              - KYC verification is mandatory for all withdrawals{'\n'}
-              - Withdrawals are only available after the pool launch date{'\n'}
+              - KYC verification is mandatory{'\n'}
+              - Only available MXI can be withdrawn{'\n'}
+              - Remaining balance releases every 7 days{'\n'}
               - Processing time: 24-48 hours{'\n'}
-              - Make sure your wallet address is correct{'\n'}
-              - Transactions cannot be reversed once confirmed
+              - Verify wallet address carefully{'\n'}
+              - Transactions cannot be reversed
             </Text>
           </View>
         </View>
@@ -396,6 +434,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    marginBottom: 16,
   },
   balanceAmount: {
     fontSize: 40,
@@ -406,6 +445,74 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '600',
     color: colors.textSecondary,
+  },
+  divider: {
+    width: '100%',
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: 16,
+  },
+  availableRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+  },
+  availableLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  availableAmount: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.success,
+  },
+  progressCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.primary + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: colors.primary,
+  },
+  progressText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  nextReleaseText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 12,
+    fontStyle: 'italic',
+  },
+  infoCard: {
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+  },
+  infoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  infoTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  infoText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 22,
+  },
+  boldText: {
+    fontWeight: '700',
+    color: colors.text,
   },
   eligibilityCard: {
     marginBottom: 16,
@@ -533,24 +640,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  infoCard: {
+  warningCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
     borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
+    borderLeftColor: colors.warning,
     marginBottom: 16,
   },
-  infoContent: {
+  warningContent: {
     flex: 1,
   },
-  infoTitle: {
+  warningTitle: {
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
     marginBottom: 8,
   },
-  infoText: {
+  warningText: {
     fontSize: 12,
     color: colors.textSecondary,
     lineHeight: 18,

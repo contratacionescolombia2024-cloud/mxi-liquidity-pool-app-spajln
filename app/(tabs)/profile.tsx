@@ -13,10 +13,33 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, commonStyles } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
+import { supabase } from '@/lib/supabase';
+import { useState, useEffect } from 'react';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    checkAdminStatus();
+  }, [user]);
+
+  const checkAdminStatus = async () => {
+    if (!user) return;
+
+    try {
+      const { data } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      setIsAdmin(!!data);
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -52,160 +75,108 @@ export default function ProfileScreen() {
         <View style={styles.header}>
           <View style={styles.avatarContainer}>
             <IconSymbol name="person.circle.fill" size={80} color={colors.primary} />
-            {user.emailVerified && (
-              <View style={styles.verifiedBadge}>
-                <IconSymbol name="checkmark.circle.fill" size={24} color={colors.success} />
-              </View>
-            )}
           </View>
           <Text style={styles.name}>{user.name}</Text>
           <Text style={styles.email}>{user.email}</Text>
-          {!user.emailVerified && (
-            <View style={styles.unverifiedBadge}>
-              <IconSymbol name="exclamationmark.triangle" size={16} color={colors.warning} />
-              <Text style={styles.unverifiedText}>Email not verified</Text>
+          {user.kycStatus === 'approved' && (
+            <View style={styles.verifiedBadge}>
+              <IconSymbol name="checkmark.seal.fill" size={16} color={colors.success} />
+              <Text style={styles.verifiedText}>KYC Verified</Text>
             </View>
           )}
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account Information</Text>
-          
-          <View style={styles.infoCard}>
+
+          <View style={[commonStyles.card, styles.infoCard]}>
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>ID Number:</Text>
+              <Text style={styles.infoLabel}>ID Number</Text>
               <Text style={styles.infoValue}>{user.idNumber}</Text>
             </View>
+            <View style={styles.divider} />
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Address:</Text>
-              <Text style={styles.infoValue}>{user.address}</Text>
+              <Text style={styles.infoLabel}>Referral Code</Text>
+              <Text style={styles.infoValue}>{user.referralCode}</Text>
             </View>
+            <View style={styles.divider} />
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Referral Code:</Text>
-              <Text style={[styles.infoValue, styles.referralCode]}>{user.referralCode}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Joined:</Text>
+              <Text style={styles.infoLabel}>Member Since</Text>
               <Text style={styles.infoValue}>
-                {new Date(user.joinedDate).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                })}
+                {new Date(user.joinedDate).toLocaleDateString()}
               </Text>
             </View>
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Portfolio Summary</Text>
-          
-          <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
-              <IconSymbol name="bitcoinsign.circle.fill" size={32} color={colors.primary} />
-              <Text style={styles.statValue}>{user.mxiBalance.toFixed(1)}</Text>
-              <Text style={styles.statLabel}>MXI Balance</Text>
-            </View>
-            <View style={styles.statCard}>
-              <IconSymbol name="dollarsign.circle.fill" size={32} color={colors.success} />
-              <Text style={styles.statValue}>{user.usdtContributed.toFixed(0)}</Text>
-              <Text style={styles.statLabel}>USDT Contributed</Text>
-            </View>
-          </View>
-        </View>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Referral Stats</Text>
-          
-          <View style={styles.referralCard}>
-            <View style={styles.referralRow}>
-              <Text style={styles.referralLabel}>Active Referrals:</Text>
-              <Text style={styles.referralValue}>{user.activeReferrals}</Text>
-            </View>
-            <View style={styles.referralRow}>
-              <Text style={styles.referralLabel}>Total Commissions:</Text>
-              <Text style={styles.referralValue}>{user.commissions.total.toFixed(2)} USDT</Text>
-            </View>
-            <View style={styles.referralRow}>
-              <Text style={styles.referralLabel}>Available:</Text>
-              <Text style={[styles.referralValue, styles.availableValue]}>
-                {user.commissions.available.toFixed(2)} USDT
-              </Text>
-            </View>
-            <View style={styles.referralRow}>
-              <Text style={styles.referralLabel}>Withdrawn:</Text>
-              <Text style={styles.referralValue}>{user.commissions.withdrawn.toFixed(2)} USDT</Text>
-            </View>
-          </View>
+          {isAdmin && (
+            <TouchableOpacity
+              style={[commonStyles.card, styles.menuItem, styles.adminMenuItem]}
+              onPress={() => router.push('/(tabs)/(admin)')}
+            >
+              <View style={styles.menuItemContent}>
+                <IconSymbol name="shield.lefthalf.filled" size={24} color={colors.error} />
+                <Text style={[styles.menuItemText, styles.adminMenuText]}>Admin Dashboard</Text>
+              </View>
+              <IconSymbol name="chevron.right" size={20} color={colors.error} />
+            </TouchableOpacity>
+          )}
 
-          {/* MXI Withdrawal Eligibility */}
-          <View style={[styles.eligibilityBanner, user.activeReferrals >= 10 ? styles.eligibleBanner : styles.notEligibleBanner]}>
-            <IconSymbol 
-              name={user.activeReferrals >= 10 ? 'checkmark.seal.fill' : 'lock.fill'} 
-              size={20} 
-              color={user.activeReferrals >= 10 ? colors.success : colors.warning} 
-            />
-            <Text style={styles.eligibilityText}>
-              {user.activeReferrals >= 10 
-                ? 'MXI Withdrawal Unlocked!' 
-                : `${10 - user.activeReferrals} more referrals to unlock MXI withdrawals`}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Actions</Text>
-          
           <TouchableOpacity
-            style={styles.menuItem}
+            style={[commonStyles.card, styles.menuItem]}
+            onPress={() => router.push('/(tabs)/(home)/support')}
+          >
+            <View style={styles.menuItemContent}>
+              <IconSymbol name="questionmark.circle.fill" size={24} color={colors.primary} />
+              <Text style={styles.menuItemText}>Support & Help</Text>
+            </View>
+            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[commonStyles.card, styles.menuItem]}
+            onPress={() => router.push('/(tabs)/(home)/kyc-verification')}
+          >
+            <View style={styles.menuItemContent}>
+              <IconSymbol name="person.badge.shield.checkmark" size={24} color={colors.warning} />
+              <Text style={styles.menuItemText}>KYC Verification</Text>
+            </View>
+            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[commonStyles.card, styles.menuItem]}
             onPress={() => router.push('/(tabs)/(home)/withdrawals')}
           >
-            <View style={styles.menuItemLeft}>
-              <IconSymbol name="arrow.down.circle" size={24} color={colors.primary} />
+            <View style={styles.menuItemContent}>
+              <IconSymbol name="arrow.down.circle" size={24} color={colors.success} />
               <Text style={styles.menuItemText}>Withdrawal History</Text>
             </View>
             <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => router.push('/(tabs)/(home)/contribute')}
+            style={[commonStyles.card, styles.menuItem]}
+            onPress={() => router.push('/(tabs)/(home)/binance-payments')}
           >
-            <View style={styles.menuItemLeft}>
-              <IconSymbol name="plus.circle" size={24} color={colors.success} />
-              <Text style={styles.menuItemText}>Increase Participation</Text>
-            </View>
-            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => router.push('/(tabs)/(home)/referrals')}
-          >
-            <View style={styles.menuItemLeft}>
-              <IconSymbol name="person.3" size={24} color={colors.secondary} />
-              <Text style={styles.menuItemText}>Manage Referrals</Text>
+            <View style={styles.menuItemContent}>
+              <IconSymbol name="creditcard" size={24} color={colors.primary} />
+              <Text style={styles.menuItemText}>Payment History</Text>
             </View>
             <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity
-          style={styles.logoutButton}
+          style={[commonStyles.card, styles.logoutButton]}
           onPress={handleLogout}
         >
-          <IconSymbol name="arrow.right.square" size={20} color={colors.error} />
+          <IconSymbol name="rectangle.portrait.and.arrow.right" size={24} color={colors.error} />
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
-
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Pool extends by 30 days after closing
-          </Text>
-          <Text style={styles.footerText}>
-            MXI withdrawals require 10 active referrals + launch date
-          </Text>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -228,21 +199,14 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     padding: 24,
+    paddingBottom: 100,
   },
   header: {
     alignItems: 'center',
     marginBottom: 32,
   },
   avatarContainer: {
-    position: 'relative',
     marginBottom: 16,
-  },
-  verifiedBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: colors.background,
-    borderRadius: 12,
   },
   name: {
     fontSize: 24,
@@ -253,21 +217,21 @@ const styles = StyleSheet.create({
   email: {
     fontSize: 14,
     color: colors.textSecondary,
+    marginBottom: 12,
   },
-  unverifiedBadge: {
+  verifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 8,
+    backgroundColor: colors.success + '20',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: colors.cardBackground,
     borderRadius: 16,
   },
-  unverifiedText: {
+  verifiedText: {
     fontSize: 12,
-    color: colors.warning,
     fontWeight: '600',
+    color: colors.success,
   },
   section: {
     marginBottom: 24,
@@ -279,14 +243,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   infoCard: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: 12,
-    padding: 16,
+    padding: 0,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    alignItems: 'center',
+    padding: 16,
   },
   infoLabel: {
     fontSize: 14,
@@ -296,126 +259,49 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
-    maxWidth: '60%',
-    textAlign: 'right',
   },
-  referralCode: {
-    color: colors.primary,
-    letterSpacing: 1,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: colors.cardBackground,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.text,
-    marginTop: 8,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  referralCard: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: 12,
-    padding: 16,
-  },
-  referralRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  referralLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  referralValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  availableValue: {
-    color: colors.success,
-  },
-  eligibilityBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 12,
-  },
-  eligibleBanner: {
-    backgroundColor: colors.success + '20',
-    borderWidth: 1,
-    borderColor: colors.success,
-  },
-  notEligibleBanner: {
-    backgroundColor: colors.warning + '20',
-    borderWidth: 1,
-    borderColor: colors.warning,
-  },
-  eligibilityText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.text,
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
   },
   menuItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: colors.cardBackground,
-    padding: 16,
-    borderRadius: 12,
+    justifyContent: 'space-between',
     marginBottom: 12,
+    padding: 16,
   },
-  menuItemLeft: {
+  adminMenuItem: {
+    borderWidth: 2,
+    borderColor: colors.error,
+    backgroundColor: colors.error + '10',
+  },
+  menuItemContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
   menuItemText: {
     fontSize: 16,
+    fontWeight: '600',
     color: colors.text,
-    fontWeight: '500',
+  },
+  adminMenuText: {
+    color: colors.error,
   },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.cardBackground,
+    gap: 12,
     padding: 16,
-    borderRadius: 12,
-    marginTop: 8,
-    borderWidth: 1,
+    marginTop: 24,
+    borderWidth: 2,
     borderColor: colors.error,
   },
   logoutText: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.error,
-  },
-  footer: {
-    marginTop: 32,
-    alignItems: 'center',
-    gap: 4,
-  },
-  footerText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: 'center',
   },
 });
