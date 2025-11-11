@@ -48,6 +48,18 @@ interface PoolStatus {
   days_until_launch: number;
 }
 
+interface PhaseInfo {
+  totalTokensSold: number;
+  currentPhase: number;
+  currentPriceUsdt: number;
+  phase1TokensSold: number;
+  phase2TokensSold: number;
+  phase3TokensSold: number;
+  phase1Remaining: number;
+  phase2Remaining: number;
+  tokensUntilNextPhase: number;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -68,6 +80,7 @@ interface AuthContextType {
   checkMXIWithdrawalEligibility: () => Promise<boolean>;
   getAvailableMXI: () => Promise<number>;
   checkAdminStatus: () => Promise<boolean>;
+  getPhaseInfo: () => Promise<PhaseInfo | null>;
 }
 
 interface RegisterData {
@@ -347,8 +360,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await createReferralChain(authData.user.id, referrerId);
       }
 
-      await supabase.rpc('increment_total_members');
-
       console.log('Registration successful. Please verify your email.');
       return { success: true };
     } catch (error: any) {
@@ -447,8 +458,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) return { success: false, error: 'Not authenticated' };
 
     try {
-      // New pricing: 1 MXI = 0.4 USDT
-      const mxiTokens = usdtAmount / 0.4;
+      // Get current phase info to determine price
+      const { data: phaseData, error: phaseError } = await supabase.rpc('get_phase_info');
+
+      if (phaseError) {
+        console.error('Phase info error:', phaseError);
+        return { success: false, error: 'Failed to get current pricing' };
+      }
+
+      const currentPrice = phaseData?.[0]?.current_price_usdt || 0.30;
+      const mxiTokens = usdtAmount / currentPrice;
 
       const { error: contributionError } = await supabase
         .from('contributions')
@@ -481,6 +500,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Update balance error:', updateError);
         return { success: false, error: 'Failed to update balance' };
       }
+
+      // Update token sales tracking
+      await supabase.rpc('update_token_sales', { p_tokens_sold: mxiTokens });
 
       await supabase.rpc('process_referral_commissions', {
         p_user_id: user.id,
@@ -822,6 +844,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const getPhaseInfo = async (): Promise<PhaseInfo | null> => {
+    try {
+      const { data, error } = await supabase.rpc('get_phase_info');
+
+      if (error) {
+        console.error('Get phase info error:', error);
+        return null;
+      }
+
+      const phaseData = data?.[0];
+      if (!phaseData) return null;
+
+      return {
+        totalTokensSold: parseFloat(phaseData.total_tokens_sold?.toString() || '0'),
+        currentPhase: phaseData.current_phase || 1,
+        currentPriceUsdt: parseFloat(phaseData.current_price_usdt?.toString() || '0'),
+        phase1TokensSold: parseFloat(phaseData.phase_1_tokens_sold?.toString() || '0'),
+        phase2TokensSold: parseFloat(phaseData.phase_2_tokens_sold?.toString() || '0'),
+        phase3TokensSold: parseFloat(phaseData.phase_3_tokens_sold?.toString() || '0'),
+        phase1Remaining: parseFloat(phaseData.phase_1_remaining?.toString() || '0'),
+        phase2Remaining: parseFloat(phaseData.phase_2_remaining?.toString() || '0'),
+        tokensUntilNextPhase: parseFloat(phaseData.tokens_until_next_phase?.toString() || '0'),
+      };
+    } catch (error) {
+      console.error('Get phase info exception:', error);
+      return null;
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -844,6 +895,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         checkMXIWithdrawalEligibility,
         getAvailableMXI,
         checkAdminStatus,
+        getPhaseInfo,
       }}
     >
       {children}

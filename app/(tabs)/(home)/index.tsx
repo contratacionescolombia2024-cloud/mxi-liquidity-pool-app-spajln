@@ -16,17 +16,30 @@ import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
 import YieldDisplay from '@/components/YieldDisplay';
 
+interface PhaseInfo {
+  totalTokensSold: number;
+  currentPhase: number;
+  currentPriceUsdt: number;
+  phase1TokensSold: number;
+  phase2TokensSold: number;
+  phase3TokensSold: number;
+  phase1Remaining: number;
+  phase2Remaining: number;
+  tokensUntilNextPhase: number;
+}
+
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, getPoolStatus } = useAuth();
+  const { user, getPoolStatus, getPhaseInfo } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState('');
-  const [mxiPrice, setMxiPrice] = useState(0.4); // Pre-sale price in USDT
   const [poolCloseDate, setPoolCloseDate] = useState<Date | null>(null);
   const [poolCloseDateString, setPoolCloseDateString] = useState('');
+  const [phaseInfo, setPhaseInfo] = useState<PhaseInfo | null>(null);
 
   useEffect(() => {
     loadPoolStatus();
+    loadPhaseInfo();
   }, []);
 
   const loadPoolStatus = async () => {
@@ -43,6 +56,13 @@ export default function HomeScreen() {
         timeZone: 'UTC',
         timeZoneName: 'short',
       }));
+    }
+  };
+
+  const loadPhaseInfo = async () => {
+    const info = await getPhaseInfo();
+    if (info) {
+      setPhaseInfo(info);
     }
   };
 
@@ -74,18 +94,39 @@ export default function HomeScreen() {
   const onRefresh = async () => {
     setRefreshing(true);
     await loadPoolStatus();
-    // Simulate API call
-    setTimeout(() => {
-      setMxiPrice(0.4); // Fixed pre-sale price
-      setRefreshing(false);
-    }, 1000);
+    await loadPhaseInfo();
+    setRefreshing(false);
   };
 
   if (!user) {
     return null;
   }
 
-  const totalValue = user.mxiBalance * mxiPrice;
+  const totalValue = phaseInfo ? user.mxiBalance * phaseInfo.currentPriceUsdt : 0;
+
+  const getPhaseDescription = (phase: number) => {
+    switch (phase) {
+      case 1:
+        return '20M MXI at 0.30 USDT';
+      case 2:
+        return '20M MXI at 0.80 USDT';
+      case 3:
+        return 'Price by Liquidity Pool';
+      default:
+        return '';
+    }
+  };
+
+  const getPhaseProgress = () => {
+    if (!phaseInfo) return 0;
+    
+    if (phaseInfo.currentPhase === 1) {
+      return (phaseInfo.phase1TokensSold / 20000000) * 100;
+    } else if (phaseInfo.currentPhase === 2) {
+      return (phaseInfo.phase2TokensSold / 20000000) * 100;
+    }
+    return 100;
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -132,6 +173,117 @@ export default function HomeScreen() {
           </View>
         )}
 
+        {/* Token Sales Phase Card */}
+        {phaseInfo && (
+          <View style={[commonStyles.card, styles.phaseCard]}>
+            <View style={styles.phaseHeader}>
+              <View style={styles.phaseHeaderLeft}>
+                <IconSymbol name="chart.line.uptrend.xyaxis" size={24} color={colors.accent} />
+                <Text style={styles.phaseTitle}>Phase {phaseInfo.currentPhase}</Text>
+              </View>
+              <View style={styles.phaseBadge}>
+                <Text style={styles.phaseBadgeText}>${phaseInfo.currentPriceUsdt.toFixed(2)} USDT</Text>
+              </View>
+            </View>
+            
+            <Text style={styles.phaseDescription}>{getPhaseDescription(phaseInfo.currentPhase)}</Text>
+            
+            <View style={styles.tokensSoldContainer}>
+              <Text style={styles.tokensSoldLabel}>Total Tokens Sold</Text>
+              <Text style={styles.tokensSoldValue}>
+                {phaseInfo.totalTokensSold.toLocaleString('en-US', { maximumFractionDigits: 0 })} MXI
+              </Text>
+            </View>
+
+            {phaseInfo.currentPhase < 3 && (
+              <>
+                <View style={styles.progressBarContainer}>
+                  <View style={styles.progressBarBackground}>
+                    <View 
+                      style={[
+                        styles.progressBarFill, 
+                        { width: `${getPhaseProgress()}%` }
+                      ]} 
+                    />
+                  </View>
+                  <Text style={styles.progressText}>
+                    {getPhaseProgress().toFixed(1)}% Complete
+                  </Text>
+                </View>
+
+                <View style={styles.phaseStatsRow}>
+                  <View style={styles.phaseStat}>
+                    <Text style={styles.phaseStatLabel}>Sold in Phase</Text>
+                    <Text style={styles.phaseStatValue}>
+                      {(phaseInfo.currentPhase === 1 
+                        ? phaseInfo.phase1TokensSold 
+                        : phaseInfo.phase2TokensSold
+                      ).toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                    </Text>
+                  </View>
+                  <View style={styles.phaseStat}>
+                    <Text style={styles.phaseStatLabel}>Remaining</Text>
+                    <Text style={styles.phaseStatValue}>
+                      {phaseInfo.tokensUntilNextPhase.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                    </Text>
+                  </View>
+                </View>
+              </>
+            )}
+
+            {phaseInfo.currentPhase === 3 && (
+              <View style={styles.phase3Notice}>
+                <IconSymbol name="info.circle.fill" size={20} color={colors.accent} />
+                <Text style={styles.phase3NoticeText}>
+                  Price is now determined by the liquidity pool
+                </Text>
+              </View>
+            )}
+
+            {/* Phase Timeline */}
+            <View style={styles.phaseTimeline}>
+              <View style={styles.timelineItem}>
+                <View style={[
+                  styles.timelineDot, 
+                  phaseInfo.currentPhase >= 1 && styles.timelineDotActive
+                ]} />
+                <View style={styles.timelineContent}>
+                  <Text style={styles.timelinePhase}>Phase 1</Text>
+                  <Text style={styles.timelinePrice}>$0.30</Text>
+                </View>
+              </View>
+              <View style={[
+                styles.timelineLine,
+                phaseInfo.currentPhase >= 2 && styles.timelineLineActive
+              ]} />
+              <View style={styles.timelineItem}>
+                <View style={[
+                  styles.timelineDot,
+                  phaseInfo.currentPhase >= 2 && styles.timelineDotActive
+                ]} />
+                <View style={styles.timelineContent}>
+                  <Text style={styles.timelinePhase}>Phase 2</Text>
+                  <Text style={styles.timelinePrice}>$0.80</Text>
+                </View>
+              </View>
+              <View style={[
+                styles.timelineLine,
+                phaseInfo.currentPhase >= 3 && styles.timelineLineActive
+              ]} />
+              <View style={styles.timelineItem}>
+                <View style={[
+                  styles.timelineDot,
+                  phaseInfo.currentPhase >= 3 && styles.timelineDotActive
+                ]} />
+                <View style={styles.timelineContent}>
+                  <Text style={styles.timelinePhase}>Phase 3</Text>
+                  <Text style={styles.timelinePrice}>Liquidity</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Yield Display - Real-time mining */}
         <YieldDisplay />
 
@@ -158,8 +310,10 @@ export default function HomeScreen() {
           </View>
           <View style={styles.balanceDetails}>
             <View style={styles.balanceDetailItem}>
-              <Text style={styles.balanceDetailLabel}>Pre-Sale Price</Text>
-              <Text style={styles.balanceDetailValue}>${mxiPrice.toFixed(2)} USDT</Text>
+              <Text style={styles.balanceDetailLabel}>Current Price</Text>
+              <Text style={styles.balanceDetailValue}>
+                ${phaseInfo?.currentPriceUsdt.toFixed(2) || '0.00'} USDT
+              </Text>
             </View>
             <View style={styles.balanceDetailItem}>
               <Text style={styles.balanceDetailLabel}>Total Value</Text>
@@ -297,6 +451,154 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.9)',
     lineHeight: 20,
+  },
+  phaseCard: {
+    backgroundColor: colors.card,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: colors.accent,
+  },
+  phaseHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  phaseHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  phaseTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  phaseBadge: {
+    backgroundColor: colors.accent,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  phaseBadgeText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  phaseDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 16,
+  },
+  tokensSoldContainer: {
+    marginBottom: 16,
+  },
+  tokensSoldLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  tokensSoldValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  progressBarContainer: {
+    marginBottom: 16,
+  },
+  progressBarBackground: {
+    height: 8,
+    backgroundColor: colors.border,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: colors.accent,
+    borderRadius: 4,
+  },
+  progressText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'right',
+  },
+  phaseStatsRow: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 16,
+  },
+  phaseStat: {
+    flex: 1,
+    backgroundColor: colors.background,
+    padding: 12,
+    borderRadius: 8,
+  },
+  phaseStatLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  phaseStatValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  phase3Notice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.highlight,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  phase3NoticeText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.text,
+  },
+  phaseTimeline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  timelineItem: {
+    alignItems: 'center',
+  },
+  timelineDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.border,
+    marginBottom: 8,
+  },
+  timelineDotActive: {
+    backgroundColor: colors.accent,
+  },
+  timelineContent: {
+    alignItems: 'center',
+  },
+  timelinePhase: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 2,
+  },
+  timelinePrice: {
+    fontSize: 10,
+    color: colors.textSecondary,
+  },
+  timelineLine: {
+    flex: 1,
+    height: 2,
+    backgroundColor: colors.border,
+    marginBottom: 32,
+  },
+  timelineLineActive: {
+    backgroundColor: colors.accent,
   },
   countdownCard: {
     backgroundColor: colors.primary,
