@@ -10,6 +10,7 @@ import {
   Alert,
   TextInput,
   Modal,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -26,13 +27,24 @@ interface Setting {
   updated_at: string;
 }
 
+interface MetricsSetting {
+  id: string;
+  field: string;
+  value: number;
+  label: string;
+  editable: boolean;
+}
+
 export default function AdminSettingsScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [settings, setSettings] = useState<Setting[]>([]);
+  const [metricsSettings, setMetricsSettings] = useState<MetricsSetting[]>([]);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedSetting, setSelectedSetting] = useState<Setting | null>(null);
+  const [selectedMetric, setSelectedMetric] = useState<MetricsSetting | null>(null);
   const [editValue, setEditValue] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -43,32 +55,87 @@ export default function AdminSettingsScreen() {
   const loadSettings = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      // Load admin settings
+      const { data: settingsData, error: settingsError } = await supabase
         .from('admin_settings')
         .select('*')
         .order('setting_key');
 
-      if (error) throw error;
+      if (settingsError) throw settingsError;
+      setSettings(settingsData || []);
 
-      setSettings(data || []);
+      // Load metrics settings
+      const { data: metricsData, error: metricsError } = await supabase
+        .from('metrics')
+        .select('*')
+        .single();
+
+      if (metricsError) throw metricsError;
+
+      if (metricsData) {
+        setMetricsSettings([
+          {
+            id: metricsData.id,
+            field: 'current_price_usdt',
+            value: parseFloat(metricsData.current_price_usdt?.toString() || '0'),
+            label: 'Current MXI Price (USDT)',
+            editable: true,
+          },
+          {
+            id: metricsData.id,
+            field: 'current_phase',
+            value: metricsData.current_phase || 1,
+            label: 'Current Phase',
+            editable: true,
+          },
+          {
+            id: metricsData.id,
+            field: 'total_tokens_sold',
+            value: parseFloat(metricsData.total_tokens_sold?.toString() || '0'),
+            label: 'Total Tokens Sold',
+            editable: true,
+          },
+          {
+            id: metricsData.id,
+            field: 'total_members',
+            value: metricsData.total_members || 0,
+            label: 'Total Pool Members',
+            editable: true,
+          },
+        ]);
+      }
     } catch (error) {
       console.error('Error loading settings:', error);
       Alert.alert('Error', 'Failed to load settings');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadSettings();
   };
 
   const handleEditSetting = (setting: Setting) => {
     setSelectedSetting(setting);
-    // Extract the value from the JSON object
+    setSelectedMetric(null);
     const value = setting.setting_value?.value ?? setting.setting_value;
     setEditValue(value.toString());
     setEditModalVisible(true);
   };
 
+  const handleEditMetric = (metric: MetricsSetting) => {
+    setSelectedMetric(metric);
+    setSelectedSetting(null);
+    setEditValue(metric.value.toString());
+    setEditModalVisible(true);
+  };
+
   const handleSaveSetting = async () => {
-    if (!selectedSetting || !editValue) {
+    if (!editValue) {
       Alert.alert('Error', 'Please enter a valid value');
       return;
     }
@@ -76,41 +143,58 @@ export default function AdminSettingsScreen() {
     try {
       setSaving(true);
 
-      // Parse the value based on the setting type
-      let parsedValue: any;
-      const numValue = parseFloat(editValue);
+      if (selectedSetting) {
+        // Save admin setting
+        const numValue = parseFloat(editValue);
+        if (isNaN(numValue)) {
+          Alert.alert('Error', 'Please enter a valid number');
+          return;
+        }
 
-      if (isNaN(numValue)) {
-        Alert.alert('Error', 'Please enter a valid number');
-        return;
+        let parsedValue: any;
+        if (selectedSetting.setting_key === 'mxi_price') {
+          parsedValue = { value: numValue, currency: 'USDT' };
+        } else if (selectedSetting.setting_key === 'min_purchase' || selectedSetting.setting_key === 'max_purchase') {
+          parsedValue = { value: numValue, currency: 'USDT' };
+        } else {
+          parsedValue = { value: numValue };
+        }
+
+        const { data: adminData } = await supabase
+          .from('admin_users')
+          .select('id')
+          .eq('user_id', user?.id)
+          .single();
+
+        const { error } = await supabase
+          .from('admin_settings')
+          .update({
+            setting_value: parsedValue,
+            updated_by: adminData?.id,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', selectedSetting.id);
+
+        if (error) throw error;
+      } else if (selectedMetric) {
+        // Save metrics setting
+        const numValue = parseFloat(editValue);
+        if (isNaN(numValue)) {
+          Alert.alert('Error', 'Please enter a valid number');
+          return;
+        }
+
+        const updateData: any = {};
+        updateData[selectedMetric.field] = numValue;
+        updateData.updated_at = new Date().toISOString();
+
+        const { error } = await supabase
+          .from('metrics')
+          .update(updateData)
+          .eq('id', selectedMetric.id);
+
+        if (error) throw error;
       }
-
-      // Construct the setting_value object based on the setting key
-      if (selectedSetting.setting_key === 'mxi_price') {
-        parsedValue = { value: numValue, currency: 'USDT' };
-      } else if (selectedSetting.setting_key === 'min_purchase' || selectedSetting.setting_key === 'max_purchase') {
-        parsedValue = { value: numValue, currency: 'USDT' };
-      } else {
-        parsedValue = { value: numValue };
-      }
-
-      // Get admin user ID
-      const { data: adminData } = await supabase
-        .from('admin_users')
-        .select('id')
-        .eq('user_id', user?.id)
-        .single();
-
-      const { error } = await supabase
-        .from('admin_settings')
-        .update({
-          setting_value: parsedValue,
-          updated_by: adminData?.id,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', selectedSetting.id);
-
-      if (error) throw error;
 
       Alert.alert('Success', 'Setting updated successfully');
       setEditModalVisible(false);
@@ -143,24 +227,26 @@ export default function AdminSettingsScreen() {
   };
 
   const getSettingIcon = (key: string) => {
-    if (key === 'mxi_price') return 'dollarsign.circle.fill';
+    if (key === 'mxi_price' || key === 'current_price_usdt') return 'dollarsign.circle.fill';
     if (key === 'mining_rate_per_minute') return 'chart.line.uptrend.xyaxis';
     if (key.includes('purchase')) return 'cart.fill';
     if (key.includes('withdrawal')) return 'arrow.down.circle.fill';
     if (key.includes('referral')) return 'person.3.fill';
-    if (key.includes('pool')) return 'person.2.fill';
+    if (key.includes('pool') || key.includes('members')) return 'person.2.fill';
+    if (key.includes('phase')) return 'number.circle.fill';
+    if (key.includes('tokens')) return 'bitcoinsign.circle.fill';
     return 'gear';
   };
 
   const getSettingColor = (key: string) => {
-    if (key === 'mxi_price') return colors.success;
+    if (key === 'mxi_price' || key === 'current_price_usdt') return colors.success;
     if (key === 'mining_rate_per_minute') return colors.primary;
     if (key.includes('withdrawal')) return colors.warning;
+    if (key.includes('phase')) return colors.primary;
     return colors.textSecondary;
   };
 
   const isEditableSetting = (key: string) => {
-    // Only allow editing of specific settings
     return [
       'mxi_price',
       'mining_rate_per_minute',
@@ -198,7 +284,50 @@ export default function AdminSettingsScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+        }
+      >
+        {/* Metrics Settings */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Platform Metrics</Text>
+          <Text style={styles.sectionDescription}>
+            Core platform metrics and phase information
+          </Text>
+
+          {metricsSettings.map((metric) => (
+            <TouchableOpacity
+              key={metric.field}
+              style={[commonStyles.card, styles.settingCard]}
+              onPress={() => metric.editable && handleEditMetric(metric)}
+              disabled={!metric.editable}
+            >
+              <View style={styles.settingContent}>
+                <View style={[styles.iconContainer, { backgroundColor: getSettingColor(metric.field) + '20' }]}>
+                  <IconSymbol
+                    name={getSettingIcon(metric.field)}
+                    size={24}
+                    color={getSettingColor(metric.field)}
+                  />
+                </View>
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingLabel}>{metric.label}</Text>
+                  <Text style={styles.settingValue}>
+                    {metric.field === 'current_price_usdt' ? `$${metric.value.toFixed(2)} USDT` : metric.value.toLocaleString()}
+                  </Text>
+                  <Text style={styles.settingKey}>{metric.field}</Text>
+                </View>
+                {metric.editable && (
+                  <IconSymbol name="pencil.circle.fill" size={24} color={colors.primary} />
+                )}
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Core Settings */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Core Settings</Text>
           <Text style={styles.sectionDescription}>
@@ -235,6 +364,7 @@ export default function AdminSettingsScreen() {
             ))}
         </View>
 
+        {/* Transaction Limits */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Transaction Limits</Text>
           <Text style={styles.sectionDescription}>
@@ -271,6 +401,7 @@ export default function AdminSettingsScreen() {
             ))}
         </View>
 
+        {/* Withdrawal Settings */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Withdrawal Settings</Text>
           <Text style={styles.sectionDescription}>
@@ -306,46 +437,6 @@ export default function AdminSettingsScreen() {
               </TouchableOpacity>
             ))}
         </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Pool Information</Text>
-          <Text style={styles.sectionDescription}>
-            Read-only pool statistics
-          </Text>
-
-          {settings
-            .filter(s => ['pool_member_count', 'max_pool_members'].includes(s.setting_key))
-            .map((setting) => (
-              <View
-                key={setting.id}
-                style={[commonStyles.card, styles.settingCard, styles.readOnlyCard]}
-              >
-                <View style={styles.settingContent}>
-                  <View style={[styles.iconContainer, { backgroundColor: getSettingColor(setting.setting_key) + '20' }]}>
-                    <IconSymbol
-                      name={getSettingIcon(setting.setting_key)}
-                      size={24}
-                      color={getSettingColor(setting.setting_key)}
-                    />
-                  </View>
-                  <View style={styles.settingInfo}>
-                    <Text style={styles.settingLabel}>{setting.description}</Text>
-                    <Text style={styles.settingValue}>{getSettingDisplayValue(setting)}</Text>
-                    <Text style={styles.settingKey}>{setting.setting_key}</Text>
-                  </View>
-                  <IconSymbol name="lock.fill" size={20} color={colors.textSecondary} />
-                </View>
-              </View>
-            ))}
-        </View>
-
-        <TouchableOpacity
-          style={[commonStyles.card, styles.refreshCard]}
-          onPress={loadSettings}
-        >
-          <IconSymbol name="arrow.clockwise" size={20} color={colors.primary} />
-          <Text style={styles.refreshText}>Refresh Settings</Text>
-        </TouchableOpacity>
       </ScrollView>
 
       {/* Edit Modal */}
@@ -364,11 +455,15 @@ export default function AdminSettingsScreen() {
               </TouchableOpacity>
             </View>
 
-            {selectedSetting && (
+            {(selectedSetting || selectedMetric) && (
               <>
                 <View style={styles.modalBody}>
-                  <Text style={styles.modalLabel}>{selectedSetting.description}</Text>
-                  <Text style={styles.modalKey}>{selectedSetting.setting_key}</Text>
+                  <Text style={styles.modalLabel}>
+                    {selectedSetting ? selectedSetting.description : selectedMetric?.label}
+                  </Text>
+                  <Text style={styles.modalKey}>
+                    {selectedSetting ? selectedSetting.setting_key : selectedMetric?.field}
+                  </Text>
                   
                   <View style={styles.inputContainer}>
                     <Text style={styles.inputLabel}>New Value</Text>
@@ -381,7 +476,7 @@ export default function AdminSettingsScreen() {
                       placeholderTextColor={colors.textSecondary}
                     />
                     <Text style={styles.inputHint}>
-                      Current: {getSettingDisplayValue(selectedSetting)}
+                      Current: {selectedSetting ? getSettingDisplayValue(selectedSetting) : selectedMetric?.value}
                     </Text>
                   </View>
 
@@ -490,9 +585,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     padding: 16,
   },
-  readOnlyCard: {
-    opacity: 0.7,
-  },
   settingContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -524,18 +616,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textSecondary,
     fontFamily: 'monospace',
-  },
-  refreshCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    padding: 16,
-  },
-  refreshText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.primary,
   },
   modalOverlay: {
     flex: 1,
