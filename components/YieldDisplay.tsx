@@ -31,6 +31,25 @@ export default function YieldDisplay() {
       return;
     }
 
+    // Check eligibility before claiming
+    if (!user.canWithdraw) {
+      Alert.alert(
+        'Requirements Not Met',
+        `To claim your mined MXI, you need:\n\n- 5 active referrals (you have ${user.activeReferrals})\n- 10 days membership\n- KYC verification approved\n\nOnce you meet these requirements, you can claim your accumulated yield.`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    if (user.kycStatus !== 'approved') {
+      Alert.alert(
+        'KYC Required',
+        'You need to complete KYC verification before claiming your mined MXI. Please go to the KYC section to verify your identity.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     setClaiming(true);
     const result = await claimYield();
     setClaiming(false);
@@ -38,12 +57,12 @@ export default function YieldDisplay() {
     if (result.success) {
       Alert.alert(
         'Yield Claimed!',
-        `You have claimed ${result.yieldEarned?.toFixed(8)} MXI`,
+        `You have successfully claimed ${result.yieldEarned?.toFixed(8)} MXI and it has been added to your balance!`,
         [{ text: 'OK' }]
       );
       setCurrentYield(0);
     } else {
-      Alert.alert('Error', result.error || 'Failed to claim yield');
+      Alert.alert('Claim Failed', result.error || 'Failed to claim yield');
     }
   };
 
@@ -112,7 +131,7 @@ export default function YieldDisplay() {
       <View style={styles.infoBox}>
         <IconSymbol name="info.circle" size={16} color={colors.textSecondary} />
         <Text style={styles.infoText}>
-          Your yield rate is based on your total investment. Increase your contribution to earn more MXI per minute!
+          Mining rate: 0.005% per hour of your total investment. To claim your mined MXI, you need 5 active referrals, 10 days membership, and KYC approval (same as commission withdrawals).
         </Text>
       </View>
     </View>

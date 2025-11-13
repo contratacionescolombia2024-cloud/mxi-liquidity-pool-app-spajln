@@ -90,12 +90,10 @@ export default function ContributeScreen() {
   };
 
   const calculateYieldRate = (investment: number): number => {
+    // Yield rate is 0.005% per hour = 0.00005 per hour
+    // Per minute: 0.00005 / 60 = 0.00000083333
     if (investment < 20) return 0;
-    if (investment <= 500) return 0.0001;
-    if (investment <= 1000) return 0.00015;
-    if (investment <= 5000) return 0.0002;
-    if (investment <= 10000) return 0.00025;
-    return 0.0003;
+    return investment * 0.00000083333;
   };
 
   const handleCreatePayment = async () => {
@@ -264,7 +262,9 @@ export default function ContributeScreen() {
   }
 
   const mxiTokens = calculateMxi();
-  const yieldRate = calculateYieldRate(parseFloat(usdtAmount) || 0);
+  const investmentAmount = parseFloat(usdtAmount) || 0;
+  const yieldRate = calculateYieldRate(investmentAmount);
+  const hourlyYield = yieldRate * 60;
   const dailyYield = yieldRate * 60 * 24;
 
   const getPhaseDescription = () => {
@@ -360,12 +360,16 @@ export default function ContributeScreen() {
                 <Text style={styles.conversionValue}>${currentPrice.toFixed(2)} USDT</Text>
               </View>
               <View style={styles.conversionRow}>
-                <Text style={styles.conversionLabel}>Mining rate/minute</Text>
-                <Text style={styles.conversionValue}>{yieldRate.toFixed(6)} MXI</Text>
+                <Text style={styles.conversionLabel}>Mining rate/hour</Text>
+                <Text style={styles.conversionValue}>{hourlyYield.toFixed(6)} MXI</Text>
               </View>
               <View style={styles.conversionRow}>
-                <Text style={styles.conversionLabel}>Daily mining</Text>
+                <Text style={styles.conversionLabel}>Mining rate/day</Text>
                 <Text style={styles.conversionValue}>{dailyYield.toFixed(4)} MXI</Text>
+              </View>
+              <View style={styles.conversionRow}>
+                <Text style={styles.conversionLabel}>Yield percentage</Text>
+                <Text style={styles.conversionValue}>0.005% per hour</Text>
               </View>
             </View>
           )}
@@ -433,11 +437,15 @@ export default function ContributeScreen() {
               - Create a payment and receive a unique Binance Pay address{'\n'}
               - Send the exact USDT amount to the provided address{'\n'}
               - Verify your payment to receive MXI tokens{'\n'}
-              - Start earning mining rewards immediately{'\n'}
-              - Price varies by phase: Phase 1 (0.40), Phase 2 (0.60), Phase 3 (0.80){'\n'}
+              - Start earning mining rewards at 0.005% per hour of your investment{'\n'}
+              - Mined MXI can be claimed with same requirements as commissions:{'\n'}
+              {'  '}• 5 active referrals{'\n'}
+              {'  '}• 10 days membership{'\n'}
+              {'  '}• KYC verification approved{'\n'}
+              - Price varies by phase: Phase 1 ($0.40), Phase 2 ($0.60), Phase 3 ($0.80){'\n'}
               - Total Pre-Sale: 25M MXI (8.33M per phase){'\n'}
-              - Min: 20 USDT, Max per transaction: 40,000 USDT{'\n'}
-              - Max total per user: 400,000 USDT
+              - Min: $20 USDT, Max per transaction: $40,000 USDT{'\n'}
+              - Max total per user: $400,000 USDT
             </Text>
           </View>
         </View>

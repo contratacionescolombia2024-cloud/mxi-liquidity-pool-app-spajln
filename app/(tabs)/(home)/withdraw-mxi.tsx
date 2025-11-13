@@ -360,6 +360,7 @@ export default function WithdrawMXIScreen() {
               - KYC verification is mandatory{'\n'}
               - Only available MXI can be withdrawn{'\n'}
               - Remaining balance releases every 7 days{'\n'}
+              - Mined MXI must be claimed first (same requirements){'\n'}
               - Processing time: 24-48 hours{'\n'}
               - Verify wallet address carefully{'\n'}
               - Transactions cannot be reversed
