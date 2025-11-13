@@ -371,6 +371,15 @@ export default function HomeScreen() {
           <Text style={styles.actionButtonTextBinance}>View Binance Payments</Text>
         </TouchableOpacity>
 
+        {/* Contrataciones Button */}
+        <TouchableOpacity
+          style={[styles.actionButton, styles.contratacionesAction]}
+          onPress={() => router.push('/(tabs)/(home)/contrataciones')}
+        >
+          <IconSymbol name="briefcase.fill" size={24} color={colors.primary} />
+          <Text style={styles.actionButtonTextContrataciones}>Contrataciones</Text>
+        </TouchableOpacity>
+
         {/* Info Banner */}
         <View style={[commonStyles.card, styles.infoBanner]}>
           <IconSymbol name="info.circle.fill" size={20} color={colors.primary} />
@@ -765,6 +774,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.secondary,
+  },
+  contratacionesAction: {
+    backgroundColor: colors.card,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    marginBottom: 16,
+  },
+  actionButtonTextContrataciones: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.primary,
   },
   infoBanner: {
     flexDirection: 'row',
