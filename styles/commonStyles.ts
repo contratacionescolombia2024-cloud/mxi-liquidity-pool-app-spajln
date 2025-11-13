@@ -2,21 +2,24 @@
 import { StyleSheet } from 'react-native';
 
 export const colors = {
-  primary: '#162456',        // Material Blue
-  secondary: '#193cb8',      // Darker Blue
-  accent: '#64B5F6',         // Light Blue
-  success: '#4CAF50',        // Green (for success states)
-  warning: '#FF9800',        // Orange (for warnings)
-  error: '#F44336',          // Red (for errors)
-  background: '#101824',     // Dark background
-  card: '#193cb8',           // Dark card background
-  cardBackground: '#162133', // Dark card background
-  text: '#e3e3e3',           // Light text
-  textSecondary: '#90CAF9',  // Light Blue Grey (for secondary text)
-  border: '#193cb8',         // Darker Blue (for borders)
-  highlight: 'rgba(100, 181, 246, 0.15)', // Light Blue with transparency
-  backgroundAlt: '#162133',  // Slightly lighter dark background
-  grey: '#90CAF9',           // Light Blue Grey
+  primary: '#D4AF37',        // Gold
+  secondary: '#800020',      // Wine Red
+  accent: '#FFD700',         // Bright Gold (for highlights)
+  success: '#D4AF37',        // Gold (for success states)
+  warning: '#B8860B',        // Dark Gold (for warnings)
+  error: '#8B0000',          // Dark Red (for errors)
+  background: '#000000',     // Black
+  card: '#1A0A0A',           // Very Dark Red-Black
+  cardBackground: '#1A0A0A', // Very Dark Red-Black
+  text: '#FFFFFF',           // White (for contrast)
+  textSecondary: '#D4AF37',  // Gold (for secondary text)
+  border: '#800020',         // Wine Red (for borders)
+  highlight: 'rgba(212, 175, 55, 0.15)', // Gold with transparency
+  backgroundAlt: '#0D0000',  // Slightly lighter black
+  wineRed: '#800020',        // Wine Red
+  gold: '#D4AF37',           // Gold
+  darkGold: '#B8860B',       // Dark Gold
+  lightGold: '#FFD700',      // Light Gold
 };
 
 export const commonStyles = StyleSheet.create({
