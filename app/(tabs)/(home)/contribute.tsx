@@ -35,7 +35,7 @@ export default function ContributeScreen() {
   const [loading, setLoading] = useState(false);
   const [currentPayment, setCurrentPayment] = useState<BinancePayment | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [currentPrice, setCurrentPrice] = useState(0.30);
+  const [currentPrice, setCurrentPrice] = useState(0.4);
   const [currentPhase, setCurrentPhase] = useState(1);
 
   useEffect(() => {
@@ -90,7 +90,7 @@ export default function ContributeScreen() {
   };
 
   const calculateYieldRate = (investment: number): number => {
-    if (investment < 50) return 0;
+    if (investment < 20) return 0;
     if (investment <= 500) return 0.0001;
     if (investment <= 1000) return 0.00015;
     if (investment <= 5000) return 0.0002;
@@ -101,13 +101,22 @@ export default function ContributeScreen() {
   const handleCreatePayment = async () => {
     const amount = parseFloat(usdtAmount);
 
-    if (isNaN(amount) || amount < 50) {
-      Alert.alert('Invalid Amount', 'Minimum contribution is 50 USDT');
+    if (isNaN(amount) || amount < 20) {
+      Alert.alert('Invalid Amount', 'Minimum contribution is 20 USDT');
       return;
     }
 
-    if (amount > 100000) {
-      Alert.alert('Invalid Amount', 'Maximum contribution is 100,000 USDT');
+    if (amount > 40000) {
+      Alert.alert('Invalid Amount', 'Maximum contribution per transaction is 40,000 USDT');
+      return;
+    }
+
+    // Check total user contributions
+    if (user && user.usdtContributed + amount > 400000) {
+      Alert.alert(
+        'Limit Exceeded',
+        `Maximum total contribution per user is 400,000 USDT. You have already contributed ${user.usdtContributed.toFixed(2)} USDT.`
+      );
       return;
     }
 
@@ -214,10 +223,10 @@ export default function ContributeScreen() {
 
     const availableYield = user.accumulatedYield;
 
-    if (availableYield < 50 / currentPrice) {
+    if (availableYield < 20 / currentPrice) {
       Alert.alert(
         'Insufficient Yield',
-        `You need at least ${(50 / currentPrice).toFixed(2)} MXI in accumulated yield to reinvest (minimum 50 USDT equivalent at current price).`
+        `You need at least ${(20 / currentPrice).toFixed(2)} MXI in accumulated yield to reinvest (minimum 20 USDT equivalent at current price).`
       );
       return;
     }
@@ -261,11 +270,11 @@ export default function ContributeScreen() {
   const getPhaseDescription = () => {
     switch (currentPhase) {
       case 1:
-        return 'Phase 1: 10M MXI at 0.30 USDT';
+        return 'Phase 1: 8.33M MXI at 0.40 USDT';
       case 2:
-        return 'Phase 2: 10M MXI at 0.60 USDT';
+        return 'Phase 2: 8.33M MXI at 0.60 USDT';
       case 3:
-        return 'Phase 3: 10M MXI at 0.90 USDT';
+        return 'Phase 3: 8.33M MXI at 0.80 USDT';
       default:
         return '';
     }
@@ -296,7 +305,7 @@ export default function ContributeScreen() {
           <View style={styles.phaseNotice}>
             <IconSymbol name="info.circle.fill" size={16} color={colors.primary} />
             <Text style={styles.phaseNoticeText}>
-              Total Pre-Sale: 30,000,000 MXI (10M per phase)
+              Total Pre-Sale: 25,000,000 MXI (8.33M per phase)
             </Text>
           </View>
         </View>
@@ -304,7 +313,10 @@ export default function ContributeScreen() {
         <View style={commonStyles.card}>
           <Text style={styles.sectionTitle}>Contribution Amount</Text>
           <Text style={styles.sectionSubtitle}>
-            Enter the amount in USDT (Min: 50, Max: 100,000)
+            Enter the amount in USDT (Min: 20, Max per transaction: 40,000)
+          </Text>
+          <Text style={styles.sectionNote}>
+            Maximum total per user: 400,000 USDT
           </Text>
 
           <View style={styles.inputContainer}>
@@ -319,6 +331,23 @@ export default function ContributeScreen() {
             />
             <Text style={styles.inputCurrency}>USDT</Text>
           </View>
+
+          {user.usdtContributed > 0 && (
+            <View style={styles.contributionInfo}>
+              <Text style={styles.contributionLabel}>Your total contributions:</Text>
+              <Text style={styles.contributionValue}>
+                ${user.usdtContributed.toFixed(2)} / $400,000.00 USDT
+              </Text>
+              <View style={styles.progressBar}>
+                <View 
+                  style={[
+                    styles.progressFill, 
+                    { width: `${Math.min((user.usdtContributed / 400000) * 100, 100)}%` }
+                  ]} 
+                />
+              </View>
+            </View>
+          )}
 
           {mxiTokens > 0 && (
             <View style={styles.conversionCard}>
@@ -381,7 +410,7 @@ export default function ContributeScreen() {
             <TouchableOpacity
               style={[buttonStyles.secondary, loading && buttonStyles.disabled]}
               onPress={handleReinvest}
-              disabled={loading || user.accumulatedYield < 50 / currentPrice}
+              disabled={loading || user.accumulatedYield < 20 / currentPrice}
             >
               {loading ? (
                 <ActivityIndicator color={colors.primary} />
@@ -405,8 +434,10 @@ export default function ContributeScreen() {
               - Send the exact USDT amount to the provided address{'\n'}
               - Verify your payment to receive MXI tokens{'\n'}
               - Start earning mining rewards immediately{'\n'}
-              - Price varies by phase: Phase 1 (0.30), Phase 2 (0.60), Phase 3 (0.90){'\n'}
-              - Total Pre-Sale: 30M MXI (10M per phase)
+              - Price varies by phase: Phase 1 (0.40), Phase 2 (0.60), Phase 3 (0.80){'\n'}
+              - Total Pre-Sale: 25M MXI (8.33M per phase){'\n'}
+              - Min: 20 USDT, Max per transaction: 40,000 USDT{'\n'}
+              - Max total per user: 400,000 USDT
             </Text>
           </View>
         </View>
@@ -587,7 +618,41 @@ const styles = StyleSheet.create({
   sectionSubtitle: {
     fontSize: 14,
     color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  sectionNote: {
+    fontSize: 12,
+    color: colors.primary,
     marginBottom: 16,
+    fontWeight: '600',
+  },
+  contributionInfo: {
+    backgroundColor: colors.highlight,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  contributionLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  contributionValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  progressBar: {
+    height: 6,
+    backgroundColor: colors.border,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 3,
   },
   inputContainer: {
     flexDirection: 'row',

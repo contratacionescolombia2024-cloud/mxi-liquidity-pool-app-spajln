@@ -1,8 +1,7 @@
-
 {
   "expo": {
-    "name": "MXI Strategic PreSale",
-    "slug": "maxcoin-pool",
+    "name": "MXI Liquidity Pool",
+    "slug": "MXI Liquidity Pool",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/04a4d9ac-4539-41d2-bafd-67dd75925bde.png",
@@ -66,5 +65,6 @@
     "extra": {
       "router": {}
     }
-  }
+  },
+  "scheme": "MXI Liquidity Pool"
 }
