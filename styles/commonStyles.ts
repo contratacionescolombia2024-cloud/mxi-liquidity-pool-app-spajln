@@ -2,19 +2,24 @@
 import { StyleSheet } from 'react-native';
 
 export const colors = {
-  primary: '#FFD700',
-  secondary: '#FFA500',
-  accent: '#FF6B35',
-  success: '#10b981',
-  warning: '#FF9800',
-  error: '#F44336',
-  background: '#0A0E27',
-  card: '#1A1F3A',
-  cardBackground: '#1A1F3A',
-  text: '#FFFFFF',
-  textSecondary: '#A0A0A0',
-  border: '#2A2F4A',
-  highlight: 'rgba(255, 215, 0, 0.1)',
+  primary: '#D4AF37',        // Gold
+  secondary: '#800020',      // Wine Red
+  accent: '#FFD700',         // Bright Gold (for highlights)
+  success: '#D4AF37',        // Gold (for success states)
+  warning: '#B8860B',        // Dark Gold (for warnings)
+  error: '#8B0000',          // Dark Red (for errors)
+  background: '#000000',     // Black
+  card: '#1A0A0A',           // Very Dark Red-Black
+  cardBackground: '#1A0A0A', // Very Dark Red-Black
+  text: '#FFFFFF',           // White (for contrast)
+  textSecondary: '#D4AF37',  // Gold (for secondary text)
+  border: '#800020',         // Wine Red (for borders)
+  highlight: 'rgba(212, 175, 55, 0.15)', // Gold with transparency
+  backgroundAlt: '#0D0000',  // Slightly lighter black
+  wineRed: '#800020',        // Wine Red
+  gold: '#D4AF37',           // Gold
+  darkGold: '#B8860B',       // Dark Gold
+  lightGold: '#FFD700',      // Light Gold
 };
 
 export const commonStyles = StyleSheet.create({
@@ -27,6 +32,8 @@ export const commonStyles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   label: {
     fontSize: 14,
@@ -71,6 +78,14 @@ export const buttonStyles = StyleSheet.create({
   },
   secondary: {
     backgroundColor: colors.secondary,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accent: {
+    backgroundColor: colors.accent,
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 8,
