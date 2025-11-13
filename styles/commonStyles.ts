@@ -58,6 +58,28 @@ export const buttonStyles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  primaryText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  secondary: {
+    backgroundColor: colors.secondary,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  secondaryText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '700',
   },
   outline: {
     backgroundColor: 'transparent',
@@ -68,13 +90,15 @@ export const buttonStyles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
   },
-  secondary: {
-    backgroundColor: colors.secondary,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
+  outlineText: {
+    color: colors.primary,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  disabled: {
+    opacity: 0.5,
   },
 });

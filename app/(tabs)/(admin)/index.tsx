@@ -20,7 +20,9 @@ import { supabase } from '@/lib/supabase';
 interface AdminStats {
   pendingKYC: number;
   approvedKYC: number;
+  rejectedKYC: number;
   pendingWithdrawals: number;
+  approvedWithdrawals: number;
   completedWithdrawals: number;
   openMessages: number;
   totalUsers: number;
@@ -29,6 +31,8 @@ interface AdminStats {
   totalUSDT: number;
   confirmedPayments: number;
   pendingPayments: number;
+  totalCommissions: number;
+  totalYieldGenerated: number;
 }
 
 interface PhaseMetrics {
@@ -92,6 +96,8 @@ export default function AdminDashboard() {
         usdtData,
         paymentData,
         metricsData,
+        commissionsData,
+        yieldData,
       ] = await Promise.all([
         supabase.from('kyc_verifications').select('status', { count: 'exact' }),
         supabase.from('withdrawals').select('status', { count: 'exact' }),
@@ -102,11 +108,15 @@ export default function AdminDashboard() {
         supabase.from('users').select('usdt_contributed'),
         supabase.from('binance_payments').select('status', { count: 'exact' }),
         supabase.from('metrics').select('*').single(),
+        supabase.rpc('get_total_commissions'),
+        supabase.rpc('get_total_yield_generated'),
       ]);
 
       const pendingKYC = kycData.data?.filter(k => k.status === 'pending').length || 0;
       const approvedKYC = kycData.data?.filter(k => k.status === 'approved').length || 0;
+      const rejectedKYC = kycData.data?.filter(k => k.status === 'rejected').length || 0;
       const pendingWithdrawals = withdrawalData.data?.filter(w => w.status === 'pending').length || 0;
+      const approvedWithdrawals = withdrawalData.data?.filter(w => w.status === 'approved').length || 0;
       const completedWithdrawals = withdrawalData.data?.filter(w => w.status === 'completed').length || 0;
       const openMessages = messageData.data?.filter(m => m.status === 'open').length || 0;
       const totalUsers = userData.count || 0;
@@ -115,11 +125,15 @@ export default function AdminDashboard() {
       const totalUSDT = usdtData.data?.reduce((sum, u) => sum + parseFloat(u.usdt_contributed?.toString() || '0'), 0) || 0;
       const confirmedPayments = paymentData.data?.filter(p => p.status === 'confirmed').length || 0;
       const pendingPayments = paymentData.data?.filter(p => p.status === 'pending').length || 0;
+      const totalCommissions = commissionsData.data || 0;
+      const totalYieldGenerated = yieldData.data || 0;
 
       setStats({
         pendingKYC,
         approvedKYC,
+        rejectedKYC,
         pendingWithdrawals,
+        approvedWithdrawals,
         completedWithdrawals,
         openMessages,
         totalUsers,
@@ -128,6 +142,8 @@ export default function AdminDashboard() {
         totalUSDT,
         confirmedPayments,
         pendingPayments,
+        totalCommissions,
+        totalYieldGenerated,
       });
 
       if (metricsData.data) {
@@ -190,7 +206,7 @@ export default function AdminDashboard() {
       >
         <View style={styles.header}>
           <View>
-            <Text style={styles.title}>Admin Dashboard</Text>
+            <Text style={styles.title}>⚙️ Admin Dashboard</Text>
             <Text style={styles.subtitle}>System Overview & Management</Text>
           </View>
         </View>
@@ -201,7 +217,7 @@ export default function AdminDashboard() {
             <View style={styles.phaseHeader}>
               <IconSymbol name="chart.bar.fill" size={28} color={colors.accent} />
               <View style={styles.phaseHeaderText}>
-                <Text style={styles.phaseTitle}>Phase {phaseMetrics.currentPhase} Active</Text>
+                <Text style={styles.phaseTitle}>📊 Phase {phaseMetrics.currentPhase} Active</Text>
                 <Text style={styles.phaseSubtitle}>
                   ${phaseMetrics.currentPriceUsdt.toFixed(2)} USDT per MXI
                 </Text>
@@ -269,7 +285,7 @@ export default function AdminDashboard() {
 
         {/* Action Items */}
         <View style={commonStyles.card}>
-          <Text style={styles.sectionTitle}>Action Items</Text>
+          <Text style={styles.sectionTitle}>🔔 Action Items</Text>
           
           <TouchableOpacity
             style={styles.actionItem}
@@ -280,14 +296,18 @@ export default function AdminDashboard() {
                 <IconSymbol name="person.badge.shield.checkmark.fill" size={24} color={colors.warning} />
               </View>
               <View>
-                <Text style={styles.actionTitle}>KYC Approvals</Text>
-                <Text style={styles.actionSubtitle}>Pending verification requests</Text>
+                <Text style={styles.actionTitle}>🔐 KYC Approvals</Text>
+                <Text style={styles.actionSubtitle}>
+                  {stats?.pendingKYC || 0} pending • {stats?.approvedKYC || 0} approved
+                </Text>
               </View>
             </View>
             <View style={styles.actionRight}>
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{stats?.pendingKYC || 0}</Text>
-              </View>
+              {(stats?.pendingKYC || 0) > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{stats?.pendingKYC || 0}</Text>
+                </View>
+              )}
               <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
             </View>
           </TouchableOpacity>
@@ -301,14 +321,18 @@ export default function AdminDashboard() {
                 <IconSymbol name="arrow.down.circle.fill" size={24} color={colors.primary} />
               </View>
               <View>
-                <Text style={styles.actionTitle}>Withdrawal Approvals</Text>
-                <Text style={styles.actionSubtitle}>Pending withdrawal requests</Text>
+                <Text style={styles.actionTitle}>💸 Withdrawal Approvals</Text>
+                <Text style={styles.actionSubtitle}>
+                  {stats?.pendingWithdrawals || 0} pending • {stats?.completedWithdrawals || 0} completed
+                </Text>
               </View>
             </View>
             <View style={styles.actionRight}>
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{stats?.pendingWithdrawals || 0}</Text>
-              </View>
+              {(stats?.pendingWithdrawals || 0) > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{stats?.pendingWithdrawals || 0}</Text>
+                </View>
+              )}
               <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
             </View>
           </TouchableOpacity>
@@ -322,14 +346,16 @@ export default function AdminDashboard() {
                 <IconSymbol name="envelope.fill" size={24} color={colors.success} />
               </View>
               <View>
-                <Text style={styles.actionTitle}>Support Messages</Text>
+                <Text style={styles.actionTitle}>📧 Support Messages</Text>
                 <Text style={styles.actionSubtitle}>Open support tickets</Text>
               </View>
             </View>
             <View style={styles.actionRight}>
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{stats?.openMessages || 0}</Text>
-              </View>
+              {(stats?.openMessages || 0) > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{stats?.openMessages || 0}</Text>
+                </View>
+              )}
               <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
             </View>
           </TouchableOpacity>
@@ -337,7 +363,7 @@ export default function AdminDashboard() {
 
         {/* Management Tools */}
         <View style={commonStyles.card}>
-          <Text style={styles.sectionTitle}>Management Tools</Text>
+          <Text style={styles.sectionTitle}>🛠️ Management Tools</Text>
           
           <TouchableOpacity
             style={styles.toolItem}
@@ -347,7 +373,7 @@ export default function AdminDashboard() {
               <IconSymbol name="person.3.fill" size={28} color={colors.primary} />
             </View>
             <View style={styles.toolContent}>
-              <Text style={styles.toolTitle}>User Management</Text>
+              <Text style={styles.toolTitle}>👥 User Management</Text>
               <Text style={styles.toolSubtitle}>View and manage user accounts</Text>
             </View>
             <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
@@ -361,29 +387,51 @@ export default function AdminDashboard() {
               <IconSymbol name="gearshape.fill" size={28} color={colors.accent} />
             </View>
             <View style={styles.toolContent}>
-              <Text style={styles.toolTitle}>System Settings</Text>
+              <Text style={styles.toolTitle}>⚙️ System Settings</Text>
               <Text style={styles.toolSubtitle}>Configure platform parameters</Text>
             </View>
             <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
-        {/* Payment Stats */}
+        {/* Financial Overview */}
         <View style={commonStyles.card}>
-          <Text style={styles.sectionTitle}>Payment Statistics</Text>
+          <Text style={styles.sectionTitle}>💰 Financial Overview</Text>
           
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
+              <IconSymbol name="banknote.fill" size={20} color={colors.success} />
+              <Text style={styles.statValue}>${formatNumber(stats?.totalCommissions || 0)}</Text>
+              <Text style={styles.statLabel}>Total Commissions</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <IconSymbol name="chart.line.uptrend.xyaxis" size={20} color={colors.accent} />
+              <Text style={styles.statValue}>{formatNumber(stats?.totalYieldGenerated || 0)} MXI</Text>
+              <Text style={styles.statLabel}>Yield Generated</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Payment Stats */}
+        <View style={commonStyles.card}>
+          <Text style={styles.sectionTitle}>💳 Payment Statistics</Text>
+          
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <IconSymbol name="checkmark.seal.fill" size={20} color={colors.success} />
               <Text style={styles.statValue}>{stats?.confirmedPayments || 0}</Text>
               <Text style={styles.statLabel}>Confirmed</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
+              <IconSymbol name="clock.fill" size={20} color={colors.warning} />
               <Text style={styles.statValue}>{stats?.pendingPayments || 0}</Text>
               <Text style={styles.statLabel}>Pending</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
+              <IconSymbol name="person.badge.shield.checkmark" size={20} color={colors.primary} />
               <Text style={styles.statValue}>{stats?.approvedKYC || 0}</Text>
               <Text style={styles.statLabel}>KYC Approved</Text>
             </View>
@@ -569,7 +617,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#fff',
+    color: '#000',
   },
   toolItem: {
     flexDirection: 'row',
@@ -602,22 +650,25 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
+    alignItems: 'center',
   },
   statItem: {
     alignItems: 'center',
+    gap: 8,
   },
   statValue: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
     color: colors.textSecondary,
+    textAlign: 'center',
   },
   statDivider: {
     width: 1,
+    height: 60,
     backgroundColor: colors.border,
   },
 });

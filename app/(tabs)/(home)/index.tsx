@@ -214,9 +214,9 @@ export default function HomeScreen() {
               onPress={() => router.push('/(tabs)/(home)/contribute')}
             >
               <View style={[styles.actionIcon, { backgroundColor: colors.primary + '20' }]}>
-                <IconSymbol name="plus.circle.fill" size={32} color={colors.primary} />
+                <IconSymbol name="cart.fill" size={36} color={colors.primary} />
               </View>
-              <Text style={styles.actionTitle}>Buy MXI</Text>
+              <Text style={styles.actionTitle}>💰 Buy MXI</Text>
               <Text style={styles.actionSubtitle}>
                 Min: $20{'\n'}Max: $40,000
               </Text>
@@ -227,9 +227,9 @@ export default function HomeScreen() {
               onPress={() => router.push('/(tabs)/(home)/referrals')}
             >
               <View style={[styles.actionIcon, { backgroundColor: colors.success + '20' }]}>
-                <IconSymbol name="person.3.fill" size={32} color={colors.success} />
+                <IconSymbol name="person.3.fill" size={36} color={colors.success} />
               </View>
-              <Text style={styles.actionTitle}>Referrals</Text>
+              <Text style={styles.actionTitle}>👥 Referrals</Text>
               <Text style={styles.actionSubtitle}>
                 {user.activeReferrals} active
               </Text>
@@ -240,9 +240,9 @@ export default function HomeScreen() {
               onPress={() => router.push('/(tabs)/(home)/withdrawals')}
             >
               <View style={[styles.actionIcon, { backgroundColor: colors.warning + '20' }]}>
-                <IconSymbol name="arrow.down.circle.fill" size={32} color={colors.warning} />
+                <IconSymbol name="banknote.fill" size={36} color={colors.warning} />
               </View>
-              <Text style={styles.actionTitle}>Withdraw</Text>
+              <Text style={styles.actionTitle}>💸 Withdraw</Text>
               <Text style={styles.actionSubtitle}>
                 ${user.commissions.available.toFixed(2)}
               </Text>
@@ -253,11 +253,11 @@ export default function HomeScreen() {
               onPress={() => router.push('/(tabs)/(home)/kyc-verification')}
             >
               <View style={[styles.actionIcon, { backgroundColor: colors.accent + '20' }]}>
-                <IconSymbol name="checkmark.shield.fill" size={32} color={colors.accent} />
+                <IconSymbol name="person.badge.shield.checkmark.fill" size={36} color={colors.accent} />
               </View>
-              <Text style={styles.actionTitle}>KYC</Text>
+              <Text style={styles.actionTitle}>🔐 KYC</Text>
               <Text style={styles.actionSubtitle}>
-                {user.kycStatus === 'approved' ? 'Verified' : 'Verify now'}
+                {user.kycStatus === 'approved' ? 'Verified ✓' : 'Verify now'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -529,16 +529,16 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   actionIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
   },
   actionTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.text,
     marginBottom: 4,
     textAlign: 'center',
