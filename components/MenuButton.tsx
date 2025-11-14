@@ -21,6 +21,7 @@ interface MenuItem {
   route: string;
   icon: string;
   androidIcon: string;
+  emoji: string;
 }
 
 export default function MenuButton() {
@@ -35,12 +36,14 @@ export default function MenuButton() {
       route: '/(tabs)/(home)/',
       icon: 'house.fill',
       androidIcon: 'home',
+      emoji: '🏠',
     },
     {
       label: 'Perfil',
       route: '/(tabs)/profile',
       icon: 'person.fill',
       androidIcon: 'person',
+      emoji: '👤',
     },
   ];
 
@@ -86,12 +89,7 @@ export default function MenuButton() {
         activeOpacity={0.7}
       >
         <View style={styles.menuIconContainer}>
-          <IconSymbol
-            ios_icon_name="line.3.horizontal"
-            android_material_icon_name="menu"
-            size={24}
-            color={colors.text}
-          />
+          <Text style={styles.menuButtonEmoji}>☰</Text>
         </View>
       </TouchableOpacity>
 
@@ -119,12 +117,7 @@ export default function MenuButton() {
             <BlurView intensity={95} tint="dark" style={styles.menuContent}>
               <View style={styles.menuHeader}>
                 <View style={styles.menuHeaderContent}>
-                  <IconSymbol
-                    ios_icon_name="bitcoinsign.circle.fill"
-                    android_material_icon_name="currency_bitcoin"
-                    size={32}
-                    color={colors.primary}
-                  />
+                  <Text style={styles.menuHeaderEmoji}>💎</Text>
                   <Text style={styles.menuTitle}>Maxcoin Pool</Text>
                 </View>
                 <TouchableOpacity
@@ -159,12 +152,7 @@ export default function MenuButton() {
                             active && styles.menuItemIconContainerActive,
                           ]}
                         >
-                          <IconSymbol
-                            ios_icon_name={item.icon}
-                            android_material_icon_name={item.androidIcon}
-                            size={24}
-                            color={active ? colors.primary : colors.textSecondary}
-                          />
+                          <Text style={styles.menuItemEmoji}>{item.emoji}</Text>
                         </View>
                         <Text
                           style={[
@@ -219,6 +207,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
+  menuButtonEmoji: {
+    fontSize: 24,
+    color: colors.text,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -251,6 +243,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  menuHeaderEmoji: {
+    fontSize: 32,
   },
   menuTitle: {
     fontSize: 20,
@@ -292,6 +287,9 @@ const styles = StyleSheet.create({
   },
   menuItemIconContainerActive: {
     backgroundColor: colors.primary + '30',
+  },
+  menuItemEmoji: {
+    fontSize: 24,
   },
   menuItemText: {
     fontSize: 16,

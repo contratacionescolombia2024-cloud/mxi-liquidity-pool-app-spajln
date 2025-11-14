@@ -138,12 +138,7 @@ export default function HomeScreen() {
             style={styles.profileButton}
             onPress={() => router.push('/(tabs)/profile')}
           >
-            <IconSymbol 
-              ios_icon_name="person.circle.fill" 
-              android_material_icon_name="account_circle" 
-              size={40} 
-              color={colors.primary} 
-            />
+            <Text style={styles.profileButtonEmoji}>👤</Text>
           </TouchableOpacity>
         </View>
 
@@ -424,7 +419,20 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   profileButton: {
-    padding: 4,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.card,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  profileButtonEmoji: {
+    fontSize: 28,
   },
   phaseCard: {
     marginBottom: 16,

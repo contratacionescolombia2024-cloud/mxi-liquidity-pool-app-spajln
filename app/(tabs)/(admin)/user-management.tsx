@@ -32,6 +32,8 @@ interface UserData {
   referral_code: string;
 }
 
+type ActionType = 'add_mxi' | 'add_usdt' | 'set_balance' | null;
+
 export default function UserManagementScreen() {
   const router = useRouter();
   const { user } = useAuth();
@@ -42,6 +44,12 @@ export default function UserManagementScreen() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'kyc_approved'>('all');
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
+  
+  // Input modal states
+  const [inputModalVisible, setInputModalVisible] = useState(false);
+  const [inputValue, setInputValue] = useState('');
+  const [currentAction, setCurrentAction] = useState<ActionType>(null);
+  const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
     loadUsers();
@@ -101,6 +109,45 @@ export default function UserManagementScreen() {
     setDetailsModalVisible(true);
   };
 
+  const openInputModal = (action: ActionType) => {
+    setCurrentAction(action);
+    setInputValue('');
+    setInputModalVisible(true);
+  };
+
+  const closeInputModal = () => {
+    setInputModalVisible(false);
+    setInputValue('');
+    setCurrentAction(null);
+  };
+
+  const handleInputSubmit = async () => {
+    if (!selectedUser || !currentAction) return;
+
+    const amount = parseFloat(inputValue);
+    if (isNaN(amount) || amount < 0) {
+      Alert.alert('Error', 'Please enter a valid positive number');
+      return;
+    }
+
+    setProcessing(true);
+
+    try {
+      if (currentAction === 'add_mxi') {
+        await handleAddFunds(selectedUser.id, amount, 'mxi');
+      } else if (currentAction === 'add_usdt') {
+        await handleAddFunds(selectedUser.id, amount, 'usdt');
+      } else if (currentAction === 'set_balance') {
+        await handleUpdateBalance(selectedUser.id, amount);
+      }
+      closeInputModal();
+    } catch (error) {
+      console.error('Error processing action:', error);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const handleUpdateBalance = async (userId: string, newBalance: number) => {
     try {
       const { error } = await supabase
@@ -110,12 +157,12 @@ export default function UserManagementScreen() {
 
       if (error) throw error;
 
-      Alert.alert('Success', 'User balance updated successfully');
+      Alert.alert('✅ Success', 'User balance updated successfully');
       loadUsers();
       setDetailsModalVisible(false);
     } catch (error) {
       console.error('Error updating balance:', error);
-      Alert.alert('Error', 'Failed to update user balance');
+      Alert.alert('❌ Error', 'Failed to update user balance');
     }
   };
 
@@ -139,12 +186,12 @@ export default function UserManagementScreen() {
 
       if (error) throw error;
 
-      Alert.alert('Success', `${amount} ${type.toUpperCase()} added successfully`);
+      Alert.alert('✅ Success', `${amount} ${type.toUpperCase()} added successfully`);
       loadUsers();
       setDetailsModalVisible(false);
     } catch (error) {
       console.error('Error adding funds:', error);
-      Alert.alert('Error', 'Failed to add funds');
+      Alert.alert('❌ Error', 'Failed to add funds');
     }
   };
 
@@ -157,12 +204,12 @@ export default function UserManagementScreen() {
 
       if (error) throw error;
 
-      Alert.alert('Success', 'User status updated successfully');
+      Alert.alert('✅ Success', 'User status updated successfully');
       loadUsers();
       setDetailsModalVisible(false);
     } catch (error) {
       console.error('Error updating status:', error);
-      Alert.alert('Error', 'Failed to update user status');
+      Alert.alert('❌ Error', 'Failed to update user status');
     }
   };
 
@@ -178,6 +225,24 @@ export default function UserManagementScreen() {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  };
+
+  const getInputModalTitle = () => {
+    switch (currentAction) {
+      case 'add_mxi': return '💎 Add MXI Funds';
+      case 'add_usdt': return '💵 Add USDT Contribution';
+      case 'set_balance': return '⚖️ Set MXI Balance';
+      default: return 'Enter Amount';
+    }
+  };
+
+  const getInputModalPlaceholder = () => {
+    switch (currentAction) {
+      case 'add_mxi': return 'Enter MXI amount to add';
+      case 'add_usdt': return 'Enter USDT amount to add';
+      case 'set_balance': return 'Enter new MXI balance';
+      default: return 'Enter amount';
+    }
   };
 
   if (loading) {
@@ -198,17 +263,27 @@ export default function UserManagementScreen() {
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <IconSymbol name="chevron.left" size={24} color={colors.text} />
+          <IconSymbol 
+            ios_icon_name="chevron.left" 
+            android_material_icon_name="arrow_back" 
+            size={24} 
+            color={colors.text} 
+          />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.title}>User Management</Text>
+          <Text style={styles.title}>👥 User Management</Text>
           <Text style={styles.subtitle}>{filteredUsers.length} users</Text>
         </View>
       </View>
 
       <View style={styles.searchContainer}>
         <View style={styles.searchBox}>
-          <IconSymbol name="magnifyingglass" size={20} color={colors.textSecondary} />
+          <IconSymbol 
+            ios_icon_name="magnifyingglass" 
+            android_material_icon_name="search" 
+            size={20} 
+            color={colors.textSecondary} 
+          />
           <TextInput
             style={styles.searchInput}
             placeholder="Search by name, email, ID, or referral code..."
@@ -218,7 +293,12 @@ export default function UserManagementScreen() {
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <IconSymbol name="xmark.circle.fill" size={20} color={colors.textSecondary} />
+              <IconSymbol 
+                ios_icon_name="xmark.circle.fill" 
+                android_material_icon_name="cancel" 
+                size={20} 
+                color={colors.textSecondary} 
+              />
             </TouchableOpacity>
           )}
         </View>
@@ -265,7 +345,12 @@ export default function UserManagementScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {filteredUsers.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <IconSymbol name="person.slash" size={64} color={colors.textSecondary} />
+            <IconSymbol 
+              ios_icon_name="person.slash" 
+              android_material_icon_name="person_off" 
+              size={64} 
+              color={colors.textSecondary} 
+            />
             <Text style={styles.emptyText}>No users found</Text>
             <Text style={styles.emptySubtext}>Try adjusting your search or filters</Text>
           </View>
@@ -280,7 +365,8 @@ export default function UserManagementScreen() {
                 <View style={styles.userInfo}>
                   <View style={styles.userAvatar}>
                     <IconSymbol 
-                      name={userData.is_active_contributor ? "person.fill" : "person"} 
+                      ios_icon_name={userData.is_active_contributor ? "person.fill" : "person"} 
+                      android_material_icon_name={userData.is_active_contributor ? "person" : "person_outline"}
                       size={24} 
                       color={userData.is_active_contributor ? colors.primary : colors.textSecondary} 
                     />
@@ -307,22 +393,42 @@ export default function UserManagementScreen() {
 
               <View style={styles.userStats}>
                 <View style={styles.userStat}>
-                  <IconSymbol name="bitcoinsign.circle" size={16} color={colors.primary} />
+                  <IconSymbol 
+                    ios_icon_name="bitcoinsign.circle" 
+                    android_material_icon_name="currency_bitcoin" 
+                    size={16} 
+                    color={colors.primary} 
+                  />
                   <Text style={styles.userStatValue}>{parseFloat(userData.mxi_balance.toString()).toFixed(2)} MXI</Text>
                 </View>
                 <View style={styles.userStat}>
-                  <IconSymbol name="dollarsign.circle" size={16} color={colors.success} />
+                  <IconSymbol 
+                    ios_icon_name="dollarsign.circle" 
+                    android_material_icon_name="attach_money" 
+                    size={16} 
+                    color={colors.success} 
+                  />
                   <Text style={styles.userStatValue}>${parseFloat(userData.usdt_contributed.toString()).toFixed(2)}</Text>
                 </View>
                 <View style={styles.userStat}>
-                  <IconSymbol name="person.2" size={16} color={colors.warning} />
+                  <IconSymbol 
+                    ios_icon_name="person.2" 
+                    android_material_icon_name="group" 
+                    size={16} 
+                    color={colors.warning} 
+                  />
                   <Text style={styles.userStatValue}>{userData.active_referrals} refs</Text>
                 </View>
               </View>
 
               <View style={styles.userFooter}>
                 <Text style={styles.userJoinDate}>Joined {formatDate(userData.joined_date)}</Text>
-                <IconSymbol name="chevron.right" size={16} color={colors.textSecondary} />
+                <IconSymbol 
+                  ios_icon_name="chevron.right" 
+                  android_material_icon_name="chevron_right" 
+                  size={16} 
+                  color={colors.textSecondary} 
+                />
               </View>
             </TouchableOpacity>
           ))
@@ -339,16 +445,21 @@ export default function UserManagementScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>User Details</Text>
+              <Text style={styles.modalTitle}>👤 User Details</Text>
               <TouchableOpacity onPress={() => setDetailsModalVisible(false)}>
-                <IconSymbol name="xmark.circle.fill" size={28} color={colors.textSecondary} />
+                <IconSymbol 
+                  ios_icon_name="xmark.circle.fill" 
+                  android_material_icon_name="cancel" 
+                  size={28} 
+                  color={colors.textSecondary} 
+                />
               </TouchableOpacity>
             </View>
 
             {selectedUser && (
               <ScrollView style={styles.modalBody}>
                 <View style={styles.detailSection}>
-                  <Text style={styles.detailSectionTitle}>Personal Information</Text>
+                  <Text style={styles.detailSectionTitle}>📋 Personal Information</Text>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Name:</Text>
                     <Text style={styles.detailValue}>{selectedUser.name}</Text>
@@ -368,7 +479,7 @@ export default function UserManagementScreen() {
                 </View>
 
                 <View style={styles.detailSection}>
-                  <Text style={styles.detailSectionTitle}>Account Status</Text>
+                  <Text style={styles.detailSectionTitle}>📊 Account Status</Text>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>KYC Status:</Text>
                     <Text style={[styles.detailValue, { color: getStatusColor(selectedUser.kyc_status) }]}>
@@ -388,7 +499,7 @@ export default function UserManagementScreen() {
                 </View>
 
                 <View style={styles.detailSection}>
-                  <Text style={styles.detailSectionTitle}>Financial Information</Text>
+                  <Text style={styles.detailSectionTitle}>💰 Financial Information</Text>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>MXI Balance:</Text>
                     <Text style={styles.detailValue}>{parseFloat(selectedUser.mxi_balance.toString()).toFixed(2)} MXI</Text>
@@ -404,107 +515,29 @@ export default function UserManagementScreen() {
                 </View>
 
                 <View style={styles.actionSection}>
-                  <Text style={styles.detailSectionTitle}>Admin Actions</Text>
+                  <Text style={styles.detailSectionTitle}>⚙️ Admin Actions</Text>
                   
                   <TouchableOpacity
                     style={[buttonStyles.primary, styles.actionButton]}
-                    onPress={() => {
-                      Alert.prompt(
-                        'Add MXI Funds',
-                        'Enter amount of MXI to add:',
-                        [
-                          { text: 'Cancel', style: 'cancel' },
-                          {
-                            text: 'Add',
-                            onPress: (value) => {
-                              const amount = parseFloat(value || '0');
-                              if (!isNaN(amount) && amount > 0) {
-                                handleAddFunds(selectedUser.id, amount, 'mxi');
-                              } else {
-                                Alert.alert('Error', 'Please enter a valid positive number');
-                              }
-                            },
-                          },
-                        ],
-                        'plain-text',
-                        '0'
-                      );
-                    }}
+                    onPress={() => openInputModal('add_mxi')}
                   >
-                    <IconSymbol 
-                      ios_icon_name="plus.circle.fill" 
-                      android_material_icon_name="add_circle" 
-                      size={20} 
-                      color="#fff" 
-                    />
+                    <Text style={styles.actionButtonEmoji}>💎</Text>
                     <Text style={buttonStyles.primaryText}>Add MXI Funds</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={[buttonStyles.primary, styles.actionButton]}
-                    onPress={() => {
-                      Alert.prompt(
-                        'Add USDT Contribution',
-                        'Enter amount of USDT to add:',
-                        [
-                          { text: 'Cancel', style: 'cancel' },
-                          {
-                            text: 'Add',
-                            onPress: (value) => {
-                              const amount = parseFloat(value || '0');
-                              if (!isNaN(amount) && amount > 0) {
-                                handleAddFunds(selectedUser.id, amount, 'usdt');
-                              } else {
-                                Alert.alert('Error', 'Please enter a valid positive number');
-                              }
-                            },
-                          },
-                        ],
-                        'plain-text',
-                        '0'
-                      );
-                    }}
+                    onPress={() => openInputModal('add_usdt')}
                   >
-                    <IconSymbol 
-                      ios_icon_name="plus.circle.fill" 
-                      android_material_icon_name="add_circle" 
-                      size={20} 
-                      color="#fff" 
-                    />
+                    <Text style={styles.actionButtonEmoji}>💵</Text>
                     <Text style={buttonStyles.primaryText}>Add USDT Contribution</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={[buttonStyles.secondary, styles.actionButton]}
-                    onPress={() => {
-                      Alert.prompt(
-                        'Set MXI Balance',
-                        'Enter new MXI balance:',
-                        [
-                          { text: 'Cancel', style: 'cancel' },
-                          {
-                            text: 'Update',
-                            onPress: (value) => {
-                              const newBalance = parseFloat(value || '0');
-                              if (!isNaN(newBalance) && newBalance >= 0) {
-                                handleUpdateBalance(selectedUser.id, newBalance);
-                              } else {
-                                Alert.alert('Error', 'Please enter a valid number');
-                              }
-                            },
-                          },
-                        ],
-                        'plain-text',
-                        selectedUser.mxi_balance.toString()
-                      );
-                    }}
+                    onPress={() => openInputModal('set_balance')}
                   >
-                    <IconSymbol 
-                      ios_icon_name="pencil.circle" 
-                      android_material_icon_name="edit" 
-                      size={20} 
-                      color={colors.primary} 
-                    />
+                    <Text style={styles.actionButtonEmoji}>⚖️</Text>
                     <Text style={buttonStyles.secondaryText}>Set MXI Balance</Text>
                   </TouchableOpacity>
 
@@ -512,7 +545,7 @@ export default function UserManagementScreen() {
                     style={[buttonStyles.secondary, styles.actionButton]}
                     onPress={() => {
                       Alert.alert(
-                        'Toggle Active Status',
+                        selectedUser.is_active_contributor ? '⏸️ Deactivate User' : '▶️ Activate User',
                         `Are you sure you want to ${selectedUser.is_active_contributor ? 'deactivate' : 'activate'} this user?`,
                         [
                           { text: 'Cancel', style: 'cancel' },
@@ -524,12 +557,9 @@ export default function UserManagementScreen() {
                       );
                     }}
                   >
-                    <IconSymbol 
-                      ios_icon_name={selectedUser.is_active_contributor ? "pause.circle" : "play.circle"}
-                      android_material_icon_name={selectedUser.is_active_contributor ? "pause_circle" : "play_circle"}
-                      size={20} 
-                      color={colors.warning} 
-                    />
+                    <Text style={styles.actionButtonEmoji}>
+                      {selectedUser.is_active_contributor ? '⏸️' : '▶️'}
+                    </Text>
                     <Text style={buttonStyles.secondaryText}>
                       {selectedUser.is_active_contributor ? 'Deactivate User' : 'Activate User'}
                     </Text>
@@ -537,6 +567,52 @@ export default function UserManagementScreen() {
                 </View>
               </ScrollView>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Input Modal */}
+      <Modal
+        visible={inputModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeInputModal}
+      >
+        <View style={styles.inputModalOverlay}>
+          <View style={styles.inputModalContent}>
+            <Text style={styles.inputModalTitle}>{getInputModalTitle()}</Text>
+            
+            <TextInput
+              style={styles.inputModalInput}
+              placeholder={getInputModalPlaceholder()}
+              placeholderTextColor={colors.textSecondary}
+              value={inputValue}
+              onChangeText={setInputValue}
+              keyboardType="decimal-pad"
+              autoFocus
+            />
+
+            <View style={styles.inputModalButtons}>
+              <TouchableOpacity
+                style={[styles.inputModalButton, styles.inputModalButtonCancel]}
+                onPress={closeInputModal}
+                disabled={processing}
+              >
+                <Text style={styles.inputModalButtonTextCancel}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.inputModalButton, styles.inputModalButtonConfirm]}
+                onPress={handleInputSubmit}
+                disabled={processing || !inputValue}
+              >
+                {processing ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.inputModalButtonTextConfirm}>Confirm</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -797,5 +873,68 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     marginBottom: 12,
+  },
+  actionButtonEmoji: {
+    fontSize: 20,
+  },
+  inputModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  inputModalContent: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+  },
+  inputModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  inputModalInput: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: colors.text,
+    borderWidth: 2,
+    borderColor: colors.border,
+    marginBottom: 20,
+  },
+  inputModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  inputModalButton: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inputModalButtonCancel: {
+    backgroundColor: colors.background,
+    borderWidth: 2,
+    borderColor: colors.border,
+  },
+  inputModalButtonConfirm: {
+    backgroundColor: colors.primary,
+  },
+  inputModalButtonTextCancel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  inputModalButtonTextConfirm: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
 });
