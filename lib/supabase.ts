@@ -12,10 +12,6 @@ const canInitialize = () => {
   if (typeof window === 'undefined') {
     return false;
   }
-  // Additional check for document to ensure we're in a browser
-  if (typeof document === 'undefined') {
-    return false;
-  }
   return true;
 };
 
@@ -43,15 +39,45 @@ const getSupabaseClient = (): SupabaseClient | null => {
 
   try {
     // Dynamically import dependencies only when in browser environment
+    // This prevents the imports from being executed during build
     const { createClient } = require('@supabase/supabase-js');
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    
+    // For React Native, we need AsyncStorage
+    let storage;
+    if (Platform.OS === 'web') {
+      // Use localStorage for web
+      storage = {
+        getItem: (key: string) => {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            return Promise.resolve(window.localStorage.getItem(key));
+          }
+          return Promise.resolve(null);
+        },
+        setItem: (key: string, value: string) => {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.setItem(key, value);
+          }
+          return Promise.resolve();
+        },
+        removeItem: (key: string) => {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.removeItem(key);
+          }
+          return Promise.resolve();
+        },
+      };
+    } else {
+      // Use AsyncStorage for native platforms
+      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+      storage = AsyncStorage;
+    }
 
     supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
-        storage: AsyncStorage,
+        storage: storage,
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: true,
+        detectSessionInUrl: Platform.OS === 'web',
         flowType: 'pkce',
       },
     });
@@ -66,17 +92,38 @@ const getSupabaseClient = (): SupabaseClient | null => {
   }
 };
 
+// Create a no-op handler for when Supabase is not initialized
+const createNoOpHandler = (path: string[] = []): any => {
+  return new Proxy(() => {}, {
+    get: (target, prop) => {
+      const newPath = [...path, String(prop)];
+      console.warn(`Attempted to access supabase.${newPath.join('.')} but client is not initialized`);
+      return createNoOpHandler(newPath);
+    },
+    apply: () => {
+      console.warn(`Attempted to call supabase.${path.join('.')}() but client is not initialized`);
+      return Promise.resolve({ data: null, error: new Error('Supabase not initialized') });
+    }
+  });
+};
+
 // Export a Proxy that lazily initializes the client
 export const supabase = new Proxy({} as SupabaseClient, {
   get: (target, prop) => {
+    // Special handling for common properties
+    if (prop === 'then' || prop === 'catch' || prop === 'finally') {
+      return undefined;
+    }
+    
+    if (prop === Symbol.toStringTag) {
+      return 'SupabaseClient';
+    }
+
     const client = getSupabaseClient();
     if (!client) {
-      console.warn(`Attempted to access supabase.${String(prop)} but client is not initialized`);
-      // Return a no-op function for method calls to prevent crashes
-      return typeof prop === 'string' && prop !== 'constructor' 
-        ? () => Promise.resolve({ data: null, error: new Error('Supabase not initialized') })
-        : undefined;
+      return createNoOpHandler([String(prop)]);
     }
+    
     const value = (client as any)[prop];
     return typeof value === 'function' ? value.bind(client) : value;
   }

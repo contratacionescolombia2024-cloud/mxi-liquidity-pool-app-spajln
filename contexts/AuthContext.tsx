@@ -119,62 +119,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    // Check if supabase is available
-    if (!supabase || !supabase.auth) {
-      console.warn('Supabase client not initialized');
-      setLoading(false);
-      return;
-    }
+    // Small delay to ensure Supabase client is ready
+    const initTimer = setTimeout(() => {
+      initAuth();
+    }, 100);
 
-    // Initialize auth
-    const initAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log('Initial session:', session);
-        setSession(session);
-        if (session) {
-          await loadUserData(session.user.id);
-        } else {
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error('Error initializing auth:', error);
+    return () => clearTimeout(initTimer);
+  }, []);
+
+  const initAuth = async () => {
+    try {
+      // Check if supabase is available
+      if (!supabase || !supabase.auth) {
+        console.warn('Supabase client not initialized, retrying...');
         setLoading(false);
+        return;
       }
-    };
 
-    initAuth();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      console.log('Auth state changed:', _event, session);
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('Initial session:', session);
       setSession(session);
-      
-      if (_event === 'SIGNED_IN' && session) {
-        const { data: existingUser } = await supabase
-          .from('users')
-          .select('id')
-          .eq('id', session.user.id)
-          .single();
-        
-        if (!existingUser && session.user.email) {
-          await supabase
-            .from('users')
-            .update({ email_verified: true })
-            .eq('email', session.user.email);
-        }
-        
-        await loadUserData(session.user.id);
-      } else if (session) {
+      if (session) {
         await loadUserData(session.user.id);
       } else {
-        setUser(null);
-        setIsAuthenticated(false);
         setLoading(false);
       }
-    });
 
-    return () => subscription.unsubscribe();
-  }, []);
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        console.log('Auth state changed:', _event, session);
+        setSession(session);
+        
+        if (_event === 'SIGNED_IN' && session) {
+          const { data: existingUser } = await supabase
+            .from('users')
+            .select('id')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (!existingUser && session.user.email) {
+            await supabase
+              .from('users')
+              .update({ email_verified: true })
+              .eq('email', session.user.email);
+          }
+          
+          await loadUserData(session.user.id);
+        } else if (session) {
+          await loadUserData(session.user.id);
+        } else {
+          setUser(null);
+          setIsAuthenticated(false);
+          setLoading(false);
+        }
+      });
+
+      return () => subscription.unsubscribe();
+    } catch (error) {
+      console.error('Error initializing auth:', error);
+      setLoading(false);
+    }
+  };
 
   const loadUserData = async (userId: string) => {
     if (!supabase || !supabase.from) {
