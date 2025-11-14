@@ -16,7 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 
-interface BinancePayment {
+interface OKXPayment {
   id: string;
   payment_id: string;
   usdt_amount: number;
@@ -27,10 +27,10 @@ interface BinancePayment {
   expires_at: string;
 }
 
-export default function BinancePaymentsScreen() {
+export default function OKXPaymentsScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const [payments, setPayments] = useState<BinancePayment[]>([]);
+  const [payments, setPayments] = useState<OKXPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -43,7 +43,7 @@ export default function BinancePaymentsScreen() {
 
     try {
       const { data, error } = await supabase
-        .from('binance_payments')
+        .from('okx_payments')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
@@ -85,17 +85,17 @@ export default function BinancePaymentsScreen() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'confirmed':
-        return 'checkmark.circle.fill';
+        return { ios: 'checkmark.circle.fill', android: 'check_circle' };
       case 'pending':
-        return 'clock.fill';
+        return { ios: 'clock.fill', android: 'schedule' };
       case 'confirming':
-        return 'arrow.clockwise.circle.fill';
+        return { ios: 'arrow.clockwise.circle.fill', android: 'sync' };
       case 'failed':
-        return 'xmark.circle.fill';
+        return { ios: 'xmark.circle.fill', android: 'cancel' };
       case 'expired':
-        return 'exclamationmark.triangle.fill';
+        return { ios: 'exclamationmark.triangle.fill', android: 'warning' };
       default:
-        return 'circle.fill';
+        return { ios: 'circle.fill', android: 'circle' };
     }
   };
 
@@ -128,9 +128,14 @@ export default function BinancePaymentsScreen() {
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <IconSymbol name="chevron.left" size={24} color={colors.primary} />
+          <IconSymbol 
+            ios_icon_name="chevron.left" 
+            android_material_icon_name="chevron_left" 
+            size={24} 
+            color={colors.primary} 
+          />
         </TouchableOpacity>
-        <Text style={styles.title}>Binance Payments</Text>
+        <Text style={styles.title}>OKX Payments</Text>
       </View>
 
       <ScrollView
@@ -141,82 +146,96 @@ export default function BinancePaymentsScreen() {
       >
         {payments.length === 0 ? (
           <View style={styles.emptyState}>
-            <IconSymbol name="creditcard" size={64} color={colors.textSecondary} />
+            <IconSymbol 
+              ios_icon_name="creditcard" 
+              android_material_icon_name="credit_card" 
+              size={64} 
+              color={colors.textSecondary} 
+            />
             <Text style={styles.emptyTitle}>No Payments Yet</Text>
             <Text style={styles.emptyText}>
-              Your Binance payment history will appear here
+              Your OKX payment history will appear here
             </Text>
             <TouchableOpacity
               style={styles.contributeButton}
               onPress={() => router.push('/(tabs)/(home)/contribute')}
             >
-              <IconSymbol name="plus.circle.fill" size={20} color="#fff" />
+              <IconSymbol 
+                ios_icon_name="plus.circle.fill" 
+                android_material_icon_name="add_circle" 
+                size={20} 
+                color="#fff" 
+              />
               <Text style={styles.contributeButtonText}>Make a Contribution</Text>
             </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.paymentsList}>
-            {payments.map((payment) => (
-              <View key={payment.id} style={styles.paymentCard}>
-                <View style={styles.paymentHeader}>
-                  <View style={styles.paymentStatus}>
-                    <IconSymbol
-                      name={getStatusIcon(payment.status)}
-                      size={20}
-                      color={getStatusColor(payment.status)}
-                    />
-                    <Text
-                      style={[
-                        styles.statusText,
-                        { color: getStatusColor(payment.status) },
-                      ]}
-                    >
-                      {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
+            {payments.map((payment) => {
+              const statusIcon = getStatusIcon(payment.status);
+              return (
+                <View key={payment.id} style={styles.paymentCard}>
+                  <View style={styles.paymentHeader}>
+                    <View style={styles.paymentStatus}>
+                      <IconSymbol
+                        ios_icon_name={statusIcon.ios}
+                        android_material_icon_name={statusIcon.android}
+                        size={20}
+                        color={getStatusColor(payment.status)}
+                      />
+                      <Text
+                        style={[
+                          styles.statusText,
+                          { color: getStatusColor(payment.status) },
+                        ]}
+                      >
+                        {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
+                      </Text>
+                    </View>
+                    <Text style={styles.paymentDate}>
+                      {formatDate(payment.created_at)}
                     </Text>
                   </View>
-                  <Text style={styles.paymentDate}>
-                    {formatDate(payment.created_at)}
-                  </Text>
-                </View>
 
-                <View style={styles.paymentDetails}>
-                  <View style={styles.paymentRow}>
-                    <Text style={styles.paymentLabel}>Payment ID:</Text>
-                    <Text style={styles.paymentValue} numberOfLines={1}>
-                      {payment.payment_id}
-                    </Text>
-                  </View>
-                  <View style={styles.paymentRow}>
-                    <Text style={styles.paymentLabel}>Amount:</Text>
-                    <Text style={styles.paymentValue}>
-                      {payment.usdt_amount} USDT
-                    </Text>
-                  </View>
-                  <View style={styles.paymentRow}>
-                    <Text style={styles.paymentLabel}>MXI Received:</Text>
-                    <Text style={styles.paymentValue}>
-                      {payment.mxi_amount} MXI
-                    </Text>
-                  </View>
-                  {payment.confirmed_at && (
+                  <View style={styles.paymentDetails}>
                     <View style={styles.paymentRow}>
-                      <Text style={styles.paymentLabel}>Confirmed:</Text>
+                      <Text style={styles.paymentLabel}>Payment ID:</Text>
+                      <Text style={styles.paymentValue} numberOfLines={1}>
+                        {payment.payment_id}
+                      </Text>
+                    </View>
+                    <View style={styles.paymentRow}>
+                      <Text style={styles.paymentLabel}>Amount:</Text>
                       <Text style={styles.paymentValue}>
-                        {formatDate(payment.confirmed_at)}
+                        {payment.usdt_amount} USDT
                       </Text>
                     </View>
-                  )}
-                  {payment.status === 'pending' && (
                     <View style={styles.paymentRow}>
-                      <Text style={styles.paymentLabel}>Expires:</Text>
-                      <Text style={[styles.paymentValue, styles.expiresText]}>
-                        {formatDate(payment.expires_at)}
+                      <Text style={styles.paymentLabel}>MXI Received:</Text>
+                      <Text style={styles.paymentValue}>
+                        {payment.mxi_amount} MXI
                       </Text>
                     </View>
-                  )}
+                    {payment.confirmed_at && (
+                      <View style={styles.paymentRow}>
+                        <Text style={styles.paymentLabel}>Confirmed:</Text>
+                        <Text style={styles.paymentValue}>
+                          {formatDate(payment.confirmed_at)}
+                        </Text>
+                      </View>
+                    )}
+                    {payment.status === 'pending' && (
+                      <View style={styles.paymentRow}>
+                        <Text style={styles.paymentLabel}>Expires:</Text>
+                        <Text style={[styles.paymentValue, styles.expiresText]}>
+                          {formatDate(payment.expires_at)}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
       </ScrollView>

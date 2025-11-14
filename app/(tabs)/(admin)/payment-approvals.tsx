@@ -19,7 +19,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
-interface BinancePayment {
+interface OKXPayment {
   id: string;
   user_id: string;
   payment_id: string;
@@ -32,7 +32,7 @@ interface BinancePayment {
   user_email: string;
   user_name: string;
   verification_attempts: number;
-  binance_transaction_id: string | null;
+  okx_transaction_id: string | null;
 }
 
 export default function PaymentApprovalsScreen() {
@@ -40,8 +40,8 @@ export default function PaymentApprovalsScreen() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [payments, setPayments] = useState<BinancePayment[]>([]);
-  const [selectedPayment, setSelectedPayment] = useState<BinancePayment | null>(null);
+  const [payments, setPayments] = useState<OKXPayment[]>([]);
+  const [selectedPayment, setSelectedPayment] = useState<OKXPayment | null>(null);
   const [processing, setProcessing] = useState(false);
   const [filter, setFilter] = useState<'pending' | 'confirming' | 'all'>('confirming');
 
@@ -54,7 +54,7 @@ export default function PaymentApprovalsScreen() {
       setLoading(true);
 
       let query = supabase
-        .from('binance_payments')
+        .from('okx_payments')
         .select(`
           *,
           users!inner(email, name)
@@ -92,12 +92,12 @@ export default function PaymentApprovalsScreen() {
     await loadPayments();
   };
 
-  const handleApprovePayment = async (payment: BinancePayment) => {
+  const handleApprovePayment = async (payment: OKXPayment) => {
     Alert.alert(
       'Approve Payment',
       `Confirm payment of ${payment.usdt_amount} USDT for ${payment.mxi_amount} MXI?\n\n` +
       `User: ${payment.user_name}\n` +
-      `Transaction ID: ${payment.binance_transaction_id || 'Not provided'}`,
+      `Transaction ID: ${payment.okx_transaction_id || 'Not provided'}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -110,7 +110,7 @@ export default function PaymentApprovalsScreen() {
               const { data: { session } } = await supabase.auth.getSession();
               
               const response = await fetch(
-                `${supabase.supabaseUrl}/functions/v1/binance-payment-verification`,
+                `${supabase.supabaseUrl}/functions/v1/okx-payment-verification`,
                 {
                   method: 'POST',
                   headers: {
@@ -148,7 +148,7 @@ export default function PaymentApprovalsScreen() {
     );
   };
 
-  const handleRejectPayment = async (payment: BinancePayment) => {
+  const handleRejectPayment = async (payment: OKXPayment) => {
     Alert.alert(
       'Reject Payment',
       `Are you sure you want to reject this payment?\n\n` +
@@ -167,7 +167,7 @@ export default function PaymentApprovalsScreen() {
               const { data: { session } } = await supabase.auth.getSession();
               
               const response = await fetch(
-                `${supabase.supabaseUrl}/functions/v1/binance-payment-verification`,
+                `${supabase.supabaseUrl}/functions/v1/okx-payment-verification`,
                 {
                   method: 'POST',
                   headers: {
@@ -344,11 +344,11 @@ export default function PaymentApprovalsScreen() {
                 </View>
               </View>
 
-              {payment.binance_transaction_id && (
+              {payment.okx_transaction_id && (
                 <View style={styles.txidContainer}>
                   <Text style={styles.txidLabel}>Transaction ID:</Text>
                   <Text style={styles.txidValue} numberOfLines={1}>
-                    {payment.binance_transaction_id}
+                    {payment.okx_transaction_id}
                   </Text>
                 </View>
               )}
@@ -402,11 +402,11 @@ export default function PaymentApprovalsScreen() {
                     <Text style={styles.detailValue}>{selectedPayment.payment_id}</Text>
                   </View>
 
-                  {selectedPayment.binance_transaction_id && (
+                  {selectedPayment.okx_transaction_id && (
                     <View style={styles.detailSection}>
-                      <Text style={styles.detailLabel}>Binance Transaction ID</Text>
+                      <Text style={styles.detailLabel}>OKX Transaction ID</Text>
                       <Text style={[styles.detailValue, { fontFamily: 'monospace', fontSize: 14 }]}>
-                        {selectedPayment.binance_transaction_id}
+                        {selectedPayment.okx_transaction_id}
                       </Text>
                     </View>
                   )}
@@ -459,7 +459,7 @@ export default function PaymentApprovalsScreen() {
                           color={colors.primary} 
                         />
                         <Text style={styles.infoText}>
-                          This payment requires manual approval. Please verify the transaction on Binance before approving.
+                          This payment requires manual approval. Please verify the transaction on OKX before approving.
                         </Text>
                       </View>
 

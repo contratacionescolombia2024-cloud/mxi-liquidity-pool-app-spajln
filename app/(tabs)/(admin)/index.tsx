@@ -92,9 +92,9 @@ export default function AdminDashboard() {
       const approvedWithdrawals = withdrawalData?.filter(w => w.status === 'processing').length || 0;
       const completedWithdrawals = withdrawalData?.filter(w => w.status === 'completed').length || 0;
 
-      // Load payment stats
+      // Load payment stats - UPDATED to use okx_payments
       const { data: paymentData } = await supabase
-        .from('binance_payments')
+        .from('okx_payments')
         .select('status');
 
       const confirmedPayments = paymentData?.filter(p => p.status === 'confirmed').length || 0;

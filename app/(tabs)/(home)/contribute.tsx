@@ -21,7 +21,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
 
-interface BinancePayment {
+interface OKXPayment {
   paymentId: string;
   usdtAmount: number;
   mxiAmount: number;
@@ -31,8 +31,8 @@ interface BinancePayment {
   qrCodeUri?: string;
 }
 
-// Binance wallet address for payments
-const BINANCE_WALLET_ADDRESS = '0xc962eEc74643747996DC7D52B403084B282aB69d';
+// OKX wallet address for payments
+const OKX_WALLET_ADDRESS = '0xYourOKXWalletAddressHere';
 
 export default function ContributeScreen() {
   const router = useRouter();
@@ -41,7 +41,7 @@ export default function ContributeScreen() {
   const [mxiAmount, setMxiAmount] = useState('0');
   const [loading, setLoading] = useState(false);
   const [phaseInfo, setPhaseInfo] = useState<any>(null);
-  const [currentPayment, setCurrentPayment] = useState<BinancePayment | null>(null);
+  const [currentPayment, setCurrentPayment] = useState<OKXPayment | null>(null);
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [transactionId, setTransactionId] = useState('');
@@ -80,7 +80,7 @@ export default function ContributeScreen() {
 
     try {
       const { data, error } = await supabase
-        .from('binance_payments')
+        .from('okx_payments')
         .select('*')
         .eq('user_id', user.id)
         .in('status', ['pending', 'confirming'])
@@ -95,7 +95,7 @@ export default function ContributeScreen() {
             paymentId: data.payment_id,
             usdtAmount: parseFloat(data.usdt_amount),
             mxiAmount: parseFloat(data.mxi_amount),
-            paymentAddress: data.payment_address || BINANCE_WALLET_ADDRESS,
+            paymentAddress: data.payment_address || OKX_WALLET_ADDRESS,
             status: data.status,
             expiresAt: data.expires_at,
             qrCodeUri: data.qr_code_url || null,
@@ -179,7 +179,7 @@ export default function ContributeScreen() {
 
       // Update payment record with QR code URL
       await supabase
-        .from('binance_payments')
+        .from('okx_payments')
         .update({ qr_code_url: urlData.publicUrl })
         .eq('payment_id', currentPayment.paymentId);
 
@@ -214,13 +214,13 @@ export default function ContributeScreen() {
       expiresAt.setMinutes(expiresAt.getMinutes() + 30);
 
       const { data, error } = await supabase
-        .from('binance_payments')
+        .from('okx_payments')
         .insert({
           user_id: user?.id,
           payment_id: paymentId,
           usdt_amount: amount,
           mxi_amount: parseFloat(mxiAmount),
-          payment_address: BINANCE_WALLET_ADDRESS,
+          payment_address: OKX_WALLET_ADDRESS,
           status: 'pending',
           expires_at: expiresAt.toISOString(),
         })
@@ -255,7 +255,7 @@ export default function ContributeScreen() {
     if (!transactionId || transactionId.trim().length < 10) {
       Alert.alert(
         'Transaction ID Required',
-        'Please enter the Binance transaction ID (TxID). You can find it in your Binance transaction history.'
+        'Please enter the OKX transaction ID (TxID). You can find it in your OKX transaction history.'
       );
       return;
     }
@@ -266,7 +266,7 @@ export default function ContributeScreen() {
       const { data: { session } } = await supabase.auth.getSession();
       
       const response = await fetch(
-        `${supabase.supabaseUrl}/functions/v1/binance-payment-verification`,
+        `${supabase.supabaseUrl}/functions/v1/okx-payment-verification`,
         {
           method: 'POST',
           headers: {
@@ -318,7 +318,7 @@ export default function ContributeScreen() {
                 setCurrentPayment(null);
                 setTransactionId('');
                 setQrCodeUri(null);
-                router.push('/(tabs)/(home)/binance-payments');
+                router.push('/(tabs)/(home)/okx-payments');
               },
             },
           ]
@@ -497,19 +497,19 @@ export default function ContributeScreen() {
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>3</Text>
             </View>
-            <Text style={styles.stepText}>Send USDT to the provided address from Binance (TRC20 network recommended)</Text>
+            <Text style={styles.stepText}>Send USDT to the provided address from OKX Wallet (TRC20 network recommended)</Text>
           </View>
           <View style={styles.infoStep}>
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>4</Text>
             </View>
-            <Text style={styles.stepText}>Upload a screenshot of the payment QR code from Binance</Text>
+            <Text style={styles.stepText}>Upload a screenshot of the payment QR code from OKX</Text>
           </View>
           <View style={styles.infoStep}>
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>5</Text>
             </View>
-            <Text style={styles.stepText}>Copy the transaction ID (TxID) from Binance</Text>
+            <Text style={styles.stepText}>Copy the transaction ID (TxID) from OKX</Text>
           </View>
           <View style={styles.infoStep}>
             <View style={styles.stepNumber}>
@@ -527,7 +527,7 @@ export default function ContributeScreen() {
 
         <TouchableOpacity
           style={[buttonStyles.secondary, styles.viewPaymentsButton]}
-          onPress={() => router.push('/(tabs)/(home)/binance-payments')}
+          onPress={() => router.push('/(tabs)/(home)/okx-payments')}
         >
           <IconSymbol 
             ios_icon_name="list.bullet" 
@@ -578,7 +578,7 @@ export default function ContributeScreen() {
                 </View>
 
                 <View style={styles.paymentDetail}>
-                  <Text style={styles.paymentLabel}>Send to this Binance address</Text>
+                  <Text style={styles.paymentLabel}>Send to this OKX address</Text>
                   <View style={styles.addressContainer}>
                     <Text style={styles.addressText}>{currentPayment.paymentAddress}</Text>
                   </View>
@@ -623,8 +623,8 @@ export default function ContributeScreen() {
                     color={colors.warning} 
                   />
                   <Text style={styles.warningText}>
-                    Please send exactly {currentPayment.usdtAmount} USDT to the address above from Binance.
-                    Use TRC20 network for lower fees. After sending, upload the payment QR code screenshot and enter the transaction ID (TxID) from Binance below.
+                    Please send exactly {currentPayment.usdtAmount} USDT to the address above from OKX Wallet.
+                    Use TRC20 network for lower fees. After sending, upload the payment QR code screenshot and enter the transaction ID (TxID) from OKX below.
                   </Text>
                 </View>
 
@@ -633,7 +633,7 @@ export default function ContributeScreen() {
                     <View style={styles.qrCodeSection}>
                       <Text style={styles.qrCodeLabel}>📸 Upload Payment QR Code</Text>
                       <Text style={styles.qrCodeHint}>
-                        Upload a screenshot of the payment QR code from your Binance transaction
+                        Upload a screenshot of the payment QR code from your OKX transaction
                       </Text>
                       
                       {qrCodeUri ? (
@@ -677,7 +677,7 @@ export default function ContributeScreen() {
                     </View>
 
                     <View style={styles.inputContainer}>
-                      <Text style={styles.inputLabel}>Binance Transaction ID (TxID)</Text>
+                      <Text style={styles.inputLabel}>OKX Transaction ID (TxID)</Text>
                       <TextInput
                         style={styles.txidInput}
                         placeholder="Paste TxID here"
@@ -688,7 +688,7 @@ export default function ContributeScreen() {
                         autoCorrect={false}
                       />
                       <Text style={styles.inputHint}>
-                        Find TxID in: Binance → Wallet → Transaction History
+                        Find TxID in: OKX Wallet → Assets → Transaction History
                       </Text>
                     </View>
 
