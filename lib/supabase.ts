@@ -1,7 +1,5 @@
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Linking from 'expo-linking';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 
 // Supabase configuration
@@ -9,11 +7,13 @@ const supabaseUrl = 'https://aeyfnjuatbtcauiumbhn.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFleWZuanVhdGJ0Y2F1aXVtYmhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4MDI3NTEsImV4cCI6MjA3ODM3ODc1MX0.pefpNdgFtsbBifAtKXaQiWq7S7TioQ9PSGbycmivvDI';
 
 // Check if we're in a proper runtime environment
-// During SSR/build, we should not initialize the client
 const canInitialize = () => {
-  // Check if we're in a browser/native environment
+  // During SSR/build, window is undefined
   if (typeof window === 'undefined') {
-    // We're in SSR or Node.js environment
+    return false;
+  }
+  // Additional check for document to ensure we're in a browser
+  if (typeof document === 'undefined') {
     return false;
   }
   return true;
@@ -21,6 +21,7 @@ const canInitialize = () => {
 
 // Lazy initialization of Supabase client
 let supabaseInstance: SupabaseClient | null = null;
+let initializationAttempted = false;
 
 const getSupabaseClient = (): SupabaseClient | null => {
   // If already initialized, return it
@@ -28,13 +29,23 @@ const getSupabaseClient = (): SupabaseClient | null => {
     return supabaseInstance;
   }
 
+  // If we already tried and failed, don't try again
+  if (initializationAttempted && !supabaseInstance) {
+    return null;
+  }
+
   // Check if we can initialize
   if (!canInitialize()) {
     console.warn('Supabase client not initialized - running in SSR/build environment');
+    initializationAttempted = true;
     return null;
   }
 
   try {
+    // Dynamically import dependencies only when in browser environment
+    const { createClient } = require('@supabase/supabase-js');
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+
     supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         storage: AsyncStorage,
@@ -44,21 +55,27 @@ const getSupabaseClient = (): SupabaseClient | null => {
         flowType: 'pkce',
       },
     });
+    
+    initializationAttempted = true;
     console.log('Supabase client initialized successfully');
     return supabaseInstance;
   } catch (error) {
     console.error('Error creating Supabase client:', error);
+    initializationAttempted = true;
     return null;
   }
 };
 
-// Export a getter function instead of the client directly
+// Export a Proxy that lazily initializes the client
 export const supabase = new Proxy({} as SupabaseClient, {
   get: (target, prop) => {
     const client = getSupabaseClient();
     if (!client) {
       console.warn(`Attempted to access supabase.${String(prop)} but client is not initialized`);
-      return undefined;
+      // Return a no-op function for method calls to prevent crashes
+      return typeof prop === 'string' && prop !== 'constructor' 
+        ? () => Promise.resolve({ data: null, error: new Error('Supabase not initialized') })
+        : undefined;
     }
     const value = (client as any)[prop];
     return typeof value === 'function' ? value.bind(client) : value;
