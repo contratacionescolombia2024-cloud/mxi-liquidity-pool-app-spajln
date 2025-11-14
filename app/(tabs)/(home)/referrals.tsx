@@ -307,7 +307,7 @@ export default function ReferralsScreen() {
           <View style={styles.statCard}>
             <IconSymbol ios_icon_name="person.3.fill" android_material_icon_name="groups" size={24} color={colors.primary} />
             <Text style={styles.statValue}>{user.referrals.level1}</Text>
-            <Text style={styles.statLabel}>Level 1 (3%)</Text>
+            <Text style={styles.statLabel}>Level 1 (5%)</Text>
           </View>
           <View style={styles.statCard}>
             <IconSymbol ios_icon_name="person.2.fill" android_material_icon_name="group" size={24} color={colors.secondary} />
@@ -558,7 +558,7 @@ export default function ReferralsScreen() {
           <View style={styles.infoContent}>
             <Text style={styles.infoTitle}>Cómo funciona:</Text>
             <Text style={styles.infoText}>
-              - Gana 3% de comisión de referidos Nivel 1{'\n'}
+              - Gana 5% de comisión de referidos Nivel 1{'\n'}
               - Gana 2% de comisión de referidos Nivel 2{'\n'}
               - Gana 1% de comisión de referidos Nivel 3{'\n'}
               - Las comisiones se generan en todas las compras{'\n'}

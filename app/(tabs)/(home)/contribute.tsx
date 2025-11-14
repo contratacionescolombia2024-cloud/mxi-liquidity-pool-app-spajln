@@ -122,7 +122,7 @@ export default function ContributeScreen() {
   };
 
   const calculateYieldRate = (investment: number): number => {
-    if (investment >= 50 && investment < 500) return 0.000347222;
+    if (investment >= 20 && investment < 500) return 0.000347222;
     if (investment >= 500 && investment < 1000) return 0.000694444;
     if (investment >= 1000 && investment < 5000) return 0.001388889;
     if (investment >= 5000 && investment < 10000) return 0.002777778;
@@ -195,8 +195,8 @@ export default function ContributeScreen() {
   const handleCreatePayment = async () => {
     const amount = parseFloat(usdtAmount);
     
-    if (isNaN(amount) || amount < 50) {
-      Alert.alert('Invalid Amount', 'Minimum contribution is 50 USDT');
+    if (isNaN(amount) || amount < 20) {
+      Alert.alert('Invalid Amount', 'Minimum contribution is 20 USDT');
       return;
     }
 
@@ -420,7 +420,7 @@ export default function ContributeScreen() {
         <View style={[commonStyles.card, styles.formCard]}>
           <Text style={styles.formTitle}>Make a Contribution</Text>
           <Text style={styles.formSubtitle}>
-            Minimum: 50 USDT • Maximum: 100,000 USDT
+            Minimum: 20 USDT • Maximum: 100,000 USDT
           </Text>
 
           <View style={styles.inputContainer}>
@@ -461,7 +461,7 @@ export default function ContributeScreen() {
           <TouchableOpacity
             style={[buttonStyles.primary, styles.contributeButton]}
             onPress={handleCreatePayment}
-            disabled={loading || !usdtAmount || parseFloat(usdtAmount) < 50}
+            disabled={loading || !usdtAmount || parseFloat(usdtAmount) < 20}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
@@ -485,7 +485,7 @@ export default function ContributeScreen() {
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>1</Text>
             </View>
-            <Text style={styles.stepText}>Enter the amount you want to contribute</Text>
+            <Text style={styles.stepText}>Enter the amount you want to contribute (minimum 20 USDT)</Text>
           </View>
           <View style={styles.infoStep}>
             <View style={styles.stepNumber}>

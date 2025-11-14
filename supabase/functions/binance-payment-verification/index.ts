@@ -138,8 +138,8 @@ async function processReferralCommissions(
       return;
     }
 
-    // Commission rates by level
-    const commissionRates = [0.03, 0.02, 0.01]; // 3%, 2%, 1%
+    // Commission rates by level - UPDATED: Level 1 is now 5%
+    const commissionRates = [0.05, 0.02, 0.01]; // 5%, 2%, 1%
     let currentReferrerId = user.referred_by;
 
     for (let level = 0; level < 3 && currentReferrerId; level++) {
@@ -176,9 +176,9 @@ async function processReferralCommissions(
   }
 }
 
-// Calculate yield rate based on investment amount
+// Calculate yield rate based on investment amount - UPDATED: Starts at 20 USDT
 function calculateYieldRate(investment: number): number {
-  if (investment >= 50 && investment < 500) return 0.000347222;
+  if (investment >= 20 && investment < 500) return 0.000347222;
   if (investment >= 500 && investment < 1000) return 0.000694444;
   if (investment >= 1000 && investment < 5000) return 0.001388889;
   if (investment >= 5000 && investment < 10000) return 0.002777778;
