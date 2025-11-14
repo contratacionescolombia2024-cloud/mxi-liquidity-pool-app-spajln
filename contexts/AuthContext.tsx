@@ -37,6 +37,8 @@ interface User {
   availableMXI?: number;
   nextReleaseDate?: string;
   releasePercentage?: number;
+  mxiPurchasedDirectly?: number;
+  mxiFromUnifiedCommissions?: number;
 }
 
 interface PoolStatus {
@@ -72,6 +74,7 @@ interface AuthContextType {
   addContribution: (usdtAmount: number, transactionType: 'initial' | 'increase' | 'reinvestment') => Promise<{ success: boolean; error?: string }>;
   withdrawCommission: (amount: number, walletAddress: string) => Promise<{ success: boolean; error?: string }>;
   withdrawMXI: (amount: number, walletAddress: string) => Promise<{ success: boolean; error?: string }>;
+  unifyCommissionToMXI: (amount: number) => Promise<{ success: boolean; mxiAmount?: number; error?: string }>;
   resendVerificationEmail: () => Promise<{ success: boolean; error?: string }>;
   checkWithdrawalEligibility: () => Promise<boolean>;
   claimYield: () => Promise<{ success: boolean; yieldEarned?: number; error?: string }>;
@@ -227,6 +230,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         availableMXI: scheduleData ? parseFloat(scheduleData.released_mxi?.toString() || '0') : 0,
         nextReleaseDate: scheduleData?.next_release_date,
         releasePercentage: scheduleData ? parseFloat(scheduleData.release_percentage?.toString() || '10') : 10,
+        mxiPurchasedDirectly: parseFloat(userData.mxi_purchased_directly?.toString() || '0'),
+        mxiFromUnifiedCommissions: parseFloat(userData.mxi_from_unified_commissions?.toString() || '0'),
       };
 
       console.log('User data loaded:', mappedUser);
@@ -486,12 +491,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const newMxiBalance = user.mxiBalance + mxiTokens;
       const newUsdtContributed = user.usdtContributed + usdtAmount;
+      const newMxiPurchasedDirectly = (user.mxiPurchasedDirectly || 0) + mxiTokens;
 
       const { error: updateError } = await supabase
         .from('users')
         .update({
           mxi_balance: newMxiBalance,
           usdt_contributed: newUsdtContributed,
+          mxi_purchased_directly: newMxiPurchasedDirectly,
           is_active_contributor: true,
         })
         .eq('id', user.id);
@@ -581,6 +588,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error: any) {
       console.error('Withdraw commission exception:', error);
       return { success: false, error: error.message || 'Withdrawal failed' };
+    }
+  };
+
+  const unifyCommissionToMXI = async (
+    amount: number
+  ): Promise<{ success: boolean; mxiAmount?: number; error?: string }> => {
+    if (!user) return { success: false, error: 'Not authenticated' };
+
+    if (amount > user.commissions.available) {
+      return { success: false, error: 'Insufficient available commission' };
+    }
+
+    if (amount <= 0) {
+      return { success: false, error: 'Amount must be greater than 0' };
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('unify_commission_to_mxi', {
+        p_user_id: user.id,
+        p_amount: amount,
+      });
+
+      if (error) {
+        console.error('Unify commission error:', error);
+        return { success: false, error: error.message || 'Failed to unify commission' };
+      }
+
+      if (!data || !data.success) {
+        return { success: false, error: data?.error || 'Failed to unify commission' };
+      }
+
+      await loadUserData(user.id);
+
+      return { 
+        success: true, 
+        mxiAmount: parseFloat(data.mxi_amount?.toString() || '0')
+      };
+    } catch (error: any) {
+      console.error('Unify commission exception:', error);
+      return { success: false, error: error.message || 'Failed to unify commission' };
     }
   };
 
@@ -887,6 +934,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         addContribution,
         withdrawCommission,
         withdrawMXI,
+        unifyCommissionToMXI,
         resendVerificationEmail,
         checkWithdrawalEligibility,
         claimYield,

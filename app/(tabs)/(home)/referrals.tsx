@@ -20,17 +20,28 @@ import { IconSymbol } from '@/components/IconSymbol';
 
 export default function ReferralsScreen() {
   const router = useRouter();
-  const { user, withdrawCommission, checkWithdrawalEligibility } = useAuth();
+  const { user, withdrawCommission, unifyCommissionToMXI, checkWithdrawalEligibility, getPhaseInfo } = useAuth();
   const [walletAddress, setWalletAddress] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [unifyAmount, setUnifyAmount] = useState('');
   const [loading, setLoading] = useState(false);
+  const [unifying, setUnifying] = useState(false);
   const [checkingEligibility, setCheckingEligibility] = useState(false);
+  const [currentPrice, setCurrentPrice] = useState(0.30);
 
   useEffect(() => {
     if (user) {
       checkEligibility();
+      loadCurrentPrice();
     }
   }, [user]);
+
+  const loadCurrentPrice = async () => {
+    const phaseInfo = await getPhaseInfo();
+    if (phaseInfo) {
+      setCurrentPrice(phaseInfo.currentPriceUsdt);
+    }
+  };
 
   const checkEligibility = async () => {
     setCheckingEligibility(true);
@@ -120,6 +131,58 @@ export default function ReferralsScreen() {
               );
             } else {
               Alert.alert('Error', result.error || 'Failed to process withdrawal');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleUnifyToMXI = async () => {
+    if (!user) return;
+
+    const amount = parseFloat(unifyAmount);
+
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('Error', 'Please enter a valid amount');
+      return;
+    }
+
+    if (amount > user.commissions.available) {
+      Alert.alert('Error', `You only have ${user.commissions.available.toFixed(2)} USDT available`);
+      return;
+    }
+
+    const mxiAmount = amount / currentPrice;
+
+    Alert.alert(
+      '💎 Unificar Comisiones a MXI',
+      `¿Deseas convertir ${amount.toFixed(2)} USDT de tus comisiones a ${mxiAmount.toFixed(4)} MXI?\n\n` +
+      `Precio actual: ${currentPrice.toFixed(2)} USDT por MXI\n\n` +
+      `⚠️ IMPORTANTE: El MXI unificado desde comisiones NO aumentará tu porcentaje de vesting. ` +
+      `Solo el MXI comprado directamente y las comisiones de referidos cuentan para el vesting.\n\n` +
+      `El MXI unificado se agregará a tu balance principal y estará disponible según las reglas de retiro.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Unificar',
+          onPress: async () => {
+            setUnifying(true);
+            const result = await unifyCommissionToMXI(amount);
+            setUnifying(false);
+
+            if (result.success) {
+              Alert.alert(
+                '✅ Comisiones Unificadas',
+                `Has convertido exitosamente ${amount.toFixed(2)} USDT a ${result.mxiAmount?.toFixed(4)} MXI.\n\n` +
+                `Tu balance de MXI ha sido actualizado.\n\n` +
+                `Recuerda: Este MXI no cuenta para el porcentaje de vesting.`,
+                [{ text: 'Excelente', onPress: () => {
+                  setUnifyAmount('');
+                }}]
+              );
+            } else {
+              Alert.alert('Error', result.error || 'Failed to unify commission');
             }
           },
         },
@@ -251,46 +314,111 @@ export default function ReferralsScreen() {
             </View>
           )}
 
-          {user.canWithdraw && user.commissions.available > 0 && (
-            <View style={styles.withdrawForm}>
-              <View style={styles.inputContainer}>
-                <Text style={commonStyles.label}>Withdrawal Amount (USDT)</Text>
-                <TextInput
-                  style={commonStyles.input}
-                  placeholder={`Max: ${user.commissions.available.toFixed(2)}`}
-                  placeholderTextColor={colors.textSecondary}
-                  value={withdrawAmount}
-                  onChangeText={setWithdrawAmount}
-                  keyboardType="decimal-pad"
-                />
+          {user.commissions.available > 0 && (
+            <View style={styles.withdrawOptionsContainer}>
+              {/* Unify to MXI Section */}
+              <View style={styles.withdrawOption}>
+                <View style={styles.optionHeader}>
+                  <IconSymbol name="arrow.triangle.2.circlepath" size={20} color={colors.accent} />
+                  <Text style={styles.optionTitle}>💎 Unificar a MXI</Text>
+                </View>
+                <Text style={styles.optionDescription}>
+                  Convierte tus comisiones USDT a MXI al precio actual de mercado.
+                  {'\n'}⚠️ No aumenta el % de vesting.
+                </Text>
+                
+                <View style={styles.inputContainer}>
+                  <Text style={commonStyles.label}>Cantidad a Unificar (USDT)</Text>
+                  <TextInput
+                    style={commonStyles.input}
+                    placeholder={`Max: ${user.commissions.available.toFixed(2)}`}
+                    placeholderTextColor={colors.textSecondary}
+                    value={unifyAmount}
+                    onChangeText={setUnifyAmount}
+                    keyboardType="decimal-pad"
+                  />
+                  {unifyAmount && parseFloat(unifyAmount) > 0 && (
+                    <Text style={styles.conversionText}>
+                      ≈ {(parseFloat(unifyAmount) / currentPrice).toFixed(4)} MXI
+                    </Text>
+                  )}
+                </View>
+
+                <TouchableOpacity
+                  style={[buttonStyles.secondary, styles.actionButton]}
+                  onPress={handleUnifyToMXI}
+                  disabled={unifying || !unifyAmount || parseFloat(unifyAmount) <= 0}
+                >
+                  {unifying ? (
+                    <ActivityIndicator color={colors.accent} />
+                  ) : (
+                    <React.Fragment>
+                      <IconSymbol name="arrow.triangle.2.circlepath" size={20} color={colors.accent} />
+                      <Text style={[styles.buttonText, { color: colors.accent }]}>Unificar a MXI</Text>
+                    </React.Fragment>
+                  )}
+                </TouchableOpacity>
               </View>
 
-              <View style={styles.inputContainer}>
-                <Text style={commonStyles.label}>USDT Wallet Address</Text>
-                <TextInput
-                  style={commonStyles.input}
-                  placeholder="Enter your USDT wallet address"
-                  placeholderTextColor={colors.textSecondary}
-                  value={walletAddress}
-                  onChangeText={setWalletAddress}
-                  autoCapitalize="none"
-                />
+              {/* Divider */}
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>O</Text>
+                <View style={styles.dividerLine} />
               </View>
 
-              <TouchableOpacity
-                style={[buttonStyles.primary, styles.withdrawButton]}
-                onPress={handleWithdraw}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <>
-                    <IconSymbol name="arrow.down.circle.fill" size={20} color="#fff" />
-                    <Text style={styles.buttonText}>Withdraw USDT</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+              {/* Withdraw USDT Section */}
+              {user.canWithdraw && (
+                <View style={styles.withdrawOption}>
+                  <View style={styles.optionHeader}>
+                    <IconSymbol name="arrow.down.circle.fill" size={20} color={colors.primary} />
+                    <Text style={styles.optionTitle}>💵 Retirar USDT</Text>
+                  </View>
+                  <Text style={styles.optionDescription}>
+                    Retira tus comisiones directamente a tu billetera USDT.
+                    {'\n'}Requiere KYC aprobado.
+                  </Text>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={commonStyles.label}>Cantidad a Retirar (USDT)</Text>
+                    <TextInput
+                      style={commonStyles.input}
+                      placeholder={`Max: ${user.commissions.available.toFixed(2)}`}
+                      placeholderTextColor={colors.textSecondary}
+                      value={withdrawAmount}
+                      onChangeText={setWithdrawAmount}
+                      keyboardType="decimal-pad"
+                    />
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={commonStyles.label}>USDT Wallet Address</Text>
+                    <TextInput
+                      style={commonStyles.input}
+                      placeholder="Enter your USDT wallet address"
+                      placeholderTextColor={colors.textSecondary}
+                      value={walletAddress}
+                      onChangeText={setWalletAddress}
+                      autoCapitalize="none"
+                    />
+                  </View>
+
+                  <TouchableOpacity
+                    style={[buttonStyles.primary, styles.actionButton]}
+                    onPress={handleWithdraw}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <React.Fragment>
+                        <IconSymbol name="arrow.down.circle.fill" size={20} color="#fff" />
+                        <Text style={styles.buttonText}>Retirar USDT</Text>
+                      </React.Fragment>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           )}
         </View>
@@ -298,14 +426,16 @@ export default function ReferralsScreen() {
         <View style={styles.infoCard}>
           <IconSymbol name="info.circle" size={20} color={colors.primary} />
           <View style={styles.infoContent}>
-            <Text style={styles.infoTitle}>How it works:</Text>
+            <Text style={styles.infoTitle}>Cómo funciona:</Text>
             <Text style={styles.infoText}>
-              - Earn 3% commission from Level 1 referrals{'\n'}
-              - Earn 2% commission from Level 2 referrals{'\n'}
-              - Earn 1% commission from Level 3 referrals{'\n'}
-              - Commissions are generated on all purchases{'\n'}
-              - USDT commission withdrawals: 5+ active referrals + 10 days + KYC{'\n'}
-              - MXI withdrawals: 5+ active referrals + pool launch date + KYC
+              - Gana 3% de comisión de referidos Nivel 1{'\n'}
+              - Gana 2% de comisión de referidos Nivel 2{'\n'}
+              - Gana 1% de comisión de referidos Nivel 3{'\n'}
+              - Las comisiones se generan en todas las compras{'\n'}
+              - Retiro USDT: 5+ referidos activos + 10 días + KYC{'\n'}
+              - Unificar a MXI: Sin requisitos, disponible siempre{'\n'}
+              - ⚠️ MXI unificado NO cuenta para % de vesting{'\n'}
+              - Solo MXI comprado directamente cuenta para vesting
             </Text>
           </View>
         </View>
@@ -449,6 +579,7 @@ const styles = StyleSheet.create({
   },
   requirementsList: {
     gap: 12,
+    marginBottom: 16,
   },
   requirementItem: {
     flexDirection: 'row',
@@ -459,23 +590,69 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
   },
-  withdrawForm: {
+  withdrawOptionsContainer: {
     marginTop: 16,
+  },
+  withdrawOption: {
+    backgroundColor: colors.background,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  optionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  optionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  optionDescription: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 16,
+    lineHeight: 18,
   },
   inputContainer: {
     marginBottom: 16,
   },
-  withdrawButton: {
+  conversionText: {
+    fontSize: 14,
+    color: colors.accent,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginTop: 8,
   },
   buttonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
   },
   infoCard: {
     flexDirection: 'row',
