@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase, initializeSupabase } from '@/lib/supabase';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 
 interface User {
@@ -110,34 +110,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [supabaseReady, setSupabaseReady] = useState(false);
 
   useEffect(() => {
     // Check if we're in a client environment
-    if (typeof window === 'undefined') {
+    if (typeof window === 'undefined' && typeof global === 'undefined') {
       console.log('Not in client environment, skipping auth initialization');
       setLoading(false);
       return;
     }
 
-    // Small delay to ensure Supabase client is ready
-    const initTimer = setTimeout(() => {
-      initAuth();
-    }, 100);
+    // Initialize Supabase first
+    const init = async () => {
+      console.log('🚀 Initializing Supabase client...');
+      const initialized = await initializeSupabase();
+      
+      if (!initialized) {
+        console.warn('⚠️ Supabase client could not be initialized');
+        setLoading(false);
+        return;
+      }
 
-    return () => clearTimeout(initTimer);
+      console.log('✅ Supabase client ready');
+      setSupabaseReady(true);
+
+      // Small delay to ensure everything is ready
+      setTimeout(() => {
+        initAuth();
+      }, 200);
+    };
+
+    init();
   }, []);
 
   const initAuth = async () => {
     try {
       // Check if supabase is available
       if (!supabase || !supabase.auth) {
-        console.warn('Supabase client not initialized, retrying...');
+        console.warn('Supabase client not initialized');
         setLoading(false);
         return;
       }
 
       const { data: { session } } = await supabase.auth.getSession();
-      console.log('Initial session:', session);
+      console.log('Initial session:', session ? 'Found' : 'None');
       setSession(session);
       if (session) {
         await loadUserData(session.user.id);
@@ -146,7 +162,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-        console.log('Auth state changed:', _event, session);
+        console.log('Auth state changed:', _event);
         setSession(session);
         
         if (_event === 'SIGNED_IN' && session) {
@@ -267,7 +283,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         mxiFromUnifiedCommissions: parseFloat(userData.mxi_from_unified_commissions?.toString() || '0'),
       };
 
-      console.log('User data loaded:', mappedUser);
+      console.log('✅ User data loaded successfully');
       setUser(mappedUser);
       setIsAuthenticated(true);
       setLoading(false);
@@ -278,8 +294,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    if (!supabase || !supabase.auth) {
-      return { success: false, error: 'Service not available' };
+    if (!supabaseReady || !supabase || !supabase.auth) {
+      return { success: false, error: 'Service not available. Please wait a moment and try again.' };
     }
 
     try {
@@ -319,8 +335,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const register = async (userData: RegisterData): Promise<{ success: boolean; error?: string }> => {
-    if (!supabase || !supabase.auth) {
-      return { success: false, error: 'Service not available' };
+    if (!supabaseReady || !supabase || !supabase.auth) {
+      return { success: false, error: 'Service not available. Please wait a moment and try again.' };
     }
 
     try {
