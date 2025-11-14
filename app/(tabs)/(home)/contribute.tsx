@@ -295,7 +295,12 @@ export default function ContributeScreen() {
     if (!transactionId || transactionId.trim().length < 10) {
       Alert.alert(
         'Transaction ID Required',
-        'Please enter the OKX transaction ID (TxID). You can find it in your OKX transaction history.'
+        'Please enter the transaction ID (TxID) from your wallet.\n\n' +
+        'You can find it in your wallet\'s transaction history:\n' +
+        '• OKX: Assets → Transaction History\n' +
+        '• Binance: Wallet → Transaction History\n' +
+        '• Trust Wallet: Activity tab\n' +
+        '• MetaMask: Activity tab'
       );
       return;
     }
@@ -520,7 +525,7 @@ export default function ContributeScreen() {
         </View>
 
         <View style={[commonStyles.card, styles.infoCard]}>
-          <Text style={styles.infoTitle}>How it works</Text>
+          <Text style={styles.infoTitle}>💡 How it works</Text>
           <View style={styles.infoStep}>
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>1</Text>
@@ -537,29 +542,35 @@ export default function ContributeScreen() {
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>3</Text>
             </View>
-            <Text style={styles.stepText}>Send USDT to the provided address from OKX Wallet (TRC20 network recommended)</Text>
+            <Text style={styles.stepText}>Send USDT from ANY wallet (OKX, Binance, Trust Wallet, MetaMask, etc.) to the provided address</Text>
           </View>
           <View style={styles.infoStep}>
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>4</Text>
             </View>
-            <Text style={styles.stepText}>Upload a screenshot of the payment QR code from OKX</Text>
+            <Text style={styles.stepText}>Use TRC20 network for lowest fees (recommended)</Text>
           </View>
           <View style={styles.infoStep}>
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>5</Text>
             </View>
-            <Text style={styles.stepText}>Copy the transaction ID (TxID) from OKX</Text>
+            <Text style={styles.stepText}>Upload a screenshot of the payment confirmation</Text>
           </View>
           <View style={styles.infoStep}>
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>6</Text>
             </View>
-            <Text style={styles.stepText}>Enter the TxID and click verify</Text>
+            <Text style={styles.stepText}>Copy the transaction ID (TxID) from your wallet</Text>
           </View>
           <View style={styles.infoStep}>
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>7</Text>
+            </View>
+            <Text style={styles.stepText}>Enter the TxID and click verify</Text>
+          </View>
+          <View style={styles.infoStep}>
+            <View style={styles.stepNumber}>
+              <Text style={styles.stepNumberText}>8</Text>
             </View>
             <Text style={styles.stepText}>Your balance will be updated automatically (or after admin approval if automatic verification fails)</Text>
           </View>
@@ -618,7 +629,7 @@ export default function ContributeScreen() {
                 </View>
 
                 <View style={styles.paymentDetail}>
-                  <Text style={styles.paymentLabel}>Send to this OKX address</Text>
+                  <Text style={styles.paymentLabel}>Send to this address</Text>
                   <View style={styles.addressContainer}>
                     <Text style={styles.addressText}>{currentPayment.paymentAddress}</Text>
                   </View>
@@ -663,17 +674,18 @@ export default function ContributeScreen() {
                     color={colors.warning} 
                   />
                   <Text style={styles.warningText}>
-                    Please send exactly {currentPayment.usdtAmount} USDT to the address above from OKX Wallet.
-                    Use TRC20 network for lower fees. After sending, upload the payment QR code screenshot and enter the transaction ID (TxID) from OKX below.
+                    You can send USDT from ANY wallet (OKX, Binance, Trust Wallet, MetaMask, etc.) to the address above.
+                    {'\n\n'}
+                    Use TRC20 network for lowest fees. After sending, upload the payment confirmation screenshot and enter the transaction ID (TxID) from your wallet below.
                   </Text>
                 </View>
 
                 {currentPayment.status === 'pending' && (
                   <React.Fragment>
                     <View style={styles.qrCodeSection}>
-                      <Text style={styles.qrCodeLabel}>📸 Upload Payment QR Code</Text>
+                      <Text style={styles.qrCodeLabel}>📸 Upload Payment Confirmation</Text>
                       <Text style={styles.qrCodeHint}>
-                        Upload a screenshot of the payment QR code from your OKX transaction
+                        Upload a screenshot of the payment confirmation from your wallet
                       </Text>
                       
                       {qrCodeUri ? (
@@ -709,7 +721,7 @@ export default function ContributeScreen() {
                                 size={32} 
                                 color={colors.primary} 
                               />
-                              <Text style={styles.uploadQRButtonText}>Tap to Upload QR Code</Text>
+                              <Text style={styles.uploadQRButtonText}>Tap to Upload Screenshot</Text>
                             </React.Fragment>
                           )}
                         </TouchableOpacity>
@@ -717,7 +729,7 @@ export default function ContributeScreen() {
                     </View>
 
                     <View style={styles.inputContainer}>
-                      <Text style={styles.inputLabel}>OKX Transaction ID (TxID)</Text>
+                      <Text style={styles.inputLabel}>Transaction ID (TxID)</Text>
                       <TextInput
                         style={styles.txidInput}
                         placeholder="Paste TxID here"
@@ -728,7 +740,11 @@ export default function ContributeScreen() {
                         autoCorrect={false}
                       />
                       <Text style={styles.inputHint}>
-                        Find TxID in: OKX Wallet → Assets → Transaction History
+                        Find TxID in your wallet's transaction history:
+                        {'\n'}• OKX: Assets → Transaction History
+                        {'\n'}• Binance: Wallet → Transaction History
+                        {'\n'}• Trust Wallet: Activity tab
+                        {'\n'}• MetaMask: Activity tab
                       </Text>
                     </View>
 
@@ -1077,6 +1093,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 8,
     fontStyle: 'italic',
+    lineHeight: 18,
   },
   verifyButton: {
     flexDirection: 'row',
