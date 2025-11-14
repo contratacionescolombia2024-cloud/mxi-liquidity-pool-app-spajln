@@ -57,6 +57,18 @@ interface Referral {
   referred_user_name: string;
 }
 
+interface DefaultSettings {
+  mxiPrice: number;
+  miningRatePerMinute: number;
+  minActiveReferrals: number;
+  withdrawalReleasePercentage: number;
+  withdrawalReleaseDays: number;
+  minPurchase: number;
+  maxPurchase: number;
+  currentPhase: number;
+  currentPriceUsdt: number;
+}
+
 type ActionType = 
   | 'add_mxi' 
   | 'remove_mxi' 
@@ -82,6 +94,7 @@ export default function UserManagementScreen() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'kyc_approved'>('all');
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
+  const [defaultSettings, setDefaultSettings] = useState<DefaultSettings | null>(null);
   
   // User details data
   const [commissions, setCommissions] = useState<Commission[]>([]);
@@ -97,12 +110,55 @@ export default function UserManagementScreen() {
   const [selectedCommission, setSelectedCommission] = useState<Commission | null>(null);
 
   useEffect(() => {
+    loadDefaultSettings();
     loadUsers();
   }, []);
 
   useEffect(() => {
     filterUsers();
   }, [searchQuery, filterStatus, users]);
+
+  const loadDefaultSettings = async () => {
+    try {
+      // Load admin settings
+      const { data: settingsData, error: settingsError } = await supabase
+        .from('admin_settings')
+        .select('*');
+
+      if (settingsError) throw settingsError;
+
+      // Load metrics
+      const { data: metricsData, error: metricsError } = await supabase
+        .from('metrics')
+        .select('*')
+        .single();
+
+      if (metricsError) throw metricsError;
+
+      // Parse settings
+      const settings: any = {};
+      settingsData?.forEach((setting) => {
+        const value = setting.setting_value?.value ?? setting.setting_value;
+        settings[setting.setting_key] = value;
+      });
+
+      setDefaultSettings({
+        mxiPrice: parseFloat(settings.mxi_price?.toString() || '0.4'),
+        miningRatePerMinute: parseFloat(settings.mining_rate_per_minute?.toString() || '0.0001'),
+        minActiveReferrals: parseInt(settings.min_active_referrals?.toString() || '5'),
+        withdrawalReleasePercentage: parseFloat(settings.withdrawal_release_percentage?.toString() || '10'),
+        withdrawalReleaseDays: parseInt(settings.withdrawal_release_days?.toString() || '7'),
+        minPurchase: parseFloat(settings.min_purchase?.toString() || '20'),
+        maxPurchase: parseFloat(settings.max_purchase?.toString() || '40000'),
+        currentPhase: metricsData?.current_phase || 1,
+        currentPriceUsdt: parseFloat(metricsData?.current_price_usdt?.toString() || '0.4'),
+      });
+
+      console.log('Default settings loaded:', settings);
+    } catch (error) {
+      console.error('Error loading default settings:', error);
+    }
+  };
 
   const loadUsers = async () => {
     try {
@@ -873,18 +929,38 @@ export default function UserManagementScreen() {
                     <Text style={styles.detailLabel}>MXI Balance:</Text>
                     <Text style={styles.detailValue}>{parseFloat(selectedUser.mxi_balance.toString()).toFixed(2)} MXI</Text>
                   </View>
+                  {defaultSettings && (
+                    <Text style={styles.defaultValueText}>
+                      Default: 0 MXI
+                    </Text>
+                  )}
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>USDT Contributed:</Text>
                     <Text style={styles.detailValue}>${parseFloat(selectedUser.usdt_contributed.toString()).toFixed(2)}</Text>
                   </View>
+                  {defaultSettings && (
+                    <Text style={styles.defaultValueText}>
+                      Default: $0 USDT
+                    </Text>
+                  )}
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>MXI Purchased:</Text>
                     <Text style={styles.detailValue}>{parseFloat(selectedUser.mxi_purchased_directly?.toString() || '0').toFixed(2)} MXI</Text>
                   </View>
+                  {defaultSettings && (
+                    <Text style={styles.defaultValueText}>
+                      Default: 0 MXI
+                    </Text>
+                  )}
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>MXI from Commissions:</Text>
                     <Text style={styles.detailValue}>{parseFloat(selectedUser.mxi_from_unified_commissions?.toString() || '0').toFixed(2)} MXI</Text>
                   </View>
+                  {defaultSettings && (
+                    <Text style={styles.defaultValueText}>
+                      Default: 0 MXI
+                    </Text>
+                  )}
                 </View>
 
                 {/* Yield Information */}
@@ -894,10 +970,20 @@ export default function UserManagementScreen() {
                     <Text style={styles.detailLabel}>Yield Rate:</Text>
                     <Text style={styles.detailValue}>{parseFloat(selectedUser.yield_rate_per_minute?.toString() || '0').toFixed(6)} MXI/min</Text>
                   </View>
+                  {defaultSettings && (
+                    <Text style={styles.defaultValueText}>
+                      Default: {defaultSettings.miningRatePerMinute.toFixed(6)} MXI/min
+                    </Text>
+                  )}
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Accumulated Yield:</Text>
                     <Text style={styles.detailValue}>{parseFloat(selectedUser.accumulated_yield?.toString() || '0').toFixed(2)} MXI</Text>
                   </View>
+                  {defaultSettings && (
+                    <Text style={styles.defaultValueText}>
+                      Default: 0 MXI
+                    </Text>
+                  )}
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Last Yield Update:</Text>
                     <Text style={styles.detailValue}>{formatDate(selectedUser.last_yield_update)}</Text>
@@ -911,6 +997,11 @@ export default function UserManagementScreen() {
                     <Text style={styles.detailLabel}>Active Referrals:</Text>
                     <Text style={styles.detailValue}>{selectedUser.active_referrals}</Text>
                   </View>
+                  {defaultSettings && (
+                    <Text style={styles.defaultValueText}>
+                      Default: 0 (Min required for withdrawal: {defaultSettings.minActiveReferrals})
+                    </Text>
+                  )}
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Total Referrals:</Text>
                     <Text style={styles.detailValue}>{referrals.length}</Text>
@@ -1190,21 +1281,32 @@ export default function UserManagementScreen() {
                 </View>
               </>
             ) : (
-              <TextInput
-                style={styles.inputModalInput}
-                placeholder={
-                  currentAction === 'set_yield_rate'
-                    ? 'Enter yield rate (MXI/minute)'
-                    : currentAction === 'set_active_referrals'
-                    ? 'Enter number of active referrals'
-                    : 'Enter amount'
-                }
-                placeholderTextColor={colors.textSecondary}
-                value={inputValue}
-                onChangeText={setInputValue}
-                keyboardType="decimal-pad"
-                autoFocus
-              />
+              <>
+                <TextInput
+                  style={styles.inputModalInput}
+                  placeholder={
+                    currentAction === 'set_yield_rate'
+                      ? 'Enter yield rate (MXI/minute)'
+                      : currentAction === 'set_active_referrals'
+                      ? 'Enter number of active referrals'
+                      : 'Enter amount'
+                  }
+                  placeholderTextColor={colors.textSecondary}
+                  value={inputValue}
+                  onChangeText={setInputValue}
+                  keyboardType="decimal-pad"
+                  autoFocus
+                />
+                {defaultSettings && (
+                  <Text style={styles.inputModalDefaultText}>
+                    {currentAction === 'set_yield_rate' && `Default: ${defaultSettings.miningRatePerMinute.toFixed(6)} MXI/min`}
+                    {currentAction === 'set_active_referrals' && `Default: 0 (Min required: ${defaultSettings.minActiveReferrals})`}
+                    {currentAction === 'set_accumulated_yield' && 'Default: 0 MXI'}
+                    {currentAction === 'set_mxi_balance' && 'Default: 0 MXI'}
+                    {currentAction === 'set_usdt_balance' && 'Default: $0 USDT'}
+                  </Text>
+                )}
+              </>
             )}
 
             <View style={styles.inputModalButtons}>
@@ -1479,6 +1581,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
+  defaultValueText: {
+    fontSize: 11,
+    color: colors.primary,
+    fontStyle: 'italic',
+    marginTop: 4,
+    marginBottom: 8,
+    paddingLeft: 4,
+  },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1594,6 +1704,13 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.border,
     marginBottom: 12,
+  },
+  inputModalDefaultText: {
+    fontSize: 12,
+    color: colors.primary,
+    fontStyle: 'italic',
+    marginBottom: 12,
+    textAlign: 'center',
   },
   statusSelector: {
     flexDirection: 'row',
