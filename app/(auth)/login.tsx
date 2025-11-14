@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
+import Footer from '@/components/Footer';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -165,6 +166,9 @@ export default function LoginScreen() {
             Pre-Sale closes on January 15, 2025 at 12:00 UTC
           </Text>
         </View>
+
+        {/* Footer */}
+        <Footer />
       </ScrollView>
     </SafeAreaView>
   );
@@ -279,6 +283,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     marginTop: 32,
+    marginBottom: 16,
     alignItems: 'center',
   },
   footerText: {

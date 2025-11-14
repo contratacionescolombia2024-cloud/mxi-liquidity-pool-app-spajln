@@ -15,6 +15,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { useRouter } from 'expo-router';
 import VestingCounter from '@/components/VestingCounter';
 import MenuButton from '@/components/MenuButton';
+import Footer from '@/components/Footer';
 import { colors, commonStyles } from '@/styles/commonStyles';
 
 interface PhaseInfo {
@@ -389,6 +390,9 @@ export default function HomeScreen() {
             </View>
           </View>
         )}
+
+        {/* Footer */}
+        <Footer />
       </ScrollView>
     </SafeAreaView>
   );
