@@ -32,6 +32,7 @@ interface BinancePayment {
   user_email: string;
   user_name: string;
   verification_attempts: number;
+  binance_transaction_id: string | null;
 }
 
 export default function PaymentApprovalsScreen() {
@@ -94,7 +95,9 @@ export default function PaymentApprovalsScreen() {
   const handleApprovePayment = async (payment: BinancePayment) => {
     Alert.alert(
       'Approve Payment',
-      `Confirm payment of ${payment.usdt_amount} USDT for ${payment.mxi_amount} MXI?`,
+      `Confirm payment of ${payment.usdt_amount} USDT for ${payment.mxi_amount} MXI?\n\n` +
+      `User: ${payment.user_name}\n` +
+      `Transaction ID: ${payment.binance_transaction_id || 'Not provided'}`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -127,10 +130,13 @@ export default function PaymentApprovalsScreen() {
                 throw new Error(result.error || 'Failed to approve payment');
               }
 
-              Alert.alert('Success', 'Payment approved and user balance updated');
+              Alert.alert(
+                'Success',
+                `Payment approved successfully!\n\nUser's new balance: ${result.newBalance?.toFixed(2) || 'N/A'} MXI`
+              );
               setSelectedPayment(null);
               loadPayments();
-            } catch (error) {
+            } catch (error: any) {
               console.error('Error approving payment:', error);
               Alert.alert('Error', error.message || 'Failed to approve payment');
             } finally {
@@ -145,7 +151,9 @@ export default function PaymentApprovalsScreen() {
   const handleRejectPayment = async (payment: BinancePayment) => {
     Alert.alert(
       'Reject Payment',
-      'Are you sure you want to reject this payment?',
+      `Are you sure you want to reject this payment?\n\n` +
+      `User: ${payment.user_name}\n` +
+      `Amount: ${payment.usdt_amount} USDT`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -182,7 +190,7 @@ export default function PaymentApprovalsScreen() {
               Alert.alert('Success', 'Payment rejected');
               setSelectedPayment(null);
               loadPayments();
-            } catch (error) {
+            } catch (error: any) {
               console.error('Error rejecting payment:', error);
               Alert.alert('Error', error.message || 'Failed to reject payment');
             } finally {
@@ -281,6 +289,9 @@ export default function PaymentApprovalsScreen() {
             color={colors.textSecondary} 
           />
           <Text style={styles.emptyText}>No payments to review</Text>
+          <Text style={styles.emptySubtext}>
+            Payments with automatic verification will not appear here
+          </Text>
         </View>
       ) : (
         <ScrollView 
@@ -333,6 +344,15 @@ export default function PaymentApprovalsScreen() {
                 </View>
               </View>
 
+              {payment.binance_transaction_id && (
+                <View style={styles.txidContainer}>
+                  <Text style={styles.txidLabel}>Transaction ID:</Text>
+                  <Text style={styles.txidValue} numberOfLines={1}>
+                    {payment.binance_transaction_id}
+                  </Text>
+                </View>
+              )}
+
               <View style={styles.paymentFooter}>
                 <Text style={styles.paymentDate}>
                   Created: {formatDate(payment.created_at)}
@@ -382,6 +402,15 @@ export default function PaymentApprovalsScreen() {
                     <Text style={styles.detailValue}>{selectedPayment.payment_id}</Text>
                   </View>
 
+                  {selectedPayment.binance_transaction_id && (
+                    <View style={styles.detailSection}>
+                      <Text style={styles.detailLabel}>Binance Transaction ID</Text>
+                      <Text style={[styles.detailValue, { fontFamily: 'monospace', fontSize: 14 }]}>
+                        {selectedPayment.binance_transaction_id}
+                      </Text>
+                    </View>
+                  )}
+
                   <View style={styles.detailSection}>
                     <Text style={styles.detailLabel}>Amount</Text>
                     <Text style={styles.detailValue}>
@@ -413,50 +442,69 @@ export default function PaymentApprovalsScreen() {
                   <View style={styles.detailSection}>
                     <Text style={styles.detailLabel}>Verification Attempts</Text>
                     <Text style={styles.detailValue}>{selectedPayment.verification_attempts || 0}</Text>
+                    {selectedPayment.verification_attempts > 0 && (
+                      <Text style={styles.detailSubvalue}>
+                        Automatic verification was attempted but failed. Manual approval required.
+                      </Text>
+                    )}
                   </View>
 
                   {(selectedPayment.status === 'confirming' || selectedPayment.status === 'pending') && (
-                    <View style={styles.actionButtons}>
-                      <TouchableOpacity
-                        style={[buttonStyles.primary, styles.approveButton]}
-                        onPress={() => handleApprovePayment(selectedPayment)}
-                        disabled={processing}
-                      >
-                        {processing ? (
-                          <ActivityIndicator color="#fff" />
-                        ) : (
-                          <>
-                            <IconSymbol 
-                              ios_icon_name="checkmark.circle.fill" 
-                              android_material_icon_name="check_circle" 
-                              size={20} 
-                              color="#fff" 
-                            />
-                            <Text style={styles.buttonText}>Approve Payment</Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
+                    <>
+                      <View style={styles.infoBox}>
+                        <IconSymbol 
+                          ios_icon_name="info.circle.fill" 
+                          android_material_icon_name="info" 
+                          size={24} 
+                          color={colors.primary} 
+                        />
+                        <Text style={styles.infoText}>
+                          This payment requires manual approval. Please verify the transaction on Binance before approving.
+                        </Text>
+                      </View>
 
-                      <TouchableOpacity
-                        style={[buttonStyles.primary, styles.rejectButton]}
-                        onPress={() => handleRejectPayment(selectedPayment)}
-                        disabled={processing}
-                      >
-                        {processing ? (
-                          <ActivityIndicator color="#fff" />
-                        ) : (
-                          <>
-                            <IconSymbol 
-                              ios_icon_name="xmark.circle.fill" 
-                              android_material_icon_name="cancel" 
-                              size={20} 
-                              color="#fff" 
-                            />
-                            <Text style={styles.buttonText}>Reject Payment</Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-                    </View>
+                      <View style={styles.actionButtons}>
+                        <TouchableOpacity
+                          style={[buttonStyles.primary, styles.approveButton]}
+                          onPress={() => handleApprovePayment(selectedPayment)}
+                          disabled={processing}
+                        >
+                          {processing ? (
+                            <ActivityIndicator color="#fff" />
+                          ) : (
+                            <>
+                              <IconSymbol 
+                                ios_icon_name="checkmark.circle.fill" 
+                                android_material_icon_name="check_circle" 
+                                size={20} 
+                                color="#fff" 
+                              />
+                              <Text style={styles.buttonText}>Approve Payment</Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[buttonStyles.primary, styles.rejectButton]}
+                          onPress={() => handleRejectPayment(selectedPayment)}
+                          disabled={processing}
+                        >
+                          {processing ? (
+                            <ActivityIndicator color="#fff" />
+                          ) : (
+                            <>
+                              <IconSymbol 
+                                ios_icon_name="xmark.circle.fill" 
+                                android_material_icon_name="cancel" 
+                                size={20} 
+                                color="#fff" 
+                              />
+                              <Text style={styles.buttonText}>Reject Payment</Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    </>
                   )}
                 </>
               )}
@@ -530,10 +578,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 16,
+    paddingHorizontal: 40,
   },
   emptyText: {
     fontSize: 16,
     color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   scrollContent: {
     padding: 24,
@@ -588,6 +644,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.text,
+  },
+  txidContainer: {
+    backgroundColor: colors.background,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  txidLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  txidValue: {
+    fontSize: 12,
+    color: colors.text,
+    fontFamily: 'monospace',
   },
   paymentFooter: {
     flexDirection: 'row',
@@ -647,6 +720,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     marginTop: 4,
+    lineHeight: 20,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    gap: 12,
+    backgroundColor: colors.primary + '10',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 24,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
   },
   actionButtons: {
     flexDirection: 'row',
