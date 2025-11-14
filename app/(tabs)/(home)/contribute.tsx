@@ -31,9 +31,11 @@ interface OKXPayment {
   qrCodeUri?: string;
 }
 
-// ⚠️ IMPORTANTE: Reemplaza esto con tu dirección de wallet OKX real
-// Para obtenerla: OKX → Assets → Funding Account → USDT → Deposit → TRC20
-const OKX_WALLET_ADDRESS = 'TU_DIRECCION_DE_WALLET_OKX_AQUI';
+// ⚠️ CONFIGURACIÓN IMPORTANTE ⚠️
+// Reemplaza esta dirección con tu dirección de wallet OKX real
+// Para obtenerla: OKX App → Assets → Funding Account → USDT → Deposit → TRC20
+// Ejemplo: TYourOKXWalletAddressHere123456789
+const OKX_WALLET_ADDRESS = 'CONFIGURA_TU_DIRECCION_DE_WALLET_OKX_AQUI';
 
 export default function ContributeScreen() {
   const router = useRouter();
@@ -242,6 +244,15 @@ export default function ContributeScreen() {
 
     if (amount > 100000) {
       Alert.alert('Invalid Amount', 'Maximum contribution is 100,000 USDT');
+      return;
+    }
+
+    // Verificar que la dirección de wallet esté configurada
+    if (OKX_WALLET_ADDRESS === 'CONFIGURA_TU_DIRECCION_DE_WALLET_OKX_AQUI') {
+      Alert.alert(
+        'Configuration Required',
+        'The OKX wallet address has not been configured yet. Please contact the administrator.'
+      );
       return;
     }
 
