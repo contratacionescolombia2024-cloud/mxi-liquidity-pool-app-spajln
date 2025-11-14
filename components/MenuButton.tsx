@@ -31,13 +31,13 @@ export default function MenuButton() {
 
   const menuItems: MenuItem[] = [
     {
-      label: 'Home',
+      label: 'Inicio',
       route: '/(tabs)/(home)/',
       icon: 'house.fill',
       androidIcon: 'home',
     },
     {
-      label: 'Profile',
+      label: 'Perfil',
       route: '/(tabs)/profile',
       icon: 'person.fill',
       androidIcon: 'person',
@@ -188,7 +188,7 @@ export default function MenuButton() {
                   Maxcoin Liquidity Pool
                 </Text>
                 <Text style={styles.menuFooterSubtext}>
-                  Version 1.0.0
+                  Versión 1.0.0
                 </Text>
               </View>
             </BlurView>
