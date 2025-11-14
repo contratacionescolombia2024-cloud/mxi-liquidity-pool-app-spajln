@@ -77,40 +77,49 @@ export default function YieldDisplay() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.iconContainer}>
-          <IconSymbol name="chart.line.uptrend.xyaxis" size={24} color={colors.success} />
+          <Text style={styles.iconEmoji}>⛏️</Text>
         </View>
         <View style={styles.headerText}>
-          <Text style={styles.title}>MXI Mining Active</Text>
-          <Text style={styles.subtitle}>Earning {yieldPerSecond.toFixed(8)} MXI/second</Text>
+          <Text style={styles.title}>🔥 Vesting MXI (Minería Activa)</Text>
+          <Text style={styles.subtitle}>
+            ⚡ Generando {yieldPerSecond.toFixed(8)} MXI por segundo
+          </Text>
         </View>
       </View>
 
       <View style={styles.yieldSection}>
         <View style={styles.yieldRow}>
-          <Text style={styles.yieldLabel}>Current Session</Text>
+          <Text style={styles.yieldLabel}>💰 Sesión Actual</Text>
           <Text style={styles.yieldValue}>{currentYield.toFixed(8)} MXI</Text>
         </View>
         <View style={styles.yieldRow}>
-          <Text style={styles.yieldLabel}>Total Accumulated</Text>
+          <Text style={styles.yieldLabel}>📊 Total Acumulado</Text>
           <Text style={styles.yieldValueTotal}>{totalYield.toFixed(8)} MXI</Text>
         </View>
       </View>
 
       <View style={styles.rateSection}>
         <View style={styles.rateItem}>
-          <Text style={styles.rateLabel}>Rate/Minute</Text>
+          <Text style={styles.rateLabel}>Por Segundo</Text>
+          <Text style={styles.rateValue}>{yieldPerSecond.toFixed(8)}</Text>
+        </View>
+        <View style={styles.rateDivider} />
+        <View style={styles.rateItem}>
+          <Text style={styles.rateLabel}>Por Minuto</Text>
           <Text style={styles.rateValue}>{user.yieldRatePerMinute.toFixed(8)}</Text>
         </View>
         <View style={styles.rateDivider} />
         <View style={styles.rateItem}>
-          <Text style={styles.rateLabel}>Rate/Hour</Text>
-          <Text style={styles.rateValue}>{(user.yieldRatePerMinute * 60).toFixed(8)}</Text>
+          <Text style={styles.rateLabel}>Por Hora</Text>
+          <Text style={styles.rateValue}>{(user.yieldRatePerMinute * 60).toFixed(6)}</Text>
         </View>
-        <View style={styles.rateDivider} />
-        <View style={styles.rateItem}>
-          <Text style={styles.rateLabel}>Rate/Day</Text>
-          <Text style={styles.rateValue}>{(user.yieldRatePerMinute * 60 * 24).toFixed(6)}</Text>
-        </View>
+      </View>
+
+      <View style={styles.dailyRate}>
+        <Text style={styles.dailyRateLabel}>📈 Rendimiento Diario</Text>
+        <Text style={styles.dailyRateValue}>
+          {(user.yieldRatePerMinute * 60 * 24).toFixed(4)} MXI
+        </Text>
       </View>
 
       <TouchableOpacity
@@ -124,14 +133,14 @@ export default function YieldDisplay() {
           color={claiming || currentYield < 0.000001 ? colors.textSecondary : '#fff'} 
         />
         <Text style={[styles.claimButtonText, claiming && styles.claimButtonTextDisabled]}>
-          {claiming ? 'Claiming...' : 'Claim Yield'}
+          {claiming ? 'Reclamando...' : '💎 Reclamar Rendimiento'}
         </Text>
       </TouchableOpacity>
 
       <View style={styles.infoBox}>
-        <IconSymbol name="info.circle" size={16} color={colors.textSecondary} />
+        <Text style={styles.infoIcon}>ℹ️</Text>
         <Text style={styles.infoText}>
-          Mining rate: 0.005% per hour of your total investment. To claim your mined MXI, you need 5 active referrals, 10 days membership, and KYC approval (same as commission withdrawals).
+          Tasa de minería: 0.005% por hora de tu inversión total. Para reclamar tu MXI minado, necesitas 5 referidos activos, 10 días de membresía y aprobación KYC (mismos requisitos que retiros de comisiones).
         </Text>
       </View>
     </View>
@@ -146,6 +155,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 2,
     borderColor: colors.success,
+    shadowColor: colors.success,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
   },
   header: {
     flexDirection: 'row',
@@ -153,13 +167,18 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: `${colors.success}20`,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: `${colors.success}30`,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+    borderWidth: 2,
+    borderColor: colors.success,
+  },
+  iconEmoji: {
+    fontSize: 32,
   },
   headerText: {
     flex: 1,
@@ -180,6 +199,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   yieldRow: {
     flexDirection: 'row',
@@ -190,6 +211,7 @@ const styles = StyleSheet.create({
   yieldLabel: {
     fontSize: 14,
     color: colors.textSecondary,
+    fontWeight: '600',
   },
   yieldValue: {
     fontSize: 16,
@@ -206,11 +228,13 @@ const styles = StyleSheet.create({
   rateSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 12,
     paddingVertical: 12,
     paddingHorizontal: 8,
     backgroundColor: colors.background,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   rateItem: {
     flex: 1,
@@ -225,11 +249,34 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textSecondary,
     marginBottom: 4,
+    fontWeight: '600',
   },
   rateValue: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.text,
+    fontFamily: 'monospace',
+  },
+  dailyRate: {
+    backgroundColor: `${colors.primary}20`,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  dailyRateLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  dailyRateValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.primary,
     fontFamily: 'monospace',
   },
   claimButton: {
@@ -241,13 +288,19 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 12,
     gap: 8,
+    shadowColor: colors.success,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   claimButtonDisabled: {
     backgroundColor: colors.border,
+    shadowOpacity: 0,
   },
   claimButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#fff',
   },
   claimButtonTextDisabled: {
@@ -260,6 +313,11 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     gap: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  infoIcon: {
+    fontSize: 16,
   },
   infoText: {
     flex: 1,

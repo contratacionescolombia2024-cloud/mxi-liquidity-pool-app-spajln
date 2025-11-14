@@ -121,7 +121,7 @@ export default function HomeScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>Welcome back,</Text>
+            <Text style={styles.greeting}>Bienvenido de nuevo,</Text>
             <Text style={styles.userName}>{user.name}</Text>
           </View>
           <TouchableOpacity
@@ -137,9 +137,11 @@ export default function HomeScreen() {
           <View style={[commonStyles.card, styles.phaseCard]}>
             <View style={styles.phaseHeader}>
               <View style={styles.phaseHeaderLeft}>
-                <IconSymbol name="chart.line.uptrend.xyaxis" size={28} color={colors.accent} />
+                <View style={styles.phaseIconContainer}>
+                  <Text style={styles.phaseIconEmoji}>📊</Text>
+                </View>
                 <View>
-                  <Text style={styles.phaseTitle}>Phase {phaseInfo.currentPhase} Active</Text>
+                  <Text style={styles.phaseTitle}>Fase {phaseInfo.currentPhase} Activa</Text>
                   <Text style={styles.phaseSubtitle}>{getPhaseDescription(phaseInfo.currentPhase)}</Text>
                 </View>
               </View>
@@ -153,25 +155,25 @@ export default function HomeScreen() {
                 <View style={[styles.progressFill, { width: `${Math.min(getPhaseProgress(), 100)}%` }]} />
               </View>
               <Text style={styles.progressText}>
-                {phaseInfo.tokensUntilNextPhase.toLocaleString()} MXI until next phase
+                {phaseInfo.tokensUntilNextPhase.toLocaleString()} MXI hasta la próxima fase
               </Text>
             </View>
 
             <View style={styles.phaseStats}>
               <View style={styles.phaseStat}>
-                <Text style={styles.phaseStatLabel}>Total Sold</Text>
+                <Text style={styles.phaseStatLabel}>Total Vendido</Text>
                 <Text style={styles.phaseStatValue}>
                   {(phaseInfo.totalTokensSold / 1000000).toFixed(2)}M
                 </Text>
               </View>
               <View style={styles.phaseStatDivider} />
               <View style={styles.phaseStat}>
-                <Text style={styles.phaseStatLabel}>Pre-Sale Total</Text>
+                <Text style={styles.phaseStatLabel}>Pre-Venta Total</Text>
                 <Text style={styles.phaseStatValue}>25M MXI</Text>
               </View>
               <View style={styles.phaseStatDivider} />
               <View style={styles.phaseStat}>
-                <Text style={styles.phaseStatLabel}>Progress</Text>
+                <Text style={styles.phaseStatLabel}>Progreso</Text>
                 <Text style={styles.phaseStatValue}>
                   {((phaseInfo.totalTokensSold / 25000000) * 100).toFixed(1)}%
                 </Text>
@@ -183,17 +185,19 @@ export default function HomeScreen() {
         {/* Balance Card */}
         <View style={[commonStyles.card, styles.balanceCard]}>
           <View style={styles.balanceHeader}>
-            <Text style={styles.balanceLabel}>MXI Balance</Text>
-            <IconSymbol name="bitcoinsign.circle.fill" size={24} color={colors.primary} />
+            <Text style={styles.balanceLabel}>Balance MXI</Text>
+            <View style={styles.balanceIconContainer}>
+              <Text style={styles.balanceIconEmoji}>💎</Text>
+            </View>
           </View>
           <Text style={styles.balanceAmount}>{user.mxiBalance.toFixed(2)}</Text>
           <View style={styles.balanceFooter}>
             <View style={styles.balanceDetail}>
-              <Text style={styles.balanceDetailLabel}>Contributed</Text>
+              <Text style={styles.balanceDetailLabel}>Contribuido</Text>
               <Text style={styles.balanceDetailValue}>${user.usdtContributed.toFixed(2)}</Text>
             </View>
             <View style={styles.balanceDetail}>
-              <Text style={styles.balanceDetailLabel}>Current Value</Text>
+              <Text style={styles.balanceDetailLabel}>Valor Actual</Text>
               <Text style={styles.balanceDetailValue}>
                 ${(user.mxiBalance * (phaseInfo?.currentPriceUsdt || 0.4)).toFixed(2)}
               </Text>
@@ -201,12 +205,20 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Yield Display */}
-        <YieldDisplay />
+        {/* Vesting Section - Prominently Displayed */}
+        {user.isActiveContributor && user.yieldRatePerMinute > 0 && (
+          <View style={styles.vestingSection}>
+            <View style={styles.vestingSectionHeader}>
+              <Text style={styles.vestingSectionTitle}>⛏️ SISTEMA DE VESTING</Text>
+              <Text style={styles.vestingSectionSubtitle}>Minería automática de MXI</Text>
+            </View>
+            <YieldDisplay />
+          </View>
+        )}
 
         {/* Quick Actions */}
         <View style={styles.actionsContainer}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
           
           <View style={styles.actionsGrid}>
             <TouchableOpacity
@@ -214,9 +226,9 @@ export default function HomeScreen() {
               onPress={() => router.push('/(tabs)/(home)/contribute')}
             >
               <View style={[styles.actionIcon, { backgroundColor: colors.primary + '20' }]}>
-                <IconSymbol name="cart.fill" size={36} color={colors.primary} />
+                <Text style={styles.actionIconEmoji}>💰</Text>
               </View>
-              <Text style={styles.actionTitle}>💰 Buy MXI</Text>
+              <Text style={styles.actionTitle}>Comprar MXI</Text>
               <Text style={styles.actionSubtitle}>
                 Min: $20{'\n'}Max: $40,000
               </Text>
@@ -227,11 +239,11 @@ export default function HomeScreen() {
               onPress={() => router.push('/(tabs)/(home)/referrals')}
             >
               <View style={[styles.actionIcon, { backgroundColor: colors.success + '20' }]}>
-                <IconSymbol name="person.3.fill" size={36} color={colors.success} />
+                <Text style={styles.actionIconEmoji}>👥</Text>
               </View>
-              <Text style={styles.actionTitle}>👥 Referrals</Text>
+              <Text style={styles.actionTitle}>Referidos</Text>
               <Text style={styles.actionSubtitle}>
-                {user.activeReferrals} active
+                {user.activeReferrals} activos
               </Text>
             </TouchableOpacity>
 
@@ -240,9 +252,9 @@ export default function HomeScreen() {
               onPress={() => router.push('/(tabs)/(home)/withdrawals')}
             >
               <View style={[styles.actionIcon, { backgroundColor: colors.warning + '20' }]}>
-                <IconSymbol name="banknote.fill" size={36} color={colors.warning} />
+                <Text style={styles.actionIconEmoji}>💸</Text>
               </View>
-              <Text style={styles.actionTitle}>💸 Withdraw</Text>
+              <Text style={styles.actionTitle}>Retirar</Text>
               <Text style={styles.actionSubtitle}>
                 ${user.commissions.available.toFixed(2)}
               </Text>
@@ -253,11 +265,11 @@ export default function HomeScreen() {
               onPress={() => router.push('/(tabs)/(home)/kyc-verification')}
             >
               <View style={[styles.actionIcon, { backgroundColor: colors.accent + '20' }]}>
-                <IconSymbol name="person.badge.shield.checkmark.fill" size={36} color={colors.accent} />
+                <Text style={styles.actionIconEmoji}>🔐</Text>
               </View>
-              <Text style={styles.actionTitle}>🔐 KYC</Text>
+              <Text style={styles.actionTitle}>KYC</Text>
               <Text style={styles.actionSubtitle}>
-                {user.kycStatus === 'approved' ? 'Verified ✓' : 'Verify now'}
+                {user.kycStatus === 'approved' ? 'Verificado ✓' : 'Verificar ahora'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -266,12 +278,14 @@ export default function HomeScreen() {
         {/* Pool Status */}
         <View style={[commonStyles.card, styles.poolCard]}>
           <View style={styles.poolHeader}>
-            <IconSymbol name="clock.fill" size={24} color={colors.primary} />
-            <Text style={styles.poolTitle}>Pool Closes In</Text>
+            <View style={styles.poolIconContainer}>
+              <Text style={styles.poolIconEmoji}>⏰</Text>
+            </View>
+            <Text style={styles.poolTitle}>El Pool Cierra En</Text>
           </View>
-          <Text style={styles.poolDays}>{daysUntilClose} days</Text>
+          <Text style={styles.poolDays}>{daysUntilClose} días</Text>
           <Text style={styles.poolDate}>
-            {poolCloseDate?.toLocaleDateString('en-US', {
+            {poolCloseDate?.toLocaleDateString('es-ES', {
               month: 'long',
               day: 'numeric',
               year: 'numeric',
@@ -282,21 +296,21 @@ export default function HomeScreen() {
         {/* Phase Breakdown */}
         {phaseInfo && (
           <View style={commonStyles.card}>
-            <Text style={styles.sectionTitle}>Phase Breakdown</Text>
+            <Text style={styles.sectionTitle}>Desglose de Fases</Text>
             
             <View style={styles.phaseBreakdown}>
               <View style={[styles.phaseItem, phaseInfo.currentPhase === 1 && styles.phaseItemActive]}>
                 <View style={styles.phaseItemHeader}>
-                  <Text style={styles.phaseItemTitle}>Phase 1</Text>
+                  <Text style={styles.phaseItemTitle}>Fase 1</Text>
                   {phaseInfo.currentPhase === 1 && (
                     <View style={styles.activeIndicator}>
-                      <Text style={styles.activeIndicatorText}>ACTIVE</Text>
+                      <Text style={styles.activeIndicatorText}>ACTIVA</Text>
                     </View>
                   )}
                 </View>
-                <Text style={styles.phaseItemPrice}>$0.40 USDT per MXI</Text>
+                <Text style={styles.phaseItemPrice}>$0.40 USDT por MXI</Text>
                 <Text style={styles.phaseItemSold}>
-                  {(phaseInfo.phase1TokensSold / 1000000).toFixed(2)}M / 8.33M sold
+                  {(phaseInfo.phase1TokensSold / 1000000).toFixed(2)}M / 8.33M vendidos
                 </Text>
                 <View style={styles.phaseProgressBar}>
                   <View 
@@ -310,16 +324,16 @@ export default function HomeScreen() {
 
               <View style={[styles.phaseItem, phaseInfo.currentPhase === 2 && styles.phaseItemActive]}>
                 <View style={styles.phaseItemHeader}>
-                  <Text style={styles.phaseItemTitle}>Phase 2</Text>
+                  <Text style={styles.phaseItemTitle}>Fase 2</Text>
                   {phaseInfo.currentPhase === 2 && (
                     <View style={styles.activeIndicator}>
-                      <Text style={styles.activeIndicatorText}>ACTIVE</Text>
+                      <Text style={styles.activeIndicatorText}>ACTIVA</Text>
                     </View>
                   )}
                 </View>
-                <Text style={styles.phaseItemPrice}>$0.60 USDT per MXI</Text>
+                <Text style={styles.phaseItemPrice}>$0.60 USDT por MXI</Text>
                 <Text style={styles.phaseItemSold}>
-                  {(phaseInfo.phase2TokensSold / 1000000).toFixed(2)}M / 8.33M sold
+                  {(phaseInfo.phase2TokensSold / 1000000).toFixed(2)}M / 8.33M vendidos
                 </Text>
                 <View style={styles.phaseProgressBar}>
                   <View 
@@ -333,16 +347,16 @@ export default function HomeScreen() {
 
               <View style={[styles.phaseItem, phaseInfo.currentPhase === 3 && styles.phaseItemActive]}>
                 <View style={styles.phaseItemHeader}>
-                  <Text style={styles.phaseItemTitle}>Phase 3</Text>
+                  <Text style={styles.phaseItemTitle}>Fase 3</Text>
                   {phaseInfo.currentPhase === 3 && (
                     <View style={styles.activeIndicator}>
-                      <Text style={styles.activeIndicatorText}>ACTIVE</Text>
+                      <Text style={styles.activeIndicatorText}>ACTIVA</Text>
                     </View>
                   )}
                 </View>
-                <Text style={styles.phaseItemPrice}>$0.80 USDT per MXI</Text>
+                <Text style={styles.phaseItemPrice}>$0.80 USDT por MXI</Text>
                 <Text style={styles.phaseItemSold}>
-                  {(phaseInfo.phase3TokensSold / 1000000).toFixed(2)}M / 8.33M sold
+                  {(phaseInfo.phase3TokensSold / 1000000).toFixed(2)}M / 8.33M vendidos
                 </Text>
                 <View style={styles.phaseProgressBar}>
                   <View 
@@ -403,6 +417,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  phaseIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: `${colors.accent}30`,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  phaseIconEmoji: {
+    fontSize: 24,
   },
   phaseTitle: {
     fontSize: 18,
@@ -482,6 +507,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
   },
+  balanceIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: `${colors.primary}20`,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  balanceIconEmoji: {
+    fontSize: 20,
+  },
   balanceAmount: {
     fontSize: 36,
     fontWeight: '700',
@@ -507,6 +543,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
+  },
+  vestingSection: {
+    marginBottom: 16,
+  },
+  vestingSectionHeader: {
+    backgroundColor: colors.success,
+    padding: 16,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    marginBottom: -16,
+    alignItems: 'center',
+  },
+  vestingSectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  vestingSectionSubtitle: {
+    fontSize: 14,
+    color: '#fff',
+    opacity: 0.9,
   },
   actionsContainer: {
     marginBottom: 16,
@@ -536,6 +594,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
+  actionIconEmoji: {
+    fontSize: 36,
+  },
   actionTitle: {
     fontSize: 16,
     fontWeight: '700',
@@ -557,6 +618,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginBottom: 12,
+  },
+  poolIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: `${colors.primary}20`,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  poolIconEmoji: {
+    fontSize: 20,
   },
   poolTitle: {
     fontSize: 16,
