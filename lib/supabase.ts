@@ -8,24 +8,31 @@ import { Platform } from 'react-native';
 const supabaseUrl = 'https://aeyfnjuatbtcauiumbhn.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFleWZuanVhdGJ0Y2F1aXVtYmhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4MDI3NTEsImV4cCI6MjA3ODM3ODc1MX0.pefpNdgFtsbBifAtKXaQiWq7S7TioQ9PSGbycmivvDI';
 
+// Check if we're in a proper runtime environment
+const isSSR = typeof window === 'undefined' && Platform.OS === 'web';
+
 // Create a function to initialize Supabase client
 const createSupabaseClient = () => {
-  // Only initialize if we're in a proper runtime environment
-  if (typeof window === 'undefined' && Platform.OS === 'web') {
-    // During SSR/build on web, return a mock client
+  // During SSR/build on web, return null
+  if (isSSR) {
     console.warn('Supabase client not initialized - running in SSR/build environment');
-    return null as any;
+    return null;
   }
 
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      storage: AsyncStorage,
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true,
-      flowType: 'pkce',
-    },
-  });
+  try {
+    return createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        storage: AsyncStorage,
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+        flowType: 'pkce',
+      },
+    });
+  } catch (error) {
+    console.error('Error creating Supabase client:', error);
+    return null;
+  }
 };
 
 // Initialize the client
@@ -35,6 +42,11 @@ export const supabase = createSupabaseClient();
 export const handleDeepLink = async (url: string) => {
   console.log('Handling deep link:', url);
   
+  if (!supabase) {
+    console.warn('Supabase client not available');
+    return { success: false, error: 'Service not available' };
+  }
+
   try {
     const { data, error } = await supabase.auth.getSessionFromUrl({ url });
     

@@ -1,3 +1,4 @@
+
 {
   "expo": {
     "name": "MXI Liquidity Pool",
@@ -47,8 +48,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "La aplicaci\u00f3n necesita acceso a tus fotos para verificaci\u00f3n KYC.",
-          "cameraPermission": "La aplicaci\u00f3n necesita acceso a tu c\u00e1mara para verificaci\u00f3n KYC."
+          "photosPermission": "La aplicación necesita acceso a tus fotos para verificación KYC.",
+          "cameraPermission": "La aplicación necesita acceso a tu cámara para verificación KYC."
         }
       ]
     ],
@@ -63,6 +64,5 @@
         "projectId": "tu-project-id-aqui"
       }
     }
-  },
-  "scheme": "MXI Liquidity Pool"
+  }
 }
