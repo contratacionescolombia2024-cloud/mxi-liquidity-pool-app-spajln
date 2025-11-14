@@ -119,6 +119,35 @@ export default function UserManagementScreen() {
     }
   };
 
+  const handleAddFunds = async (userId: string, amount: number, type: 'mxi' | 'usdt') => {
+    try {
+      const userToUpdate = users.find(u => u.id === userId);
+      if (!userToUpdate) return;
+
+      const updates: any = {};
+      
+      if (type === 'mxi') {
+        updates.mxi_balance = parseFloat(userToUpdate.mxi_balance.toString()) + amount;
+      } else {
+        updates.usdt_contributed = parseFloat(userToUpdate.usdt_contributed.toString()) + amount;
+      }
+
+      const { error } = await supabase
+        .from('users')
+        .update(updates)
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      Alert.alert('Success', `${amount} ${type.toUpperCase()} added successfully`);
+      loadUsers();
+      setDetailsModalVisible(false);
+    } catch (error) {
+      console.error('Error adding funds:', error);
+      Alert.alert('Error', 'Failed to add funds');
+    }
+  };
+
   const handleToggleActiveStatus = async (userId: string, currentStatus: boolean) => {
     try {
       const { error } = await supabase
@@ -378,10 +407,78 @@ export default function UserManagementScreen() {
                   <Text style={styles.detailSectionTitle}>Admin Actions</Text>
                   
                   <TouchableOpacity
+                    style={[buttonStyles.primary, styles.actionButton]}
+                    onPress={() => {
+                      Alert.prompt(
+                        'Add MXI Funds',
+                        'Enter amount of MXI to add:',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Add',
+                            onPress: (value) => {
+                              const amount = parseFloat(value || '0');
+                              if (!isNaN(amount) && amount > 0) {
+                                handleAddFunds(selectedUser.id, amount, 'mxi');
+                              } else {
+                                Alert.alert('Error', 'Please enter a valid positive number');
+                              }
+                            },
+                          },
+                        ],
+                        'plain-text',
+                        '0'
+                      );
+                    }}
+                  >
+                    <IconSymbol 
+                      ios_icon_name="plus.circle.fill" 
+                      android_material_icon_name="add_circle" 
+                      size={20} 
+                      color="#fff" 
+                    />
+                    <Text style={buttonStyles.primaryText}>Add MXI Funds</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[buttonStyles.primary, styles.actionButton]}
+                    onPress={() => {
+                      Alert.prompt(
+                        'Add USDT Contribution',
+                        'Enter amount of USDT to add:',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Add',
+                            onPress: (value) => {
+                              const amount = parseFloat(value || '0');
+                              if (!isNaN(amount) && amount > 0) {
+                                handleAddFunds(selectedUser.id, amount, 'usdt');
+                              } else {
+                                Alert.alert('Error', 'Please enter a valid positive number');
+                              }
+                            },
+                          },
+                        ],
+                        'plain-text',
+                        '0'
+                      );
+                    }}
+                  >
+                    <IconSymbol 
+                      ios_icon_name="plus.circle.fill" 
+                      android_material_icon_name="add_circle" 
+                      size={20} 
+                      color="#fff" 
+                    />
+                    <Text style={buttonStyles.primaryText}>Add USDT Contribution</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
                     style={[buttonStyles.secondary, styles.actionButton]}
                     onPress={() => {
                       Alert.prompt(
-                        'Update MXI Balance',
+                        'Set MXI Balance',
                         'Enter new MXI balance:',
                         [
                           { text: 'Cancel', style: 'cancel' },
@@ -402,8 +499,13 @@ export default function UserManagementScreen() {
                       );
                     }}
                   >
-                    <IconSymbol name="pencil.circle" size={20} color={colors.primary} />
-                    <Text style={buttonStyles.secondaryText}>Update MXI Balance</Text>
+                    <IconSymbol 
+                      ios_icon_name="pencil.circle" 
+                      android_material_icon_name="edit" 
+                      size={20} 
+                      color={colors.primary} 
+                    />
+                    <Text style={buttonStyles.secondaryText}>Set MXI Balance</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -423,7 +525,8 @@ export default function UserManagementScreen() {
                     }}
                   >
                     <IconSymbol 
-                      name={selectedUser.is_active_contributor ? "pause.circle" : "play.circle"} 
+                      ios_icon_name={selectedUser.is_active_contributor ? "pause.circle" : "play.circle"}
+                      android_material_icon_name={selectedUser.is_active_contributor ? "pause_circle" : "play_circle"}
                       size={20} 
                       color={colors.warning} 
                     />

@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import { useState, useEffect } from 'react';
+import MenuButton from '@/components/MenuButton';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -105,6 +106,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <MenuButton />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <View style={styles.avatarContainer}>
@@ -142,12 +144,38 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account Information</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Account Information</Text>
+            {(user.kycStatus === 'not_submitted' || user.kycStatus === 'rejected') && (
+              <TouchableOpacity
+                style={styles.editButton}
+                onPress={() => router.push('/(tabs)/(home)/edit-profile' as any)}
+              >
+                <IconSymbol 
+                  ios_icon_name="pencil.circle.fill" 
+                  android_material_icon_name="edit" 
+                  size={20} 
+                  color={colors.primary} 
+                />
+                <Text style={styles.editButtonText}>Edit</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
           <View style={[commonStyles.card, styles.infoCard]}>
             <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Full Name</Text>
+              <Text style={styles.infoValue}>{user.name}</Text>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>ID Number</Text>
               <Text style={styles.infoValue}>{user.idNumber}</Text>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Address</Text>
+              <Text style={styles.infoValue}>{user.address}</Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.infoRow}>
@@ -162,6 +190,20 @@ export default function ProfileScreen() {
               </Text>
             </View>
           </View>
+
+          {(user.kycStatus === 'not_submitted' || user.kycStatus === 'rejected') && (
+            <View style={styles.editNotice}>
+              <IconSymbol 
+                ios_icon_name="info.circle.fill" 
+                android_material_icon_name="info" 
+                size={16} 
+                color={colors.primary} 
+              />
+              <Text style={styles.editNoticeText}>
+                You can edit your profile information before KYC verification is approved.
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -556,5 +598,36 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.error,
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: colors.primary + '20',
+    borderRadius: 16,
+  },
+  editButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  editNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: colors.primary + '10',
+    borderRadius: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+  },
+  editNoticeText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.text,
+    lineHeight: 16,
   },
 });

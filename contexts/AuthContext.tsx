@@ -431,6 +431,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const dbUpdates: any = {};
       
       if (updates.name) dbUpdates.name = updates.name;
+      if (updates.idNumber) dbUpdates.id_number = updates.idNumber;
       if (updates.address) dbUpdates.address = updates.address;
       if (updates.mxiBalance !== undefined) dbUpdates.mxi_balance = updates.mxiBalance;
       if (updates.usdtContributed !== undefined) dbUpdates.usdt_contributed = updates.usdtContributed;
