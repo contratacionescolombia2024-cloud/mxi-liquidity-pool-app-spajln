@@ -28,6 +28,15 @@ interface BinancePayment {
   expiresAt: string;
 }
 
+// ⚠️ IMPORTANTE: Reemplaza esta dirección con tu dirección de billetera Binance real
+// Para obtener tu dirección:
+// 1. Abre Binance
+// 2. Ve a Wallet → Spot → USDT
+// 3. Haz clic en "Deposit"
+// 4. Selecciona la red (recomendado: TRC20 para comisiones bajas)
+// 5. Copia la dirección que aparece
+const BINANCE_WALLET_ADDRESS = 'TU_DIRECCION_BINANCE_AQUI'; // Ejemplo: TYourBinanceWalletAddressHere
+
 export default function ContributeScreen() {
   const router = useRouter();
   const { user, addContribution } = useAuth();
@@ -38,6 +47,7 @@ export default function ContributeScreen() {
   const [currentPayment, setCurrentPayment] = useState<BinancePayment | null>(null);
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [transactionId, setTransactionId] = useState('');
 
   useEffect(() => {
     loadPhaseInfo();
@@ -78,7 +88,7 @@ export default function ContributeScreen() {
             paymentId: data.payment_id,
             usdtAmount: parseFloat(data.usdt_amount),
             mxiAmount: parseFloat(data.mxi_amount),
-            paymentAddress: data.payment_address || 'TBD',
+            paymentAddress: data.payment_address || BINANCE_WALLET_ADDRESS,
             status: data.status,
             expiresAt: data.expires_at,
           });
@@ -117,12 +127,12 @@ export default function ContributeScreen() {
     const amount = parseFloat(usdtAmount);
     
     if (isNaN(amount) || amount < 50) {
-      Alert.alert('Invalid Amount', 'Minimum contribution is 50 USDT');
+      Alert.alert('Monto Inválido', 'La contribución mínima es 50 USDT');
       return;
     }
 
     if (amount > 100000) {
-      Alert.alert('Invalid Amount', 'Maximum contribution is 100,000 USDT');
+      Alert.alert('Monto Inválido', 'La contribución máxima es 100,000 USDT');
       return;
     }
 
@@ -136,7 +146,7 @@ export default function ContributeScreen() {
       const expiresAt = new Date();
       expiresAt.setMinutes(expiresAt.getMinutes() + 30);
 
-      // Create payment record
+      // Create payment record with your Binance wallet address
       const { data, error } = await supabase
         .from('binance_payments')
         .insert({
@@ -144,7 +154,7 @@ export default function ContributeScreen() {
           payment_id: paymentId,
           usdt_amount: amount,
           mxi_amount: parseFloat(mxiAmount),
-          payment_address: 'TYourBinanceWalletAddressHere', // Replace with actual Binance wallet
+          payment_address: BINANCE_WALLET_ADDRESS,
           status: 'pending',
           expires_at: expiresAt.toISOString(),
         })
@@ -167,7 +177,7 @@ export default function ContributeScreen() {
       setMxiAmount('0');
     } catch (error) {
       console.error('Error creating payment:', error);
-      Alert.alert('Error', 'Failed to create payment. Please try again.');
+      Alert.alert('Error', 'No se pudo crear el pago. Por favor intenta de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -176,41 +186,39 @@ export default function ContributeScreen() {
   const handleVerifyPayment = async () => {
     if (!currentPayment) return;
 
+    if (!transactionId || transactionId.trim().length < 10) {
+      Alert.alert(
+        'ID de Transacción Requerido',
+        'Por favor ingresa el ID de transacción de Binance (TxID). Lo puedes encontrar en tu historial de transacciones de Binance.'
+      );
+      return;
+    }
+
     try {
       setVerifying(true);
 
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      const response = await fetch(
-        `${supabase.supabaseUrl}/functions/v1/binance-payment-verification`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token}`,
-          },
-          body: JSON.stringify({
-            paymentId: currentPayment.paymentId,
-            action: 'verify',
-          }),
-        }
-      );
+      // Update payment with transaction ID
+      const { error: updateError } = await supabase
+        .from('binance_payments')
+        .update({
+          binance_transaction_id: transactionId,
+          status: 'confirming',
+          last_verification_at: new Date().toISOString(),
+        })
+        .eq('payment_id', currentPayment.paymentId);
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to verify payment');
-      }
+      if (updateError) throw updateError;
 
       Alert.alert(
-        'Verification Initiated',
-        'Your payment has been submitted for verification. An admin will review and approve it shortly.',
+        'Verificación Iniciada',
+        'Tu pago ha sido enviado para verificación. Un administrador lo revisará y aprobará en breve. Recibirás una notificación cuando tu balance sea actualizado.',
         [
           {
             text: 'OK',
             onPress: () => {
               setPaymentModalVisible(false);
               setCurrentPayment(null);
+              setTransactionId('');
               router.push('/(tabs)/(home)/binance-payments');
             },
           },
@@ -218,7 +226,7 @@ export default function ContributeScreen() {
       );
     } catch (error) {
       console.error('Error verifying payment:', error);
-      Alert.alert('Error', error.message || 'Failed to verify payment');
+      Alert.alert('Error', 'No se pudo verificar el pago. Por favor intenta de nuevo.');
     } finally {
       setVerifying(false);
     }
@@ -227,7 +235,7 @@ export default function ContributeScreen() {
   const handleCopyAddress = async () => {
     if (currentPayment) {
       await Clipboard.setStringAsync(currentPayment.paymentAddress);
-      Alert.alert('Copied', 'Payment address copied to clipboard');
+      Alert.alert('Copiado', 'Dirección de pago copiada al portapapeles');
     }
   };
 
@@ -235,25 +243,25 @@ export default function ContributeScreen() {
     if (!user) return;
 
     Alert.alert(
-      'Reinvest Yield',
-      'Convert your accumulated yield to MXI balance?',
+      'Reinvertir Rendimiento',
+      '¿Convertir tu rendimiento acumulado a balance MXI?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Reinvest',
+          text: 'Reinvertir',
           onPress: async () => {
             try {
               setLoading(true);
               const result = await addContribution(0, 'reinvestment');
               
               if (result.success) {
-                Alert.alert('Success', 'Yield reinvested successfully!');
+                Alert.alert('Éxito', '¡Rendimiento reinvertido exitosamente!');
               } else {
-                Alert.alert('Error', result.error || 'Failed to reinvest yield');
+                Alert.alert('Error', result.error || 'No se pudo reinvertir el rendimiento');
               }
             } catch (error) {
               console.error('Error reinvesting:', error);
-              Alert.alert('Error', 'Failed to reinvest yield');
+              Alert.alert('Error', 'No se pudo reinvertir el rendimiento');
             } finally {
               setLoading(false);
             }
@@ -269,7 +277,7 @@ export default function ContributeScreen() {
     const phase = phaseInfo.current_phase;
     const price = parseFloat(phaseInfo.current_price_usdt || '0');
     
-    return `Phase ${phase}: $${price} USDT per MXI`;
+    return `Fase ${phase}: $${price} USDT por MXI`;
   };
 
   return (
@@ -286,7 +294,7 @@ export default function ContributeScreen() {
             color={colors.primary} 
           />
         </TouchableOpacity>
-        <Text style={styles.title}>Contribute</Text>
+        <Text style={styles.title}>Contribuir</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -302,7 +310,7 @@ export default function ContributeScreen() {
               <View style={styles.phaseInfo}>
                 <Text style={styles.phaseTitle}>{getPhaseDescription()}</Text>
                 <Text style={styles.phaseSubtitle}>
-                  {parseFloat(phaseInfo.total_tokens_sold || '0').toLocaleString()} MXI sold
+                  {parseFloat(phaseInfo.total_tokens_sold || '0').toLocaleString()} MXI vendidos
                 </Text>
               </View>
             </View>
@@ -310,17 +318,17 @@ export default function ContributeScreen() {
         )}
 
         <View style={[commonStyles.card, styles.formCard]}>
-          <Text style={styles.formTitle}>Make a Contribution</Text>
+          <Text style={styles.formTitle}>Hacer una Contribución</Text>
           <Text style={styles.formSubtitle}>
-            Minimum: 50 USDT • Maximum: 100,000 USDT
+            Mínimo: 50 USDT • Máximo: 100,000 USDT
           </Text>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>USDT Amount</Text>
+            <Text style={styles.inputLabel}>Monto en USDT</Text>
             <View style={styles.inputWrapper}>
               <TextInput
                 style={styles.input}
-                placeholder="Enter amount"
+                placeholder="Ingresa el monto"
                 placeholderTextColor={colors.textSecondary}
                 value={usdtAmount}
                 onChangeText={(text) => {
@@ -343,7 +351,7 @@ export default function ContributeScreen() {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>You will receive</Text>
+            <Text style={styles.inputLabel}>Recibirás</Text>
             <View style={styles.inputWrapper}>
               <Text style={styles.mxiAmount}>{mxiAmount}</Text>
               <Text style={styles.inputCurrency}>MXI</Text>
@@ -365,43 +373,49 @@ export default function ContributeScreen() {
                   size={20} 
                   color="#fff" 
                 />
-                <Text style={buttonStyles.primaryText}>Create Payment</Text>
+                <Text style={buttonStyles.primaryText}>Crear Pago</Text>
               </>
             )}
           </TouchableOpacity>
         </View>
 
         <View style={[commonStyles.card, styles.infoCard]}>
-          <Text style={styles.infoTitle}>How it works</Text>
+          <Text style={styles.infoTitle}>Cómo funciona</Text>
           <View style={styles.infoStep}>
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>1</Text>
             </View>
-            <Text style={styles.stepText}>Enter the amount you want to contribute</Text>
+            <Text style={styles.stepText}>Ingresa el monto que deseas contribuir</Text>
           </View>
           <View style={styles.infoStep}>
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>2</Text>
             </View>
-            <Text style={styles.stepText}>Create payment and copy the wallet address</Text>
+            <Text style={styles.stepText}>Crea el pago y copia la dirección de la billetera</Text>
           </View>
           <View style={styles.infoStep}>
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>3</Text>
             </View>
-            <Text style={styles.stepText}>Send USDT to the provided address via Binance</Text>
+            <Text style={styles.stepText}>Envía USDT a la dirección proporcionada desde Binance (red TRC20 recomendada)</Text>
           </View>
           <View style={styles.infoStep}>
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>4</Text>
             </View>
-            <Text style={styles.stepText}>Click verify and wait for admin approval</Text>
+            <Text style={styles.stepText}>Copia el ID de transacción (TxID) de Binance</Text>
           </View>
           <View style={styles.infoStep}>
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>5</Text>
             </View>
-            <Text style={styles.stepText}>Your MXI balance will be updated automatically</Text>
+            <Text style={styles.stepText}>Ingresa el TxID y haz clic en verificar</Text>
+          </View>
+          <View style={styles.infoStep}>
+            <View style={styles.stepNumber}>
+              <Text style={styles.stepNumberText}>6</Text>
+            </View>
+            <Text style={styles.stepText}>Espera la aprobación del administrador (tu balance se actualizará automáticamente)</Text>
           </View>
         </View>
 
@@ -415,7 +429,7 @@ export default function ContributeScreen() {
             size={20} 
             color={colors.primary} 
           />
-          <Text style={buttonStyles.secondaryText}>View Payment History</Text>
+          <Text style={buttonStyles.secondaryText}>Ver Historial de Pagos</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -429,7 +443,7 @@ export default function ContributeScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Payment Instructions</Text>
+              <Text style={styles.modalTitle}>Instrucciones de Pago</Text>
               <TouchableOpacity onPress={() => setPaymentModalVisible(false)}>
                 <IconSymbol 
                   ios_icon_name="xmark.circle.fill" 
@@ -443,22 +457,22 @@ export default function ContributeScreen() {
             {currentPayment && (
               <ScrollView style={styles.modalBody}>
                 <View style={styles.paymentDetail}>
-                  <Text style={styles.paymentLabel}>Payment ID</Text>
+                  <Text style={styles.paymentLabel}>ID de Pago</Text>
                   <Text style={styles.paymentValue}>{currentPayment.paymentId}</Text>
                 </View>
 
                 <View style={styles.paymentDetail}>
-                  <Text style={styles.paymentLabel}>Amount to Send</Text>
+                  <Text style={styles.paymentLabel}>Monto a Enviar</Text>
                   <Text style={styles.paymentValue}>{currentPayment.usdtAmount} USDT</Text>
                 </View>
 
                 <View style={styles.paymentDetail}>
-                  <Text style={styles.paymentLabel}>You will receive</Text>
+                  <Text style={styles.paymentLabel}>Recibirás</Text>
                   <Text style={styles.paymentValue}>{currentPayment.mxiAmount} MXI</Text>
                 </View>
 
                 <View style={styles.paymentDetail}>
-                  <Text style={styles.paymentLabel}>Send to this address</Text>
+                  <Text style={styles.paymentLabel}>Enviar a esta dirección</Text>
                   <View style={styles.addressContainer}>
                     <Text style={styles.addressText}>{currentPayment.paymentAddress}</Text>
                     <TouchableOpacity onPress={handleCopyAddress}>
@@ -473,14 +487,19 @@ export default function ContributeScreen() {
                 </View>
 
                 <View style={styles.paymentDetail}>
-                  <Text style={styles.paymentLabel}>Status</Text>
+                  <Text style={styles.paymentLabel}>Red Recomendada</Text>
+                  <Text style={styles.paymentValue}>TRC20 (Tron) - Comisiones bajas</Text>
+                </View>
+
+                <View style={styles.paymentDetail}>
+                  <Text style={styles.paymentLabel}>Estado</Text>
                   <Text style={[styles.paymentValue, { color: colors.warning }]}>
-                    {currentPayment.status.toUpperCase()}
+                    {currentPayment.status === 'pending' ? 'PENDIENTE' : 'CONFIRMANDO'}
                   </Text>
                 </View>
 
                 <View style={styles.paymentDetail}>
-                  <Text style={styles.paymentLabel}>Expires at</Text>
+                  <Text style={styles.paymentLabel}>Expira en</Text>
                   <Text style={styles.paymentValue}>
                     {new Date(currentPayment.expiresAt).toLocaleString()}
                   </Text>
@@ -494,34 +513,62 @@ export default function ContributeScreen() {
                     color={colors.warning} 
                   />
                   <Text style={styles.warningText}>
-                    Please send exactly {currentPayment.usdtAmount} USDT to the address above via Binance.
-                    After sending, click "I've Sent the Payment" to initiate verification.
+                    Por favor envía exactamente {currentPayment.usdtAmount} USDT a la dirección de arriba desde Binance.
+                    Usa la red TRC20 para comisiones más bajas. Después de enviar, copia el ID de transacción (TxID) de Binance e ingrésalo abajo.
                   </Text>
                 </View>
 
-                <TouchableOpacity
-                  style={[buttonStyles.primary, styles.verifyButton]}
-                  onPress={handleVerifyPayment}
-                  disabled={verifying || currentPayment.status === 'confirming'}
-                >
-                  {verifying ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <>
-                      <IconSymbol 
-                        ios_icon_name="checkmark.circle.fill" 
-                        android_material_icon_name="check_circle" 
-                        size={20} 
-                        color="#fff" 
+                {currentPayment.status === 'pending' && (
+                  <>
+                    <View style={styles.inputContainer}>
+                      <Text style={styles.inputLabel}>ID de Transacción de Binance (TxID)</Text>
+                      <TextInput
+                        style={styles.txidInput}
+                        placeholder="Pega el TxID aquí"
+                        placeholderTextColor={colors.textSecondary}
+                        value={transactionId}
+                        onChangeText={setTransactionId}
+                        autoCapitalize="none"
+                        autoCorrect={false}
                       />
-                      <Text style={buttonStyles.primaryText}>
-                        {currentPayment.status === 'confirming' 
-                          ? 'Awaiting Admin Approval' 
-                          : "I've Sent the Payment"}
+                      <Text style={styles.inputHint}>
+                        Encuentra el TxID en: Binance → Wallet → Transaction History
                       </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
+                    </View>
+
+                    <TouchableOpacity
+                      style={[buttonStyles.primary, styles.verifyButton]}
+                      onPress={handleVerifyPayment}
+                      disabled={verifying || !transactionId}
+                    >
+                      {verifying ? (
+                        <ActivityIndicator color="#fff" />
+                      ) : (
+                        <>
+                          <IconSymbol 
+                            ios_icon_name="checkmark.circle.fill" 
+                            android_material_icon_name="check_circle" 
+                            size={20} 
+                            color="#fff" 
+                          />
+                          <Text style={buttonStyles.primaryText}>He Enviado el Pago</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </>
+                )}
+
+                {currentPayment.status === 'confirming' && (
+                  <View style={styles.confirmingBox}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                    <Text style={styles.confirmingText}>
+                      Esperando aprobación del administrador...
+                    </Text>
+                    <Text style={styles.confirmingSubtext}>
+                      Tu pago será verificado y aprobado en breve. Recibirás una notificación cuando tu balance sea actualizado.
+                    </Text>
+                  </View>
+                )}
               </ScrollView>
             )}
           </View>
@@ -747,10 +794,47 @@ const styles = StyleSheet.create({
     color: colors.text,
     lineHeight: 20,
   },
+  txidInput: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: colors.text,
+    fontFamily: 'monospace',
+  },
+  inputHint: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
   verifyButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+  },
+  confirmingBox: {
+    alignItems: 'center',
+    padding: 24,
+    backgroundColor: colors.primary + '10',
+    borderRadius: 12,
+  },
+  confirmingText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  confirmingSubtext: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 8,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
