@@ -19,6 +19,19 @@ const isRuntime = (): boolean => {
   return typeof global !== 'undefined' && !process.env.EXPO_PUBLIC_STATIC_RENDERING;
 };
 
+// Lazy AsyncStorage loader - only loads when actually needed
+let asyncStorageInstance: any = null;
+const getAsyncStorage = () => {
+  if (!asyncStorageInstance && isRuntime()) {
+    try {
+      asyncStorageInstance = require('@react-native-async-storage/async-storage').default;
+    } catch (error) {
+      console.error('Failed to load AsyncStorage:', error);
+    }
+  }
+  return asyncStorageInstance;
+};
+
 // Mock storage for build/SSR environments
 const mockStorage: StorageAdapter = {
   getItem: async () => {
@@ -35,12 +48,12 @@ const mockStorage: StorageAdapter = {
 
 // Web storage implementation
 const createWebStorage = (): StorageAdapter => {
-  if (!isRuntime()) {
-    return mockStorage;
-  }
-
   return {
     getItem: async (key: string) => {
+      if (!isRuntime()) {
+        return null;
+      }
+      
       try {
         if (typeof window !== 'undefined' && window.localStorage) {
           return window.localStorage.getItem(key);
@@ -52,6 +65,10 @@ const createWebStorage = (): StorageAdapter => {
       }
     },
     setItem: async (key: string, value: string) => {
+      if (!isRuntime()) {
+        return;
+      }
+      
       try {
         if (typeof window !== 'undefined' && window.localStorage) {
           window.localStorage.setItem(key, value);
@@ -61,6 +78,10 @@ const createWebStorage = (): StorageAdapter => {
       }
     },
     removeItem: async (key: string) => {
+      if (!isRuntime()) {
+        return;
+      }
+      
       try {
         if (typeof window !== 'undefined' && window.localStorage) {
           window.localStorage.removeItem(key);
@@ -72,44 +93,59 @@ const createWebStorage = (): StorageAdapter => {
   };
 };
 
-// Native storage implementation (AsyncStorage)
+// Native storage implementation (AsyncStorage) - completely lazy
 const createNativeStorage = (): StorageAdapter => {
-  if (!isRuntime()) {
-    return mockStorage;
-  }
-
-  try {
-    // Dynamic import to prevent build-time execution
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-    
-    return {
-      getItem: async (key: string) => {
-        try {
-          return await AsyncStorage.getItem(key);
-        } catch (error) {
-          console.error('Error getting item from AsyncStorage:', error);
+  return {
+    getItem: async (key: string) => {
+      if (!isRuntime()) {
+        return null;
+      }
+      
+      try {
+        const AsyncStorage = getAsyncStorage();
+        if (!AsyncStorage) {
+          console.warn('AsyncStorage not available');
           return null;
         }
-      },
-      setItem: async (key: string, value: string) => {
-        try {
-          await AsyncStorage.setItem(key, value);
-        } catch (error) {
-          console.error('Error setting item in AsyncStorage:', error);
+        return await AsyncStorage.getItem(key);
+      } catch (error) {
+        console.error('Error getting item from AsyncStorage:', error);
+        return null;
+      }
+    },
+    setItem: async (key: string, value: string) => {
+      if (!isRuntime()) {
+        return;
+      }
+      
+      try {
+        const AsyncStorage = getAsyncStorage();
+        if (!AsyncStorage) {
+          console.warn('AsyncStorage not available');
+          return;
         }
-      },
-      removeItem: async (key: string) => {
-        try {
-          await AsyncStorage.removeItem(key);
-        } catch (error) {
-          console.error('Error removing item from AsyncStorage:', error);
+        await AsyncStorage.setItem(key, value);
+      } catch (error) {
+        console.error('Error setting item in AsyncStorage:', error);
+      }
+    },
+    removeItem: async (key: string) => {
+      if (!isRuntime()) {
+        return;
+      }
+      
+      try {
+        const AsyncStorage = getAsyncStorage();
+        if (!AsyncStorage) {
+          console.warn('AsyncStorage not available');
+          return;
         }
-      },
-    };
-  } catch (error) {
-    console.error('Error loading AsyncStorage:', error);
-    return mockStorage;
-  }
+        await AsyncStorage.removeItem(key);
+      } catch (error) {
+        console.error('Error removing item from AsyncStorage:', error);
+      }
+    },
+  };
 };
 
 // Factory function to get the appropriate storage adapter

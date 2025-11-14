@@ -57,7 +57,7 @@ const createSupabaseClient = async (): Promise<SupabaseClient | null> => {
       // Dynamically import Supabase to prevent build-time execution
       const { createClient } = await import('@supabase/supabase-js');
       
-      // Get the appropriate storage adapter
+      // Get the appropriate storage adapter (lazy)
       const storage = getStorageAdapter();
 
       supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {

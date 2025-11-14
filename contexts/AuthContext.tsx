@@ -123,6 +123,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Initialize Supabase first
     const init = async () => {
       console.log('🚀 Initializing Supabase client...');
+      
+      // Wait a bit to ensure the environment is fully ready
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       const initialized = await initializeSupabase();
       
       if (!initialized) {
@@ -134,10 +138,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('✅ Supabase client ready');
       setSupabaseReady(true);
 
-      // Small delay to ensure everything is ready
-      setTimeout(() => {
-        initAuth();
-      }, 200);
+      // Additional delay to ensure storage is ready
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      initAuth();
     };
 
     init();
