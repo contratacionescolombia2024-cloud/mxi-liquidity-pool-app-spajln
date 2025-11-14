@@ -298,131 +298,151 @@ export default function RegisterScreen() {
           </View>
           <ScrollView style={styles.modalContent} contentContainerStyle={styles.modalScrollContent}>
             <Text style={styles.termsContent}>
-              {`TÉRMINOS Y CONDICIONES DE USO - POOL DE LIQUIDEZ MAXCOIN (MXI)
+              {`TÉRMINOS Y CONDICIONES DE USO
 
-Última actualización: 15 de Enero de 2025
+MXI STRATEGIC PRESALE – APP VERSION
 
-1. ACEPTACIÓN DE LOS TÉRMINOS
+MAXCOIN (MXI) is a registered trademark of MXI Strategic Holdings Ltd., Cayman Islands.
+App operated by MXI Technologies Inc. (Panamá).
+Last update: 15/01/2025 – Version 1.0
 
-Al registrarse y utilizar la aplicación Pool de Liquidez Maxcoin (en adelante, "la Aplicación"), usted acepta estar legalmente vinculado por estos Términos y Condiciones. Si no está de acuerdo con alguna parte de estos términos, no debe utilizar la Aplicación.
+1. Aceptación
 
-2. DESCRIPCIÓN DEL SERVICIO
+Al crear una cuenta o utilizar la aplicación MXI Strategic Presale (la "App"), usted acepta estos Términos y Condiciones.
+Si no está de acuerdo con ellos, no debe usar la App.
 
-La Aplicación permite a los usuarios participar en un pool de liquidez para la criptomoneda Maxcoin (MXI) mediante:
+2. Sobre MXI
 
-- Registro de usuario con información personal verificable
-- Compra de tokens MXI mediante pagos en USDT a través de Binance
-- Participación en un sistema de referidos multinivel
-- Generación de rendimientos (yield) sobre tokens MXI adquiridos
-- Retiro de comisiones y tokens MXI según las condiciones establecidas
+MXI Strategic Holdings Ltd. (Cayman) es la entidad propietaria del token MXI, la marca y la propiedad intelectual.
 
-3. ELEGIBILIDAD Y REGISTRO
+MXI Technologies Inc. (Panamá) es la empresa operadora de la App y responsable de su funcionamiento.
 
-3.1 Requisitos de Elegibilidad
+3. Función de la App
+
+La App permite:
+
+- Registrar usuarios
+- Comprar tokens MXI con USDT (vía Binance)
+- Acceder a un sistema de referidos
+- Ver saldos, rendimientos y movimientos
+- Solicitar retiros de comisiones y/o MXI según las reglas vigentes
+
+4. Elegibilidad
+
+Para usar la App, usted debe:
+
 - Ser mayor de 18 años
-- Tener capacidad legal para celebrar contratos vinculantes
-- No estar ubicado en jurisdicciones donde las criptomonedas estén prohibidas
-- Proporcionar información veraz y verificable
+- Tener capacidad legal para contratar
+- Suministrar datos verídicos
+- No vivir en países donde las criptomonedas estén prohibidas
 
-3.2 Proceso de Registro
+5. Registro y Cuenta
+
 - Solo se permite una cuenta por persona
-- Se requiere verificación de identidad (KYC) para retiros
-- La información proporcionada debe coincidir con documentos oficiales
-- El número de identificación será verificado y no puede duplicarse
+- Es obligatorio completar KYC para habilitar retiros
+- La información registrada debe coincidir con documentos oficiales
+- Los números de identificación no pueden repetirse
 
-4. INVERSIÓN Y COMPRA DE TOKENS
+6. Compra de Tokens MXI
 
-4.1 Montos de Inversión
-- Inversión mínima: 50 USDT
-- Inversión máxima por cliente: 100,000 USDT
-- Los pagos se realizan exclusivamente en USDT a través de Binance
-- La cantidad de tokens MXI recibidos depende del precio de la fase actual
+- Mínimo de compra: 50 USDT
+- Máximo por usuario: 100.000 USDT
+- Pago exclusivamente en USDT a través de Binance
+- El número de tokens recibidos depende de la fase de la preventa
 
-5. SISTEMA DE REFERIDOS
+7. Sistema de Referidos
 
-5.1 Estructura de Comisiones
-- Nivel 1: 3% de las compras de referidos directos
-- Nivel 2: 2% de las compras de referidos de segundo nivel
-- Nivel 3: 1% de las compras de referidos de tercer nivel
+Estructura de comisiones:
 
-5.2 Requisitos para Retiro de Comisiones
-- Mínimo 5 referidos activos de primer nivel
-- 10 días desde la fecha de registro
-- Verificación KYC aprobada
-- Los referidos deben haber realizado al menos una compra de MXI
+- Nivel 1: 5%
+- Nivel 2: 2%
+- Nivel 3: 1%
 
-6. SISTEMA DE VESTING Y GENERACIÓN DE RENDIMIENTOS
+Requisitos para retirar comisiones:
 
-6.1 Vesting (Minería)
-- Los tokens MXI comprados directamente generan rendimientos del 0.005% por hora
-- Los tokens MXI obtenidos de comisiones unificadas también generan rendimientos
-- Los rendimientos generados NO aumentan el porcentaje de vesting
-- Se requieren 10 referidos activos para unificar el saldo de vesting al balance principal
+- 5 referidos activos
+- 10 días desde registro
+- KYC aprobado
+- Cada referido debe haber hecho al menos una compra
 
-7. RETIROS
+8. Rendimientos y Vesting
 
-7.1 Retiro de Comisiones (USDT)
+- Rendimiento: 0,005% por hora
+- Comisiones unificadas también generan rendimiento
+- Rendimientos no aumentan el vesting
+- Se requieren 10 referidos activos para unificar el vesting al saldo principal
+
+9. Retiros
+
+9.1 Retiros de comisiones (USDT)
+
 Requisitos:
-- 5 referidos activos de primer nivel
+
+- 5 referidos activos
 - 10 días de membresía
-- KYC verificado y aprobado
-- Dirección de billetera USDT válida
+- KYC aprobado
+- Wallet USDT válida
 
-7.2 Retiro de Tokens MXI
+9.2 Retiros de MXI
+
 Requisitos:
-- 5 referidos activos de primer nivel
-- KYC verificado y aprobado
-- Pool de liquidez lanzado oficialmente
-- Sistema de liberación por fases (10% inicial, 10% cada 7 días)
 
-8. VERIFICACIÓN KYC (KNOW YOUR CUSTOMER)
+- 5 referidos activos
+- KYC aprobado
 
-8.1 Requisitos KYC
-- Documento de identidad válido (pasaporte, cédula o licencia de conducir)
-- Fotografía del frente y reverso del documento
-- Información personal verificable
+Liberación por fases si el monto excede 50000 usdt:
 
-9. CIERRE DEL POOL Y LANZAMIENTO
+- 10% inicial
+- +10% cada 7 días
 
-9.1 Fecha de Cierre
-- Fecha límite: 15 de enero de 2025 a las 12:00 UTC
-- No se aceptarán nuevos participantes después de esta fecha
-- Objetivo: 250,000 participantes
+10. KYC Obligatorio
 
-10. RIESGOS Y ADVERTENCIAS
+Se solicitará:
 
-ADVERTENCIA: La inversión en criptomonedas conlleva riesgos significativos:
-- Volatilidad extrema de precios
-- Posibilidad de pérdida total de la inversión
-- Riesgos regulatorios y legales
-- Riesgos tecnológicos y de seguridad
+- Documento oficial válido
+- Fotografías
+- Selfie (prueba de vida)
+- Información verificable
 
-11. PROHIBICIONES Y CONDUCTA DEL USUARIO
+11. Riesgos
 
-Está estrictamente prohibido:
+Invertir en criptomonedas implica riesgos:
+
+- Volatilidad extrema
+- Pérdida total o parcial del capital
+- Cambios regulatorios
+- Riesgos tecnológicos y de ciberseguridad
+
+MXI Strategic no garantiza ganancias ni retornos fijos.
+
+12. Conductas Prohibidas
+
+No se permite:
+
 - Crear múltiples cuentas
-- Proporcionar información falsa o fraudulenta
-- Manipular el sistema de referidos
-- Realizar actividades de lavado de dinero
-- Utilizar la Aplicación para fines ilegales
+- Proveer datos falsos
+- Manipular referidos
+- Usar la App para actividades ilícitas
+- Procesar lavado de dinero
 
-12. LIMITACIÓN DE RESPONSABILIDAD
+13. Limitación de Responsabilidad
 
-LA APLICACIÓN SE PROPORCIONA "TAL CUAL" SIN GARANTÍAS DE NINGÚN TIPO. En ningún caso seremos responsables por pérdidas de ganancias, pérdida de datos o daños indirectos.
+La App se ofrece "tal cual".
+Ni MXI Strategic Holdings Ltd. ni MXI Technologies Inc. son responsables por:
 
-13. ACEPTACIÓN
+- Pérdidas económicas
+- Errores de terceros o blockchain
+- Daños indirectos o incidentales
+- Uso indebido de la App
 
-AL REGISTRARSE EN LA APLICACIÓN, USTED CONFIRMA QUE:
-- Ha leído y comprendido estos Términos y Condiciones
-- Acepta estar legalmente vinculado por ellos
-- Comprende los riesgos asociados con la inversión en criptomonedas
-- Proporciona información veraz y verificable
-- Cumple con todos los requisitos de elegibilidad
+14. Aceptación Final
 
-IMPORTANTE: Estos términos y condiciones son legalmente vinculantes. Si no está de acuerdo con alguna parte, no debe utilizar la Aplicación. Se recomienda consultar con un asesor legal o financiero antes de realizar inversiones en criptomonedas.
+Al registrarse, usted declara que:
 
-Fecha de vigencia: 15 de Enero de 2025
-Versión: 1.0`}
+- Leyó y entiende estos Términos
+- Acepta los riesgos
+- Proporciona información veraz
+- Cumple con las leyes de su país`}
             </Text>
           </ScrollView>
           <View style={styles.modalFooter}>
