@@ -31,8 +31,9 @@ interface OKXPayment {
   qrCodeUri?: string;
 }
 
-// OKX wallet address for payments
-const OKX_WALLET_ADDRESS = '0xYourOKXWalletAddressHere';
+// ⚠️ IMPORTANTE: Reemplaza esto con tu dirección de wallet OKX real
+// Para obtenerla: OKX → Assets → Funding Account → USDT → Deposit → TRC20
+const OKX_WALLET_ADDRESS = 'TU_DIRECCION_DE_WALLET_OKX_AQUI';
 
 export default function ContributeScreen() {
   const router = useRouter();
