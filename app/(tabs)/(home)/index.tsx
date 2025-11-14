@@ -281,7 +281,7 @@ export default function HomeScreen() {
             <View style={styles.poolIconContainer}>
               <Text style={styles.poolIconEmoji}>⏰</Text>
             </View>
-            <Text style={styles.poolTitle}>El Pool Cierra En</Text>
+            <Text style={styles.poolTitle}>Preventa Cierra En</Text>
           </View>
           <Text style={styles.poolDays}>{daysUntilClose} días</Text>
           <Text style={styles.poolDate}>
