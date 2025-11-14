@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useRouter } from 'expo-router';
-import YieldDisplay from '@/components/YieldDisplay';
+import VestingCounter from '@/components/VestingCounter';
 import { colors, commonStyles } from '@/styles/commonStyles';
 
 interface PhaseInfo {
@@ -205,14 +205,10 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Vesting Section - Prominently Displayed */}
+        {/* Vesting Counter - New Component */}
         {user.isActiveContributor && user.yieldRatePerMinute > 0 && (
           <View style={styles.vestingSection}>
-            <View style={styles.vestingSectionHeader}>
-              <Text style={styles.vestingSectionTitle}>⛏️ SISTEMA DE VESTING</Text>
-              <Text style={styles.vestingSectionSubtitle}>Minería automática de MXI</Text>
-            </View>
-            <YieldDisplay />
+            <VestingCounter />
           </View>
         )}
 
@@ -546,25 +542,6 @@ const styles = StyleSheet.create({
   },
   vestingSection: {
     marginBottom: 16,
-  },
-  vestingSectionHeader: {
-    backgroundColor: colors.success,
-    padding: 16,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    marginBottom: -16,
-    alignItems: 'center',
-  },
-  vestingSectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  vestingSectionSubtitle: {
-    fontSize: 14,
-    color: '#fff',
-    opacity: 0.9,
   },
   actionsContainer: {
     marginBottom: 16,
