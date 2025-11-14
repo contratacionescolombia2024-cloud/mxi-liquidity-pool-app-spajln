@@ -20,14 +20,16 @@ import { IconSymbol } from '@/components/IconSymbol';
 
 export default function ReferralsScreen() {
   const router = useRouter();
-  const { user, withdrawCommission, unifyCommissionToMXI, checkWithdrawalEligibility, getPhaseInfo } = useAuth();
+  const { user, withdrawCommission, unifyCommissionToMXI, checkWithdrawalEligibility, getPhaseInfo, claimYield, getCurrentYield } = useAuth();
   const [walletAddress, setWalletAddress] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [unifyAmount, setUnifyAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [unifying, setUnifying] = useState(false);
+  const [unifyingVesting, setUnifyingVesting] = useState(false);
   const [checkingEligibility, setCheckingEligibility] = useState(false);
   const [currentPrice, setCurrentPrice] = useState(0.30);
+  const [currentYield, setCurrentYield] = useState(0);
 
   useEffect(() => {
     if (user) {
@@ -35,6 +37,21 @@ export default function ReferralsScreen() {
       loadCurrentPrice();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (!user || user.yieldRatePerMinute === 0) {
+      setCurrentYield(0);
+      return;
+    }
+
+    // Update yield display every second
+    const interval = setInterval(() => {
+      const yield_amount = getCurrentYield();
+      setCurrentYield(yield_amount);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [user, getCurrentYield]);
 
   const loadCurrentPrice = async () => {
     const phaseInfo = await getPhaseInfo();
@@ -190,6 +207,59 @@ export default function ReferralsScreen() {
     );
   };
 
+  const handleUnifyVestingBalance = async () => {
+    if (!user) return;
+
+    // Check if user has 10 active referrals
+    if (user.activeReferrals < 10) {
+      Alert.alert(
+        'Requisitos No Cumplidos',
+        `Para unificar tu saldo de vesting necesitas 10 referidos activos.\n\nActualmente tienes ${user.activeReferrals} referidos activos.\n\nNecesitas ${10 - user.activeReferrals} referidos más.`,
+        [{ text: 'Entendido' }]
+      );
+      return;
+    }
+
+    // Check if there's yield to claim
+    const totalYield = user.accumulatedYield + currentYield;
+    if (totalYield < 0.000001) {
+      Alert.alert(
+        'Sin Saldo para Unificar',
+        'Necesitas acumular más MXI en vesting antes de poder unificar tu saldo.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    // Confirm unification
+    Alert.alert(
+      '💎 Unificar Saldo de Vesting',
+      `¿Deseas unificar ${totalYield.toFixed(8)} MXI de tu saldo de vesting a tu balance principal?\n\nEsto transferirá todo tu MXI minado a tu balance disponible.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Unificar',
+          onPress: async () => {
+            setUnifyingVesting(true);
+            const result = await claimYield();
+            setUnifyingVesting(false);
+
+            if (result.success) {
+              Alert.alert(
+                '✅ Saldo Unificado',
+                `Has unificado exitosamente ${result.yieldEarned?.toFixed(8)} MXI a tu balance principal.\n\n¡Tu saldo ha sido actualizado!`,
+                [{ text: 'Excelente' }]
+              );
+              setCurrentYield(0);
+            } else {
+              Alert.alert('Error', result.error || 'No se pudo unificar el saldo');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (!user) {
     return (
       <SafeAreaView style={styles.container}>
@@ -201,6 +271,8 @@ export default function ReferralsScreen() {
   }
 
   const daysUntilWithdrawal = user.canWithdraw ? 0 : Math.max(0, 10 - Math.floor((Date.now() - new Date(user.joinedDate).getTime()) / (1000 * 60 * 60 * 24)));
+  const totalYield = user.accumulatedYield + currentYield;
+  const canUnifyVesting = user.activeReferrals >= 10;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -210,7 +282,7 @@ export default function ReferralsScreen() {
             style={styles.backButton}
             onPress={() => router.back()}
           >
-            <IconSymbol name="chevron.left" size={24} color={colors.primary} />
+            <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="chevron_left" size={24} color={colors.primary} />
           </TouchableOpacity>
           <Text style={styles.title}>Referrals</Text>
           <Text style={styles.subtitle}>Earn commissions by inviting friends</Text>
@@ -222,10 +294,10 @@ export default function ReferralsScreen() {
             <Text style={styles.code}>{user.referralCode}</Text>
             <View style={styles.codeActions}>
               <TouchableOpacity style={styles.iconButton} onPress={handleCopyCode}>
-                <IconSymbol name="doc.on.doc" size={20} color={colors.primary} />
+                <IconSymbol ios_icon_name="doc.on.doc" android_material_icon_name="content_copy" size={20} color={colors.primary} />
               </TouchableOpacity>
               <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
-                <IconSymbol name="square.and.arrow.up" size={20} color={colors.primary} />
+                <IconSymbol ios_icon_name="square.and.arrow.up" android_material_icon_name="share" size={20} color={colors.primary} />
               </TouchableOpacity>
             </View>
           </View>
@@ -233,17 +305,17 @@ export default function ReferralsScreen() {
 
         <View style={styles.statsGrid}>
           <View style={styles.statCard}>
-            <IconSymbol name="person.3.fill" size={24} color={colors.primary} />
+            <IconSymbol ios_icon_name="person.3.fill" android_material_icon_name="groups" size={24} color={colors.primary} />
             <Text style={styles.statValue}>{user.referrals.level1}</Text>
             <Text style={styles.statLabel}>Level 1 (3%)</Text>
           </View>
           <View style={styles.statCard}>
-            <IconSymbol name="person.2.fill" size={24} color={colors.secondary} />
+            <IconSymbol ios_icon_name="person.2.fill" android_material_icon_name="group" size={24} color={colors.secondary} />
             <Text style={styles.statValue}>{user.referrals.level2}</Text>
             <Text style={styles.statLabel}>Level 2 (2%)</Text>
           </View>
           <View style={styles.statCard}>
-            <IconSymbol name="person.fill" size={24} color={colors.accent} />
+            <IconSymbol ios_icon_name="person.fill" android_material_icon_name="person" size={24} color={colors.accent} />
             <Text style={styles.statValue}>{user.referrals.level3}</Text>
             <Text style={styles.statLabel}>Level 3 (1%)</Text>
           </View>
@@ -267,10 +339,65 @@ export default function ReferralsScreen() {
           </View>
         </View>
 
+        {/* Vesting Balance Unification Section */}
+        {user.isActiveContributor && user.yieldRatePerMinute > 0 && (
+          <View style={styles.vestingUnificationCard}>
+            <View style={styles.vestingHeader}>
+              <View style={styles.vestingIconContainer}>
+                <Text style={styles.vestingIconEmoji}>⛏️</Text>
+              </View>
+              <View style={styles.vestingHeaderText}>
+                <Text style={styles.vestingTitle}>💎 Unificar Saldo de Vesting</Text>
+                <Text style={styles.vestingSubtitle}>
+                  Rendimiento acumulado: {totalYield.toFixed(8)} MXI
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.vestingInfoBox}>
+              <Text style={styles.vestingInfoText}>
+                Tu vesting ha generado {totalYield.toFixed(8)} MXI en rendimientos.
+                {canUnifyVesting 
+                  ? ' ¡Puedes unificar este saldo a tu balance principal ahora!'
+                  : ` Necesitas ${10 - user.activeReferrals} referidos activos más para unificar.`}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.vestingUnifyButton,
+                !canUnifyVesting && styles.vestingUnifyButtonDisabled,
+                unifyingVesting && styles.vestingUnifyButtonProcessing,
+              ]}
+              onPress={handleUnifyVestingBalance}
+              disabled={!canUnifyVesting || unifyingVesting || totalYield < 0.000001}
+            >
+              {unifyingVesting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <React.Fragment>
+                  <IconSymbol
+                    ios_icon_name={canUnifyVesting ? 'checkmark.circle.fill' : 'lock.fill'}
+                    android_material_icon_name={canUnifyVesting ? 'check_circle' : 'lock'}
+                    size={20}
+                    color={canUnifyVesting ? '#fff' : colors.textSecondary}
+                  />
+                  <Text style={[styles.vestingUnifyButtonText, !canUnifyVesting && styles.vestingUnifyButtonTextDisabled]}>
+                    {canUnifyVesting
+                      ? '💎 Unificar Saldo de Vesting'
+                      : `🔒 Requiere 10 Referidos (${user.activeReferrals}/10)`}
+                  </Text>
+                </React.Fragment>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+
         <View style={styles.eligibilityCard}>
           <View style={styles.eligibilityHeader}>
             <IconSymbol
-              name={user.canWithdraw ? 'checkmark.circle.fill' : 'clock.fill'}
+              ios_icon_name={user.canWithdraw ? 'checkmark.circle.fill' : 'clock.fill'}
+              android_material_icon_name={user.canWithdraw ? 'check_circle' : 'schedule'}
               size={24}
               color={user.canWithdraw ? colors.success : colors.warning}
             />
@@ -283,7 +410,8 @@ export default function ReferralsScreen() {
             <View style={styles.requirementsList}>
               <View style={styles.requirementItem}>
                 <IconSymbol
-                  name={user.activeReferrals >= 5 ? 'checkmark.circle.fill' : 'circle'}
+                  ios_icon_name={user.activeReferrals >= 5 ? 'checkmark.circle.fill' : 'circle'}
+                  android_material_icon_name={user.activeReferrals >= 5 ? 'check_circle' : 'radio_button_unchecked'}
                   size={20}
                   color={user.activeReferrals >= 5 ? colors.success : colors.textSecondary}
                 />
@@ -293,7 +421,8 @@ export default function ReferralsScreen() {
               </View>
               <View style={styles.requirementItem}>
                 <IconSymbol
-                  name={daysUntilWithdrawal === 0 ? 'checkmark.circle.fill' : 'circle'}
+                  ios_icon_name={daysUntilWithdrawal === 0 ? 'checkmark.circle.fill' : 'circle'}
+                  android_material_icon_name={daysUntilWithdrawal === 0 ? 'check_circle' : 'radio_button_unchecked'}
                   size={20}
                   color={daysUntilWithdrawal === 0 ? colors.success : colors.textSecondary}
                 />
@@ -303,7 +432,8 @@ export default function ReferralsScreen() {
               </View>
               <View style={styles.requirementItem}>
                 <IconSymbol
-                  name={user.kycStatus === 'approved' ? 'checkmark.circle.fill' : 'circle'}
+                  ios_icon_name={user.kycStatus === 'approved' ? 'checkmark.circle.fill' : 'circle'}
+                  android_material_icon_name={user.kycStatus === 'approved' ? 'check_circle' : 'radio_button_unchecked'}
                   size={20}
                   color={user.kycStatus === 'approved' ? colors.success : colors.textSecondary}
                 />
@@ -319,7 +449,7 @@ export default function ReferralsScreen() {
               {/* Unify to MXI Section */}
               <View style={styles.withdrawOption}>
                 <View style={styles.optionHeader}>
-                  <IconSymbol name="arrow.triangle.2.circlepath" size={20} color={colors.accent} />
+                  <IconSymbol ios_icon_name="arrow.triangle.2.circlepath" android_material_icon_name="sync" size={20} color={colors.accent} />
                   <Text style={styles.optionTitle}>💎 Unificar a MXI</Text>
                 </View>
                 <Text style={styles.optionDescription}>
@@ -353,7 +483,7 @@ export default function ReferralsScreen() {
                     <ActivityIndicator color={colors.accent} />
                   ) : (
                     <React.Fragment>
-                      <IconSymbol name="arrow.triangle.2.circlepath" size={20} color={colors.accent} />
+                      <IconSymbol ios_icon_name="arrow.triangle.2.circlepath" android_material_icon_name="sync" size={20} color={colors.accent} />
                       <Text style={[styles.buttonText, { color: colors.accent }]}>Unificar a MXI</Text>
                     </React.Fragment>
                   )}
@@ -371,7 +501,7 @@ export default function ReferralsScreen() {
               {user.canWithdraw && (
                 <View style={styles.withdrawOption}>
                   <View style={styles.optionHeader}>
-                    <IconSymbol name="arrow.down.circle.fill" size={20} color={colors.primary} />
+                    <IconSymbol ios_icon_name="arrow.down.circle.fill" android_material_icon_name="arrow_circle_down" size={20} color={colors.primary} />
                     <Text style={styles.optionTitle}>💵 Retirar USDT</Text>
                   </View>
                   <Text style={styles.optionDescription}>
@@ -412,7 +542,7 @@ export default function ReferralsScreen() {
                       <ActivityIndicator color="#fff" />
                     ) : (
                       <React.Fragment>
-                        <IconSymbol name="arrow.down.circle.fill" size={20} color="#fff" />
+                        <IconSymbol ios_icon_name="arrow.down.circle.fill" android_material_icon_name="arrow_circle_down" size={20} color="#fff" />
                         <Text style={styles.buttonText}>Retirar USDT</Text>
                       </React.Fragment>
                     )}
@@ -424,7 +554,7 @@ export default function ReferralsScreen() {
         </View>
 
         <View style={styles.infoCard}>
-          <IconSymbol name="info.circle" size={20} color={colors.primary} />
+          <IconSymbol ios_icon_name="info.circle" android_material_icon_name="info" size={20} color={colors.primary} />
           <View style={styles.infoContent}>
             <Text style={styles.infoTitle}>Cómo funciona:</Text>
             <Text style={styles.infoText}>
@@ -435,7 +565,8 @@ export default function ReferralsScreen() {
               - Retiro USDT: 5+ referidos activos + 10 días + KYC{'\n'}
               - Unificar a MXI: Sin requisitos, disponible siempre{'\n'}
               - ⚠️ MXI unificado NO cuenta para % de vesting{'\n'}
-              - Solo MXI comprado directamente cuenta para vesting
+              - Solo MXI comprado directamente cuenta para vesting{'\n'}
+              - Unificar Vesting: 10+ referidos activos requeridos
             </Text>
           </View>
         </View>
@@ -457,6 +588,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     padding: 24,
+    paddingBottom: 120,
   },
   header: {
     marginBottom: 24,
@@ -559,6 +691,90 @@ const styles = StyleSheet.create({
   availableValue: {
     color: colors.success,
     fontSize: 16,
+  },
+  vestingUnificationCard: {
+    backgroundColor: colors.cardBackground,
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 24,
+    borderWidth: 2,
+    borderColor: colors.accent,
+  },
+  vestingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  vestingIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: `${colors.accent}30`,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    borderWidth: 2,
+    borderColor: colors.accent,
+  },
+  vestingIconEmoji: {
+    fontSize: 28,
+  },
+  vestingHeaderText: {
+    flex: 1,
+  },
+  vestingTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  vestingSubtitle: {
+    fontSize: 13,
+    color: colors.accent,
+    fontWeight: '600',
+  },
+  vestingInfoBox: {
+    backgroundColor: colors.background,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  vestingInfoText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  vestingUnifyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.accent,
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  vestingUnifyButtonDisabled: {
+    backgroundColor: colors.border,
+    shadowOpacity: 0,
+  },
+  vestingUnifyButtonProcessing: {
+    backgroundColor: colors.textSecondary,
+    shadowOpacity: 0,
+  },
+  vestingUnifyButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  vestingUnifyButtonTextDisabled: {
+    color: colors.textSecondary,
   },
   eligibilityCard: {
     backgroundColor: colors.cardBackground,

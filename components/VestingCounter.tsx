@@ -86,6 +86,10 @@ export default function VestingCounter() {
   const totalYield = user.accumulatedYield + currentYield;
   const canUnify = user.activeReferrals >= 10;
 
+  // Calculate vesting amounts
+  const mxiInVesting = (user.mxiPurchasedDirectly || 0) + (user.mxiFromUnifiedCommissions || 0);
+  const vestingPercentage = user.mxiBalance > 0 ? (mxiInVesting / user.mxiBalance) * 100 : 0;
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -93,24 +97,57 @@ export default function VestingCounter() {
           <Text style={styles.iconEmoji}>⛏️</Text>
         </View>
         <View style={styles.headerText}>
-          <Text style={styles.title}>💰 Contador de Vesting</Text>
+          <Text style={styles.title}>Vesting</Text>
           <Text style={styles.subtitle}>
             ⚡ {yieldPerSecond.toFixed(8)} MXI por segundo
           </Text>
         </View>
       </View>
 
+      {/* Vesting Balance Display */}
+      <View style={styles.vestingBalanceSection}>
+        <View style={styles.vestingBalanceCard}>
+          <Text style={styles.vestingBalanceLabel}>💎 MXI en Vesting</Text>
+          <Text style={styles.vestingBalanceValue}>{mxiInVesting.toFixed(8)}</Text>
+          <Text style={styles.vestingBalanceUnit}>MXI</Text>
+          <View style={styles.vestingPercentageContainer}>
+            <Text style={styles.vestingPercentageText}>
+              {vestingPercentage.toFixed(2)}% del balance total
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Vesting Breakdown */}
+      <View style={styles.breakdownSection}>
+        <Text style={styles.breakdownTitle}>📊 Composición del Vesting</Text>
+        <View style={styles.breakdownRow}>
+          <Text style={styles.breakdownLabel}>🛒 MXI Comprado Directamente</Text>
+          <Text style={styles.breakdownValue}>{(user.mxiPurchasedDirectly || 0).toFixed(8)}</Text>
+        </View>
+        <View style={styles.breakdownDivider} />
+        <View style={styles.breakdownRow}>
+          <Text style={styles.breakdownLabel}>💰 MXI de Comisiones Unificadas</Text>
+          <Text style={styles.breakdownValue}>{(user.mxiFromUnifiedCommissions || 0).toFixed(8)}</Text>
+        </View>
+        <View style={styles.breakdownDivider} />
+        <View style={styles.breakdownRow}>
+          <Text style={styles.breakdownLabel}>📈 Total en Vesting</Text>
+          <Text style={[styles.breakdownValue, styles.breakdownTotal]}>{mxiInVesting.toFixed(8)}</Text>
+        </View>
+      </View>
+
       {/* Real-time Counter Display */}
       <View style={styles.counterSection}>
         <View style={styles.counterCard}>
-          <Text style={styles.counterLabel}>🔥 Vesting Actual</Text>
+          <Text style={styles.counterLabel}>🔥 Rendimiento Acumulado</Text>
           <Text style={styles.counterValue}>{totalYield.toFixed(8)}</Text>
           <Text style={styles.counterUnit}>MXI</Text>
         </View>
       </View>
 
       {/* Yield Breakdown */}
-      <View style={styles.breakdownSection}>
+      <View style={styles.yieldBreakdownSection}>
         <View style={styles.breakdownRow}>
           <Text style={styles.breakdownLabel}>💎 Sesión Actual</Text>
           <Text style={styles.breakdownValue}>{currentYield.toFixed(8)} MXI</Text>
@@ -159,7 +196,8 @@ export default function VestingCounter() {
         disabled={!canUnify || unifying || totalYield < 0.000001}
       >
         <IconSymbol
-          name={canUnify ? 'checkmark.circle.fill' : 'lock.fill'}
+          ios_icon_name={canUnify ? 'checkmark.circle.fill' : 'lock.fill'}
+          android_material_icon_name={canUnify ? 'check_circle' : 'lock'}
           size={20}
           color={canUnify && !unifying ? '#fff' : colors.textSecondary}
         />
@@ -178,7 +216,19 @@ export default function VestingCounter() {
         <Text style={styles.infoText}>
           {canUnify
             ? '¡Felicidades! Has alcanzado 10 referidos activos. Puedes unificar tu saldo de vesting a tu balance principal en cualquier momento.'
-            : `Necesitas ${10 - user.activeReferrals} referidos activos más para poder unificar tu saldo de vesting. El vesting genera 0.005% por hora de tu inversión total.`}
+            : `Necesitas ${10 - user.activeReferrals} referidos activos más para poder unificar tu saldo de vesting. El vesting genera 0.005% por hora de tu inversión total en MXI que cuenta para vesting (${mxiInVesting.toFixed(2)} MXI).`}
+        </Text>
+      </View>
+
+      {/* Vesting Explanation */}
+      <View style={styles.explanationBox}>
+        <Text style={styles.explanationTitle}>📚 ¿Qué es el Vesting?</Text>
+        <Text style={styles.explanationText}>
+          • El vesting genera rendimientos del 0.005% por hora{'\n'}
+          • Solo cuenta el MXI comprado directamente y de comisiones unificadas{'\n'}
+          • El MXI unificado desde el vesting NO aumenta el porcentaje{'\n'}
+          • Actualmente tienes {mxiInVesting.toFixed(2)} MXI generando rendimientos{'\n'}
+          • Balance total: {user.mxiBalance.toFixed(2)} MXI ({vestingPercentage.toFixed(1)}% en vesting)
         </Text>
       </View>
     </View>
@@ -222,7 +272,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '700',
     color: colors.text,
     marginBottom: 4,
@@ -231,6 +281,88 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.accent,
     fontWeight: '600',
+  },
+  vestingBalanceSection: {
+    marginBottom: 16,
+  },
+  vestingBalanceCard: {
+    backgroundColor: `${colors.primary}20`,
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  vestingBalanceLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  vestingBalanceValue: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: colors.primary,
+    fontFamily: 'monospace',
+    marginBottom: 4,
+  },
+  vestingBalanceUnit: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  vestingPercentageContainer: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  vestingPercentageText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  breakdownSection: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  breakdownTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  breakdownDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: 12,
+  },
+  breakdownLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '600',
+    flex: 1,
+  },
+  breakdownValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+    fontFamily: 'monospace',
+  },
+  breakdownTotal: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary,
   },
   counterSection: {
     marginBottom: 16,
@@ -261,34 +393,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
-  breakdownSection: {
+  yieldBreakdownSection: {
     backgroundColor: colors.background,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: colors.border,
-  },
-  breakdownRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  breakdownDivider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: 12,
-  },
-  breakdownLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-  breakdownValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    fontFamily: 'monospace',
   },
   rateSection: {
     flexDirection: 'row',
@@ -384,12 +495,31 @@ const styles = StyleSheet.create({
     gap: 8,
     borderWidth: 1,
     borderColor: colors.border,
+    marginBottom: 12,
   },
   infoIcon: {
     fontSize: 16,
   },
   infoText: {
     flex: 1,
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  explanationBox: {
+    backgroundColor: `${colors.accent}10`,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.accent,
+  },
+  explanationTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  explanationText: {
     fontSize: 12,
     color: colors.textSecondary,
     lineHeight: 18,
