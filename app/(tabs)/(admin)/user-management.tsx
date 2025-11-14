@@ -30,9 +30,47 @@ interface UserData {
   active_referrals: number;
   joined_date: string;
   referral_code: string;
+  referred_by: string | null;
+  can_withdraw: boolean;
+  last_withdrawal_date: string | null;
+  yield_rate_per_minute: number;
+  accumulated_yield: number;
+  last_yield_update: string;
+  mxi_purchased_directly: number;
+  mxi_from_unified_commissions: number;
 }
 
-type ActionType = 'add_mxi' | 'add_usdt' | 'set_balance' | null;
+interface Commission {
+  id: string;
+  amount: number;
+  level: number;
+  status: string;
+  from_user_id: string;
+  created_at: string;
+}
+
+interface Referral {
+  id: string;
+  referred_id: string;
+  level: number;
+  created_at: string;
+  referred_user_name: string;
+}
+
+type ActionType = 
+  | 'add_mxi' 
+  | 'remove_mxi' 
+  | 'add_usdt' 
+  | 'remove_usdt' 
+  | 'set_mxi_balance' 
+  | 'set_usdt_balance'
+  | 'set_active_referrals'
+  | 'set_yield_rate'
+  | 'set_accumulated_yield'
+  | 'add_commission'
+  | 'edit_commission'
+  | 'delete_referral'
+  | null;
 
 export default function UserManagementScreen() {
   const router = useRouter();
@@ -45,11 +83,18 @@ export default function UserManagementScreen() {
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   
+  // User details data
+  const [commissions, setCommissions] = useState<Commission[]>([]);
+  const [referrals, setReferrals] = useState<Referral[]>([]);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  
   // Input modal states
   const [inputModalVisible, setInputModalVisible] = useState(false);
   const [inputValue, setInputValue] = useState('');
+  const [inputValue2, setInputValue2] = useState('');
   const [currentAction, setCurrentAction] = useState<ActionType>(null);
   const [processing, setProcessing] = useState(false);
+  const [selectedCommission, setSelectedCommission] = useState<Commission | null>(null);
 
   useEffect(() => {
     loadUsers();
@@ -64,7 +109,7 @@ export default function UserManagementScreen() {
       setLoading(true);
       const { data, error } = await supabase
         .from('users')
-        .select('id, name, email, id_number, mxi_balance, usdt_contributed, is_active_contributor, kyc_status, active_referrals, joined_date, referral_code')
+        .select('*')
         .order('joined_date', { ascending: false });
 
       if (error) throw error;
@@ -81,7 +126,6 @@ export default function UserManagementScreen() {
   const filterUsers = () => {
     let filtered = [...users];
 
-    // Apply status filter
     if (filterStatus === 'active') {
       filtered = filtered.filter(u => u.is_active_contributor);
     } else if (filterStatus === 'inactive') {
@@ -90,7 +134,6 @@ export default function UserManagementScreen() {
       filtered = filtered.filter(u => u.kyc_status === 'approved');
     }
 
-    // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(u => 
@@ -104,41 +147,119 @@ export default function UserManagementScreen() {
     setFilteredUsers(filtered);
   };
 
-  const handleUserPress = (userData: UserData) => {
+  const handleUserPress = async (userData: UserData) => {
     setSelectedUser(userData);
     setDetailsModalVisible(true);
+    await loadUserDetails(userData.id);
   };
 
-  const openInputModal = (action: ActionType) => {
+  const loadUserDetails = async (userId: string) => {
+    try {
+      setLoadingDetails(true);
+
+      // Load commissions
+      const { data: commissionsData, error: commissionsError } = await supabase
+        .from('commissions')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (commissionsError) throw commissionsError;
+      setCommissions(commissionsData || []);
+
+      // Load referrals with user names
+      const { data: referralsData, error: referralsError } = await supabase
+        .from('referrals')
+        .select(`
+          id,
+          referred_id,
+          level,
+          created_at,
+          referred:users!referrals_referred_id_fkey(name)
+        `)
+        .eq('referrer_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (referralsError) throw referralsError;
+      
+      const mappedReferrals = (referralsData || []).map(r => ({
+        id: r.id,
+        referred_id: r.referred_id,
+        level: r.level,
+        created_at: r.created_at,
+        referred_user_name: (r.referred as any)?.name || 'Unknown',
+      }));
+      
+      setReferrals(mappedReferrals);
+    } catch (error) {
+      console.error('Error loading user details:', error);
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  const openInputModal = (action: ActionType, commission?: Commission) => {
     setCurrentAction(action);
     setInputValue('');
+    setInputValue2('');
+    setSelectedCommission(commission || null);
+    
+    if (action === 'edit_commission' && commission) {
+      setInputValue(commission.amount.toString());
+      setInputValue2(commission.status);
+    }
+    
     setInputModalVisible(true);
   };
 
   const closeInputModal = () => {
     setInputModalVisible(false);
     setInputValue('');
+    setInputValue2('');
     setCurrentAction(null);
+    setSelectedCommission(null);
   };
 
   const handleInputSubmit = async () => {
     if (!selectedUser || !currentAction) return;
 
-    const amount = parseFloat(inputValue);
-    if (isNaN(amount) || amount < 0) {
-      Alert.alert('Error', 'Please enter a valid positive number');
-      return;
-    }
-
     setProcessing(true);
 
     try {
-      if (currentAction === 'add_mxi') {
-        await handleAddFunds(selectedUser.id, amount, 'mxi');
-      } else if (currentAction === 'add_usdt') {
-        await handleAddFunds(selectedUser.id, amount, 'usdt');
-      } else if (currentAction === 'set_balance') {
-        await handleUpdateBalance(selectedUser.id, amount);
+      switch (currentAction) {
+        case 'add_mxi':
+          await handleAddBalance('mxi', parseFloat(inputValue));
+          break;
+        case 'remove_mxi':
+          await handleRemoveBalance('mxi', parseFloat(inputValue));
+          break;
+        case 'add_usdt':
+          await handleAddBalance('usdt', parseFloat(inputValue));
+          break;
+        case 'remove_usdt':
+          await handleRemoveBalance('usdt', parseFloat(inputValue));
+          break;
+        case 'set_mxi_balance':
+          await handleSetBalance('mxi', parseFloat(inputValue));
+          break;
+        case 'set_usdt_balance':
+          await handleSetBalance('usdt', parseFloat(inputValue));
+          break;
+        case 'set_active_referrals':
+          await handleSetActiveReferrals(parseInt(inputValue));
+          break;
+        case 'set_yield_rate':
+          await handleSetYieldRate(parseFloat(inputValue));
+          break;
+        case 'set_accumulated_yield':
+          await handleSetAccumulatedYield(parseFloat(inputValue));
+          break;
+        case 'add_commission':
+          await handleAddCommission(parseFloat(inputValue), parseInt(inputValue2));
+          break;
+        case 'edit_commission':
+          await handleEditCommission();
+          break;
       }
       closeInputModal();
     } catch (error) {
@@ -148,51 +269,287 @@ export default function UserManagementScreen() {
     }
   };
 
-  const handleUpdateBalance = async (userId: string, newBalance: number) => {
-    try {
-      const { error } = await supabase
-        .from('users')
-        .update({ mxi_balance: newBalance })
-        .eq('id', userId);
-
-      if (error) throw error;
-
-      Alert.alert('✅ Success', 'User balance updated successfully');
-      loadUsers();
-      setDetailsModalVisible(false);
-    } catch (error) {
-      console.error('Error updating balance:', error);
-      Alert.alert('❌ Error', 'Failed to update user balance');
+  const handleAddBalance = async (type: 'mxi' | 'usdt', amount: number) => {
+    if (!selectedUser || isNaN(amount) || amount <= 0) {
+      Alert.alert('Error', 'Please enter a valid positive number');
+      return;
     }
-  };
 
-  const handleAddFunds = async (userId: string, amount: number, type: 'mxi' | 'usdt') => {
     try {
-      const userToUpdate = users.find(u => u.id === userId);
-      if (!userToUpdate) return;
-
-      const updates: any = {};
-      
-      if (type === 'mxi') {
-        updates.mxi_balance = parseFloat(userToUpdate.mxi_balance.toString()) + amount;
-      } else {
-        updates.usdt_contributed = parseFloat(userToUpdate.usdt_contributed.toString()) + amount;
-      }
+      const field = type === 'mxi' ? 'mxi_balance' : 'usdt_contributed';
+      const currentValue = type === 'mxi' ? selectedUser.mxi_balance : selectedUser.usdt_contributed;
+      const newValue = parseFloat(currentValue.toString()) + amount;
 
       const { error } = await supabase
         .from('users')
-        .update(updates)
-        .eq('id', userId);
+        .update({ [field]: newValue })
+        .eq('id', selectedUser.id);
 
       if (error) throw error;
 
       Alert.alert('✅ Success', `${amount} ${type.toUpperCase()} added successfully`);
-      loadUsers();
-      setDetailsModalVisible(false);
+      await loadUsers();
+      await loadUserDetails(selectedUser.id);
+      
+      // Update selected user
+      const updatedUser = users.find(u => u.id === selectedUser.id);
+      if (updatedUser) setSelectedUser(updatedUser);
     } catch (error) {
-      console.error('Error adding funds:', error);
-      Alert.alert('❌ Error', 'Failed to add funds');
+      console.error('Error adding balance:', error);
+      Alert.alert('❌ Error', 'Failed to add balance');
     }
+  };
+
+  const handleRemoveBalance = async (type: 'mxi' | 'usdt', amount: number) => {
+    if (!selectedUser || isNaN(amount) || amount <= 0) {
+      Alert.alert('Error', 'Please enter a valid positive number');
+      return;
+    }
+
+    try {
+      const field = type === 'mxi' ? 'mxi_balance' : 'usdt_contributed';
+      const currentValue = type === 'mxi' ? selectedUser.mxi_balance : selectedUser.usdt_contributed;
+      const newValue = Math.max(0, parseFloat(currentValue.toString()) - amount);
+
+      const { error } = await supabase
+        .from('users')
+        .update({ [field]: newValue })
+        .eq('id', selectedUser.id);
+
+      if (error) throw error;
+
+      Alert.alert('✅ Success', `${amount} ${type.toUpperCase()} removed successfully`);
+      await loadUsers();
+      await loadUserDetails(selectedUser.id);
+      
+      const updatedUser = users.find(u => u.id === selectedUser.id);
+      if (updatedUser) setSelectedUser(updatedUser);
+    } catch (error) {
+      console.error('Error removing balance:', error);
+      Alert.alert('❌ Error', 'Failed to remove balance');
+    }
+  };
+
+  const handleSetBalance = async (type: 'mxi' | 'usdt', amount: number) => {
+    if (!selectedUser || isNaN(amount) || amount < 0) {
+      Alert.alert('Error', 'Please enter a valid number');
+      return;
+    }
+
+    try {
+      const field = type === 'mxi' ? 'mxi_balance' : 'usdt_contributed';
+
+      const { error } = await supabase
+        .from('users')
+        .update({ [field]: amount })
+        .eq('id', selectedUser.id);
+
+      if (error) throw error;
+
+      Alert.alert('✅ Success', `${type.toUpperCase()} balance set to ${amount}`);
+      await loadUsers();
+      await loadUserDetails(selectedUser.id);
+      
+      const updatedUser = users.find(u => u.id === selectedUser.id);
+      if (updatedUser) setSelectedUser(updatedUser);
+    } catch (error) {
+      console.error('Error setting balance:', error);
+      Alert.alert('❌ Error', 'Failed to set balance');
+    }
+  };
+
+  const handleSetActiveReferrals = async (count: number) => {
+    if (!selectedUser || isNaN(count) || count < 0) {
+      Alert.alert('Error', 'Please enter a valid number');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ active_referrals: count })
+        .eq('id', selectedUser.id);
+
+      if (error) throw error;
+
+      Alert.alert('✅ Success', `Active referrals set to ${count}`);
+      await loadUsers();
+      
+      const updatedUser = users.find(u => u.id === selectedUser.id);
+      if (updatedUser) setSelectedUser(updatedUser);
+    } catch (error) {
+      console.error('Error setting active referrals:', error);
+      Alert.alert('❌ Error', 'Failed to set active referrals');
+    }
+  };
+
+  const handleSetYieldRate = async (rate: number) => {
+    if (!selectedUser || isNaN(rate) || rate < 0) {
+      Alert.alert('Error', 'Please enter a valid number');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ yield_rate_per_minute: rate })
+        .eq('id', selectedUser.id);
+
+      if (error) throw error;
+
+      Alert.alert('✅ Success', `Yield rate set to ${rate} MXI/minute`);
+      await loadUsers();
+      
+      const updatedUser = users.find(u => u.id === selectedUser.id);
+      if (updatedUser) setSelectedUser(updatedUser);
+    } catch (error) {
+      console.error('Error setting yield rate:', error);
+      Alert.alert('❌ Error', 'Failed to set yield rate');
+    }
+  };
+
+  const handleSetAccumulatedYield = async (amount: number) => {
+    if (!selectedUser || isNaN(amount) || amount < 0) {
+      Alert.alert('Error', 'Please enter a valid number');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ accumulated_yield: amount })
+        .eq('id', selectedUser.id);
+
+      if (error) throw error;
+
+      Alert.alert('✅ Success', `Accumulated yield set to ${amount} MXI`);
+      await loadUsers();
+      
+      const updatedUser = users.find(u => u.id === selectedUser.id);
+      if (updatedUser) setSelectedUser(updatedUser);
+    } catch (error) {
+      console.error('Error setting accumulated yield:', error);
+      Alert.alert('❌ Error', 'Failed to set accumulated yield');
+    }
+  };
+
+  const handleAddCommission = async (amount: number, level: number) => {
+    if (!selectedUser || isNaN(amount) || amount <= 0 || isNaN(level) || level < 1 || level > 3) {
+      Alert.alert('Error', 'Please enter valid values (amount > 0, level 1-3)');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('commissions')
+        .insert({
+          user_id: selectedUser.id,
+          from_user_id: selectedUser.id,
+          amount: amount,
+          level: level,
+          percentage: level === 1 ? 3 : level === 2 ? 2 : 1,
+          status: 'available',
+        });
+
+      if (error) throw error;
+
+      Alert.alert('✅ Success', `Commission of ${amount} USDT added`);
+      await loadUserDetails(selectedUser.id);
+    } catch (error) {
+      console.error('Error adding commission:', error);
+      Alert.alert('❌ Error', 'Failed to add commission');
+    }
+  };
+
+  const handleEditCommission = async () => {
+    if (!selectedCommission || !inputValue || !inputValue2) {
+      Alert.alert('Error', 'Please fill all fields');
+      return;
+    }
+
+    const amount = parseFloat(inputValue);
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('Error', 'Please enter a valid amount');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('commissions')
+        .update({
+          amount: amount,
+          status: inputValue2,
+        })
+        .eq('id', selectedCommission.id);
+
+      if (error) throw error;
+
+      Alert.alert('✅ Success', 'Commission updated successfully');
+      await loadUserDetails(selectedUser!.id);
+    } catch (error) {
+      console.error('Error editing commission:', error);
+      Alert.alert('❌ Error', 'Failed to edit commission');
+    }
+  };
+
+  const handleDeleteCommission = async (commissionId: string) => {
+    Alert.alert(
+      '🗑️ Delete Commission',
+      'Are you sure you want to delete this commission?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('commissions')
+                .delete()
+                .eq('id', commissionId);
+
+              if (error) throw error;
+
+              Alert.alert('✅ Success', 'Commission deleted successfully');
+              await loadUserDetails(selectedUser!.id);
+            } catch (error) {
+              console.error('Error deleting commission:', error);
+              Alert.alert('❌ Error', 'Failed to delete commission');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteReferral = async (referralId: string) => {
+    Alert.alert(
+      '🗑️ Delete Referral',
+      'Are you sure you want to delete this referral?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('referrals')
+                .delete()
+                .eq('id', referralId);
+
+              if (error) throw error;
+
+              Alert.alert('✅ Success', 'Referral deleted successfully');
+              await loadUserDetails(selectedUser!.id);
+            } catch (error) {
+              console.error('Error deleting referral:', error);
+              Alert.alert('❌ Error', 'Failed to delete referral');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleToggleActiveStatus = async (userId: string, currentStatus: boolean) => {
@@ -205,8 +562,10 @@ export default function UserManagementScreen() {
       if (error) throw error;
 
       Alert.alert('✅ Success', 'User status updated successfully');
-      loadUsers();
-      setDetailsModalVisible(false);
+      await loadUsers();
+      
+      const updatedUser = users.find(u => u.id === userId);
+      if (updatedUser) setSelectedUser(updatedUser);
     } catch (error) {
       console.error('Error updating status:', error);
       Alert.alert('❌ Error', 'Failed to update user status');
@@ -218,6 +577,8 @@ export default function UserManagementScreen() {
       case 'approved': return colors.success;
       case 'pending': return colors.warning;
       case 'rejected': return colors.error;
+      case 'available': return colors.success;
+      case 'withdrawn': return colors.textSecondary;
       default: return colors.textSecondary;
     }
   };
@@ -229,19 +590,18 @@ export default function UserManagementScreen() {
 
   const getInputModalTitle = () => {
     switch (currentAction) {
-      case 'add_mxi': return '💎 Add MXI Funds';
-      case 'add_usdt': return '💵 Add USDT Contribution';
-      case 'set_balance': return '⚖️ Set MXI Balance';
-      default: return 'Enter Amount';
-    }
-  };
-
-  const getInputModalPlaceholder = () => {
-    switch (currentAction) {
-      case 'add_mxi': return 'Enter MXI amount to add';
-      case 'add_usdt': return 'Enter USDT amount to add';
-      case 'set_balance': return 'Enter new MXI balance';
-      default: return 'Enter amount';
+      case 'add_mxi': return '💎 Add MXI';
+      case 'remove_mxi': return '💎 Remove MXI';
+      case 'add_usdt': return '💵 Add USDT';
+      case 'remove_usdt': return '💵 Remove USDT';
+      case 'set_mxi_balance': return '⚖️ Set MXI Balance';
+      case 'set_usdt_balance': return '⚖️ Set USDT Balance';
+      case 'set_active_referrals': return '👥 Set Active Referrals';
+      case 'set_yield_rate': return '📈 Set Yield Rate';
+      case 'set_accumulated_yield': return '💰 Set Accumulated Yield';
+      case 'add_commission': return '💸 Add Commission';
+      case 'edit_commission': return '✏️ Edit Commission';
+      default: return 'Enter Value';
     }
   };
 
@@ -458,6 +818,7 @@ export default function UserManagementScreen() {
 
             {selectedUser && (
               <ScrollView style={styles.modalBody}>
+                {/* Personal Information */}
                 <View style={styles.detailSection}>
                   <Text style={styles.detailSectionTitle}>📋 Personal Information</Text>
                   <View style={styles.detailRow}>
@@ -478,6 +839,7 @@ export default function UserManagementScreen() {
                   </View>
                 </View>
 
+                {/* Account Status */}
                 <View style={styles.detailSection}>
                   <Text style={styles.detailSectionTitle}>📊 Account Status</Text>
                   <View style={styles.detailRow}>
@@ -493,11 +855,18 @@ export default function UserManagementScreen() {
                     </Text>
                   </View>
                   <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Can Withdraw:</Text>
+                    <Text style={[styles.detailValue, { color: selectedUser.can_withdraw ? colors.success : colors.error }]}>
+                      {selectedUser.can_withdraw ? 'Yes' : 'No'}
+                    </Text>
+                  </View>
+                  <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Joined Date:</Text>
                     <Text style={styles.detailValue}>{formatDate(selectedUser.joined_date)}</Text>
                   </View>
                 </View>
 
+                {/* Financial Information */}
                 <View style={styles.detailSection}>
                   <Text style={styles.detailSectionTitle}>💰 Financial Information</Text>
                   <View style={styles.detailRow}>
@@ -509,40 +878,225 @@ export default function UserManagementScreen() {
                     <Text style={styles.detailValue}>${parseFloat(selectedUser.usdt_contributed.toString()).toFixed(2)}</Text>
                   </View>
                   <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Active Referrals:</Text>
-                    <Text style={styles.detailValue}>{selectedUser.active_referrals}</Text>
+                    <Text style={styles.detailLabel}>MXI Purchased:</Text>
+                    <Text style={styles.detailValue}>{parseFloat(selectedUser.mxi_purchased_directly?.toString() || '0').toFixed(2)} MXI</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>MXI from Commissions:</Text>
+                    <Text style={styles.detailValue}>{parseFloat(selectedUser.mxi_from_unified_commissions?.toString() || '0').toFixed(2)} MXI</Text>
                   </View>
                 </View>
 
-                <View style={styles.actionSection}>
-                  <Text style={styles.detailSectionTitle}>⚙️ Admin Actions</Text>
+                {/* Yield Information */}
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>📈 Yield Information</Text>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Yield Rate:</Text>
+                    <Text style={styles.detailValue}>{parseFloat(selectedUser.yield_rate_per_minute?.toString() || '0').toFixed(6)} MXI/min</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Accumulated Yield:</Text>
+                    <Text style={styles.detailValue}>{parseFloat(selectedUser.accumulated_yield?.toString() || '0').toFixed(2)} MXI</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Last Yield Update:</Text>
+                    <Text style={styles.detailValue}>{formatDate(selectedUser.last_yield_update)}</Text>
+                  </View>
+                </View>
+
+                {/* Referral Information */}
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>👥 Referral Information</Text>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Active Referrals:</Text>
+                    <Text style={styles.detailValue}>{selectedUser.active_referrals}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Total Referrals:</Text>
+                    <Text style={styles.detailValue}>{referrals.length}</Text>
+                  </View>
                   
-                  <TouchableOpacity
-                    style={[buttonStyles.primary, styles.actionButton]}
-                    onPress={() => openInputModal('add_mxi')}
-                  >
-                    <Text style={styles.actionButtonEmoji}>💎</Text>
-                    <Text style={buttonStyles.primaryText}>Add MXI Funds</Text>
-                  </TouchableOpacity>
+                  {referrals.length > 0 && (
+                    <View style={styles.listContainer}>
+                      <Text style={styles.listTitle}>Referrals:</Text>
+                      {referrals.map((ref) => (
+                        <View key={ref.id} style={styles.listItem}>
+                          <View style={styles.listItemContent}>
+                            <Text style={styles.listItemText}>
+                              {ref.referred_user_name} (Level {ref.level})
+                            </Text>
+                            <Text style={styles.listItemDate}>{formatDate(ref.created_at)}</Text>
+                          </View>
+                          <TouchableOpacity
+                            style={styles.deleteButton}
+                            onPress={() => handleDeleteReferral(ref.id)}
+                          >
+                            <IconSymbol 
+                              ios_icon_name="trash" 
+                              android_material_icon_name="delete" 
+                              size={18} 
+                              color={colors.error} 
+                            />
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+
+                {/* Commissions */}
+                <View style={styles.detailSection}>
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.detailSectionTitle}>💸 Commissions</Text>
+                    <TouchableOpacity
+                      style={styles.addButton}
+                      onPress={() => openInputModal('add_commission')}
+                    >
+                      <IconSymbol 
+                        ios_icon_name="plus.circle.fill" 
+                        android_material_icon_name="add_circle" 
+                        size={24} 
+                        color={colors.primary} 
+                      />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  {commissions.length === 0 ? (
+                    <Text style={styles.emptyListText}>No commissions</Text>
+                  ) : (
+                    <View style={styles.listContainer}>
+                      {commissions.map((comm) => (
+                        <View key={comm.id} style={styles.listItem}>
+                          <View style={styles.listItemContent}>
+                            <Text style={styles.listItemText}>
+                              ${parseFloat(comm.amount.toString()).toFixed(2)} - Level {comm.level}
+                            </Text>
+                            <View style={styles.listItemRow}>
+                              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(comm.status) + '20' }]}>
+                                <Text style={[styles.statusBadgeText, { color: getStatusColor(comm.status) }]}>
+                                  {comm.status}
+                                </Text>
+                              </View>
+                              <Text style={styles.listItemDate}>{formatDate(comm.created_at)}</Text>
+                            </View>
+                          </View>
+                          <View style={styles.listItemActions}>
+                            <TouchableOpacity
+                              style={styles.editButton}
+                              onPress={() => openInputModal('edit_commission', comm)}
+                            >
+                              <IconSymbol 
+                                ios_icon_name="pencil" 
+                                android_material_icon_name="edit" 
+                                size={18} 
+                                color={colors.primary} 
+                              />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.deleteButton}
+                              onPress={() => handleDeleteCommission(comm.id)}
+                            >
+                              <IconSymbol 
+                                ios_icon_name="trash" 
+                                android_material_icon_name="delete" 
+                                size={18} 
+                                color={colors.error} 
+                              />
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+
+                {/* Balance Actions */}
+                <View style={styles.actionSection}>
+                  <Text style={styles.detailSectionTitle}>💰 Balance Management</Text>
+                  
+                  <View style={styles.actionRow}>
+                    <TouchableOpacity
+                      style={[buttonStyles.primary, styles.actionButton]}
+                      onPress={() => openInputModal('add_mxi')}
+                    >
+                      <Text style={styles.actionButtonEmoji}>➕</Text>
+                      <Text style={buttonStyles.primaryText}>Add MXI</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[buttonStyles.secondary, styles.actionButton]}
+                      onPress={() => openInputModal('remove_mxi')}
+                    >
+                      <Text style={styles.actionButtonEmoji}>➖</Text>
+                      <Text style={buttonStyles.secondaryText}>Remove MXI</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.actionRow}>
+                    <TouchableOpacity
+                      style={[buttonStyles.primary, styles.actionButton]}
+                      onPress={() => openInputModal('add_usdt')}
+                    >
+                      <Text style={styles.actionButtonEmoji}>➕</Text>
+                      <Text style={buttonStyles.primaryText}>Add USDT</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[buttonStyles.secondary, styles.actionButton]}
+                      onPress={() => openInputModal('remove_usdt')}
+                    >
+                      <Text style={styles.actionButtonEmoji}>➖</Text>
+                      <Text style={buttonStyles.secondaryText}>Remove USDT</Text>
+                    </TouchableOpacity>
+                  </View>
 
                   <TouchableOpacity
-                    style={[buttonStyles.primary, styles.actionButton]}
-                    onPress={() => openInputModal('add_usdt')}
-                  >
-                    <Text style={styles.actionButtonEmoji}>💵</Text>
-                    <Text style={buttonStyles.primaryText}>Add USDT Contribution</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[buttonStyles.secondary, styles.actionButton]}
-                    onPress={() => openInputModal('set_balance')}
+                    style={[buttonStyles.secondary, styles.actionButtonFull]}
+                    onPress={() => openInputModal('set_mxi_balance')}
                   >
                     <Text style={styles.actionButtonEmoji}>⚖️</Text>
                     <Text style={buttonStyles.secondaryText}>Set MXI Balance</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[buttonStyles.secondary, styles.actionButton]}
+                    style={[buttonStyles.secondary, styles.actionButtonFull]}
+                    onPress={() => openInputModal('set_usdt_balance')}
+                  >
+                    <Text style={styles.actionButtonEmoji}>⚖️</Text>
+                    <Text style={buttonStyles.secondaryText}>Set USDT Balance</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Metrics Management */}
+                <View style={styles.actionSection}>
+                  <Text style={styles.detailSectionTitle}>📊 Metrics Management</Text>
+                  
+                  <TouchableOpacity
+                    style={[buttonStyles.secondary, styles.actionButtonFull]}
+                    onPress={() => openInputModal('set_active_referrals')}
+                  >
+                    <Text style={styles.actionButtonEmoji}>👥</Text>
+                    <Text style={buttonStyles.secondaryText}>Set Active Referrals</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[buttonStyles.secondary, styles.actionButtonFull]}
+                    onPress={() => openInputModal('set_yield_rate')}
+                  >
+                    <Text style={styles.actionButtonEmoji}>📈</Text>
+                    <Text style={buttonStyles.secondaryText}>Set Yield Rate</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[buttonStyles.secondary, styles.actionButtonFull]}
+                    onPress={() => openInputModal('set_accumulated_yield')}
+                  >
+                    <Text style={styles.actionButtonEmoji}>💰</Text>
+                    <Text style={buttonStyles.secondaryText}>Set Accumulated Yield</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[buttonStyles.secondary, styles.actionButtonFull]}
                     onPress={() => {
                       Alert.alert(
                         selectedUser.is_active_contributor ? '⏸️ Deactivate User' : '▶️ Activate User',
@@ -582,15 +1136,76 @@ export default function UserManagementScreen() {
           <View style={styles.inputModalContent}>
             <Text style={styles.inputModalTitle}>{getInputModalTitle()}</Text>
             
-            <TextInput
-              style={styles.inputModalInput}
-              placeholder={getInputModalPlaceholder()}
-              placeholderTextColor={colors.textSecondary}
-              value={inputValue}
-              onChangeText={setInputValue}
-              keyboardType="decimal-pad"
-              autoFocus
-            />
+            {currentAction === 'add_commission' ? (
+              <>
+                <TextInput
+                  style={styles.inputModalInput}
+                  placeholder="Enter amount (USDT)"
+                  placeholderTextColor={colors.textSecondary}
+                  value={inputValue}
+                  onChangeText={setInputValue}
+                  keyboardType="decimal-pad"
+                  autoFocus
+                />
+                <TextInput
+                  style={styles.inputModalInput}
+                  placeholder="Enter level (1-3)"
+                  placeholderTextColor={colors.textSecondary}
+                  value={inputValue2}
+                  onChangeText={setInputValue2}
+                  keyboardType="number-pad"
+                />
+              </>
+            ) : currentAction === 'edit_commission' ? (
+              <>
+                <TextInput
+                  style={styles.inputModalInput}
+                  placeholder="Enter amount (USDT)"
+                  placeholderTextColor={colors.textSecondary}
+                  value={inputValue}
+                  onChangeText={setInputValue}
+                  keyboardType="decimal-pad"
+                  autoFocus
+                />
+                <View style={styles.statusSelector}>
+                  {['pending', 'available', 'withdrawn'].map((status) => (
+                    <TouchableOpacity
+                      key={status}
+                      style={[
+                        styles.statusOption,
+                        inputValue2 === status && styles.statusOptionActive,
+                      ]}
+                      onPress={() => setInputValue2(status)}
+                    >
+                      <Text
+                        style={[
+                          styles.statusOptionText,
+                          inputValue2 === status && styles.statusOptionTextActive,
+                        ]}
+                      >
+                        {status}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            ) : (
+              <TextInput
+                style={styles.inputModalInput}
+                placeholder={
+                  currentAction === 'set_yield_rate'
+                    ? 'Enter yield rate (MXI/minute)'
+                    : currentAction === 'set_active_referrals'
+                    ? 'Enter number of active referrals'
+                    : 'Enter amount'
+                }
+                placeholderTextColor={colors.textSecondary}
+                value={inputValue}
+                onChangeText={setInputValue}
+                keyboardType="decimal-pad"
+                autoFocus
+              />
+            )}
 
             <View style={styles.inputModalButtons}>
               <TouchableOpacity
@@ -864,10 +1479,82 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  addButton: {
+    padding: 4,
+  },
+  listContainer: {
+    marginTop: 8,
+  },
+  listTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  listItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  listItemContent: {
+    flex: 1,
+  },
+  listItemText: {
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  listItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  listItemDate: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  listItemActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  editButton: {
+    padding: 8,
+  },
+  deleteButton: {
+    padding: 8,
+  },
+  emptyListText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+  },
   actionSection: {
     marginTop: 8,
   },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
   actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  actionButtonFull: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -906,11 +1593,38 @@ const styles = StyleSheet.create({
     color: colors.text,
     borderWidth: 2,
     borderColor: colors.border,
+    marginBottom: 12,
+  },
+  statusSelector: {
+    flexDirection: 'row',
+    gap: 8,
     marginBottom: 20,
+  },
+  statusOption: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  statusOptionActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  statusOptionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  statusOptionTextActive: {
+    color: '#fff',
   },
   inputModalButtons: {
     flexDirection: 'row',
     gap: 12,
+    marginTop: 8,
   },
   inputModalButton: {
     flex: 1,
