@@ -8,18 +8,34 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, commonStyles } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
+import i18n from '@/constants/i18n';
+
+interface YieldProjection {
+  period: string;
+  mxiYield: number;
+}
 
 export default function VestingScreen() {
   const router = useRouter();
-  const { user, getCurrentYield, claimYield } = useAuth();
+  const { user, getCurrentYield, claimYield, getPhaseInfo } = useAuth();
   const [currentYield, setCurrentYield] = useState(0);
   const [unifying, setUnifying] = useState(false);
+  const [calculatorAmount, setCalculatorAmount] = useState('');
+  const [currentPrice, setCurrentPrice] = useState(0.30);
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [projections, setProjections] = useState<YieldProjection[]>([]);
+  const [showProjections, setShowProjections] = useState(false);
+
+  useEffect(() => {
+    loadCurrentPrice();
+  }, []);
 
   useEffect(() => {
     if (!user || user.yieldRatePerMinute === 0) {
@@ -36,15 +52,25 @@ export default function VestingScreen() {
     return () => clearInterval(interval);
   }, [user, getCurrentYield]);
 
+  const loadCurrentPrice = async () => {
+    const phaseInfo = await getPhaseInfo();
+    if (phaseInfo) {
+      setCurrentPrice(phaseInfo.currentPriceUsdt);
+    }
+  };
+
   const handleUnifyBalance = async () => {
     if (!user) return;
 
     // Check if user has 10 active referrals
     if (user.activeReferrals < 10) {
       Alert.alert(
-        'Requirements Not Met',
-        `To unify your vesting balance you need 10 active referrals.\n\nYou currently have ${user.activeReferrals} active referrals.\n\nYou need ${10 - user.activeReferrals} more referrals.`,
-        [{ text: 'Understood' }]
+        i18n.t('vesting.requirementsNotMet'),
+        i18n.t('vesting.requirementsMessage', {
+          current: user.activeReferrals,
+          needed: 10 - user.activeReferrals,
+        }),
+        [{ text: i18n.t('vesting.understood') }]
       );
       return;
     }
@@ -53,21 +79,21 @@ export default function VestingScreen() {
     const totalYield = user.accumulatedYield + currentYield;
     if (totalYield < 0.000001) {
       Alert.alert(
-        'No Balance to Unify',
-        'You need to accumulate more MXI in vesting before you can unify your balance.',
-        [{ text: 'OK' }]
+        i18n.t('vesting.noBalanceToUnify'),
+        i18n.t('vesting.noBalanceMessage'),
+        [{ text: i18n.t('vesting.ok') }]
       );
       return;
     }
 
     // Confirm unification
     Alert.alert(
-      '💎 Unify Vesting Balance',
-      `Do you want to unify ${totalYield.toFixed(8)} MXI from your vesting balance to your main balance?\n\nThis will transfer all your mined MXI to your available balance.`,
+      i18n.t('vesting.unifyConfirmTitle'),
+      i18n.t('vesting.unifyConfirmMessage', { amount: totalYield.toFixed(8) }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: i18n.t('vesting.cancel'), style: 'cancel' },
         {
-          text: 'Unify',
+          text: i18n.t('vesting.unify'),
           onPress: async () => {
             setUnifying(true);
             const result = await claimYield();
@@ -75,18 +101,53 @@ export default function VestingScreen() {
 
             if (result.success) {
               Alert.alert(
-                '✅ Balance Unified',
-                `You have successfully unified ${result.yieldEarned?.toFixed(8)} MXI to your main balance.\n\nYour balance has been updated!`,
-                [{ text: 'Excellent' }]
+                i18n.t('vesting.balanceUnified'),
+                i18n.t('vesting.balanceUnifiedMessage', {
+                  amount: result.yieldEarned?.toFixed(8),
+                }),
+                [{ text: i18n.t('vesting.excellent') }]
               );
               setCurrentYield(0);
             } else {
-              Alert.alert('Error', result.error || 'Could not unify balance');
+              Alert.alert(
+                i18n.t('vesting.error'),
+                result.error || i18n.t('vesting.couldNotUnify')
+              );
             }
           },
         },
       ]
     );
+  };
+
+  const calculateYield = () => {
+    const amount = parseFloat(calculatorAmount);
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert(
+        i18n.t('vesting.invalidAmount'),
+        i18n.t('vesting.enterValidAmount')
+      );
+      return;
+    }
+
+    // Calculate MXI tokens from USDT
+    const mxiTokens = amount / currentPrice;
+
+    // Calculate yield rate (0.005% per hour)
+    const hourlyRate = 0.005 / 100;
+
+    const yield24h = mxiTokens * hourlyRate * 24;
+    const yield7d = mxiTokens * hourlyRate * 24 * 7;
+    const yield15d = mxiTokens * hourlyRate * 24 * 15;
+    const yield30d = mxiTokens * hourlyRate * 24 * 30;
+
+    setProjections([
+      { period: i18n.t('vesting.per24Hours'), mxiYield: yield24h },
+      { period: i18n.t('vesting.per7Days'), mxiYield: yield7d },
+      { period: i18n.t('vesting.per15Days'), mxiYield: yield15d },
+      { period: i18n.t('vesting.per30Days'), mxiYield: yield30d },
+    ]);
+    setShowProjections(true);
   };
 
   if (!user) {
@@ -115,10 +176,15 @@ export default function VestingScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="chevron_left" size={24} color={colors.primary} />
+            <IconSymbol
+              ios_icon_name="chevron.left"
+              android_material_icon_name="chevron_left"
+              size={24}
+              color={colors.primary}
+            />
           </TouchableOpacity>
-          <Text style={styles.title}>Vesting</Text>
-          <Text style={styles.subtitle}>Mining & Yield Generation System</Text>
+          <Text style={styles.title}>{i18n.t('vesting.title')}</Text>
+          <Text style={styles.subtitle}>{i18n.t('vesting.subtitle')}</Text>
         </View>
 
         {/* Main Vesting Balance Card */}
@@ -128,17 +194,17 @@ export default function VestingScreen() {
               <Text style={styles.iconEmoji}>⛏️</Text>
             </View>
             <View style={styles.mainCardHeaderText}>
-              <Text style={styles.mainCardTitle}>Total MXI in Vesting</Text>
+              <Text style={styles.mainCardTitle}>{i18n.t('vesting.totalInVesting')}</Text>
               <Text style={styles.mainCardSubtitle}>
-                Generating {utilityPercentage}% per hour
+                {i18n.t('vesting.generatingPerHour', { rate: utilityPercentage })}
               </Text>
             </View>
           </View>
           <Text style={styles.mainCardValue}>{mxiInVesting.toFixed(8)}</Text>
-          <Text style={styles.mainCardUnit}>MXI</Text>
+          <Text style={styles.mainCardUnit}>{i18n.t('vesting.mxiUnit')}</Text>
           <View style={styles.percentageContainer}>
             <Text style={styles.percentageText}>
-              {vestingPercentage.toFixed(2)}% of total balance
+              {i18n.t('vesting.ofTotalBalance', { percentage: vestingPercentage.toFixed(2) })}
             </Text>
           </View>
         </View>
@@ -146,62 +212,191 @@ export default function VestingScreen() {
         {/* Utility Percentage Card */}
         <View style={styles.utilityCard}>
           <View style={styles.utilityHeader}>
-            <IconSymbol ios_icon_name="percent" android_material_icon_name="percent" size={24} color={colors.accent} />
-            <Text style={styles.utilityTitle}>Utility Percentage</Text>
+            <IconSymbol
+              ios_icon_name="percent"
+              android_material_icon_name="percent"
+              size={24}
+              color={colors.accent}
+            />
+            <Text style={styles.utilityTitle}>{i18n.t('vesting.utilityPercentage')}</Text>
           </View>
           <View style={styles.utilityContent}>
             <View style={styles.utilityRow}>
-              <Text style={styles.utilityLabel}>Per Hour:</Text>
+              <Text style={styles.utilityLabel}>{i18n.t('vesting.perHour')}</Text>
               <Text style={styles.utilityValue}>{utilityPercentage}%</Text>
             </View>
             <View style={styles.utilityDivider} />
             <View style={styles.utilityRow}>
-              <Text style={styles.utilityLabel}>Per Day:</Text>
+              <Text style={styles.utilityLabel}>{i18n.t('vesting.perDay')}</Text>
               <Text style={styles.utilityValue}>{(utilityPercentage * 24).toFixed(3)}%</Text>
             </View>
             <View style={styles.utilityDivider} />
             <View style={styles.utilityRow}>
-              <Text style={styles.utilityLabel}>Per Month (30 days):</Text>
-              <Text style={styles.utilityValue}>{(utilityPercentage * 24 * 30).toFixed(2)}%</Text>
+              <Text style={styles.utilityLabel}>{i18n.t('vesting.perMonth')}</Text>
+              <Text style={styles.utilityValue}>
+                {(utilityPercentage * 24 * 30).toFixed(2)}%
+              </Text>
             </View>
           </View>
         </View>
 
+        {/* Vesting Calculator */}
+        <View style={styles.calculatorCard}>
+          <TouchableOpacity
+            style={styles.calculatorHeader}
+            onPress={() => setShowCalculator(!showCalculator)}
+          >
+            <View style={styles.calculatorHeaderLeft}>
+              <IconSymbol
+                ios_icon_name="function"
+                android_material_icon_name="calculate"
+                size={24}
+                color={colors.success}
+              />
+              <Text style={styles.calculatorTitle}>{i18n.t('vesting.calculator')}</Text>
+            </View>
+            <IconSymbol
+              ios_icon_name={showCalculator ? 'chevron.up' : 'chevron.down'}
+              android_material_icon_name={showCalculator ? 'expand_less' : 'expand_more'}
+              size={24}
+              color={colors.text}
+            />
+          </TouchableOpacity>
+
+          {showCalculator && (
+            <React.Fragment>
+              <Text style={styles.calculatorDescription}>
+                {i18n.t('vesting.calculatorDescription')}
+              </Text>
+
+              <View style={styles.calculatorInputContainer}>
+                <Text style={styles.calculatorInputLabel}>
+                  {i18n.t('vesting.depositAmount')}
+                </Text>
+                <TextInput
+                  style={styles.calculatorInput}
+                  placeholder={i18n.t('vesting.enterAmount')}
+                  placeholderTextColor={colors.textSecondary}
+                  keyboardType="decimal-pad"
+                  value={calculatorAmount}
+                  onChangeText={setCalculatorAmount}
+                />
+              </View>
+
+              <TouchableOpacity style={styles.calculateButton} onPress={calculateYield}>
+                <IconSymbol
+                  ios_icon_name="chart.bar.fill"
+                  android_material_icon_name="bar_chart"
+                  size={20}
+                  color="#fff"
+                />
+                <Text style={styles.calculateButtonText}>{i18n.t('vesting.calculate')}</Text>
+              </TouchableOpacity>
+
+              {showProjections && projections.length > 0 && (
+                <View style={styles.projectionsContainer}>
+                  <Text style={styles.projectionsTitle}>{i18n.t('vesting.projectedYield')}</Text>
+                  <View style={styles.projectionsInfo}>
+                    <Text style={styles.projectionsInfoText}>
+                      {i18n.t('vesting.depositAmount')}: {calculatorAmount} USDT
+                    </Text>
+                    <Text style={styles.projectionsInfoText}>
+                      MXI: {(parseFloat(calculatorAmount) / currentPrice).toFixed(2)}
+                    </Text>
+                  </View>
+                  {projections.map((projection, index) => (
+                    <View key={index} style={styles.projectionRow}>
+                      <View style={styles.projectionLabelContainer}>
+                        <IconSymbol
+                          ios_icon_name="clock.fill"
+                          android_material_icon_name="schedule"
+                          size={18}
+                          color={colors.success}
+                        />
+                        <Text style={styles.projectionLabel}>{projection.period}:</Text>
+                      </View>
+                      <Text style={styles.projectionValue}>
+                        {projection.mxiYield.toFixed(8)} MXI
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              <View style={styles.calculatorInfo}>
+                <IconSymbol
+                  ios_icon_name="info.circle"
+                  android_material_icon_name="info"
+                  size={16}
+                  color={colors.textSecondary}
+                />
+                <Text style={styles.calculatorInfoText}>
+                  Current MXI Price: ${currentPrice.toFixed(2)} USDT
+                </Text>
+              </View>
+            </React.Fragment>
+          )}
+        </View>
+
         {/* MXI Used Breakdown */}
         <View style={styles.breakdownCard}>
-          <Text style={styles.breakdownTitle}>📊 MXI Used in Vesting</Text>
+          <Text style={styles.breakdownTitle}>{i18n.t('vesting.mxiUsedBreakdown')}</Text>
           <Text style={styles.breakdownDescription}>
-            Only MXI purchased directly and from unified referral commissions count towards vesting.
-            MXI generated from vesting itself does NOT count.
+            {i18n.t('vesting.breakdownDescription')}
           </Text>
-          
+
           <View style={styles.breakdownSection}>
             <View style={styles.breakdownRow}>
               <View style={styles.breakdownLabelContainer}>
-                <IconSymbol ios_icon_name="cart.fill" android_material_icon_name="shopping_cart" size={20} color={colors.primary} />
-                <Text style={styles.breakdownLabel}>Purchased Directly</Text>
+                <IconSymbol
+                  ios_icon_name="cart.fill"
+                  android_material_icon_name="shopping_cart"
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text style={styles.breakdownLabel}>
+                  {i18n.t('vesting.purchasedDirectly')}
+                </Text>
               </View>
-              <Text style={styles.breakdownValue}>{(user.mxiPurchasedDirectly || 0).toFixed(8)}</Text>
+              <Text style={styles.breakdownValue}>
+                {(user.mxiPurchasedDirectly || 0).toFixed(8)}
+              </Text>
             </View>
-            
+
             <View style={styles.breakdownDivider} />
-            
+
             <View style={styles.breakdownRow}>
               <View style={styles.breakdownLabelContainer}>
-                <IconSymbol ios_icon_name="person.3.fill" android_material_icon_name="groups" size={20} color={colors.secondary} />
-                <Text style={styles.breakdownLabel}>From Referral Commissions</Text>
+                <IconSymbol
+                  ios_icon_name="person.3.fill"
+                  android_material_icon_name="groups"
+                  size={20}
+                  color={colors.secondary}
+                />
+                <Text style={styles.breakdownLabel}>{i18n.t('vesting.fromReferrals')}</Text>
               </View>
-              <Text style={styles.breakdownValue}>{(user.mxiFromUnifiedCommissions || 0).toFixed(8)}</Text>
+              <Text style={styles.breakdownValue}>
+                {(user.mxiFromUnifiedCommissions || 0).toFixed(8)}
+              </Text>
             </View>
-            
+
             <View style={styles.breakdownDivider} />
-            
+
             <View style={styles.breakdownRow}>
               <View style={styles.breakdownLabelContainer}>
-                <IconSymbol ios_icon_name="sum" android_material_icon_name="functions" size={20} color={colors.accent} />
-                <Text style={[styles.breakdownLabel, styles.breakdownLabelTotal]}>Total in Vesting</Text>
+                <IconSymbol
+                  ios_icon_name="sum"
+                  android_material_icon_name="functions"
+                  size={20}
+                  color={colors.accent}
+                />
+                <Text style={[styles.breakdownLabel, styles.breakdownLabelTotal]}>
+                  {i18n.t('vesting.totalInVestingLabel')}
+                </Text>
               </View>
-              <Text style={[styles.breakdownValue, styles.breakdownValueTotal]}>{mxiInVesting.toFixed(8)}</Text>
+              <Text style={[styles.breakdownValue, styles.breakdownValueTotal]}>
+                {mxiInVesting.toFixed(8)}
+              </Text>
             </View>
           </View>
         </View>
@@ -209,47 +404,58 @@ export default function VestingScreen() {
         {/* Accumulated Yield Card */}
         <View style={styles.yieldCard}>
           <View style={styles.yieldHeader}>
-            <IconSymbol ios_icon_name="chart.line.uptrend.xyaxis" android_material_icon_name="trending_up" size={24} color={colors.success} />
-            <Text style={styles.yieldTitle}>Accumulated Yield</Text>
+            <IconSymbol
+              ios_icon_name="chart.line.uptrend.xyaxis"
+              android_material_icon_name="trending_up"
+              size={24}
+              color={colors.success}
+            />
+            <Text style={styles.yieldTitle}>{i18n.t('vesting.accumulatedYield')}</Text>
           </View>
           <Text style={styles.yieldValue}>{totalYield.toFixed(8)}</Text>
-          <Text style={styles.yieldUnit}>MXI</Text>
-          
+          <Text style={styles.yieldUnit}>{i18n.t('vesting.mxiUnit')}</Text>
+
           <View style={styles.yieldBreakdown}>
             <View style={styles.yieldBreakdownRow}>
-              <Text style={styles.yieldBreakdownLabel}>Current Session:</Text>
+              <Text style={styles.yieldBreakdownLabel}>{i18n.t('vesting.currentSession')}</Text>
               <Text style={styles.yieldBreakdownValue}>{currentYield.toFixed(8)} MXI</Text>
             </View>
             <View style={styles.yieldBreakdownRow}>
-              <Text style={styles.yieldBreakdownLabel}>Previously Accumulated:</Text>
-              <Text style={styles.yieldBreakdownValue}>{user.accumulatedYield.toFixed(8)} MXI</Text>
+              <Text style={styles.yieldBreakdownLabel}>
+                {i18n.t('vesting.previouslyAccumulated')}
+              </Text>
+              <Text style={styles.yieldBreakdownValue}>
+                {user.accumulatedYield.toFixed(8)} MXI
+              </Text>
             </View>
           </View>
         </View>
 
         {/* Generation Rates */}
         <View style={styles.ratesCard}>
-          <Text style={styles.ratesTitle}>⚡ Generation Rates</Text>
+          <Text style={styles.ratesTitle}>{i18n.t('vesting.generationRates')}</Text>
           <View style={styles.ratesGrid}>
             <View style={styles.rateItem}>
-              <Text style={styles.rateLabel}>Per Second</Text>
+              <Text style={styles.rateLabel}>{i18n.t('vesting.perSecond')}</Text>
               <Text style={styles.rateValue}>{yieldPerSecond.toFixed(8)}</Text>
-              <Text style={styles.rateUnit}>MXI</Text>
+              <Text style={styles.rateUnit}>{i18n.t('vesting.mxiUnit')}</Text>
             </View>
             <View style={styles.rateItem}>
-              <Text style={styles.rateLabel}>Per Minute</Text>
+              <Text style={styles.rateLabel}>{i18n.t('vesting.perMinute')}</Text>
               <Text style={styles.rateValue}>{user.yieldRatePerMinute.toFixed(8)}</Text>
-              <Text style={styles.rateUnit}>MXI</Text>
+              <Text style={styles.rateUnit}>{i18n.t('vesting.mxiUnit')}</Text>
             </View>
             <View style={styles.rateItem}>
-              <Text style={styles.rateLabel}>Per Hour</Text>
+              <Text style={styles.rateLabel}>{i18n.t('vesting.perHour')}</Text>
               <Text style={styles.rateValue}>{(user.yieldRatePerMinute * 60).toFixed(6)}</Text>
-              <Text style={styles.rateUnit}>MXI</Text>
+              <Text style={styles.rateUnit}>{i18n.t('vesting.mxiUnit')}</Text>
             </View>
             <View style={styles.rateItem}>
-              <Text style={styles.rateLabel}>Per Day</Text>
-              <Text style={styles.rateValue}>{(user.yieldRatePerMinute * 60 * 24).toFixed(4)}</Text>
-              <Text style={styles.rateUnit}>MXI</Text>
+              <Text style={styles.rateLabel}>{i18n.t('vesting.perDay')}</Text>
+              <Text style={styles.rateValue}>
+                {(user.yieldRatePerMinute * 60 * 24).toFixed(4)}
+              </Text>
+              <Text style={styles.rateUnit}>{i18n.t('vesting.mxiUnit')}</Text>
             </View>
           </View>
         </View>
@@ -274,10 +480,12 @@ export default function VestingScreen() {
                 size={20}
                 color={canUnify ? '#fff' : colors.textSecondary}
               />
-              <Text style={[styles.unifyButtonText, !canUnify && styles.unifyButtonTextDisabled]}>
+              <Text
+                style={[styles.unifyButtonText, !canUnify && styles.unifyButtonTextDisabled]}
+              >
                 {canUnify
-                  ? '💎 Unify Balance to Main Account'
-                  : `🔒 Requires 10 Active Referrals (${user.activeReferrals}/10)`}
+                  ? i18n.t('vesting.unifyBalance')
+                  : i18n.t('vesting.unifyBalanceLocked', { current: user.activeReferrals })}
               </Text>
             </React.Fragment>
           )}
@@ -285,38 +493,37 @@ export default function VestingScreen() {
 
         {/* Info Box */}
         <View style={styles.infoBox}>
-          <IconSymbol ios_icon_name="info.circle.fill" android_material_icon_name="info" size={20} color={colors.primary} />
+          <IconSymbol
+            ios_icon_name="info.circle.fill"
+            android_material_icon_name="info"
+            size={20}
+            color={colors.primary}
+          />
           <View style={styles.infoContent}>
-            <Text style={styles.infoTitle}>How Vesting Works:</Text>
+            <Text style={styles.infoTitle}>{i18n.t('vesting.infoTitle')}</Text>
             <Text style={styles.infoText}>
-              • Vesting generates {utilityPercentage}% yield per hour on your eligible MXI{'\n'}
-              • Only MXI purchased directly counts towards vesting{'\n'}
-              • MXI from unified referral commissions also counts{'\n'}
-              • MXI generated from vesting itself does NOT increase the vesting percentage{'\n'}
-              • You need 10 active referrals to unify vesting balance{'\n'}
-              • Once unified, the MXI moves to your general balance{'\n'}
-              • Unified vesting MXI does NOT count for future vesting calculations
+              {i18n.t('vesting.infoText', { rate: utilityPercentage })}
             </Text>
           </View>
         </View>
 
         {/* Balance Summary */}
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>📈 Balance Summary</Text>
+          <Text style={styles.summaryTitle}>{i18n.t('vesting.balanceSummary')}</Text>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Total MXI Balance:</Text>
+            <Text style={styles.summaryLabel}>{i18n.t('vesting.totalMxiBalance')}</Text>
             <Text style={styles.summaryValue}>{user.mxiBalance.toFixed(2)} MXI</Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>MXI in Vesting:</Text>
+            <Text style={styles.summaryLabel}>{i18n.t('vesting.mxiInVesting')}</Text>
             <Text style={[styles.summaryValue, styles.summaryValueHighlight]}>
               {mxiInVesting.toFixed(2)} MXI ({vestingPercentage.toFixed(1)}%)
             </Text>
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Accumulated Yield:</Text>
+            <Text style={styles.summaryLabel}>{i18n.t('vesting.accumulatedYieldLabel')}</Text>
             <Text style={[styles.summaryValue, styles.summaryValueSuccess]}>
               {totalYield.toFixed(8)} MXI
             </Text>
@@ -475,6 +682,132 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.border,
     marginVertical: 12,
+  },
+  calculatorCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.success,
+  },
+  calculatorHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  calculatorHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  calculatorTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  calculatorDescription: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 12,
+    marginBottom: 16,
+    lineHeight: 18,
+  },
+  calculatorInputContainer: {
+    marginBottom: 16,
+  },
+  calculatorInputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  calculatorInput: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  calculateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.success,
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+    marginBottom: 12,
+  },
+  calculateButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  projectionsContainer: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: colors.success,
+  },
+  projectionsTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  projectionsInfo: {
+    backgroundColor: colors.card,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+  },
+  projectionsInfoText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  projectionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  projectionLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  projectionLabel: {
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: '600',
+  },
+  projectionValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.success,
+    fontFamily: 'monospace',
+  },
+  calculatorInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  calculatorInfoText: {
+    fontSize: 12,
+    color: colors.textSecondary,
   },
   breakdownCard: {
     backgroundColor: colors.card,
