@@ -54,6 +54,13 @@ export default function ContributeScreen() {
     requestPermissions();
   }, []);
 
+  // Recalculate MXI when phaseInfo is loaded
+  useEffect(() => {
+    if (phaseInfo && usdtAmount) {
+      calculateMxi(usdtAmount);
+    }
+  }, [phaseInfo]);
+
   const requestPermissions = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -68,10 +75,27 @@ export default function ContributeScreen() {
         .select('*')
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading phase info:', error);
+        // Set default values if there's an error
+        setPhaseInfo({
+          current_phase: 1,
+          current_price_usdt: '0.30',
+          total_tokens_sold: '0',
+        });
+        return;
+      }
+      
+      console.log('Phase info loaded:', data);
       setPhaseInfo(data);
     } catch (error) {
       console.error('Error loading phase info:', error);
+      // Set default values if there's an error
+      setPhaseInfo({
+        current_phase: 1,
+        current_price_usdt: '0.30',
+        total_tokens_sold: '0',
+      });
     }
   };
 
@@ -110,14 +134,29 @@ export default function ContributeScreen() {
   };
 
   const calculateMxi = (usdt: string) => {
+    console.log('Calculating MXI for USDT:', usdt);
+    console.log('Phase info:', phaseInfo);
+    
     const amount = parseFloat(usdt);
-    if (isNaN(amount) || !phaseInfo) {
+    if (isNaN(amount) || amount <= 0) {
       setMxiAmount('0');
       return;
     }
 
+    if (!phaseInfo) {
+      console.log('Phase info not loaded yet, using default price');
+      // Use default price if phase info is not loaded
+      const mxi = amount / 0.30;
+      setMxiAmount(mxi.toFixed(2));
+      return;
+    }
+
     const currentPrice = parseFloat(phaseInfo.current_price_usdt || '0.30');
+    console.log('Current price:', currentPrice);
+    
     const mxi = amount / currentPrice;
+    console.log('Calculated MXI:', mxi);
+    
     setMxiAmount(mxi.toFixed(2));
   };
 
@@ -372,12 +411,12 @@ export default function ContributeScreen() {
   };
 
   const getPhaseDescription = () => {
-    if (!phaseInfo) return '';
+    if (!phaseInfo) return 'Loading...';
     
     const phase = phaseInfo.current_phase;
-    const price = parseFloat(phaseInfo.current_price_usdt || '0');
+    const price = parseFloat(phaseInfo.current_price_usdt || '0.30');
     
-    return `Phase ${phase}: $${price} USDT per MXI`;
+    return `Phase ${phase}: $${price.toFixed(2)} USDT per MXI`;
   };
 
   return (
