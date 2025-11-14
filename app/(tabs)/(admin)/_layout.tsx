@@ -14,6 +14,8 @@ export default function AdminLayout() {
       <Stack.Screen name="kyc-approvals" />
       <Stack.Screen name="withdrawal-approvals" />
       <Stack.Screen name="messages" />
+      <Stack.Screen name="message-detail" />
+      <Stack.Screen name="database-viewer" />
       <Stack.Screen name="settings" />
       <Stack.Screen name="user-management" />
     </Stack>

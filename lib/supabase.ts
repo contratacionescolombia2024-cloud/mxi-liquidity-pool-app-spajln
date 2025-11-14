@@ -1,170 +1,28 @@
 
-import { SupabaseClient } from '@supabase/supabase-js';
-import { Platform } from 'react-native';
-import { getStorageAdapter } from './storage-adapter';
+import { createClient } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Linking from 'expo-linking';
 
 // Supabase configuration
 const supabaseUrl = 'https://aeyfnjuatbtcauiumbhn.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFleWZuanVhdGJ0Y2F1aXVtYmhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4MDI3NTEsImV4cCI6MjA3ODM3ODc1MX0.pefpNdgFtsbBifAtKXaQiWq7S7TioQ9PSGbycmivvDI';
 
-// Check if we're in a proper runtime environment
-const canInitialize = (): boolean => {
-  // During SSR/build, prevent initialization
-  if (typeof process !== 'undefined' && process.env.EXPO_PUBLIC_STATIC_RENDERING) {
-    return false;
-  }
-
-  // For web, check for window
-  if (Platform.OS === 'web') {
-    return typeof window !== 'undefined' && typeof document !== 'undefined';
-  }
-
-  // For native, we're good to go if we're not in a build environment
-  return typeof global !== 'undefined';
-};
-
-// Lazy initialization of Supabase client
-let supabaseInstance: SupabaseClient | null = null;
-let initializationAttempted = false;
-let initializationPromise: Promise<SupabaseClient | null> | null = null;
-
-const createSupabaseClient = async (): Promise<SupabaseClient | null> => {
-  // If already initialized, return it
-  if (supabaseInstance) {
-    return supabaseInstance;
-  }
-
-  // If initialization is in progress, wait for it
-  if (initializationPromise) {
-    return initializationPromise;
-  }
-
-  // If we already tried and failed, don't try again
-  if (initializationAttempted && !supabaseInstance) {
-    return null;
-  }
-
-  // Check if we can initialize
-  if (!canInitialize()) {
-    console.warn('Supabase client not initialized - running in SSR/build environment');
-    initializationAttempted = true;
-    return null;
-  }
-
-  // Create initialization promise
-  initializationPromise = (async () => {
-    try {
-      // Dynamically import Supabase to prevent build-time execution
-      const { createClient } = await import('@supabase/supabase-js');
-      
-      // Get the appropriate storage adapter (lazy)
-      const storage = getStorageAdapter();
-
-      supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
-        auth: {
-          storage: storage,
-          autoRefreshToken: true,
-          persistSession: true,
-          detectSessionInUrl: Platform.OS === 'web',
-          flowType: 'pkce',
-        },
-      });
-      
-      initializationAttempted = true;
-      console.log('✅ Supabase client initialized successfully');
-      return supabaseInstance;
-    } catch (error) {
-      console.error('❌ Error creating Supabase client:', error);
-      initializationAttempted = true;
-      initializationPromise = null;
-      return null;
-    }
-  })();
-
-  return initializationPromise;
-};
-
-// Get the Supabase client (synchronous access)
-const getSupabaseClient = (): SupabaseClient | null => {
-  return supabaseInstance;
-};
-
-// Create a no-op handler for when Supabase is not initialized
-const createNoOpHandler = (path: string[] = []): any => {
-  const handler = new Proxy(() => {}, {
-    get: (target, prop) => {
-      // Handle Promise-like properties
-      if (prop === 'then' || prop === 'catch' || prop === 'finally') {
-        return undefined;
-      }
-      
-      if (prop === Symbol.toStringTag) {
-        return 'SupabaseProxy';
-      }
-
-      const newPath = [...path, String(prop)];
-      return createNoOpHandler(newPath);
-    },
-    apply: () => {
-      const pathStr = path.join('.');
-      console.warn(`⚠️ Attempted to call supabase.${pathStr}() but client is not initialized`);
-      return Promise.resolve({ data: null, error: new Error('Supabase not initialized') });
-    }
-  });
-
-  return handler;
-};
-
-// Export a Proxy that lazily initializes the client
-export const supabase = new Proxy({} as SupabaseClient, {
-  get: (target, prop) => {
-    // Special handling for common properties
-    if (prop === 'then' || prop === 'catch' || prop === 'finally') {
-      return undefined;
-    }
-    
-    if (prop === Symbol.toStringTag) {
-      return 'SupabaseClient';
-    }
-
-    // Special method to initialize the client
-    if (prop === '__initialize') {
-      return createSupabaseClient;
-    }
-
-    // Special method to check if initialized
-    if (prop === '__isInitialized') {
-      return () => supabaseInstance !== null;
-    }
-
-    const client = getSupabaseClient();
-    if (!client) {
-      return createNoOpHandler([String(prop)]);
-    }
-    
-    const value = (client as any)[prop];
-    return typeof value === 'function' ? value.bind(client) : value;
-  }
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce',
+  },
 });
-
-// Initialize the client (call this from your app's entry point)
-export const initializeSupabase = async (): Promise<boolean> => {
-  const client = await createSupabaseClient();
-  return client !== null;
-};
 
 // Handle deep linking for email confirmation
 export const handleDeepLink = async (url: string) => {
   console.log('Handling deep link:', url);
   
-  const client = getSupabaseClient();
-  if (!client) {
-    console.warn('Supabase client not available');
-    return { success: false, error: 'Service not available' };
-  }
-
   try {
-    const { data, error } = await client.auth.getSessionFromUrl({ url });
+    const { data, error } = await supabase.auth.getSessionFromUrl({ url });
     
     if (error) {
       console.error('Error getting session from URL:', error);

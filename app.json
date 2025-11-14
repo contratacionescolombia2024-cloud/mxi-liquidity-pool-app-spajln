@@ -1,68 +1,70 @@
-
 {
   "expo": {
     "name": "MXI Liquidity Pool",
     "slug": "MXI Liquidity Pool",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/final_quest_240x240.png",
-    "scheme": "maxcoinpool",
+    "icon": "./assets/images/04a4d9ac-4539-41d2-bafd-67dd75925bde.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/final_quest_240x240.png",
+      "image": "./assets/images/04a4d9ac-4539-41d2-bafd-67dd75925bde.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1a1a2e"
+      "backgroundColor": "#000000"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.maxcoin.pool"
+      "bundleIdentifier": "com.maxcoinpool.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/final_quest_240x240.png",
-        "backgroundColor": "#1a1a2e"
+        "foregroundImage": "./assets/images/04a4d9ac-4539-41d2-bafd-67dd75925bde.png",
+        "backgroundColor": "#000000"
       },
-      "package": "com.maxcoin.pool",
-      "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE"
+      "edgeToEdgeEnabled": true,
+      "package": "com.maxcoinpool.app",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "natively.dev",
+              "pathPrefix": "/email-confirmed"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
       ]
     },
     "web": {
-      "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/images/final_quest_240x240.png",
-      "name": "Maxcoin Pool",
-      "shortName": "MXI Pool",
-      "description": "Pool de Liquidez Maxcoin (MXI)",
-      "themeColor": "#1a1a2e",
-      "backgroundColor": "#1a1a2e",
-      "display": "standalone",
-      "orientation": "portrait",
-      "startUrl": "/"
+      "favicon": "./assets/images/04a4d9ac-4539-41d2-bafd-67dd75925bde.png",
+      "bundler": "metro"
     },
     "plugins": [
+      "expo-font",
       "expo-router",
       [
-        "expo-image-picker",
+        "expo-web-browser",
         {
-          "photosPermission": "La aplicación necesita acceso a tus fotos para verificación KYC.",
-          "cameraPermission": "La aplicación necesita acceso a tu cámara para verificación KYC."
+          "preferredBrowserPackage": "com.android.chrome"
         }
       ]
     ],
+    "scheme": "maxcoinpool",
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "router": {
-        "origin": false
-      },
-      "eas": {
-        "projectId": "tu-project-id-aqui"
-      }
+      "router": {}
     }
-  }
+  },
+  "scheme": "MXI Liquidity Pool"
 }
