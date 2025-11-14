@@ -234,6 +234,42 @@ export default function ProfileScreen() {
 
           <TouchableOpacity
             style={[commonStyles.card, styles.menuItem]}
+            onPress={() => router.push('/(tabs)/(home)/vesting')}
+          >
+            <View style={styles.menuItemContent}>
+              <View style={styles.menuIconContainer}>
+                <Text style={styles.menuIconEmoji}>⛏️</Text>
+              </View>
+              <Text style={styles.menuItemText}>Vesting</Text>
+            </View>
+            <IconSymbol 
+              ios_icon_name="chevron.right" 
+              android_material_icon_name="chevron_right" 
+              size={20} 
+              color={colors.textSecondary} 
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[commonStyles.card, styles.menuItem]}
+            onPress={() => router.push('/(tabs)/(home)/withdrawal')}
+          >
+            <View style={styles.menuItemContent}>
+              <View style={styles.menuIconContainer}>
+                <Text style={styles.menuIconEmoji}>💸</Text>
+              </View>
+              <Text style={styles.menuItemText}>Withdrawal</Text>
+            </View>
+            <IconSymbol 
+              ios_icon_name="chevron.right" 
+              android_material_icon_name="chevron_right" 
+              size={20} 
+              color={colors.textSecondary} 
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[commonStyles.card, styles.menuItem]}
             onPress={() => router.push('/(tabs)/(home)/support')}
           >
             <View style={styles.menuItemContent}>
@@ -274,7 +310,7 @@ export default function ProfileScreen() {
           >
             <View style={styles.menuItemContent}>
               <View style={styles.menuIconContainer}>
-                <Text style={styles.menuIconEmoji}>💸</Text>
+                <Text style={styles.menuIconEmoji}>📜</Text>
               </View>
               <Text style={styles.menuItemText}>Withdrawal History</Text>
             </View>

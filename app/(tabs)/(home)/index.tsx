@@ -258,7 +258,20 @@ export default function HomeScreen() {
 
             <TouchableOpacity
               style={[commonStyles.card, styles.actionCard]}
-              onPress={() => router.push('/(tabs)/(home)/withdrawals')}
+              onPress={() => router.push('/(tabs)/(home)/vesting')}
+            >
+              <View style={[styles.actionIcon, { backgroundColor: colors.accent + '20' }]}>
+                <Text style={styles.actionIconEmoji}>⛏️</Text>
+              </View>
+              <Text style={styles.actionTitle}>Vesting</Text>
+              <Text style={styles.actionSubtitle}>
+                {user.isActiveContributor ? 'Ver detalles' : 'No activo'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[commonStyles.card, styles.actionCard]}
+              onPress={() => router.push('/(tabs)/(home)/withdrawal')}
             >
               <View style={[styles.actionIcon, { backgroundColor: colors.warning + '20' }]}>
                 <Text style={styles.actionIconEmoji}>💸</Text>
