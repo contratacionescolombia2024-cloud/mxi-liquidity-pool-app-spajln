@@ -110,6 +110,14 @@ export default function HomeScreen() {
     return null;
   }
 
+  // Debug logging for vesting counter visibility
+  console.log('=== VESTING COUNTER DEBUG ===');
+  console.log('User isActiveContributor:', user.isActiveContributor);
+  console.log('User yieldRatePerMinute:', user.yieldRatePerMinute);
+  console.log('User mxiPurchasedDirectly:', user.mxiPurchasedDirectly);
+  console.log('User mxiFromUnifiedCommissions:', user.mxiFromUnifiedCommissions);
+  console.log('Should show vesting counter:', user.isActiveContributor && user.yieldRatePerMinute > 0);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
@@ -128,7 +136,12 @@ export default function HomeScreen() {
             style={styles.profileButton}
             onPress={() => router.push('/(tabs)/profile')}
           >
-            <IconSymbol name="person.circle.fill" size={40} color={colors.primary} />
+            <IconSymbol 
+              ios_icon_name="person.circle.fill" 
+              android_material_icon_name="account_circle" 
+              size={40} 
+              color={colors.primary} 
+            />
           </TouchableOpacity>
         </View>
 
@@ -205,8 +218,8 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Vesting Counter - New Component */}
-        {user.isActiveContributor && user.yieldRatePerMinute > 0 && (
+        {/* Vesting Counter - Always show if user is active contributor */}
+        {user.isActiveContributor && (
           <View style={styles.vestingSection}>
             <VestingCounter />
           </View>

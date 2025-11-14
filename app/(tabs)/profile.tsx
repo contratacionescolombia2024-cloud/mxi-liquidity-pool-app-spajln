@@ -108,19 +108,34 @@ export default function ProfileScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <View style={styles.avatarContainer}>
-            <IconSymbol name="person.circle.fill" size={80} color={colors.primary} />
+            <IconSymbol 
+              ios_icon_name="person.circle.fill" 
+              android_material_icon_name="account_circle" 
+              size={80} 
+              color={colors.primary} 
+            />
           </View>
           <Text style={styles.name}>{user.name}</Text>
           <Text style={styles.email}>{user.email}</Text>
           {user.kycStatus === 'approved' && (
             <View style={styles.verifiedBadge}>
-              <IconSymbol name="checkmark.seal.fill" size={16} color={colors.success} />
+              <IconSymbol 
+                ios_icon_name="checkmark.seal.fill" 
+                android_material_icon_name="verified" 
+                size={16} 
+                color={colors.success} 
+              />
               <Text style={styles.verifiedText}>KYC Verified</Text>
             </View>
           )}
           {isAdmin && (
             <View style={styles.adminBadge}>
-              <IconSymbol name="shield.lefthalf.filled" size={16} color={colors.error} />
+              <IconSymbol 
+                ios_icon_name="shield.lefthalf.filled" 
+                android_material_icon_name="shield" 
+                size={16} 
+                color={colors.error} 
+              />
               <Text style={styles.adminBadgeText}>Administrator</Text>
             </View>
           )}
@@ -154,7 +169,12 @@ export default function ProfileScreen() {
             <Text style={styles.sectionTitle}>Quick Actions</Text>
             {checkingAdmin && (
               <TouchableOpacity onPress={handleRefreshAdminStatus}>
-                <IconSymbol name="arrow.clockwise" size={20} color={colors.primary} />
+                <IconSymbol 
+                  ios_icon_name="arrow.clockwise" 
+                  android_material_icon_name="refresh" 
+                  size={20} 
+                  color={colors.primary} 
+                />
               </TouchableOpacity>
             )}
           </View>
@@ -174,14 +194,24 @@ export default function ProfileScreen() {
             >
               <View style={styles.menuItemContent}>
                 <View style={styles.adminIconContainer}>
-                  <IconSymbol name="shield.lefthalf.filled" size={28} color="#FFFFFF" />
+                  <IconSymbol 
+                    ios_icon_name="shield.lefthalf.filled" 
+                    android_material_icon_name="shield" 
+                    size={28} 
+                    color="#FFFFFF" 
+                  />
                 </View>
                 <View style={styles.menuItemTextContainer}>
                   <Text style={[styles.menuItemText, styles.adminMenuText]}>Admin Dashboard</Text>
                   <Text style={styles.adminMenuSubtext}>Manage users, KYC, and withdrawals</Text>
                 </View>
               </View>
-              <IconSymbol name="chevron.right" size={24} color={colors.error} />
+              <IconSymbol 
+                ios_icon_name="chevron.right" 
+                android_material_icon_name="chevron_right" 
+                size={24} 
+                color={colors.error} 
+              />
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
@@ -189,7 +219,12 @@ export default function ProfileScreen() {
               onPress={handleRefreshAdminStatus}
             >
               <View style={styles.menuItemContent}>
-                <IconSymbol name="arrow.clockwise" size={24} color={colors.textSecondary} />
+                <IconSymbol 
+                  ios_icon_name="arrow.clockwise" 
+                  android_material_icon_name="refresh" 
+                  size={24} 
+                  color={colors.textSecondary} 
+                />
                 <Text style={[styles.menuItemText, styles.debugText]}>
                   Refresh Admin Status (Attempts: {adminCheckAttempts})
                 </Text>
@@ -202,10 +237,17 @@ export default function ProfileScreen() {
             onPress={() => router.push('/(tabs)/(home)/support')}
           >
             <View style={styles.menuItemContent}>
-              <IconSymbol name="questionmark.circle.fill" size={24} color={colors.primary} />
+              <View style={styles.menuIconContainer}>
+                <Text style={styles.menuIconEmoji}>💬</Text>
+              </View>
               <Text style={styles.menuItemText}>Support & Help</Text>
             </View>
-            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+            <IconSymbol 
+              ios_icon_name="chevron.right" 
+              android_material_icon_name="chevron_right" 
+              size={20} 
+              color={colors.textSecondary} 
+            />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -213,10 +255,17 @@ export default function ProfileScreen() {
             onPress={() => router.push('/(tabs)/(home)/kyc-verification')}
           >
             <View style={styles.menuItemContent}>
-              <IconSymbol name="person.badge.shield.checkmark" size={24} color={colors.warning} />
+              <View style={styles.menuIconContainer}>
+                <Text style={styles.menuIconEmoji}>🔐</Text>
+              </View>
               <Text style={styles.menuItemText}>KYC Verification</Text>
             </View>
-            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+            <IconSymbol 
+              ios_icon_name="chevron.right" 
+              android_material_icon_name="chevron_right" 
+              size={20} 
+              color={colors.textSecondary} 
+            />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -224,10 +273,17 @@ export default function ProfileScreen() {
             onPress={() => router.push('/(tabs)/(home)/withdrawals')}
           >
             <View style={styles.menuItemContent}>
-              <IconSymbol name="arrow.down.circle" size={24} color={colors.success} />
+              <View style={styles.menuIconContainer}>
+                <Text style={styles.menuIconEmoji}>💸</Text>
+              </View>
               <Text style={styles.menuItemText}>Withdrawal History</Text>
             </View>
-            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+            <IconSymbol 
+              ios_icon_name="chevron.right" 
+              android_material_icon_name="chevron_right" 
+              size={20} 
+              color={colors.textSecondary} 
+            />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -235,10 +291,17 @@ export default function ProfileScreen() {
             onPress={() => router.push('/(tabs)/(home)/binance-payments')}
           >
             <View style={styles.menuItemContent}>
-              <IconSymbol name="creditcard" size={24} color={colors.primary} />
+              <View style={styles.menuIconContainer}>
+                <Text style={styles.menuIconEmoji}>💳</Text>
+              </View>
               <Text style={styles.menuItemText}>Payment History</Text>
             </View>
-            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+            <IconSymbol 
+              ios_icon_name="chevron.right" 
+              android_material_icon_name="chevron_right" 
+              size={20} 
+              color={colors.textSecondary} 
+            />
           </TouchableOpacity>
         </View>
 
@@ -246,7 +309,12 @@ export default function ProfileScreen() {
           style={[commonStyles.card, styles.logoutButton]}
           onPress={handleLogout}
         >
-          <IconSymbol name="rectangle.portrait.and.arrow.right" size={24} color={colors.error} />
+          <IconSymbol 
+            ios_icon_name="rectangle.portrait.and.arrow.right" 
+            android_material_icon_name="logout" 
+            size={24} 
+            color={colors.error} 
+          />
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -402,6 +470,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 4,
     elevation: 4,
+  },
+  menuIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.highlight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  menuIconEmoji: {
+    fontSize: 24,
   },
   menuItemTextContainer: {
     flex: 1,
