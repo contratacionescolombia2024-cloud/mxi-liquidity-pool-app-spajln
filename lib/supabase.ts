@@ -1,5 +1,5 @@
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
@@ -9,18 +9,33 @@ const supabaseUrl = 'https://aeyfnjuatbtcauiumbhn.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFleWZuanVhdGJ0Y2F1aXVtYmhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4MDI3NTEsImV4cCI6MjA3ODM3ODc1MX0.pefpNdgFtsbBifAtKXaQiWq7S7TioQ9PSGbycmivvDI';
 
 // Check if we're in a proper runtime environment
-const isSSR = typeof window === 'undefined' && Platform.OS === 'web';
+// During SSR/build, we should not initialize the client
+const canInitialize = () => {
+  // Check if we're in a browser/native environment
+  if (typeof window === 'undefined') {
+    // We're in SSR or Node.js environment
+    return false;
+  }
+  return true;
+};
 
-// Create a function to initialize Supabase client
-const createSupabaseClient = () => {
-  // During SSR/build on web, return null
-  if (isSSR) {
+// Lazy initialization of Supabase client
+let supabaseInstance: SupabaseClient | null = null;
+
+const getSupabaseClient = (): SupabaseClient | null => {
+  // If already initialized, return it
+  if (supabaseInstance) {
+    return supabaseInstance;
+  }
+
+  // Check if we can initialize
+  if (!canInitialize()) {
     console.warn('Supabase client not initialized - running in SSR/build environment');
     return null;
   }
 
   try {
-    return createClient(supabaseUrl, supabaseAnonKey, {
+    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         storage: AsyncStorage,
         autoRefreshToken: true,
@@ -29,26 +44,39 @@ const createSupabaseClient = () => {
         flowType: 'pkce',
       },
     });
+    console.log('Supabase client initialized successfully');
+    return supabaseInstance;
   } catch (error) {
     console.error('Error creating Supabase client:', error);
     return null;
   }
 };
 
-// Initialize the client
-export const supabase = createSupabaseClient();
+// Export a getter function instead of the client directly
+export const supabase = new Proxy({} as SupabaseClient, {
+  get: (target, prop) => {
+    const client = getSupabaseClient();
+    if (!client) {
+      console.warn(`Attempted to access supabase.${String(prop)} but client is not initialized`);
+      return undefined;
+    }
+    const value = (client as any)[prop];
+    return typeof value === 'function' ? value.bind(client) : value;
+  }
+});
 
 // Handle deep linking for email confirmation
 export const handleDeepLink = async (url: string) => {
   console.log('Handling deep link:', url);
   
-  if (!supabase) {
+  const client = getSupabaseClient();
+  if (!client) {
     console.warn('Supabase client not available');
     return { success: false, error: 'Service not available' };
   }
 
   try {
-    const { data, error } = await supabase.auth.getSessionFromUrl({ url });
+    const { data, error } = await client.auth.getSessionFromUrl({ url });
     
     if (error) {
       console.error('Error getting session from URL:', error);
