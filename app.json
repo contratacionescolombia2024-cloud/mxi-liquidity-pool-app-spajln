@@ -1,8 +1,7 @@
-
 {
   "expo": {
-    "name": "Maxcoin Pool",
-    "slug": "maxcoin-pool",
+    "name": "MXI Liquidity Pool",
+    "slug": "MXI Liquidity Pool",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/final_quest_240x240.png",
@@ -48,8 +47,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "La aplicación necesita acceso a tus fotos para verificación KYC.",
-          "cameraPermission": "La aplicación necesita acceso a tu cámara para verificación KYC."
+          "photosPermission": "La aplicaci\u00f3n necesita acceso a tus fotos para verificaci\u00f3n KYC.",
+          "cameraPermission": "La aplicaci\u00f3n necesita acceso a tu c\u00e1mara para verificaci\u00f3n KYC."
         }
       ]
     ],
@@ -64,5 +63,6 @@
         "projectId": "tu-project-id-aqui"
       }
     }
-  }
+  },
+  "scheme": "MXI Liquidity Pool"
 }

@@ -112,6 +112,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check if supabase is initialized
+    if (!supabase) {
+      console.warn('Supabase client not initialized');
+      setLoading(false);
+      return;
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       console.log('Initial session:', session);
       setSession(session);
@@ -154,6 +161,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const loadUserData = async (userId: string) => {
+    if (!supabase) {
+      console.warn('Supabase client not initialized');
+      setLoading(false);
+      return;
+    }
+
     try {
       console.log('Loading user data for:', userId);
       
@@ -245,6 +258,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    if (!supabase) {
+      return { success: false, error: 'Service not available' };
+    }
+
     try {
       console.log('Attempting login for:', email);
       
@@ -282,6 +299,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const register = async (userData: RegisterData): Promise<{ success: boolean; error?: string }> => {
+    if (!supabase) {
+      return { success: false, error: 'Service not available' };
+    }
+
     try {
       console.log('Attempting registration for:', userData.email);
 
@@ -374,6 +395,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const createReferralChain = async (newUserId: string, directReferrerId: string) => {
+    if (!supabase) return;
+
     try {
       await supabase.from('referrals').insert({
         referrer_id: directReferrerId,
@@ -414,6 +437,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
+    if (!supabase) return;
+
     try {
       await supabase.auth.signOut();
       setUser(null);
@@ -425,7 +450,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateUser = async (updates: Partial<User>) => {
-    if (!user) return;
+    if (!user || !supabase) return;
 
     try {
       const dbUpdates: any = {};
@@ -460,7 +485,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     usdtAmount: number,
     transactionType: 'initial' | 'increase' | 'reinvestment'
   ): Promise<{ success: boolean; error?: string }> => {
-    if (!user) return { success: false, error: 'Not authenticated' };
+    if (!user || !supabase) return { success: false, error: 'Not authenticated' };
 
     try {
       // Get current phase info to determine price
@@ -535,7 +560,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     amount: number,
     walletAddress: string
   ): Promise<{ success: boolean; error?: string }> => {
-    if (!user) return { success: false, error: 'Not authenticated' };
+    if (!user || !supabase) return { success: false, error: 'Not authenticated' };
 
     // Check KYC status
     if (user.kycStatus !== 'approved') {
@@ -594,7 +619,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const unifyCommissionToMXI = async (
     amount: number
   ): Promise<{ success: boolean; mxiAmount?: number; error?: string }> => {
-    if (!user) return { success: false, error: 'Not authenticated' };
+    if (!user || !supabase) return { success: false, error: 'Not authenticated' };
 
     if (amount > user.commissions.available) {
       return { success: false, error: 'Insufficient available commission' };
@@ -635,7 +660,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     amount: number,
     walletAddress: string
   ): Promise<{ success: boolean; error?: string }> => {
-    if (!user) return { success: false, error: 'Not authenticated' };
+    if (!user || !supabase) return { success: false, error: 'Not authenticated' };
 
     // Check KYC status
     if (user.kycStatus !== 'approved') {
@@ -732,7 +757,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const getAvailableMXI = async (): Promise<number> => {
-    if (!user) return 0;
+    if (!user || !supabase) return 0;
 
     try {
       const { data, error } = await supabase
@@ -751,7 +776,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const resendVerificationEmail = async (): Promise<{ success: boolean; error?: string }> => {
-    if (!session?.user?.email) {
+    if (!session?.user?.email || !supabase) {
       return { success: false, error: 'No email found' };
     }
 
@@ -775,7 +800,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const checkWithdrawalEligibility = async (): Promise<boolean> => {
-    if (!user) return false;
+    if (!user || !supabase) return false;
 
     try {
       const { data, error } = await supabase.rpc('check_withdrawal_eligibility_with_kyc', {
@@ -799,7 +824,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const claimYield = async (): Promise<{ success: boolean; yieldEarned?: number; error?: string }> => {
-    if (!user) return { success: false, error: 'Not authenticated' };
+    if (!user || !supabase) return { success: false, error: 'Not authenticated' };
 
     try {
       const { data, error } = await supabase.rpc('claim_yield', {
@@ -831,6 +856,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const getPoolStatus = async (): Promise<PoolStatus | null> => {
+    if (!supabase) return null;
+
     try {
       const { data, error } = await supabase.rpc('get_pool_status');
 
@@ -847,7 +874,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const checkMXIWithdrawalEligibility = async (): Promise<boolean> => {
-    if (!user) return false;
+    if (!user || !supabase) return false;
 
     try {
       const { data, error } = await supabase.rpc('check_mxi_withdrawal_eligibility', {
@@ -867,7 +894,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const checkAdminStatus = async (): Promise<boolean> => {
-    if (!user) return false;
+    if (!user || !supabase) return false;
 
     try {
       console.log('Checking admin status for user:', user.id, user.email);
@@ -892,6 +919,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const getPhaseInfo = async (): Promise<PhaseInfo | null> => {
+    if (!supabase) return null;
+
     try {
       const { data, error } = await supabase.rpc('get_phase_info');
 

@@ -2,20 +2,34 @@
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
+import { Platform } from 'react-native';
 
 // Supabase configuration
 const supabaseUrl = 'https://aeyfnjuatbtcauiumbhn.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFleWZuanVhdGJ0Y2F1aXVtYmhuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI4MDI3NTEsImV4cCI6MjA3ODM3ODc1MX0.pefpNdgFtsbBifAtKXaQiWq7S7TioQ9PSGbycmivvDI';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    storage: AsyncStorage,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true,
-    flowType: 'pkce',
-  },
-});
+// Create a function to initialize Supabase client
+const createSupabaseClient = () => {
+  // Only initialize if we're in a proper runtime environment
+  if (typeof window === 'undefined' && Platform.OS === 'web') {
+    // During SSR/build on web, return a mock client
+    console.warn('Supabase client not initialized - running in SSR/build environment');
+    return null as any;
+  }
+
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      storage: AsyncStorage,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+      flowType: 'pkce',
+    },
+  });
+};
+
+// Initialize the client
+export const supabase = createSupabaseClient();
 
 // Handle deep linking for email confirmation
 export const handleDeepLink = async (url: string) => {
