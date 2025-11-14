@@ -19,6 +19,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 interface YieldProjection {
   period: string;
   mxiYield: number;
+  usdtValue: number;
 }
 
 export default function VestingScreen() {
@@ -28,6 +29,7 @@ export default function VestingScreen() {
   const [unifying, setUnifying] = useState(false);
   const [calculatorAmount, setCalculatorAmount] = useState('');
   const [currentPrice, setCurrentPrice] = useState(0.30);
+  const [currentPhase, setCurrentPhase] = useState(1);
   const [showCalculator, setShowCalculator] = useState(false);
   const [projections, setProjections] = useState<YieldProjection[]>([]);
   const [showProjections, setShowProjections] = useState(false);
@@ -55,6 +57,7 @@ export default function VestingScreen() {
     const phaseInfo = await getPhaseInfo();
     if (phaseInfo) {
       setCurrentPrice(phaseInfo.currentPriceUsdt);
+      setCurrentPhase(phaseInfo.currentPhase);
     }
   };
 
@@ -136,10 +139,26 @@ export default function VestingScreen() {
     const yield30d = mxiTokens * hourlyRate * 24 * 30;
 
     setProjections([
-      { period: '24 Hours', mxiYield: yield24h },
-      { period: '7 Days', mxiYield: yield7d },
-      { period: '15 Days', mxiYield: yield15d },
-      { period: '30 Days', mxiYield: yield30d },
+      { 
+        period: '24 Hours', 
+        mxiYield: yield24h,
+        usdtValue: yield24h * currentPrice
+      },
+      { 
+        period: '7 Days', 
+        mxiYield: yield7d,
+        usdtValue: yield7d * currentPrice
+      },
+      { 
+        period: '15 Days', 
+        mxiYield: yield15d,
+        usdtValue: yield15d * currentPrice
+      },
+      { 
+        period: '30 Days', 
+        mxiYield: yield30d,
+        usdtValue: yield30d * currentPrice
+      },
     ]);
     setShowProjections(true);
   };
@@ -260,8 +279,14 @@ export default function VestingScreen() {
           {showCalculator && (
             <React.Fragment>
               <Text style={styles.calculatorDescription}>
-                Calculate potential MXI yield based on your deposit amount
+                Calculate potential MXI yield based on your deposit amount. Results shown in both MXI and USDT based on current presale phase.
               </Text>
+
+              <View style={styles.phaseInfoBox}>
+                <Text style={styles.phaseInfoLabel}>Current Presale Phase:</Text>
+                <Text style={styles.phaseInfoValue}>Phase {currentPhase}</Text>
+                <Text style={styles.phaseInfoPrice}>1 MXI = ${currentPrice.toFixed(2)} USDT</Text>
+              </View>
 
               <View style={styles.calculatorInputContainer}>
                 <Text style={styles.calculatorInputLabel}>
@@ -289,13 +314,16 @@ export default function VestingScreen() {
 
               {showProjections && projections.length > 0 && (
                 <View style={styles.projectionsContainer}>
-                  <Text style={styles.projectionsTitle}>Projected MXI Yield</Text>
+                  <Text style={styles.projectionsTitle}>Projected Yield</Text>
                   <View style={styles.projectionsInfo}>
                     <Text style={styles.projectionsInfoText}>
                       Deposit Amount: {calculatorAmount} USDT
                     </Text>
                     <Text style={styles.projectionsInfoText}>
-                      MXI: {(parseFloat(calculatorAmount) / currentPrice).toFixed(2)}
+                      MXI Tokens: {(parseFloat(calculatorAmount) / currentPrice).toFixed(2)} MXI
+                    </Text>
+                    <Text style={styles.projectionsInfoText}>
+                      Phase {currentPhase} Price: ${currentPrice.toFixed(2)} USDT/MXI
                     </Text>
                   </View>
                   {projections.map((projection, index) => (
@@ -309,9 +337,14 @@ export default function VestingScreen() {
                         />
                         <Text style={styles.projectionLabel}>{projection.period}:</Text>
                       </View>
-                      <Text style={styles.projectionValue}>
-                        {projection.mxiYield.toFixed(8)} MXI
-                      </Text>
+                      <View style={styles.projectionValues}>
+                        <Text style={styles.projectionValue}>
+                          {projection.mxiYield.toFixed(8)} MXI
+                        </Text>
+                        <Text style={styles.projectionValueUsdt}>
+                          ≈ ${projection.usdtValue.toFixed(4)} USDT
+                        </Text>
+                      </View>
                     </View>
                   ))}
                 </View>
@@ -325,7 +358,7 @@ export default function VestingScreen() {
                   color={colors.textSecondary}
                 />
                 <Text style={styles.calculatorInfoText}>
-                  Current MXI Price: ${currentPrice.toFixed(2)} USDT
+                  Yield values are calculated at current Phase {currentPhase} price (${currentPrice.toFixed(2)} USDT/MXI). Actual values may vary based on future price changes.
                 </Text>
               </View>
             </React.Fragment>
@@ -408,6 +441,9 @@ export default function VestingScreen() {
           </View>
           <Text style={styles.yieldValue}>{totalYield.toFixed(8)}</Text>
           <Text style={styles.yieldUnit}>MXI</Text>
+          <Text style={styles.yieldUsdtValue}>
+            ≈ ${(totalYield * currentPrice).toFixed(4)} USDT
+          </Text>
 
           <View style={styles.yieldBreakdown}>
             <View style={styles.yieldBreakdownRow}>
@@ -502,7 +538,8 @@ export default function VestingScreen() {
               • MXI generated from vesting itself does NOT increase the vesting percentage{'\n'}
               • You need 10 active referrals to unify vesting balance{'\n'}
               • Once unified, the MXI moves to your general balance{'\n'}
-              • Unified vesting MXI does NOT count for future vesting calculations
+              • Unified vesting MXI does NOT count for future vesting calculations{'\n'}
+              • Yield values shown in calculator are based on current Phase {currentPhase} price
             </Text>
           </View>
         </View>
@@ -526,6 +563,13 @@ export default function VestingScreen() {
             <Text style={styles.summaryLabel}>Accumulated Yield:</Text>
             <Text style={[styles.summaryValue, styles.summaryValueSuccess]}>
               {totalYield.toFixed(8)} MXI
+            </Text>
+          </View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Yield Value (USDT):</Text>
+            <Text style={[styles.summaryValue, styles.summaryValueSuccess]}>
+              ${(totalYield * currentPrice).toFixed(4)} USDT
             </Text>
           </View>
         </View>
@@ -555,6 +599,7 @@ const styles = StyleSheet.create({
   backButton: {
     marginBottom: 16,
     alignSelf: 'flex-start',
+    padding: 8,
   },
   title: {
     fontSize: 32,
@@ -713,6 +758,30 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     lineHeight: 18,
   },
+  phaseInfoBox: {
+    backgroundColor: colors.primary + '20',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  phaseInfoLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  phaseInfoValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.primary,
+    marginBottom: 4,
+  },
+  phaseInfoPrice: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
   calculatorInputContainer: {
     marginBottom: 16,
   },
@@ -791,23 +860,34 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '600',
   },
+  projectionValues: {
+    alignItems: 'flex-end',
+  },
   projectionValue: {
     fontSize: 14,
     fontWeight: '700',
     color: colors.success,
     fontFamily: 'monospace',
   },
+  projectionValueUsdt: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
   calculatorInfo: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 8,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
   calculatorInfoText: {
+    flex: 1,
     fontSize: 12,
     color: colors.textSecondary,
+    lineHeight: 16,
   },
   breakdownCard: {
     backgroundColor: colors.card,
@@ -902,6 +982,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: colors.text,
+    marginBottom: 4,
+  },
+  yieldUsdtValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textSecondary,
     marginBottom: 16,
   },
   yieldBreakdown: {

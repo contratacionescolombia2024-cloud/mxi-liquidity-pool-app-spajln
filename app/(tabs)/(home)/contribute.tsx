@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,6 +19,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import * as Clipboard from 'expo-clipboard';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import * as ImagePicker from 'expo-image-picker';
 
 interface BinancePayment {
   paymentId: string;
@@ -26,16 +28,11 @@ interface BinancePayment {
   paymentAddress: string;
   status: string;
   expiresAt: string;
+  qrCodeUri?: string;
 }
 
-// ⚠️ IMPORTANTE: Reemplaza esta dirección con tu dirección de billetera Binance real
-// Para obtener tu dirección:
-// 1. Abre Binance
-// 2. Ve a Wallet → Spot → USDT
-// 3. Haz clic en "Deposit"
-// 4. Selecciona la red (recomendado: TRC20 para comisiones bajas)
-// 5. Copia la dirección que aparece
-const BINANCE_WALLET_ADDRESS = 'TYourBinanceWalletAddressHere123456789';
+// Binance wallet address for payments
+const BINANCE_WALLET_ADDRESS = '0xc962eEc74643747996DC7D52B403084B282aB69d';
 
 export default function ContributeScreen() {
   const router = useRouter();
@@ -48,11 +45,21 @@ export default function ContributeScreen() {
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [transactionId, setTransactionId] = useState('');
+  const [qrCodeUri, setQrCodeUri] = useState<string | null>(null);
+  const [uploadingQR, setUploadingQR] = useState(false);
 
   useEffect(() => {
     loadPhaseInfo();
     checkExistingPayment();
+    requestPermissions();
   }, []);
+
+  const requestPermissions = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      console.log('Camera roll permissions not granted');
+    }
+  };
 
   const loadPhaseInfo = async () => {
     try {
@@ -91,7 +98,9 @@ export default function ContributeScreen() {
             paymentAddress: data.payment_address || BINANCE_WALLET_ADDRESS,
             status: data.status,
             expiresAt: data.expires_at,
+            qrCodeUri: data.qr_code_url || null,
           });
+          setQrCodeUri(data.qr_code_url || null);
           setPaymentModalVisible(true);
         }
       }
@@ -123,6 +132,66 @@ export default function ContributeScreen() {
     return 0;
   };
 
+  const pickQRCode = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        setQrCodeUri(asset.uri);
+        await uploadQRCode(asset.uri);
+      }
+    } catch (error) {
+      console.error('Error picking QR code:', error);
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
+    }
+  };
+
+  const uploadQRCode = async (uri: string) => {
+    if (!user || !currentPayment) return;
+
+    setUploadingQR(true);
+
+    try {
+      const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
+      const fileName = `${user.id}/qr_${currentPayment.paymentId}.${fileExt}`;
+
+      const response = await fetch(uri);
+      const blob = await response.blob();
+
+      const { data, error } = await supabase.storage
+        .from('payment-qr-codes')
+        .upload(fileName, blob, {
+          contentType: `image/${fileExt}`,
+          upsert: true,
+        });
+
+      if (error) throw error;
+
+      const { data: urlData } = supabase.storage
+        .from('payment-qr-codes')
+        .getPublicUrl(fileName);
+
+      // Update payment record with QR code URL
+      await supabase
+        .from('binance_payments')
+        .update({ qr_code_url: urlData.publicUrl })
+        .eq('payment_id', currentPayment.paymentId);
+
+      Alert.alert('Success', 'QR code uploaded successfully!');
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      Alert.alert('Upload Error', error.message || 'Failed to upload QR code. Please try again.');
+    } finally {
+      setUploadingQR(false);
+    }
+  };
+
   const handleCreatePayment = async () => {
     const amount = parseFloat(usdtAmount);
     
@@ -139,14 +208,11 @@ export default function ContributeScreen() {
     try {
       setLoading(true);
 
-      // Generate payment ID
       const paymentId = `MXI-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       
-      // Calculate expiration (30 minutes from now)
       const expiresAt = new Date();
       expiresAt.setMinutes(expiresAt.getMinutes() + 30);
 
-      // Create payment record with your Binance wallet address
       const { data, error } = await supabase
         .from('binance_payments')
         .insert({
@@ -197,7 +263,6 @@ export default function ContributeScreen() {
     try {
       setVerifying(true);
 
-      // Call Edge Function to verify payment automatically
       const { data: { session } } = await supabase.auth.getSession();
       
       const response = await fetch(
@@ -223,7 +288,6 @@ export default function ContributeScreen() {
       }
 
       if (result.status === 'confirmed') {
-        // Payment was automatically verified and confirmed!
         Alert.alert(
           '✅ Payment Confirmed!',
           `Your payment has been verified and your balance has been updated!\n\n` +
@@ -236,13 +300,13 @@ export default function ContributeScreen() {
                 setPaymentModalVisible(false);
                 setCurrentPayment(null);
                 setTransactionId('');
+                setQrCodeUri(null);
                 router.push('/(tabs)/(home)/');
               },
             },
           ]
         );
       } else {
-        // Payment submitted for manual verification
         Alert.alert(
           'Verification Submitted',
           result.message || 'Your payment has been submitted for verification. An administrator will review it shortly.',
@@ -253,13 +317,14 @@ export default function ContributeScreen() {
                 setPaymentModalVisible(false);
                 setCurrentPayment(null);
                 setTransactionId('');
+                setQrCodeUri(null);
                 router.push('/(tabs)/(home)/binance-payments');
               },
             },
           ]
         );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error verifying payment:', error);
       Alert.alert('Error', error.message || 'Could not verify payment. Please try again.');
     } finally {
@@ -270,7 +335,7 @@ export default function ContributeScreen() {
   const handleCopyAddress = async () => {
     if (currentPayment) {
       await Clipboard.setStringAsync(currentPayment.paymentAddress);
-      Alert.alert('Copied', 'Payment address copied to clipboard');
+      Alert.alert('✅ Copied', 'Payment address copied to clipboard');
     }
   };
 
@@ -401,7 +466,7 @@ export default function ContributeScreen() {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <>
+              <React.Fragment>
                 <IconSymbol 
                   ios_icon_name="plus.circle.fill" 
                   android_material_icon_name="add_circle" 
@@ -409,7 +474,7 @@ export default function ContributeScreen() {
                   color="#fff" 
                 />
                 <Text style={buttonStyles.primaryText}>Create Payment</Text>
-              </>
+              </React.Fragment>
             )}
           </TouchableOpacity>
         </View>
@@ -438,17 +503,23 @@ export default function ContributeScreen() {
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>4</Text>
             </View>
-            <Text style={styles.stepText}>Copy the transaction ID (TxID) from Binance</Text>
+            <Text style={styles.stepText}>Upload a screenshot of the payment QR code from Binance</Text>
           </View>
           <View style={styles.infoStep}>
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>5</Text>
             </View>
-            <Text style={styles.stepText}>Enter the TxID and click verify</Text>
+            <Text style={styles.stepText}>Copy the transaction ID (TxID) from Binance</Text>
           </View>
           <View style={styles.infoStep}>
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>6</Text>
+            </View>
+            <Text style={styles.stepText}>Enter the TxID and click verify</Text>
+          </View>
+          <View style={styles.infoStep}>
+            <View style={styles.stepNumber}>
+              <Text style={styles.stepNumberText}>7</Text>
             </View>
             <Text style={styles.stepText}>Your balance will be updated automatically (or after admin approval if automatic verification fails)</Text>
           </View>
@@ -507,18 +578,22 @@ export default function ContributeScreen() {
                 </View>
 
                 <View style={styles.paymentDetail}>
-                  <Text style={styles.paymentLabel}>Send to this address</Text>
+                  <Text style={styles.paymentLabel}>Send to this Binance address</Text>
                   <View style={styles.addressContainer}>
                     <Text style={styles.addressText}>{currentPayment.paymentAddress}</Text>
-                    <TouchableOpacity onPress={handleCopyAddress}>
-                      <IconSymbol 
-                        ios_icon_name="doc.on.doc" 
-                        android_material_icon_name="content_copy" 
-                        size={20} 
-                        color={colors.primary} 
-                      />
-                    </TouchableOpacity>
                   </View>
+                  <TouchableOpacity 
+                    style={styles.copyAddressButton}
+                    onPress={handleCopyAddress}
+                  >
+                    <IconSymbol 
+                      ios_icon_name="doc.on.doc.fill" 
+                      android_material_icon_name="content_copy" 
+                      size={20} 
+                      color="#fff" 
+                    />
+                    <Text style={styles.copyAddressButtonText}>Copy Address</Text>
+                  </TouchableOpacity>
                 </View>
 
                 <View style={styles.paymentDetail}>
@@ -549,12 +624,58 @@ export default function ContributeScreen() {
                   />
                   <Text style={styles.warningText}>
                     Please send exactly {currentPayment.usdtAmount} USDT to the address above from Binance.
-                    Use TRC20 network for lower fees. After sending, copy the transaction ID (TxID) from Binance and enter it below.
+                    Use TRC20 network for lower fees. After sending, upload the payment QR code screenshot and enter the transaction ID (TxID) from Binance below.
                   </Text>
                 </View>
 
                 {currentPayment.status === 'pending' && (
-                  <>
+                  <React.Fragment>
+                    <View style={styles.qrCodeSection}>
+                      <Text style={styles.qrCodeLabel}>📸 Upload Payment QR Code</Text>
+                      <Text style={styles.qrCodeHint}>
+                        Upload a screenshot of the payment QR code from your Binance transaction
+                      </Text>
+                      
+                      {qrCodeUri ? (
+                        <View style={styles.qrCodePreview}>
+                          <Image source={{ uri: qrCodeUri }} style={styles.qrCodeImage} />
+                          <TouchableOpacity
+                            style={styles.changeQRButton}
+                            onPress={pickQRCode}
+                            disabled={uploadingQR}
+                          >
+                            <IconSymbol 
+                              ios_icon_name="arrow.triangle.2.circlepath" 
+                              android_material_icon_name="sync" 
+                              size={16} 
+                              color={colors.primary} 
+                            />
+                            <Text style={styles.changeQRButtonText}>Change Image</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          style={styles.uploadQRButton}
+                          onPress={pickQRCode}
+                          disabled={uploadingQR}
+                        >
+                          {uploadingQR ? (
+                            <ActivityIndicator color={colors.primary} />
+                          ) : (
+                            <React.Fragment>
+                              <IconSymbol 
+                                ios_icon_name="photo.badge.plus" 
+                                android_material_icon_name="add_photo_alternate" 
+                                size={32} 
+                                color={colors.primary} 
+                              />
+                              <Text style={styles.uploadQRButtonText}>Tap to Upload QR Code</Text>
+                            </React.Fragment>
+                          )}
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
                     <View style={styles.inputContainer}>
                       <Text style={styles.inputLabel}>Binance Transaction ID (TxID)</Text>
                       <TextInput
@@ -579,7 +700,7 @@ export default function ContributeScreen() {
                       {verifying ? (
                         <ActivityIndicator color="#fff" />
                       ) : (
-                        <>
+                        <React.Fragment>
                           <IconSymbol 
                             ios_icon_name="checkmark.circle.fill" 
                             android_material_icon_name="check_circle" 
@@ -587,10 +708,10 @@ export default function ContributeScreen() {
                             color="#fff" 
                           />
                           <Text style={buttonStyles.primaryText}>Verify Payment</Text>
-                        </>
+                        </React.Fragment>
                       )}
                     </TouchableOpacity>
-                  </>
+                  </React.Fragment>
                 )}
 
                 {currentPayment.status === 'confirming' && (
@@ -627,6 +748,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginRight: 16,
+    padding: 8,
   },
   title: {
     fontSize: 24,
@@ -802,18 +924,30 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   addressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
     backgroundColor: colors.card,
     padding: 12,
     borderRadius: 8,
+    marginBottom: 12,
   },
   addressText: {
-    flex: 1,
     fontSize: 14,
     color: colors.text,
     fontFamily: 'monospace',
+  },
+  copyAddressButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+  },
+  copyAddressButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
   },
   warningBox: {
     flexDirection: 'row',
@@ -828,6 +962,64 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
     lineHeight: 20,
+  },
+  qrCodeSection: {
+    marginBottom: 24,
+  },
+  qrCodeLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  qrCodeHint: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 16,
+    lineHeight: 18,
+  },
+  qrCodePreview: {
+    alignItems: 'center',
+    gap: 12,
+  },
+  qrCodeImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.success,
+  },
+  changeQRButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  changeQRButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  uploadQRButton: {
+    height: 200,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  uploadQRButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
   },
   txidInput: {
     backgroundColor: colors.background,
