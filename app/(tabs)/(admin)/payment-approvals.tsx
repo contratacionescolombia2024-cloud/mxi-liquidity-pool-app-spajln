@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -35,6 +35,42 @@ interface OKXPayment {
   okx_transaction_id: string | null;
 }
 
+interface ApiError {
+  error: string;
+  code?: string;
+  message?: string;
+  requestId?: string;
+}
+
+// Retry configuration
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY = 1000; // 1 second
+
+// Helper function to sleep
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Helper function to check if error is retryable
+const isRetryableError = (error: any): boolean => {
+  if (!error) return false;
+  
+  // Network errors
+  if (error.message?.includes('network') || error.message?.includes('fetch')) {
+    return true;
+  }
+  
+  // Timeout errors
+  if (error.message?.includes('timeout')) {
+    return true;
+  }
+  
+  // Server errors (5xx)
+  if (error.code === 'DATABASE_ERROR' || error.code === 'NETWORK_ERROR') {
+    return true;
+  }
+  
+  return false;
+};
+
 export default function PaymentApprovalsScreen() {
   const router = useRouter();
   const { user } = useAuth();
@@ -44,6 +80,7 @@ export default function PaymentApprovalsScreen() {
   const [selectedPayment, setSelectedPayment] = useState<OKXPayment | null>(null);
   const [processing, setProcessing] = useState(false);
   const [filter, setFilter] = useState<'pending' | 'confirming' | 'all'>('confirming');
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     loadPayments();
@@ -86,7 +123,7 @@ export default function PaymentApprovalsScreen() {
       console.log(`Loaded ${mapped.length} payments with filter: ${filter}`);
     } catch (error) {
       console.error('Error loading payments:', error);
-      Alert.alert('Error', 'Failed to load payments');
+      Alert.alert('Error', 'Failed to load payments. Please try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -98,7 +135,147 @@ export default function PaymentApprovalsScreen() {
     await loadPayments();
   };
 
-  const handleApprovePayment = async (payment: OKXPayment) => {
+  // Robust API call with retry logic
+  const callPaymentAPI = async (
+    paymentId: string,
+    action: 'confirm' | 'reject',
+    retries = MAX_RETRIES
+  ): Promise<any> => {
+    let lastError: any = null;
+
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        console.log(`[Attempt ${attempt + 1}/${retries}] Calling payment API - Action: ${action}, Payment: ${paymentId}`);
+
+        // Get current session
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error('Session error:', sessionError);
+          throw new Error(`Session error: ${sessionError.message}`);
+        }
+
+        if (!sessionData?.session) {
+          console.error('No session found');
+          throw new Error('No active session. Please log in again.');
+        }
+
+        const session = sessionData.session;
+        console.log('Session obtained successfully');
+
+        // Construct Edge Function URL
+        const supabaseUrl = 'https://aeyfnjuatbtcauiumbhn.supabase.co';
+        const functionName = 'okx-payment-verification';
+        const functionUrl = `${supabaseUrl}/functions/v1/${functionName}`;
+
+        // Prepare request payload
+        const requestPayload = {
+          paymentId: paymentId,
+          action: action,
+        };
+
+        console.log('Calling Edge Function:', functionUrl);
+        console.log('Payload:', requestPayload);
+
+        // Make the API call with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+        let response: Response;
+        try {
+          response = await fetch(functionUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+              'apikey': session.access_token,
+            },
+            body: JSON.stringify(requestPayload),
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
+
+        console.log('Response status:', response.status);
+        console.log('Response ok:', response.ok);
+
+        // Read response body
+        const responseText = await response.text();
+        console.log('Response text:', responseText);
+
+        // Parse JSON response
+        let result: any;
+        try {
+          result = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('JSON parse error:', parseError);
+          throw new Error(`Invalid JSON response: ${responseText.substring(0, 200)}`);
+        }
+
+        // Check for errors
+        if (!response.ok) {
+          const apiError: ApiError = result;
+          const errorMessage = apiError.message || apiError.error || `HTTP ${response.status}`;
+          
+          console.error('API error:', apiError);
+          
+          // Check if error is retryable
+          if (isRetryableError(apiError) && attempt < retries - 1) {
+            const delay = INITIAL_RETRY_DELAY * Math.pow(2, attempt); // Exponential backoff
+            console.log(`Retryable error detected. Waiting ${delay}ms before retry...`);
+            await sleep(delay);
+            lastError = new Error(errorMessage);
+            continue; // Retry
+          }
+          
+          throw new Error(errorMessage);
+        }
+
+        if (result.error) {
+          console.error('Result contains error:', result.error);
+          
+          // Check if error is retryable
+          if (isRetryableError(result) && attempt < retries - 1) {
+            const delay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
+            console.log(`Retryable error detected. Waiting ${delay}ms before retry...`);
+            await sleep(delay);
+            lastError = new Error(result.error);
+            continue; // Retry
+          }
+          
+          throw new Error(result.error);
+        }
+
+        // Success!
+        console.log('API call successful:', result);
+        setRetryCount(0); // Reset retry count on success
+        return result;
+
+      } catch (error: any) {
+        console.error(`Attempt ${attempt + 1} failed:`, error);
+        lastError = error;
+
+        // Check if we should retry
+        if (isRetryableError(error) && attempt < retries - 1) {
+          const delay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
+          console.log(`Retrying in ${delay}ms...`);
+          setRetryCount(attempt + 1);
+          await sleep(delay);
+          continue; // Retry
+        }
+
+        // No more retries, throw the error
+        break;
+      }
+    }
+
+    // All retries exhausted
+    setRetryCount(0);
+    throw lastError || new Error('Unknown error occurred');
+  };
+
+  const handleApprovePayment = useCallback(async (payment: OKXPayment) => {
     Alert.alert(
       'Approve Payment',
       `Confirm payment of ${payment.usdt_amount} USDT for ${payment.mxi_amount} MXI?\n\n` +
@@ -111,116 +288,23 @@ export default function PaymentApprovalsScreen() {
           onPress: async () => {
             try {
               setProcessing(true);
-              console.log('=== APPROVE PAYMENT START (DRASTIC APPROACH) ===');
+              console.log('=== APPROVE PAYMENT START ===');
               console.log('Payment ID:', payment.payment_id);
               console.log('User ID:', payment.user_id);
               console.log('USDT Amount:', payment.usdt_amount);
               console.log('MXI Amount:', payment.mxi_amount);
 
-              // Get current session with detailed logging
-              console.log('Step 1: Getting session...');
-              const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-              
-              if (sessionError) {
-                console.error('Session error:', sessionError);
-                throw new Error(`Session error: ${sessionError.message}`);
-              }
+              // Call API with retry logic
+              const result = await callPaymentAPI(payment.payment_id, 'confirm');
 
-              if (!sessionData?.session) {
-                console.error('No session found');
-                throw new Error('No active session. Please log in again.');
-              }
-
-              const session = sessionData.session;
-              console.log('Session obtained:', {
-                userId: session.user.id,
-                email: session.user.email,
-                tokenLength: session.access_token?.length || 0
-              });
-
-              // Construct Edge Function URL with multiple fallbacks
-              console.log('Step 2: Constructing Edge Function URL...');
-              const supabaseUrl = 'https://aeyfnjuatbtcauiumbhn.supabase.co';
-              const functionName = 'okx-payment-verification';
-              const functionUrl = `${supabaseUrl}/functions/v1/${functionName}`;
-              
-              console.log('Edge Function URL:', functionUrl);
-
-              // Prepare request payload
-              const requestPayload = {
-                paymentId: payment.payment_id,
-                action: 'confirm',
-              };
-              console.log('Request payload:', requestPayload);
-
-              // Make the API call with comprehensive error handling
-              console.log('Step 3: Calling Edge Function...');
-              let response: Response;
-              try {
-                response = await fetch(functionUrl, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.access_token}`,
-                    'apikey': session.access_token, // Some Edge Functions might need this
-                  },
-                  body: JSON.stringify(requestPayload),
-                });
-              } catch (fetchError: any) {
-                console.error('Fetch error:', fetchError);
-                throw new Error(`Network error: ${fetchError.message}`);
-              }
-
-              console.log('Response received:', {
-                status: response.status,
-                statusText: response.statusText,
-                ok: response.ok,
-                headers: Object.fromEntries(response.headers.entries())
-              });
-
-              // Read response body
-              console.log('Step 4: Reading response body...');
-              let responseText: string;
-              try {
-                responseText = await response.text();
-                console.log('Response text:', responseText);
-              } catch (readError: any) {
-                console.error('Error reading response:', readError);
-                throw new Error(`Failed to read response: ${readError.message}`);
-              }
-
-              // Parse JSON response
-              console.log('Step 5: Parsing JSON response...');
-              let result: any;
-              try {
-                result = JSON.parse(responseText);
-                console.log('Parsed result:', result);
-              } catch (parseError: any) {
-                console.error('JSON parse error:', parseError);
-                console.error('Raw response:', responseText);
-                throw new Error(`Invalid JSON response: ${responseText.substring(0, 200)}`);
-              }
-
-              // Check for errors
-              if (!response.ok) {
-                const errorMessage = result.error || result.message || `HTTP ${response.status}: ${response.statusText}`;
-                console.error('API error:', errorMessage);
-                throw new Error(errorMessage);
-              }
-
-              if (result.error) {
-                console.error('Result contains error:', result.error);
-                throw new Error(result.error);
-              }
-
-              // Success!
               console.log('=== APPROVE PAYMENT SUCCESS ===');
               console.log('Result:', result);
               
               Alert.alert(
                 'Success',
                 `Payment approved successfully!\n\n` +
-                `User's new balance: ${result.newBalance?.toFixed(2) || 'N/A'} MXI\n\n` +
+                `User's new balance: ${result.newBalance?.toFixed(2) || 'N/A'} MXI\n` +
+                `Yield rate: ${result.yieldRate?.toFixed(6) || 'N/A'} MXI/min\n\n` +
                 `The user's account has been credited.`
               );
               
@@ -232,21 +316,34 @@ export default function PaymentApprovalsScreen() {
               console.error('Error message:', error.message);
               console.error('Error stack:', error.stack);
               
+              let errorMessage = error.message || 'Unknown error occurred';
+              
+              // Add helpful context based on error type
+              if (error.message?.includes('session')) {
+                errorMessage += '\n\nPlease log out and log back in.';
+              } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+                errorMessage += '\n\nPlease check your internet connection and try again.';
+              } else if (error.message?.includes('timeout')) {
+                errorMessage += '\n\nThe request timed out. Please try again.';
+              }
+              
               Alert.alert(
                 'Error',
-                `Failed to approve payment:\n\n${error.message}\n\n` +
+                `Failed to approve payment:\n\n${errorMessage}\n\n` +
+                (retryCount > 0 ? `Retried ${retryCount} time(s).\n\n` : '') +
                 `Please check the console logs for more details.`
               );
             } finally {
               setProcessing(false);
+              setRetryCount(0);
             }
           },
         },
       ]
     );
-  };
+  }, [retryCount]);
 
-  const handleRejectPayment = async (payment: OKXPayment) => {
+  const handleRejectPayment = useCallback(async (payment: OKXPayment) => {
     Alert.alert(
       'Reject Payment',
       `Are you sure you want to reject this payment?\n\n` +
@@ -260,97 +357,15 @@ export default function PaymentApprovalsScreen() {
           onPress: async () => {
             try {
               setProcessing(true);
-              console.log('=== REJECT PAYMENT START (DRASTIC APPROACH) ===');
+              console.log('=== REJECT PAYMENT START ===');
               console.log('Payment ID:', payment.payment_id);
 
-              // Get current session
-              console.log('Step 1: Getting session...');
-              const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-              
-              if (sessionError) {
-                console.error('Session error:', sessionError);
-                throw new Error(`Session error: ${sessionError.message}`);
-              }
+              // Call API with retry logic
+              const result = await callPaymentAPI(payment.payment_id, 'reject');
 
-              if (!sessionData?.session) {
-                console.error('No session found');
-                throw new Error('No active session. Please log in again.');
-              }
-
-              const session = sessionData.session;
-              console.log('Session obtained successfully');
-
-              // Construct Edge Function URL
-              console.log('Step 2: Constructing Edge Function URL...');
-              const supabaseUrl = 'https://aeyfnjuatbtcauiumbhn.supabase.co';
-              const functionName = 'okx-payment-verification';
-              const functionUrl = `${supabaseUrl}/functions/v1/${functionName}`;
-              
-              console.log('Edge Function URL:', functionUrl);
-
-              // Prepare request payload
-              const requestPayload = {
-                paymentId: payment.payment_id,
-                action: 'reject',
-              };
-              console.log('Request payload:', requestPayload);
-
-              // Make the API call
-              console.log('Step 3: Calling Edge Function...');
-              let response: Response;
-              try {
-                response = await fetch(functionUrl, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.access_token}`,
-                    'apikey': session.access_token,
-                  },
-                  body: JSON.stringify(requestPayload),
-                });
-              } catch (fetchError: any) {
-                console.error('Fetch error:', fetchError);
-                throw new Error(`Network error: ${fetchError.message}`);
-              }
-
-              console.log('Response status:', response.status);
-
-              // Read response body
-              console.log('Step 4: Reading response body...');
-              let responseText: string;
-              try {
-                responseText = await response.text();
-                console.log('Response text:', responseText);
-              } catch (readError: any) {
-                console.error('Error reading response:', readError);
-                throw new Error(`Failed to read response: ${readError.message}`);
-              }
-
-              // Parse JSON response
-              console.log('Step 5: Parsing JSON response...');
-              let result: any;
-              try {
-                result = JSON.parse(responseText);
-                console.log('Parsed result:', result);
-              } catch (parseError: any) {
-                console.error('JSON parse error:', parseError);
-                throw new Error(`Invalid JSON response: ${responseText.substring(0, 200)}`);
-              }
-
-              // Check for errors
-              if (!response.ok) {
-                const errorMessage = result.error || result.message || `HTTP ${response.status}`;
-                console.error('API error:', errorMessage);
-                throw new Error(errorMessage);
-              }
-
-              if (result.error) {
-                console.error('Result contains error:', result.error);
-                throw new Error(result.error);
-              }
-
-              // Success!
               console.log('=== REJECT PAYMENT SUCCESS ===');
+              console.log('Result:', result);
+              
               Alert.alert('Success', 'Payment rejected successfully');
               setSelectedPayment(null);
               await loadPayments();
@@ -360,19 +375,31 @@ export default function PaymentApprovalsScreen() {
               console.error('Error message:', error.message);
               console.error('Error stack:', error.stack);
               
+              let errorMessage = error.message || 'Unknown error occurred';
+              
+              if (error.message?.includes('session')) {
+                errorMessage += '\n\nPlease log out and log back in.';
+              } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+                errorMessage += '\n\nPlease check your internet connection and try again.';
+              } else if (error.message?.includes('timeout')) {
+                errorMessage += '\n\nThe request timed out. Please try again.';
+              }
+              
               Alert.alert(
                 'Error',
-                `Failed to reject payment:\n\n${error.message}\n\n` +
+                `Failed to reject payment:\n\n${errorMessage}\n\n` +
+                (retryCount > 0 ? `Retried ${retryCount} time(s).\n\n` : '') +
                 `Please check the console logs for more details.`
               );
             } finally {
               setProcessing(false);
+              setRetryCount(0);
             }
           },
         },
       ]
     );
-  };
+  }, [retryCount]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -409,7 +436,10 @@ export default function PaymentApprovalsScreen() {
         </TouchableOpacity>
         <View style={styles.headerText}>
           <Text style={styles.title}>Payment Approvals</Text>
-          <Text style={styles.subtitle}>{payments.length} payment(s)</Text>
+          <Text style={styles.subtitle}>
+            {payments.length} payment(s)
+            {retryCount > 0 && ` • Retrying (${retryCount}/${MAX_RETRIES})`}
+          </Text>
         </View>
         <TouchableOpacity onPress={onRefresh} disabled={refreshing}>
           <IconSymbol 
@@ -451,6 +481,7 @@ export default function PaymentApprovalsScreen() {
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading payments...</Text>
         </View>
       ) : payments.length === 0 ? (
         <View style={styles.emptyContainer}>
@@ -544,19 +575,22 @@ export default function PaymentApprovalsScreen() {
         visible={selectedPayment !== null}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => setSelectedPayment(null)}
+        onRequestClose={() => !processing && setSelectedPayment(null)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <ScrollView>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Payment Details</Text>
-                <TouchableOpacity onPress={() => setSelectedPayment(null)}>
+                <TouchableOpacity 
+                  onPress={() => !processing && setSelectedPayment(null)}
+                  disabled={processing}
+                >
                   <IconSymbol 
                     ios_icon_name="xmark.circle.fill" 
                     android_material_icon_name="cancel" 
                     size={28} 
-                    color={colors.textSecondary} 
+                    color={processing ? colors.textSecondary : colors.text} 
                   />
                 </TouchableOpacity>
               </View>
@@ -632,12 +666,13 @@ export default function PaymentApprovalsScreen() {
                         />
                         <Text style={styles.infoText}>
                           This payment requires manual approval. Please verify the transaction on OKX before approving.
+                          {retryCount > 0 && `\n\nRetrying... (${retryCount}/${MAX_RETRIES})`}
                         </Text>
                       </View>
 
                       <View style={styles.actionButtons}>
                         <TouchableOpacity
-                          style={[buttonStyles.primary, styles.approveButton]}
+                          style={[buttonStyles.primary, styles.approveButton, processing && styles.buttonDisabled]}
                           onPress={() => handleApprovePayment(selectedPayment)}
                           disabled={processing}
                         >
@@ -657,7 +692,7 @@ export default function PaymentApprovalsScreen() {
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                          style={[buttonStyles.primary, styles.rejectButton]}
+                          style={[buttonStyles.primary, styles.rejectButton, processing && styles.buttonDisabled]}
                           onPress={() => handleRejectPayment(selectedPayment)}
                           disabled={processing}
                         >
@@ -744,6 +779,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: colors.textSecondary,
   },
   emptyContainer: {
     flex: 1,
@@ -928,6 +968,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     backgroundColor: colors.error,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   buttonText: {
     color: '#fff',
