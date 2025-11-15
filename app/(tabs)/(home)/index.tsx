@@ -172,10 +172,9 @@ export default function HomeScreen() {
   };
 
   // Calculate MXI exchange value at Phase 1 price (0.4 USDT)
-  const getMxiExchangeValue = (): number => {
-    if (!user) return 0;
+  const getMxiExchangeValue = (mxiAmount: number): number => {
     const mxiPhase1Price = 0.4; // Phase 1 sale price
-    return user.mxiBalance * mxiPhase1Price;
+    return mxiAmount * mxiPhase1Price;
   };
 
   if (!user) {
@@ -194,8 +193,9 @@ export default function HomeScreen() {
   const mxiFromChallenges = (user as any).mxi_from_challenges || 0;
   const mxiVestingLocked = (user as any).mxi_vesting_locked || 0;
 
-  // Total MXI balance should be the sum of all components
-  const totalMxiBalance = mxiPurchased + mxiFromCommissions + mxiFromChallenges + mxiVestingLocked;
+  // Total MXI balance is the sum of purchased, commissions, and challenges
+  // This is what the user requested: sumatoria de mxi comprados, ganados por referidos y mxi ganados por retos
+  const totalMxiBalance = mxiPurchased + mxiFromCommissions + mxiFromChallenges;
 
   console.log('MXI Balance Breakdown:', {
     total: totalMxiBalance,
@@ -265,7 +265,7 @@ export default function HomeScreen() {
               <IconSymbol ios_icon_name="info.circle" android_material_icon_name="info" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
-          <Text style={styles.balanceAmount}>{user.mxiBalance.toFixed(2)}</Text>
+          <Text style={styles.balanceAmount}>{totalMxiBalance.toFixed(2)}</Text>
           <Text style={styles.balanceCurrency}>MXI</Text>
           
           <View style={styles.balanceDivider} />
@@ -346,8 +346,8 @@ export default function HomeScreen() {
           <View style={styles.balanceRow}>
             <View style={styles.balanceItem}>
               <Text style={styles.balanceItemLabel}>MXI Total</Text>
-              <Text style={styles.balanceItemValue}>{user.mxiBalance.toFixed(2)} MXI</Text>
-              <Text style={styles.balanceItemSubtext}>≈ ${getMxiExchangeValue().toFixed(2)} USDT</Text>
+              <Text style={styles.balanceItemValue}>{totalMxiBalance.toFixed(2)} MXI</Text>
+              <Text style={styles.balanceItemSubtext}>≈ ${getMxiExchangeValue(totalMxiBalance).toFixed(2)} USDT</Text>
               <Text style={styles.balanceItemNote}>(Fase 1: $0.40/MXI)</Text>
             </View>
             <View style={styles.balanceItem}>
