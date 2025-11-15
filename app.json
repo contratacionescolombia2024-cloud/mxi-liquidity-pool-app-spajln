@@ -1,3 +1,4 @@
+
 {
   "expo": {
     "name": "MXI Liquidity Pool",
@@ -84,6 +85,5 @@
     "extra": {
       "router": {}
     }
-  },
-  "scheme": "MXI Liquidity Pool"
+  }
 }
