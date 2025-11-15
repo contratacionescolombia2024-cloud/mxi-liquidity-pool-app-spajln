@@ -111,6 +111,22 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={styles.headerBar}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <IconSymbol 
+            ios_icon_name="chevron.left" 
+            android_material_icon_name="arrow_back" 
+            size={24} 
+            color={colors.text} 
+          />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Profile</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <View style={styles.avatarContainer}>
@@ -210,6 +226,28 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  headerBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: colors.card,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  headerSpacer: {
+    width: 40,
   },
   scrollContent: {
     flexGrow: 1,

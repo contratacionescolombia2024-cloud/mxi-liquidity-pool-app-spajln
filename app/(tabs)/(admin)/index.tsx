@@ -217,7 +217,18 @@ export default function AdminDashboard() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <View>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <IconSymbol 
+            ios_icon_name="chevron.left" 
+            android_material_icon_name="arrow_back" 
+            size={24} 
+            color={colors.text} 
+          />
+        </TouchableOpacity>
+        <View style={styles.headerContent}>
           <Text style={styles.title}>Admin Dashboard</Text>
           <Text style={styles.subtitle}>MXI Pool Management</Text>
         </View>
@@ -498,6 +509,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 24,
     paddingBottom: 16,
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: colors.card,
+  },
+  headerContent: {
+    flex: 1,
+    marginLeft: 16,
   },
   title: {
     fontSize: 28,
