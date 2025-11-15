@@ -41,6 +41,10 @@ interface AirballCompetition {
   winner_user_id: string | null;
   completed_at: string | null;
   created_at: string;
+  is_tiebreaker: boolean;
+  parent_competition_id: string | null;
+  tiebreaker_deadline: string | null;
+  tiebreaker_status: 'waiting' | 'in_progress' | 'completed' | 'expired' | null;
 }
 
 interface Participant {
@@ -51,6 +55,7 @@ interface Participant {
   played_at: string | null;
   joined_at: string;
   user_name?: string;
+  is_tiebreaker_participant: boolean;
 }
 
 interface NotificationData {
@@ -81,6 +86,7 @@ export default function MXIAirBallScreen() {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [userParticipant, setUserParticipant] = useState<Participant | null>(null);
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
+  const [tiebreakerTimeLeft, setTiebreakerTimeLeft] = useState<number | null>(null);
   
   // Game state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -96,6 +102,7 @@ export default function MXIAirBallScreen() {
   const gameLoopRef = useRef<NodeJS.Timeout | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const meteringRef = useRef<NodeJS.Timeout | null>(null);
+  const tiebreakerTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     requestPermissions();
@@ -108,14 +115,51 @@ export default function MXIAirBallScreen() {
       if (gameLoopRef.current) clearInterval(gameLoopRef.current);
       if (timerRef.current) clearInterval(timerRef.current);
       if (meteringRef.current) clearInterval(meteringRef.current);
+      if (tiebreakerTimerRef.current) clearInterval(tiebreakerTimerRef.current);
     };
   }, []);
 
   useEffect(() => {
     if (currentCompetition && currentCompetition.status !== 'completed') {
       loadParticipants();
+      
+      // Start tiebreaker countdown if applicable
+      if (currentCompetition.is_tiebreaker && currentCompetition.tiebreaker_deadline) {
+        startTiebreakerCountdown();
+      }
     }
   }, [currentCompetition]);
+
+  const startTiebreakerCountdown = () => {
+    if (!currentCompetition?.tiebreaker_deadline) return;
+
+    const updateCountdown = () => {
+      const deadline = new Date(currentCompetition.tiebreaker_deadline!);
+      const now = new Date();
+      const diffMs = deadline.getTime() - now.getTime();
+      const diffSeconds = Math.floor(diffMs / 1000);
+
+      if (diffSeconds <= 0) {
+        setTiebreakerTimeLeft(0);
+        if (tiebreakerTimerRef.current) {
+          clearInterval(tiebreakerTimerRef.current);
+        }
+        // Reload to check for timeout
+        loadCompetitionData();
+      } else {
+        setTiebreakerTimeLeft(diffSeconds);
+      }
+    };
+
+    updateCountdown();
+    tiebreakerTimerRef.current = setInterval(updateCountdown, 1000);
+  };
+
+  const formatTiebreakerTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const requestPermissions = async () => {
     try {
@@ -300,7 +344,8 @@ export default function MXIAirBallScreen() {
   const handleJoinCompetition = async () => {
     if (!user || !currentCompetition) return;
 
-    if (user.mxiBalance < currentCompetition.entry_fee) {
+    // Tiebreakers have no entry fee
+    if (!currentCompetition.is_tiebreaker && user.mxiBalance < currentCompetition.entry_fee) {
       Alert.alert(
         'Insufficient Balance',
         `You need ${currentCompetition.entry_fee} MXI to join. Your current balance is ${user.mxiBalance.toFixed(2)} MXI.`
@@ -314,44 +359,44 @@ export default function MXIAirBallScreen() {
       return;
     }
 
-    Alert.alert(
-      'Join Competition',
-      `Join this AirBall competition for ${currentCompetition.entry_fee} MXI?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Join',
-          onPress: async () => {
-            try {
-              setJoining(true);
+    const message = currentCompetition.is_tiebreaker
+      ? 'Join this tiebreaker round? No entry fee required.'
+      : `Join this AirBall competition for ${currentCompetition.entry_fee} MXI?`;
 
-              const { data, error } = await supabase.rpc('join_airball_competition', {
-                p_user_id: user.id,
-              });
+    Alert.alert('Join Competition', message, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Join',
+        onPress: async () => {
+          try {
+            setJoining(true);
 
-              if (error) {
-                console.error('Join error:', error);
-                Alert.alert('Error', error.message || 'Failed to join competition');
-                return;
-              }
+            const { data, error } = await supabase.rpc('join_airball_competition', {
+              p_user_id: user.id,
+            });
 
-              if (!data.success) {
-                Alert.alert('Error', data.error || 'Failed to join competition');
-                return;
-              }
-
-              Alert.alert('Success!', 'You have joined the competition! Get ready to play.');
-              await loadCompetitionData();
-            } catch (error: any) {
-              console.error('Join exception:', error);
+            if (error) {
+              console.error('Join error:', error);
               Alert.alert('Error', error.message || 'Failed to join competition');
-            } finally {
-              setJoining(false);
+              return;
             }
-          },
+
+            if (!data.success) {
+              Alert.alert('Error', data.error || 'Failed to join competition');
+              return;
+            }
+
+            Alert.alert('Success!', 'You have joined the competition! Get ready to play.');
+            await loadCompetitionData();
+          } catch (error: any) {
+            console.error('Join exception:', error);
+            Alert.alert('Error', error.message || 'Failed to join competition');
+          } finally {
+            setJoining(false);
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const startGame = async () => {
@@ -503,7 +548,10 @@ export default function MXIAirBallScreen() {
       }
 
       if (data.tie) {
-        Alert.alert('Tie!', 'You tied with other players! A tiebreaker round will begin.');
+        Alert.alert(
+          'Tie!',
+          `You tied with ${data.tied_count - 1} other player(s)! A tiebreaker round has been created. You have 10 minutes to complete it.`
+        );
       } else if (data.winner_id === user?.id) {
         Alert.alert('You Won!', `Congratulations! You won ${data.prize_amount.toFixed(2)} MXI!`);
       }
@@ -568,6 +616,14 @@ export default function MXIAirBallScreen() {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>MXI AirBall</Text>
         <View style={styles.headerRight}>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/(home)/challenge-history')}>
+            <IconSymbol
+              ios_icon_name="clock.arrow.circlepath"
+              android_material_icon_name="history"
+              size={24}
+              color={colors.text}
+            />
+          </TouchableOpacity>
           {notifications.length > 0 && (
             <View style={styles.notificationBadge}>
               <Text style={styles.notificationBadgeText}>{notifications.length}</Text>
@@ -577,14 +633,35 @@ export default function MXIAirBallScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Tiebreaker Warning */}
+        {currentCompetition.is_tiebreaker && tiebreakerTimeLeft !== null && tiebreakerTimeLeft > 0 && (
+          <View style={[commonStyles.card, styles.tiebreakerWarning]}>
+            <View style={styles.warningHeader}>
+              <Text style={styles.warningEmoji}>⚠️</Text>
+              <Text style={styles.warningTitle}>TIEBREAKER ROUND</Text>
+            </View>
+            <Text style={styles.warningText}>
+              This is a tiebreaker round. You must complete it within:
+            </Text>
+            <Text style={styles.tiebreakerTimer}>{formatTiebreakerTime(tiebreakerTimeLeft)}</Text>
+            <Text style={styles.warningSubtext}>
+              If you don&apos;t play within this time, your score will be set to 0 and you&apos;ll forfeit.
+            </Text>
+          </View>
+        )}
+
         {/* Competition Card */}
         <View style={[commonStyles.card, styles.competitionCard]}>
           <View style={styles.competitionHeader}>
             <View style={styles.competitionIconContainer}>
-              <Text style={styles.competitionIconEmoji}>🎈</Text>
+              <Text style={styles.competitionIconEmoji}>
+                {currentCompetition.is_tiebreaker ? '⚔️' : '🎈'}
+              </Text>
             </View>
             <View style={styles.competitionHeaderText}>
-              <Text style={styles.competitionTitle}>Competition #{currentCompetition.competition_number}</Text>
+              <Text style={styles.competitionTitle}>
+                {currentCompetition.is_tiebreaker ? 'Tiebreaker' : `Competition #${currentCompetition.competition_number}`}
+              </Text>
               <Text style={styles.competitionStatus}>
                 {currentCompetition.status === 'open' ? '🟢 Open' : '🔒 Locked'}
               </Text>
@@ -612,7 +689,9 @@ export default function MXIAirBallScreen() {
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Entry Fee</Text>
-              <Text style={styles.statValue}>{currentCompetition.entry_fee} MXI</Text>
+              <Text style={styles.statValue}>
+                {currentCompetition.is_tiebreaker ? 'FREE' : `${currentCompetition.entry_fee} MXI`}
+              </Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
@@ -726,9 +805,13 @@ export default function MXIAirBallScreen() {
         ) : (
           currentCompetition.status === 'open' && (
             <View style={commonStyles.card}>
-              <Text style={styles.sectionTitle}>Join Competition</Text>
+              <Text style={styles.sectionTitle}>
+                {currentCompetition.is_tiebreaker ? 'Join Tiebreaker' : 'Join Competition'}
+              </Text>
               <Text style={styles.joinText}>
-                Join this competition for {currentCompetition.entry_fee} MXI and compete for the prize!
+                {currentCompetition.is_tiebreaker
+                  ? 'Join this tiebreaker round and compete for the prize! No entry fee required.'
+                  : `Join this competition for ${currentCompetition.entry_fee} MXI and compete for the prize!`}
               </Text>
               <TouchableOpacity
                 style={[buttonStyles.primary, styles.joinButton]}
@@ -780,11 +863,11 @@ export default function MXIAirBallScreen() {
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>2.</Text>
-              <Text style={styles.infoText}>Competition starts when 50 players join</Text>
+              <Text style={styles.infoText}>Users join and play at their own pace</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>3.</Text>
-              <Text style={styles.infoText}>Blow into microphone to keep ball in center zone</Text>
+              <Text style={styles.infoText}>Leaderboard updates in real-time as users complete</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>4.</Text>
@@ -793,6 +876,18 @@ export default function MXIAirBallScreen() {
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>5.</Text>
               <Text style={styles.infoText}>Ties trigger automatic tiebreaker rounds</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoBullet}>6.</Text>
+              <Text style={styles.infoText}>Tiebreaker: 10 min to play or score becomes 0</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoBullet}>7.</Text>
+              <Text style={styles.infoText}>If no one plays tiebreaker in 1 hour, prize goes to admin</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoBullet}>8.</Text>
+              <Text style={styles.infoText}>All results stored for 10 days in your history</Text>
             </View>
           </View>
         </View>
@@ -848,23 +943,66 @@ const styles = StyleSheet.create({
   headerRight: {
     width: 40,
     alignItems: 'flex-end',
+    position: 'relative',
   },
   notificationBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
     backgroundColor: colors.error,
-    borderRadius: 12,
-    width: 24,
-    height: 24,
+    borderRadius: 10,
+    width: 20,
+    height: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   notificationBadgeText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '700',
   },
   scrollContent: {
     padding: 20,
     paddingBottom: 100,
+  },
+  tiebreakerWarning: {
+    backgroundColor: colors.warning + '20',
+    borderWidth: 2,
+    borderColor: colors.warning,
+    marginBottom: 20,
+  },
+  warningHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  warningEmoji: {
+    fontSize: 24,
+    marginRight: 8,
+  },
+  warningTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.warning,
+  },
+  warningText: {
+    fontSize: 14,
+    color: colors.text,
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  tiebreakerTimer: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: colors.warning,
+    textAlign: 'center',
+    marginVertical: 12,
+  },
+  warningSubtext: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   competitionCard: {
     borderWidth: 2,
