@@ -38,6 +38,9 @@ interface UserData {
   last_yield_update: string;
   mxi_purchased_directly: number;
   mxi_from_unified_commissions: number;
+  is_blocked: boolean;
+  blocked_at: string | null;
+  blocked_reason: string | null;
 }
 
 interface Commission {
@@ -84,6 +87,7 @@ type ActionType =
   | 'delete_referral'
   | 'set_mxi_purchased'
   | 'set_mxi_from_commissions'
+  | 'edit_user_data'
   | null;
 
 export default function UserManagementScreen() {
@@ -93,7 +97,7 @@ export default function UserManagementScreen() {
   const [users, setUsers] = useState<UserData[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserData[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'kyc_approved'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'kyc_approved' | 'blocked'>('all');
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [defaultSettings, setDefaultSettings] = useState<DefaultSettings | null>(null);
@@ -111,6 +115,11 @@ export default function UserManagementScreen() {
   const [processing, setProcessing] = useState(false);
   const [selectedCommission, setSelectedCommission] = useState<Commission | null>(null);
 
+  // Edit user data modal
+  const [editDataModalVisible, setEditDataModalVisible] = useState(false);
+  const [editingField, setEditingField] = useState<string>('');
+  const [editingValue, setEditingValue] = useState<string>('');
+
   useEffect(() => {
     loadDefaultSettings();
     loadUsers();
@@ -122,14 +131,12 @@ export default function UserManagementScreen() {
 
   const loadDefaultSettings = async () => {
     try {
-      // Load admin settings
       const { data: settingsData, error: settingsError } = await supabase
         .from('admin_settings')
         .select('*');
 
       if (settingsError) throw settingsError;
 
-      // Load metrics
       const { data: metricsData, error: metricsError } = await supabase
         .from('metrics')
         .select('*')
@@ -137,7 +144,6 @@ export default function UserManagementScreen() {
 
       if (metricsError) throw metricsError;
 
-      // Parse settings
       const settings: any = {};
       settingsData?.forEach((setting) => {
         const value = setting.setting_value?.value ?? setting.setting_value;
@@ -185,11 +191,13 @@ export default function UserManagementScreen() {
     let filtered = [...users];
 
     if (filterStatus === 'active') {
-      filtered = filtered.filter(u => u.is_active_contributor);
+      filtered = filtered.filter(u => u.is_active_contributor && !u.is_blocked);
     } else if (filterStatus === 'inactive') {
-      filtered = filtered.filter(u => !u.is_active_contributor);
+      filtered = filtered.filter(u => !u.is_active_contributor && !u.is_blocked);
     } else if (filterStatus === 'kyc_approved') {
-      filtered = filtered.filter(u => u.kyc_status === 'approved');
+      filtered = filtered.filter(u => u.kyc_status === 'approved' && !u.is_blocked);
+    } else if (filterStatus === 'blocked') {
+      filtered = filtered.filter(u => u.is_blocked);
     }
 
     if (searchQuery.trim()) {
@@ -215,7 +223,6 @@ export default function UserManagementScreen() {
     try {
       setLoadingDetails(true);
 
-      // Load commissions
       const { data: commissionsData, error: commissionsError } = await supabase
         .from('commissions')
         .select('*')
@@ -225,7 +232,6 @@ export default function UserManagementScreen() {
       if (commissionsError) throw commissionsError;
       setCommissions(commissionsData || []);
 
-      // Load referrals with user names
       const { data: referralsData, error: referralsError } = await supabase
         .from('referrals')
         .select(`
@@ -253,6 +259,174 @@ export default function UserManagementScreen() {
       console.error('Error loading user details:', error);
     } finally {
       setLoadingDetails(false);
+    }
+  };
+
+  const handleBlockUser = async (userId: string, reason?: string) => {
+    if (!user) return;
+
+    Alert.alert(
+      '🚫 Block User Account',
+      'Are you sure you want to block this user? They will not be able to access their account or participate in any activities.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Block',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setProcessing(true);
+              const { data, error } = await supabase.rpc('block_user_account', {
+                p_user_id: userId,
+                p_admin_id: user.id,
+                p_reason: reason || 'Blocked by administrator'
+              });
+
+              if (error) throw error;
+
+              if (data?.success) {
+                Alert.alert('✅ Success', 'User account blocked successfully');
+                await loadUsers();
+                if (selectedUser?.id === userId) {
+                  const updatedUser = users.find(u => u.id === userId);
+                  if (updatedUser) setSelectedUser(updatedUser);
+                }
+              } else {
+                Alert.alert('❌ Error', data?.error || 'Failed to block user');
+              }
+            } catch (error) {
+              console.error('Error blocking user:', error);
+              Alert.alert('❌ Error', 'Failed to block user account');
+            } finally {
+              setProcessing(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleUnblockUser = async (userId: string) => {
+    if (!user) return;
+
+    Alert.alert(
+      '✅ Unblock User Account',
+      'Are you sure you want to unblock this user? They will regain access to their account.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unblock',
+          onPress: async () => {
+            try {
+              setProcessing(true);
+              const { data, error } = await supabase.rpc('unblock_user_account', {
+                p_user_id: userId,
+                p_admin_id: user.id
+              });
+
+              if (error) throw error;
+
+              if (data?.success) {
+                Alert.alert('✅ Success', 'User account unblocked successfully');
+                await loadUsers();
+                if (selectedUser?.id === userId) {
+                  const updatedUser = users.find(u => u.id === userId);
+                  if (updatedUser) setSelectedUser(updatedUser);
+                }
+              } else {
+                Alert.alert('❌ Error', data?.error || 'Failed to unblock user');
+              }
+            } catch (error) {
+              console.error('Error unblocking user:', error);
+              Alert.alert('❌ Error', 'Failed to unblock user account');
+            } finally {
+              setProcessing(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!user) return;
+
+    Alert.alert(
+      '🗑️ Delete User Account',
+      'WARNING: This will permanently delete the user account and anonymize their data. This action cannot be undone. Are you absolutely sure?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setProcessing(true);
+              const { data, error } = await supabase.rpc('soft_delete_user_account', {
+                p_user_id: userId,
+                p_admin_id: user.id,
+                p_reason: 'Account deleted by administrator'
+              });
+
+              if (error) throw error;
+
+              if (data?.success) {
+                Alert.alert('✅ Success', `User account deleted successfully.\nOriginal email: ${data.original_email}`);
+                setDetailsModalVisible(false);
+                await loadUsers();
+              } else {
+                Alert.alert('❌ Error', data?.error || 'Failed to delete user');
+              }
+            } catch (error) {
+              console.error('Error deleting user:', error);
+              Alert.alert('❌ Error', 'Failed to delete user account');
+            } finally {
+              setProcessing(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const openEditDataModal = (field: string, currentValue: any) => {
+    setEditingField(field);
+    setEditingValue(currentValue?.toString() || '');
+    setEditDataModalVisible(true);
+  };
+
+  const handleSaveEditedData = async () => {
+    if (!selectedUser || !user || !editingField) return;
+
+    try {
+      setProcessing(true);
+      
+      const updates: any = {};
+      updates[editingField] = editingValue;
+
+      const { data, error } = await supabase.rpc('admin_update_user_data', {
+        p_user_id: selectedUser.id,
+        p_admin_id: user.id,
+        p_updates: updates
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        Alert.alert('✅ Success', 'User data updated successfully');
+        setEditDataModalVisible(false);
+        await loadUsers();
+        await loadUserDetails(selectedUser.id);
+        const updatedUser = users.find(u => u.id === selectedUser.id);
+        if (updatedUser) setSelectedUser(updatedUser);
+      } else {
+        Alert.alert('❌ Error', data?.error || 'Failed to update user data');
+      }
+    } catch (error) {
+      console.error('Error updating user data:', error);
+      Alert.alert('❌ Error', 'Failed to update user data');
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -355,7 +529,6 @@ export default function UserManagementScreen() {
       await loadUsers();
       await loadUserDetails(selectedUser.id);
       
-      // Update selected user
       const updatedUser = users.find(u => u.id === selectedUser.id);
       if (updatedUser) setSelectedUser(updatedUser);
     } catch (error) {
@@ -698,6 +871,7 @@ export default function UserManagementScreen() {
   };
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return 'N/A';
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   };
@@ -794,7 +968,7 @@ export default function UserManagementScreen() {
             onPress={() => setFilterStatus('active')}
           >
             <Text style={[styles.filterButtonText, filterStatus === 'active' && styles.filterButtonTextActive]}>
-              Active Contributors
+              Active
             </Text>
           </TouchableOpacity>
 
@@ -813,6 +987,15 @@ export default function UserManagementScreen() {
           >
             <Text style={[styles.filterButtonText, filterStatus === 'kyc_approved' && styles.filterButtonTextActive]}>
               KYC Approved
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.filterButton, filterStatus === 'blocked' && styles.filterButtonActive]}
+            onPress={() => setFilterStatus('blocked')}
+          >
+            <Text style={[styles.filterButtonText, filterStatus === 'blocked' && styles.filterButtonTextActive]}>
+              🚫 Blocked
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -834,17 +1017,24 @@ export default function UserManagementScreen() {
           filteredUsers.map((userData) => (
             <TouchableOpacity
               key={userData.id}
-              style={[commonStyles.card, styles.userCard]}
+              style={[
+                commonStyles.card, 
+                styles.userCard,
+                userData.is_blocked && styles.blockedUserCard
+              ]}
               onPress={() => handleUserPress(userData)}
             >
               <View style={styles.userCardHeader}>
                 <View style={styles.userInfo}>
-                  <View style={styles.userAvatar}>
+                  <View style={[
+                    styles.userAvatar,
+                    userData.is_blocked && styles.blockedUserAvatar
+                  ]}>
                     <IconSymbol 
-                      ios_icon_name={userData.is_active_contributor ? "person.fill" : "person"} 
-                      android_material_icon_name={userData.is_active_contributor ? "person" : "person_outline"}
+                      ios_icon_name={userData.is_blocked ? "person.slash" : userData.is_active_contributor ? "person.fill" : "person"} 
+                      android_material_icon_name={userData.is_blocked ? "person_off" : userData.is_active_contributor ? "person" : "person_outline"}
                       size={24} 
-                      color={userData.is_active_contributor ? colors.primary : colors.textSecondary} 
+                      color={userData.is_blocked ? colors.error : userData.is_active_contributor ? colors.primary : colors.textSecondary} 
                     />
                   </View>
                   <View style={styles.userDetails}>
@@ -854,7 +1044,12 @@ export default function UserManagementScreen() {
                   </View>
                 </View>
                 <View style={styles.userBadges}>
-                  {userData.is_active_contributor && (
+                  {userData.is_blocked && (
+                    <View style={[styles.statusBadge, { backgroundColor: colors.error + '20' }]}>
+                      <Text style={[styles.statusBadgeText, { color: colors.error }]}>BLOCKED</Text>
+                    </View>
+                  )}
+                  {!userData.is_blocked && userData.is_active_contributor && (
                     <View style={[styles.statusBadge, { backgroundColor: colors.success + '20' }]}>
                       <Text style={[styles.statusBadgeText, { color: colors.success }]}>Active</Text>
                     </View>
@@ -934,21 +1129,117 @@ export default function UserManagementScreen() {
 
             {selectedUser && (
               <ScrollView style={styles.modalBody}>
+                {/* Account Status Warning */}
+                {selectedUser.is_blocked && (
+                  <View style={styles.warningBanner}>
+                    <IconSymbol 
+                      ios_icon_name="exclamationmark.triangle.fill" 
+                      android_material_icon_name="warning" 
+                      size={24} 
+                      color={colors.error} 
+                    />
+                    <View style={styles.warningContent}>
+                      <Text style={styles.warningTitle}>⚠️ Account Blocked</Text>
+                      <Text style={styles.warningText}>
+                        Blocked on: {formatDate(selectedUser.blocked_at || '')}
+                      </Text>
+                      {selectedUser.blocked_reason && (
+                        <Text style={styles.warningText}>
+                          Reason: {selectedUser.blocked_reason}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                )}
+
+                {/* Account Actions */}
+                <View style={styles.actionSection}>
+                  <Text style={styles.detailSectionTitle}>🔧 Account Actions</Text>
+                  
+                  <View style={styles.actionRow}>
+                    {selectedUser.is_blocked ? (
+                      <TouchableOpacity
+                        style={[buttonStyles.primary, styles.actionButton]}
+                        onPress={() => handleUnblockUser(selectedUser.id)}
+                        disabled={processing}
+                      >
+                        <Text style={styles.actionButtonEmoji}>✅</Text>
+                        <Text style={buttonStyles.primaryText}>Unblock Account</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        style={[buttonStyles.secondary, styles.actionButton, { backgroundColor: colors.warning }]}
+                        onPress={() => handleBlockUser(selectedUser.id)}
+                        disabled={processing}
+                      >
+                        <Text style={styles.actionButtonEmoji}>🚫</Text>
+                        <Text style={[buttonStyles.secondaryText, { color: '#fff' }]}>Block Account</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    <TouchableOpacity
+                      style={[buttonStyles.secondary, styles.actionButton, { backgroundColor: colors.error }]}
+                      onPress={() => handleDeleteUser(selectedUser.id)}
+                      disabled={processing}
+                    >
+                      <Text style={styles.actionButtonEmoji}>🗑️</Text>
+                      <Text style={[buttonStyles.secondaryText, { color: '#fff' }]}>Delete Account</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
                 {/* Personal Information */}
                 <View style={styles.detailSection}>
                   <Text style={styles.detailSectionTitle}>📋 Personal Information</Text>
-                  <View style={styles.detailRow}>
+                  <TouchableOpacity 
+                    style={styles.detailRow}
+                    onPress={() => openEditDataModal('name', selectedUser.name)}
+                  >
                     <Text style={styles.detailLabel}>Name:</Text>
-                    <Text style={styles.detailValue}>{selectedUser.name}</Text>
-                  </View>
+                    <View style={styles.detailValueContainer}>
+                      <Text style={styles.detailValue}>{selectedUser.name}</Text>
+                      <IconSymbol 
+                        ios_icon_name="pencil" 
+                        android_material_icon_name="edit" 
+                        size={16} 
+                        color={colors.primary} 
+                      />
+                    </View>
+                  </TouchableOpacity>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Email:</Text>
                     <Text style={styles.detailValue}>{selectedUser.email}</Text>
                   </View>
-                  <View style={styles.detailRow}>
+                  <TouchableOpacity 
+                    style={styles.detailRow}
+                    onPress={() => openEditDataModal('id_number', selectedUser.id_number)}
+                  >
                     <Text style={styles.detailLabel}>ID Number:</Text>
-                    <Text style={styles.detailValue}>{selectedUser.id_number}</Text>
-                  </View>
+                    <View style={styles.detailValueContainer}>
+                      <Text style={styles.detailValue}>{selectedUser.id_number}</Text>
+                      <IconSymbol 
+                        ios_icon_name="pencil" 
+                        android_material_icon_name="edit" 
+                        size={16} 
+                        color={colors.primary} 
+                      />
+                    </View>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.detailRow}
+                    onPress={() => openEditDataModal('address', selectedUser.address)}
+                  >
+                    <Text style={styles.detailLabel}>Address:</Text>
+                    <View style={styles.detailValueContainer}>
+                      <Text style={styles.detailValue} numberOfLines={1}>{selectedUser.address}</Text>
+                      <IconSymbol 
+                        ios_icon_name="pencil" 
+                        android_material_icon_name="edit" 
+                        size={16} 
+                        color={colors.primary} 
+                      />
+                    </View>
+                  </TouchableOpacity>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Referral Code:</Text>
                     <Text style={styles.detailValue}>{selectedUser.referral_code}</Text>
@@ -958,12 +1249,23 @@ export default function UserManagementScreen() {
                 {/* Account Status */}
                 <View style={styles.detailSection}>
                   <Text style={styles.detailSectionTitle}>📊 Account Status</Text>
-                  <View style={styles.detailRow}>
+                  <TouchableOpacity 
+                    style={styles.detailRow}
+                    onPress={() => openEditDataModal('kyc_status', selectedUser.kyc_status)}
+                  >
                     <Text style={styles.detailLabel}>KYC Status:</Text>
-                    <Text style={[styles.detailValue, { color: getStatusColor(selectedUser.kyc_status) }]}>
-                      {selectedUser.kyc_status.toUpperCase()}
-                    </Text>
-                  </View>
+                    <View style={styles.detailValueContainer}>
+                      <Text style={[styles.detailValue, { color: getStatusColor(selectedUser.kyc_status) }]}>
+                        {selectedUser.kyc_status.toUpperCase()}
+                      </Text>
+                      <IconSymbol 
+                        ios_icon_name="pencil" 
+                        android_material_icon_name="edit" 
+                        size={16} 
+                        color={colors.primary} 
+                      />
+                    </View>
+                  </TouchableOpacity>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Active Contributor:</Text>
                     <Text style={[styles.detailValue, { color: selectedUser.is_active_contributor ? colors.success : colors.error }]}>
@@ -989,38 +1291,18 @@ export default function UserManagementScreen() {
                     <Text style={styles.detailLabel}>MXI Balance:</Text>
                     <Text style={styles.detailValue}>{parseFloat(selectedUser.mxi_balance.toString()).toFixed(2)} MXI</Text>
                   </View>
-                  {defaultSettings && (
-                    <Text style={styles.defaultValueText}>
-                      Default: 0 MXI
-                    </Text>
-                  )}
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>USDT Contributed:</Text>
                     <Text style={styles.detailValue}>${parseFloat(selectedUser.usdt_contributed.toString()).toFixed(2)}</Text>
                   </View>
-                  {defaultSettings && (
-                    <Text style={styles.defaultValueText}>
-                      Default: $0 USDT
-                    </Text>
-                  )}
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>MXI Purchased:</Text>
                     <Text style={styles.detailValue}>{parseFloat(selectedUser.mxi_purchased_directly?.toString() || '0').toFixed(2)} MXI</Text>
                   </View>
-                  {defaultSettings && (
-                    <Text style={styles.defaultValueText}>
-                      Default: 0 MXI
-                    </Text>
-                  )}
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>MXI from Commissions:</Text>
                     <Text style={styles.detailValue}>{parseFloat(selectedUser.mxi_from_unified_commissions?.toString() || '0').toFixed(2)} MXI</Text>
                   </View>
-                  {defaultSettings && (
-                    <Text style={styles.defaultValueText}>
-                      Default: 0 MXI
-                    </Text>
-                  )}
                 </View>
 
                 {/* Yield Information */}
@@ -1030,20 +1312,10 @@ export default function UserManagementScreen() {
                     <Text style={styles.detailLabel}>Yield Rate:</Text>
                     <Text style={styles.detailValue}>{parseFloat(selectedUser.yield_rate_per_minute?.toString() || '0').toFixed(6)} MXI/min</Text>
                   </View>
-                  {defaultSettings && (
-                    <Text style={styles.defaultValueText}>
-                      Default: {defaultSettings.miningRatePerMinute.toFixed(6)} MXI/min
-                    </Text>
-                  )}
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Accumulated Yield:</Text>
                     <Text style={styles.detailValue}>{parseFloat(selectedUser.accumulated_yield?.toString() || '0').toFixed(2)} MXI</Text>
                   </View>
-                  {defaultSettings && (
-                    <Text style={styles.defaultValueText}>
-                      Default: 0 MXI
-                    </Text>
-                  )}
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Last Yield Update:</Text>
                     <Text style={styles.detailValue}>{formatDate(selectedUser.last_yield_update)}</Text>
@@ -1057,11 +1329,6 @@ export default function UserManagementScreen() {
                     <Text style={styles.detailLabel}>Active Referrals:</Text>
                     <Text style={styles.detailValue}>{selectedUser.active_referrals}</Text>
                   </View>
-                  {defaultSettings && (
-                    <Text style={styles.defaultValueText}>
-                      Default: 0 (Min required for withdrawal: {defaultSettings.minActiveReferrals})
-                    </Text>
-                  )}
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Total Referrals:</Text>
                     <Text style={styles.detailValue}>{referrals.length}</Text>
@@ -1377,17 +1644,6 @@ export default function UserManagementScreen() {
                   keyboardType="decimal-pad"
                   autoFocus
                 />
-                {defaultSettings && (
-                  <Text style={styles.inputModalDefaultText}>
-                    {currentAction === 'set_yield_rate' && `Default: ${defaultSettings.miningRatePerMinute.toFixed(6)} MXI/min`}
-                    {currentAction === 'set_active_referrals' && `Default: 0 (Min required: ${defaultSettings.minActiveReferrals})`}
-                    {currentAction === 'set_accumulated_yield' && 'Default: 0 MXI'}
-                    {currentAction === 'set_mxi_balance' && 'Default: 0 MXI'}
-                    {currentAction === 'set_usdt_balance' && 'Default: $0 USDT'}
-                    {currentAction === 'set_mxi_purchased' && 'Default: 0 MXI (MXI bought with USDT)'}
-                    {currentAction === 'set_mxi_from_commissions' && 'Default: 0 MXI (MXI from unified commissions)'}
-                  </Text>
-                )}
               </>
             )}
 
@@ -1409,6 +1665,76 @@ export default function UserManagementScreen() {
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <Text style={styles.inputModalButtonTextConfirm}>Confirm</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Data Modal */}
+      <Modal
+        visible={editDataModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditDataModalVisible(false)}
+      >
+        <View style={styles.inputModalOverlay}>
+          <View style={styles.inputModalContent}>
+            <Text style={styles.inputModalTitle}>✏️ Edit {editingField.replace('_', ' ').toUpperCase()}</Text>
+            
+            {editingField === 'kyc_status' ? (
+              <View style={styles.statusSelector}>
+                {['not_submitted', 'pending', 'approved', 'rejected'].map((status) => (
+                  <TouchableOpacity
+                    key={status}
+                    style={[
+                      styles.statusOption,
+                      editingValue === status && styles.statusOptionActive,
+                    ]}
+                    onPress={() => setEditingValue(status)}
+                  >
+                    <Text
+                      style={[
+                        styles.statusOptionText,
+                        editingValue === status && styles.statusOptionTextActive,
+                      ]}
+                    >
+                      {status.replace('_', ' ')}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : (
+              <TextInput
+                style={styles.inputModalInput}
+                placeholder={`Enter new ${editingField.replace('_', ' ')}`}
+                placeholderTextColor={colors.textSecondary}
+                value={editingValue}
+                onChangeText={setEditingValue}
+                autoFocus
+                multiline={editingField === 'address'}
+              />
+            )}
+
+            <View style={styles.inputModalButtons}>
+              <TouchableOpacity
+                style={[styles.inputModalButton, styles.inputModalButtonCancel]}
+                onPress={() => setEditDataModalVisible(false)}
+                disabled={processing}
+              >
+                <Text style={styles.inputModalButtonTextCancel}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.inputModalButton, styles.inputModalButtonConfirm]}
+                onPress={handleSaveEditedData}
+                disabled={processing || !editingValue}
+              >
+                {processing ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.inputModalButtonTextConfirm}>Save</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1530,6 +1856,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     padding: 16,
   },
+  blockedUserCard: {
+    borderWidth: 2,
+    borderColor: colors.error,
+    opacity: 0.7,
+  },
   userCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1548,6 +1879,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  blockedUserAvatar: {
+    backgroundColor: colors.error + '20',
   },
   userDetails: {
     flex: 1,
@@ -1637,6 +1971,28 @@ const styles = StyleSheet.create({
   modalBody: {
     padding: 20,
   },
+  warningBanner: {
+    flexDirection: 'row',
+    backgroundColor: colors.error + '20',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    gap: 12,
+  },
+  warningContent: {
+    flex: 1,
+  },
+  warningTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.error,
+    marginBottom: 4,
+  },
+  warningText: {
+    fontSize: 14,
+    color: colors.error,
+    marginBottom: 2,
+  },
   detailSection: {
     marginBottom: 24,
   },
@@ -1663,13 +2019,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
-  defaultValueText: {
-    fontSize: 11,
-    color: colors.primary,
-    fontStyle: 'italic',
-    marginTop: 4,
-    marginBottom: 8,
-    paddingLeft: 4,
+  detailValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1787,20 +2140,15 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     marginBottom: 12,
   },
-  inputModalDefaultText: {
-    fontSize: 12,
-    color: colors.primary,
-    fontStyle: 'italic',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
   statusSelector: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     marginBottom: 20,
   },
   statusOption: {
     flex: 1,
+    minWidth: '45%',
     padding: 12,
     borderRadius: 8,
     backgroundColor: colors.background,
