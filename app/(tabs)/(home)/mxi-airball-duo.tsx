@@ -30,6 +30,7 @@ const CENTER_ZONE_TOP = (GAME_HEIGHT - CENTER_ZONE_HEIGHT) / 2;
 const GRAVITY = 0.8;
 const BLOW_MULTIPLIER = 3;
 const GAME_DURATION = 40000; // 40 seconds
+const PARTICIPATION_TIMEOUT = 600; // 10 minutes in seconds
 
 interface Battle {
   id: string;
@@ -45,6 +46,8 @@ interface Battle {
   opponent_center_time: number;
   challenger_finished_at: string | null;
   opponent_finished_at: string | null;
+  challenger_started_at: string | null;
+  opponent_started_at: string | null;
   winner_user_id: string | null;
   completed_at: string | null;
   created_at: string;
@@ -53,6 +56,7 @@ interface Battle {
   opponent_name?: string;
   challenger_referral_code?: string;
   opponent_referral_code?: string;
+  cancellation_reason?: string | null;
 }
 
 interface NotificationData {
@@ -63,6 +67,13 @@ interface NotificationData {
   message: string;
   is_read: boolean;
   created_at: string;
+}
+
+interface AvailableBalances {
+  mxiPurchasedDirectly: number;
+  mxiFromUnifiedCommissions: number;
+  mxiFromChallenges: number;
+  total: number;
 }
 
 // Configure notifications
@@ -81,12 +92,18 @@ export default function MXIAirballDuoScreen() {
   const [wagerAmount, setWagerAmount] = useState('10');
   const [referralCode, setReferralCode] = useState('');
   const [showChallengeModal, setShowChallengeModal] = useState(false);
+  const [showPaymentSourceModal, setShowPaymentSourceModal] = useState(false);
   const [challengeType, setChallengeType] = useState<'friend' | 'random'>('random');
   const [activeBattle, setActiveBattle] = useState<Battle | null>(null);
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const [waitingBattles, setWaitingBattles] = useState<Battle[]>([]);
   const [hasPermission, setHasPermission] = useState(false);
-  const [availableBalance, setAvailableBalance] = useState(0);
+  const [availableBalances, setAvailableBalances] = useState<AvailableBalances>({
+    mxiPurchasedDirectly: 0,
+    mxiFromUnifiedCommissions: 0,
+    mxiFromChallenges: 0,
+    total: 0,
+  });
 
   // Game state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -95,19 +112,21 @@ export default function MXIAirballDuoScreen() {
   const [blowStrength, setBlowStrength] = useState(0);
   const [centerTime, setCenterTime] = useState(0);
   const [timeLeft, setTimeLeft] = useState(40);
+  const [participationTimeLeft, setParticipationTimeLeft] = useState(PARTICIPATION_TIMEOUT);
 
   const ballAnim = useRef(new Animated.Value(GAME_HEIGHT / 2)).current;
   const recording = useRef<Audio.Recording | null>(null);
   const gameLoopRef = useRef<NodeJS.Timeout | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const meteringRef = useRef<NodeJS.Timeout | null>(null);
+  const participationTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     requestPermissions();
+    loadAvailableBalances();
     loadActiveBattle();
     loadWaitingBattles();
     loadNotifications();
-    loadAvailableBalance();
     setupRealtimeSubscription();
 
     return () => {
@@ -115,29 +134,135 @@ export default function MXIAirballDuoScreen() {
       if (gameLoopRef.current) clearInterval(gameLoopRef.current);
       if (timerRef.current) clearInterval(timerRef.current);
       if (meteringRef.current) clearInterval(meteringRef.current);
+      if (participationTimerRef.current) clearInterval(participationTimerRef.current);
     };
   }, []);
 
-  const loadAvailableBalance = async () => {
+  useEffect(() => {
+    // Start participation timer when battle is matched and user hasn't finished
+    if (activeBattle && activeBattle.status === 'matched' && !isPlaying) {
+      const isChallenger = activeBattle.challenger_id === user?.id;
+      const hasFinished = isChallenger
+        ? activeBattle.challenger_finished_at
+        : activeBattle.opponent_finished_at;
+
+      if (!hasFinished) {
+        startParticipationTimer();
+      }
+    }
+
+    return () => {
+      if (participationTimerRef.current) {
+        clearInterval(participationTimerRef.current);
+        participationTimerRef.current = null;
+      }
+    };
+  }, [activeBattle, isPlaying]);
+
+  const startParticipationTimer = () => {
+    if (!activeBattle) return;
+
+    const matchedAt = new Date(activeBattle.created_at).getTime();
+    const now = Date.now();
+    const elapsed = Math.floor((now - matchedAt) / 1000);
+    const remaining = Math.max(0, PARTICIPATION_TIMEOUT - elapsed);
+
+    setParticipationTimeLeft(remaining);
+
+    if (remaining <= 0) {
+      handleParticipationTimeout();
+      return;
+    }
+
+    participationTimerRef.current = setInterval(() => {
+      setParticipationTimeLeft((prev) => {
+        if (prev <= 1) {
+          handleParticipationTimeout();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const handleParticipationTimeout = async () => {
+    if (participationTimerRef.current) {
+      clearInterval(participationTimerRef.current);
+      participationTimerRef.current = null;
+    }
+
+    if (!activeBattle || !user) return;
+
+    const isChallenger = activeBattle.challenger_id === user.id;
+    const hasFinished = isChallenger
+      ? activeBattle.challenger_finished_at
+      : activeBattle.opponent_finished_at;
+
+    if (hasFinished) return;
+
+    // Submit score of 0
+    try {
+      const updateData: any = {
+        status: 'in_progress',
+      };
+
+      if (isChallenger) {
+        updateData.challenger_center_time = 0;
+        updateData.challenger_finished_at = new Date().toISOString();
+      } else {
+        updateData.opponent_center_time = 0;
+        updateData.opponent_finished_at = new Date().toISOString();
+      }
+
+      await supabase
+        .from('airball_duo_battles')
+        .update(updateData)
+        .eq('id', activeBattle.id);
+
+      Alert.alert(
+        '⏰ Time Expired',
+        'You did not complete the challenge within 10 minutes. Your score has been set to 0.'
+      );
+
+      loadActiveBattle();
+    } catch (error) {
+      console.error('Error handling timeout:', error);
+    }
+  };
+
+  const formatParticipationTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const loadAvailableBalances = async () => {
     if (!user) return;
-    
+
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('mxi_purchased_directly, mxi_from_unified_commissions')
+        .select('mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges')
         .eq('id', user.id)
         .single();
-      
+
       if (error) {
-        console.error('Error loading balance:', error);
+        console.error('Error loading balances:', error);
         return;
       }
-      
-      const available = (parseFloat(data.mxi_purchased_directly?.toString() || '0') + 
-                        parseFloat(data.mxi_from_unified_commissions?.toString() || '0'));
-      setAvailableBalance(available);
+
+      const purchased = parseFloat(data?.mxi_purchased_directly?.toString() || '0');
+      const commissions = parseFloat(data?.mxi_from_unified_commissions?.toString() || '0');
+      const challenges = parseFloat(data?.mxi_from_challenges?.toString() || '0');
+
+      setAvailableBalances({
+        mxiPurchasedDirectly: purchased,
+        mxiFromUnifiedCommissions: commissions,
+        mxiFromChallenges: challenges,
+        total: purchased + commissions + challenges,
+      });
     } catch (error) {
-      console.error('Exception loading balance:', error);
+      console.error('Exception loading balances:', error);
     }
   };
 
@@ -303,6 +428,99 @@ export default function MXIAirballDuoScreen() {
     }
   };
 
+  const handleCancelChallenge = async () => {
+    if (!activeBattle || !user) return;
+
+    const isChallenger = activeBattle.challenger_id === user.id;
+
+    // Only allow cancellation if waiting or if 10 minutes passed
+    if (activeBattle.status === 'waiting') {
+      Alert.alert(
+        'Cancel Challenge?',
+        'Are you sure you want to cancel this challenge? Your wager will be refunded.',
+        [
+          { text: 'No', style: 'cancel' },
+          {
+            text: 'Yes, Cancel',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                const { data, error } = await supabase.rpc('cancel_airball_duo_battle', {
+                  p_battle_id: activeBattle.id,
+                  p_user_id: user.id,
+                  p_reason: 'User cancelled while waiting for opponent',
+                });
+
+                if (error) throw error;
+
+                if (data.success) {
+                  Alert.alert('✅ Challenge Cancelled', `Your wager of ${activeBattle.wager_amount} MXI has been refunded.`);
+                  loadActiveBattle();
+                  loadAvailableBalances();
+                } else {
+                  Alert.alert('❌ Error', data.error || 'Failed to cancel challenge');
+                }
+              } catch (error) {
+                console.error('Error cancelling challenge:', error);
+                Alert.alert('❌ Error', 'Failed to cancel challenge');
+              }
+            },
+          },
+        ]
+      );
+    } else if (activeBattle.status === 'matched' || activeBattle.status === 'in_progress') {
+      const matchedAt = new Date(activeBattle.created_at).getTime();
+      const now = Date.now();
+      const elapsed = Math.floor((now - matchedAt) / 1000);
+
+      if (elapsed < 600) {
+        Alert.alert(
+          '⏰ Cannot Cancel Yet',
+          `You can cancel this challenge after 10 minutes if your opponent doesn't participate.\n\nTime remaining: ${formatParticipationTime(600 - elapsed)}`
+        );
+        return;
+      }
+
+      Alert.alert(
+        'Cancel Challenge?',
+        'Your opponent has not participated within 10 minutes. Do you want to cancel and claim the pot?',
+        [
+          { text: 'No', style: 'cancel' },
+          {
+            text: 'Yes, Cancel',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                const { data, error } = await supabase.rpc('cancel_airball_duo_battle', {
+                  p_battle_id: activeBattle.id,
+                  p_user_id: user.id,
+                  p_reason: 'Opponent did not participate within 10 minutes',
+                });
+
+                if (error) throw error;
+
+                if (data.success) {
+                  if (data.winner_id) {
+                    Alert.alert('🏆 You Win!', `Your opponent didn't participate. You won ${data.prize} MXI!`);
+                  } else if (data.pot_to_admin) {
+                    Alert.alert('⚠️ Challenge Cancelled', 'Neither player participated. The pot goes to admin.');
+                  }
+                  loadActiveBattle();
+                  loadAvailableBalances();
+                } else {
+                  Alert.alert('❌ Error', data.error || 'Failed to cancel challenge');
+                }
+              } catch (error) {
+                console.error('Error cancelling challenge:', error);
+                Alert.alert('❌ Error', 'Failed to cancel challenge');
+              }
+            },
+          },
+        ]
+      );
+    }
+  };
+
   const handleCreateChallenge = async () => {
     if (!user) return;
 
@@ -312,10 +530,10 @@ export default function MXIAirballDuoScreen() {
       return;
     }
 
-    if (availableBalance < wager) {
+    if (availableBalances.total < wager) {
       Alert.alert(
-        '💰 Insufficient Balance', 
-        `You need ${wager} MXI from USDT purchases or referral commissions to create this challenge.\n\nAvailable: ${availableBalance.toFixed(2)} MXI\n\n⚠️ Vesting rewards cannot be used for challenges until launch date.`
+        '💰 Insufficient Balance',
+        `You need ${wager} MXI to create this challenge.\n\nAvailable: ${availableBalances.total.toFixed(2)} MXI`
       );
       return;
     }
@@ -331,7 +549,16 @@ export default function MXIAirballDuoScreen() {
       return;
     }
 
+    setShowChallengeModal(false);
+    setShowPaymentSourceModal(true);
+  };
+
+  const proceedWithCreateChallenge = async (source: 'purchased' | 'commissions' | 'challenges') => {
+    if (!user) return;
+
+    const wager = parseFloat(wagerAmount);
     setLoading(true);
+    setShowPaymentSourceModal(false);
 
     try {
       let opponentId = null;
@@ -358,11 +585,12 @@ export default function MXIAirballDuoScreen() {
         opponentId = opponentData.id;
       }
 
-      // Deduct wager using restricted balance function
+      // Deduct wager using payment source
       const { data: deductResult, error: deductError } = await supabase
         .rpc('deduct_challenge_balance', {
           p_user_id: user.id,
           p_amount: wager,
+          p_source: source,
         });
 
       if (deductError || !deductResult) {
@@ -388,7 +616,7 @@ export default function MXIAirballDuoScreen() {
           admin_fee: adminFee,
           challenge_type: challengeType,
           status: opponentId ? 'matched' : 'waiting',
-          expires_at: null, // No expiry for duo challenges
+          expires_at: null,
         })
         .select()
         .single();
@@ -402,6 +630,7 @@ export default function MXIAirballDuoScreen() {
         await supabase.rpc('deduct_challenge_balance', {
           p_user_id: opponentId,
           p_amount: wager,
+          p_source: 'auto',
         });
 
         // Create notification for opponent
@@ -417,14 +646,13 @@ export default function MXIAirballDuoScreen() {
       Alert.alert(
         '✅ Challenge Created!',
         challengeType === 'friend'
-          ? '🎯 Your friend has been notified!'
-          : '⏳ Waiting for an opponent to accept...'
+          ? '🎯 Your friend has been notified! You have 10 minutes to complete the challenge once matched.'
+          : '⏳ Waiting for an opponent to accept... You have 10 minutes to complete once matched.'
       );
 
-      setShowChallengeModal(false);
       setReferralCode('');
       loadActiveBattle();
-      loadAvailableBalance();
+      loadAvailableBalances();
     } catch (error) {
       console.error('Error creating challenge:', error);
       Alert.alert('❌ Error', 'Failed to create challenge. Please try again.');
@@ -436,10 +664,10 @@ export default function MXIAirballDuoScreen() {
   const handleAcceptChallenge = async (battle: Battle) => {
     if (!user) return;
 
-    if (availableBalance < battle.wager_amount) {
+    if (availableBalances.total < battle.wager_amount) {
       Alert.alert(
-        '💰 Insufficient Balance', 
-        `You need ${battle.wager_amount} MXI from USDT purchases or referral commissions.\n\nAvailable: ${availableBalance.toFixed(2)} MXI`
+        '💰 Insufficient Balance',
+        `You need ${battle.wager_amount} MXI.\n\nAvailable: ${availableBalances.total.toFixed(2)} MXI`
       );
       return;
     }
@@ -450,14 +678,23 @@ export default function MXIAirballDuoScreen() {
       return;
     }
 
+    setActiveBattle(battle);
+    setShowPaymentSourceModal(true);
+  };
+
+  const proceedWithAcceptChallenge = async (source: 'purchased' | 'commissions' | 'challenges') => {
+    if (!user || !activeBattle) return;
+
     setLoading(true);
+    setShowPaymentSourceModal(false);
 
     try {
       // Deduct wager from user's balance
       const { data: deductResult, error: deductError } = await supabase
         .rpc('deduct_challenge_balance', {
           p_user_id: user.id,
-          p_amount: battle.wager_amount,
+          p_amount: activeBattle.wager_amount,
+          p_source: source,
         });
 
       if (deductError || !deductResult) {
@@ -467,7 +704,7 @@ export default function MXIAirballDuoScreen() {
       }
 
       // Update battle
-      const totalPot = battle.wager_amount * 2;
+      const totalPot = activeBattle.wager_amount * 2;
       const prizeAmount = totalPot * 0.90;
       const adminFee = totalPot * 0.10;
 
@@ -480,7 +717,7 @@ export default function MXIAirballDuoScreen() {
           admin_fee: adminFee,
           status: 'matched',
         })
-        .eq('id', battle.id);
+        .eq('id', activeBattle.id);
 
       if (battleError) {
         throw battleError;
@@ -488,17 +725,17 @@ export default function MXIAirballDuoScreen() {
 
       // Notify challenger
       await supabase.from('airball_duo_notifications').insert({
-        user_id: battle.challenger_id,
-        battle_id: battle.id,
+        user_id: activeBattle.challenger_id,
+        battle_id: activeBattle.id,
         notification_type: 'battle_matched',
         title: '✅ Battle Matched!',
-        message: `${user.name} has accepted your AirBall challenge!`,
+        message: `${user.name} has accepted your AirBall challenge! You have 10 minutes to complete.`,
       });
 
-      Alert.alert('✅ Challenge Accepted!', '💨 Get ready to blow!');
+      Alert.alert('✅ Challenge Accepted!', '💨 Get ready to blow! You have 10 minutes to complete the challenge.');
       loadActiveBattle();
       loadWaitingBattles();
-      loadAvailableBalance();
+      loadAvailableBalances();
     } catch (error) {
       console.error('Error accepting challenge:', error);
       Alert.alert('❌ Error', 'Failed to accept challenge. Please try again.');
@@ -514,6 +751,23 @@ export default function MXIAirballDuoScreen() {
     }
 
     try {
+      // Mark that user has started
+      if (activeBattle && user) {
+        const isChallenger = activeBattle.challenger_id === user.id;
+        const updateData: any = {};
+
+        if (isChallenger) {
+          updateData.challenger_started_at = new Date().toISOString();
+        } else {
+          updateData.opponent_started_at = new Date().toISOString();
+        }
+
+        await supabase
+          .from('airball_duo_battles')
+          .update(updateData)
+          .eq('id', activeBattle.id);
+      }
+
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
@@ -772,6 +1026,13 @@ export default function MXIAirballDuoScreen() {
             ♾️ No time limit - challenge stays active until accepted
           </Text>
           <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
+          
+          <TouchableOpacity
+            style={[buttonStyles.outline, { marginTop: 20 }]}
+            onPress={handleCancelChallenge}
+          >
+            <Text style={buttonStyles.outlineText}>Cancel Challenge</Text>
+          </TouchableOpacity>
         </View>
       );
     }
@@ -789,7 +1050,19 @@ export default function MXIAirballDuoScreen() {
           {!opponentFinished && (
             <React.Fragment>
               <Text style={styles.waitingText}>⏳ Waiting for opponent to finish...</Text>
+              <Text style={styles.timerWarning}>
+                ⏰ Opponent has {formatParticipationTime(participationTimeLeft)} to complete
+              </Text>
               <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
+              
+              {participationTimeLeft <= 0 && (
+                <TouchableOpacity
+                  style={[buttonStyles.outline, { marginTop: 20 }]}
+                  onPress={handleCancelChallenge}
+                >
+                  <Text style={buttonStyles.outlineText}>Claim Win (Opponent Timeout)</Text>
+                </TouchableOpacity>
+              )}
             </React.Fragment>
           )}
         </View>
@@ -856,6 +1129,9 @@ export default function MXIAirballDuoScreen() {
         <Text style={styles.battleSubtitle}>
           🏆 Prize (90%): {activeBattle.prize_amount.toFixed(2)} MXI
         </Text>
+        <Text style={styles.timerWarning}>
+          ⏰ Complete within: {formatParticipationTime(participationTimeLeft)}
+        </Text>
         <Text style={styles.battleInfo}>
           💨 Blow into your microphone to keep the ball in the center zone for 40 seconds!
         </Text>
@@ -865,6 +1141,15 @@ export default function MXIAirballDuoScreen() {
         >
           <Text style={buttonStyles.primaryText}>🎮 Start Game!</Text>
         </TouchableOpacity>
+        
+        {participationTimeLeft <= 0 && (
+          <TouchableOpacity
+            style={[buttonStyles.outline, { marginTop: 12 }]}
+            onPress={handleCancelChallenge}
+          >
+            <Text style={buttonStyles.outlineText}>Cancel (Timeout)</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   };
@@ -893,9 +1178,9 @@ export default function MXIAirballDuoScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={[commonStyles.card, styles.balanceCard]}>
           <Text style={styles.balanceLabel}>💰 Available for Challenges</Text>
-          <Text style={styles.balanceAmount}>{availableBalance.toFixed(2)} MXI</Text>
+          <Text style={styles.balanceAmount}>{availableBalances.total.toFixed(2)} MXI</Text>
           <Text style={styles.balanceNote}>
-            ℹ️ From USDT purchases & referral commissions
+            ℹ️ From USDT purchases, commissions & challenge wins
           </Text>
         </View>
 
@@ -990,23 +1275,28 @@ export default function MXIAirballDuoScreen() {
           </View>
           <View style={styles.infoItem}>
             <Text style={styles.infoBullet}>3️⃣</Text>
-            <Text style={styles.infoText}>Blow into your microphone to keep the ball in the center zone 💨</Text>
+            <Text style={styles.infoText}>Complete the challenge within 10 minutes of matching</Text>
           </View>
           <View style={styles.infoItem}>
             <Text style={styles.infoBullet}>4️⃣</Text>
+            <Text style={styles.infoText}>Blow into your microphone to keep the ball in the center zone 💨</Text>
+          </View>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoBullet}>5️⃣</Text>
             <Text style={styles.infoText}>Longest center time wins 90% of the pot! 🏆</Text>
           </View>
           <View style={styles.infoItem}>
             <Text style={styles.infoBullet}>⚠️</Text>
-            <Text style={styles.infoText}>Challenge winnings require 5 active referrals to withdraw</Text>
+            <Text style={styles.infoText}>If opponent doesn&apos;t participate within 10 minutes, you can claim the win</Text>
           </View>
           <View style={styles.infoItem}>
             <Text style={styles.infoBullet}>♾️</Text>
-            <Text style={styles.infoText}>Challenges stay active until accepted (no expiry)</Text>
+            <Text style={styles.infoText}>Waiting challenges have no expiry until accepted</Text>
           </View>
         </View>
       </ScrollView>
 
+      {/* Challenge Creation Modal */}
       <Modal
         visible={showChallengeModal}
         transparent
@@ -1040,7 +1330,7 @@ export default function MXIAirballDuoScreen() {
                 placeholderTextColor={colors.textSecondary}
               />
               <Text style={styles.balanceInfo}>
-                Available: {availableBalance.toFixed(2)} MXI
+                Available: {availableBalances.total.toFixed(2)} MXI
               </Text>
 
               {challengeType === 'friend' && (
@@ -1073,12 +1363,131 @@ export default function MXIAirballDuoScreen() {
                 disabled={loading}
               >
                 {loading ? (
-                  <ActivityIndicator color="#FFFFFF" />
+                  <ActivityIndicator color="#000" />
                 ) : (
-                  <Text style={buttonStyles.primaryText}>🎮 Create Challenge</Text>
+                  <Text style={buttonStyles.primaryText}>🎮 Continue</Text>
                 )}
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Payment Source Selection Modal */}
+      <Modal
+        visible={showPaymentSourceModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPaymentSourceModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Payment Source</Text>
+            <Text style={styles.modalSubtitle}>
+              Choose which MXI balance to use
+            </Text>
+
+            <View style={styles.paymentSourcesList}>
+              {/* MXI Purchased */}
+              <TouchableOpacity
+                style={[
+                  styles.paymentSourceItem,
+                  availableBalances.mxiPurchasedDirectly < parseFloat(wagerAmount) && styles.paymentSourceItemDisabled
+                ]}
+                onPress={() => activeBattle ? proceedWithAcceptChallenge('purchased') : proceedWithCreateChallenge('purchased')}
+                disabled={availableBalances.mxiPurchasedDirectly < parseFloat(wagerAmount) || loading}
+              >
+                <View style={styles.paymentSourceHeader}>
+                  <IconSymbol 
+                    ios_icon_name="dollarsign.circle.fill" 
+                    android_material_icon_name="monetization_on" 
+                    size={24} 
+                    color={colors.primary} 
+                  />
+                  <View style={styles.paymentSourceInfo}>
+                    <Text style={styles.paymentSourceTitle}>MXI Purchased</Text>
+                    <Text style={styles.paymentSourceBalance}>
+                      {availableBalances.mxiPurchasedDirectly.toFixed(2)} MXI
+                    </Text>
+                  </View>
+                  <IconSymbol 
+                    ios_icon_name="chevron.right" 
+                    android_material_icon_name="chevron_right" 
+                    size={20} 
+                    color={colors.textSecondary} 
+                  />
+                </View>
+              </TouchableOpacity>
+
+              {/* MXI from Commissions */}
+              <TouchableOpacity
+                style={[
+                  styles.paymentSourceItem,
+                  availableBalances.mxiFromUnifiedCommissions < parseFloat(wagerAmount) && styles.paymentSourceItemDisabled
+                ]}
+                onPress={() => activeBattle ? proceedWithAcceptChallenge('commissions') : proceedWithCreateChallenge('commissions')}
+                disabled={availableBalances.mxiFromUnifiedCommissions < parseFloat(wagerAmount) || loading}
+              >
+                <View style={styles.paymentSourceHeader}>
+                  <IconSymbol 
+                    ios_icon_name="arrow.triangle.merge" 
+                    android_material_icon_name="merge_type" 
+                    size={24} 
+                    color={colors.success} 
+                  />
+                  <View style={styles.paymentSourceInfo}>
+                    <Text style={styles.paymentSourceTitle}>MXI from Commissions</Text>
+                    <Text style={styles.paymentSourceBalance}>
+                      {availableBalances.mxiFromUnifiedCommissions.toFixed(2)} MXI
+                    </Text>
+                  </View>
+                  <IconSymbol 
+                    ios_icon_name="chevron.right" 
+                    android_material_icon_name="chevron_right" 
+                    size={20} 
+                    color={colors.textSecondary} 
+                  />
+                </View>
+              </TouchableOpacity>
+
+              {/* MXI from Challenges */}
+              <TouchableOpacity
+                style={[
+                  styles.paymentSourceItem,
+                  availableBalances.mxiFromChallenges < parseFloat(wagerAmount) && styles.paymentSourceItemDisabled
+                ]}
+                onPress={() => activeBattle ? proceedWithAcceptChallenge('challenges') : proceedWithCreateChallenge('challenges')}
+                disabled={availableBalances.mxiFromChallenges < parseFloat(wagerAmount) || loading}
+              >
+                <View style={styles.paymentSourceHeader}>
+                  <IconSymbol 
+                    ios_icon_name="trophy.fill" 
+                    android_material_icon_name="emoji_events" 
+                    size={24} 
+                    color={colors.warning} 
+                  />
+                  <View style={styles.paymentSourceInfo}>
+                    <Text style={styles.paymentSourceTitle}>MXI from Challenges</Text>
+                    <Text style={styles.paymentSourceBalance}>
+                      {availableBalances.mxiFromChallenges.toFixed(2)} MXI
+                    </Text>
+                  </View>
+                  <IconSymbol 
+                    ios_icon_name="chevron.right" 
+                    android_material_icon_name="chevron_right" 
+                    size={20} 
+                    color={colors.textSecondary} 
+                  />
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={[buttonStyles.outline, { marginTop: 16 }]}
+              onPress={() => setShowPaymentSourceModal(false)}
+            >
+              <Text style={buttonStyles.outlineText}>Cancel</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -1229,6 +1638,13 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: 12,
     color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  timerWarning: {
+    fontSize: 14,
+    color: colors.warning,
+    fontWeight: '600',
     textAlign: 'center',
     marginTop: 8,
   },
@@ -1461,12 +1877,6 @@ const styles = StyleSheet.create({
     marginRight: 12,
     width: 24,
   },
-  infoText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    flex: 1,
-    lineHeight: 20,
-  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -1490,6 +1900,13 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: colors.text,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 20,
+    paddingHorizontal: 20,
   },
   modalBody: {
     padding: 20,
@@ -1534,5 +1951,38 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     width: '100%',
+  },
+  paymentSourcesList: {
+    gap: 12,
+    paddingHorizontal: 20,
+  },
+  paymentSourceItem: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  paymentSourceItemDisabled: {
+    opacity: 0.5,
+  },
+  paymentSourceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    gap: 12,
+  },
+  paymentSourceInfo: {
+    flex: 1,
+  },
+  paymentSourceTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  paymentSourceBalance: {
+    fontSize: 14,
+    color: colors.textSecondary,
   },
 });
