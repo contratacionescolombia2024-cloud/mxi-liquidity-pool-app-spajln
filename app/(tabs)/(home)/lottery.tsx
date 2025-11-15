@@ -40,6 +40,13 @@ interface UserTicket {
   purchased_at: string;
 }
 
+interface AvailableBalances {
+  mxiPurchasedDirectly: number;
+  mxiFromUnifiedCommissions: number;
+  mxiFromChallenges: number;
+  total: number;
+}
+
 export default function BonusMXIScreen() {
   const { user } = useAuth();
   const router = useRouter();
@@ -49,10 +56,18 @@ export default function BonusMXIScreen() {
   const [userTickets, setUserTickets] = useState<UserTicket[]>([]);
   const [ticketQuantity, setTicketQuantity] = useState('1');
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [showPaymentSourceModal, setShowPaymentSourceModal] = useState(false);
+  const [availableBalances, setAvailableBalances] = useState<AvailableBalances>({
+    mxiPurchasedDirectly: 0,
+    mxiFromUnifiedCommissions: 0,
+    mxiFromChallenges: 0,
+    total: 0,
+  });
   const channelRef = useRef<any>(null);
 
   useEffect(() => {
     loadLotteryData();
+    loadAvailableBalances();
     setupRealtimeSubscription();
 
     return () => {
@@ -62,6 +77,33 @@ export default function BonusMXIScreen() {
       }
     };
   }, []);
+
+  const loadAvailableBalances = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges')
+        .eq('id', user.id)
+        .single();
+
+      if (error) throw error;
+
+      const purchased = data?.mxi_purchased_directly || 0;
+      const commissions = data?.mxi_from_unified_commissions || 0;
+      const challenges = data?.mxi_from_challenges || 0;
+
+      setAvailableBalances({
+        mxiPurchasedDirectly: purchased,
+        mxiFromUnifiedCommissions: commissions,
+        mxiFromChallenges: challenges,
+        total: purchased + commissions + challenges,
+      });
+    } catch (error) {
+      console.error('Error loading balances:', error);
+    }
+  };
 
   const setupRealtimeSubscription = async () => {
     if (channelRef.current?.state === 'subscribed') return;
@@ -138,7 +180,7 @@ export default function BonusMXIScreen() {
     }
   };
 
-  const handlePurchaseTickets = async () => {
+  const handleOpenPurchaseModal = () => {
     if (!user || !currentRound) return;
 
     const quantity = parseInt(ticketQuantity);
@@ -148,73 +190,100 @@ export default function BonusMXIScreen() {
     }
 
     const totalCost = currentRound.ticket_price * quantity;
-    if (user.mxiBalance < totalCost) {
+    
+    if (availableBalances.total < totalCost) {
       Alert.alert(
         'Insufficient Balance',
-        `You need ${totalCost.toFixed(2)} MXI to purchase ${quantity} ticket(s). Your current balance is ${user.mxiBalance.toFixed(2)} MXI.`
+        `You need ${totalCost.toFixed(2)} MXI to purchase ${quantity} ticket(s).\n\nYour available balance for challenges is ${availableBalances.total.toFixed(2)} MXI.\n\nAvailable MXI includes:\n- MXI purchased directly\n- MXI from unified commissions\n- MXI from challenge winnings`
       );
       return;
     }
 
-    Alert.alert(
-      'Confirm Purchase',
-      `Purchase ${quantity} ticket(s) for ${totalCost.toFixed(2)} MXI?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Purchase',
-          onPress: async () => {
-            try {
-              setPurchasing(true);
-              setShowPurchaseModal(false);
+    setShowPurchaseModal(false);
+    setShowPaymentSourceModal(true);
+  };
 
-              const { data, error } = await supabase.rpc('purchase_lottery_tickets', {
-                p_user_id: user.id,
-                p_quantity: quantity,
-              });
+  const handlePurchaseWithSource = async (source: 'purchased' | 'commissions' | 'challenges') => {
+    if (!user || !currentRound) return;
 
-              if (error) {
-                console.error('Purchase error:', error);
-                Alert.alert('Error', error.message || 'Failed to purchase tickets');
-                return;
-              }
+    const quantity = parseInt(ticketQuantity);
+    const totalCost = currentRound.ticket_price * quantity;
 
-              if (!data.success) {
-                Alert.alert('Error', data.error || 'Failed to purchase tickets');
-                return;
-              }
+    // Validate source has enough balance
+    let sourceBalance = 0;
+    let sourceName = '';
 
-              Alert.alert(
-                'Success!',
-                `Successfully purchased ${data.tickets_purchased} ticket(s) for ${data.total_cost.toFixed(2)} MXI!`
-              );
+    switch (source) {
+      case 'purchased':
+        sourceBalance = availableBalances.mxiPurchasedDirectly;
+        sourceName = 'MXI Purchased';
+        break;
+      case 'commissions':
+        sourceBalance = availableBalances.mxiFromUnifiedCommissions;
+        sourceName = 'MXI from Commissions';
+        break;
+      case 'challenges':
+        sourceBalance = availableBalances.mxiFromChallenges;
+        sourceName = 'MXI from Challenges';
+        break;
+    }
 
-              // Reload data
-              await loadLotteryData();
-              
-              // Reload user data to update balance
-              if (user) {
-                const { data: userData } = await supabase
-                  .from('users')
-                  .select('mxi_balance')
-                  .eq('id', user.id)
-                  .single();
+    if (sourceBalance < totalCost) {
+      Alert.alert(
+        'Insufficient Balance',
+        `Your ${sourceName} balance (${sourceBalance.toFixed(2)} MXI) is not enough to cover the cost (${totalCost.toFixed(2)} MXI).`
+      );
+      return;
+    }
 
-                if (userData) {
-                  // Update user context would be ideal here
-                  console.log('New balance:', userData.mxi_balance);
-                }
-              }
-            } catch (error: any) {
-              console.error('Purchase exception:', error);
-              Alert.alert('Error', error.message || 'Failed to purchase tickets');
-            } finally {
-              setPurchasing(false);
-            }
-          },
-        },
-      ]
-    );
+    try {
+      setPurchasing(true);
+      setShowPaymentSourceModal(false);
+
+      // Deduct from the selected source
+      const { error: deductError } = await supabase.rpc('deduct_challenge_balance', {
+        p_user_id: user.id,
+        p_amount: totalCost,
+      });
+
+      if (deductError) {
+        console.error('Deduct error:', deductError);
+        Alert.alert('Error', 'Failed to deduct balance');
+        return;
+      }
+
+      // Purchase tickets
+      const { data, error } = await supabase.rpc('purchase_lottery_tickets', {
+        p_user_id: user.id,
+        p_quantity: quantity,
+      });
+
+      if (error) {
+        console.error('Purchase error:', error);
+        Alert.alert('Error', error.message || 'Failed to purchase tickets');
+        return;
+      }
+
+      if (!data.success) {
+        Alert.alert('Error', data.error || 'Failed to purchase tickets');
+        return;
+      }
+
+      Alert.alert(
+        'Success!',
+        `Successfully purchased ${data.tickets_purchased} ticket(s) for ${data.total_cost.toFixed(2)} MXI using ${sourceName}!`
+      );
+
+      // Reload data
+      await loadLotteryData();
+      await loadAvailableBalances();
+      
+    } catch (error: any) {
+      console.error('Purchase exception:', error);
+      Alert.alert('Error', error.message || 'Failed to purchase tickets');
+    } finally {
+      setPurchasing(false);
+    }
   };
 
   const getProgressPercentage = () => {
@@ -316,8 +385,8 @@ export default function BonusMXIScreen() {
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Your Balance</Text>
-              <Text style={styles.statValue}>{user?.mxiBalance.toFixed(2)} MXI</Text>
+              <Text style={styles.statLabel}>Available MXI</Text>
+              <Text style={styles.statValue}>{availableBalances.total.toFixed(2)}</Text>
             </View>
           </View>
         </View>
@@ -352,7 +421,7 @@ export default function BonusMXIScreen() {
           <View style={commonStyles.card}>
             <Text style={styles.sectionTitle}>Your Tickets</Text>
             <View style={styles.ticketsList}>
-              {userTickets.map((ticket, index) => (
+              {userTickets.map((ticket) => (
                 <View key={ticket.id} style={styles.ticketItem}>
                   <View style={styles.ticketNumber}>
                     <Text style={styles.ticketNumberText}>#{ticket.ticket_number}</Text>
@@ -446,16 +515,131 @@ export default function BonusMXIScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[buttonStyles.primary, styles.modalButton]}
-                onPress={handlePurchaseTickets}
+                onPress={handleOpenPurchaseModal}
                 disabled={purchasing}
               >
-                {purchasing ? (
-                  <ActivityIndicator color="#000" />
-                ) : (
-                  <Text style={buttonStyles.primaryText}>Purchase</Text>
-                )}
+                <Text style={buttonStyles.primaryText}>Continue</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Payment Source Selection Modal */}
+      <Modal
+        visible={showPaymentSourceModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPaymentSourceModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Payment Source</Text>
+            <Text style={styles.modalSubtitle}>
+              Choose which MXI balance to use for this purchase
+            </Text>
+
+            <View style={styles.paymentSourcesList}>
+              {/* MXI Purchased */}
+              <TouchableOpacity
+                style={[
+                  styles.paymentSourceItem,
+                  availableBalances.mxiPurchasedDirectly < (currentRound.ticket_price * parseInt(ticketQuantity)) && styles.paymentSourceItemDisabled
+                ]}
+                onPress={() => handlePurchaseWithSource('purchased')}
+                disabled={availableBalances.mxiPurchasedDirectly < (currentRound.ticket_price * parseInt(ticketQuantity)) || purchasing}
+              >
+                <View style={styles.paymentSourceHeader}>
+                  <IconSymbol 
+                    ios_icon_name="dollarsign.circle.fill" 
+                    android_material_icon_name="monetization_on" 
+                    size={24} 
+                    color={colors.primary} 
+                  />
+                  <View style={styles.paymentSourceInfo}>
+                    <Text style={styles.paymentSourceTitle}>MXI Purchased</Text>
+                    <Text style={styles.paymentSourceBalance}>
+                      {availableBalances.mxiPurchasedDirectly.toFixed(2)} MXI
+                    </Text>
+                  </View>
+                  <IconSymbol 
+                    ios_icon_name="chevron.right" 
+                    android_material_icon_name="chevron_right" 
+                    size={20} 
+                    color={colors.textSecondary} 
+                  />
+                </View>
+              </TouchableOpacity>
+
+              {/* MXI from Commissions */}
+              <TouchableOpacity
+                style={[
+                  styles.paymentSourceItem,
+                  availableBalances.mxiFromUnifiedCommissions < (currentRound.ticket_price * parseInt(ticketQuantity)) && styles.paymentSourceItemDisabled
+                ]}
+                onPress={() => handlePurchaseWithSource('commissions')}
+                disabled={availableBalances.mxiFromUnifiedCommissions < (currentRound.ticket_price * parseInt(ticketQuantity)) || purchasing}
+              >
+                <View style={styles.paymentSourceHeader}>
+                  <IconSymbol 
+                    ios_icon_name="arrow.triangle.merge" 
+                    android_material_icon_name="merge_type" 
+                    size={24} 
+                    color={colors.success} 
+                  />
+                  <View style={styles.paymentSourceInfo}>
+                    <Text style={styles.paymentSourceTitle}>MXI from Commissions</Text>
+                    <Text style={styles.paymentSourceBalance}>
+                      {availableBalances.mxiFromUnifiedCommissions.toFixed(2)} MXI
+                    </Text>
+                  </View>
+                  <IconSymbol 
+                    ios_icon_name="chevron.right" 
+                    android_material_icon_name="chevron_right" 
+                    size={20} 
+                    color={colors.textSecondary} 
+                  />
+                </View>
+              </TouchableOpacity>
+
+              {/* MXI from Challenges */}
+              <TouchableOpacity
+                style={[
+                  styles.paymentSourceItem,
+                  availableBalances.mxiFromChallenges < (currentRound.ticket_price * parseInt(ticketQuantity)) && styles.paymentSourceItemDisabled
+                ]}
+                onPress={() => handlePurchaseWithSource('challenges')}
+                disabled={availableBalances.mxiFromChallenges < (currentRound.ticket_price * parseInt(ticketQuantity)) || purchasing}
+              >
+                <View style={styles.paymentSourceHeader}>
+                  <IconSymbol 
+                    ios_icon_name="trophy.fill" 
+                    android_material_icon_name="emoji_events" 
+                    size={24} 
+                    color={colors.warning} 
+                  />
+                  <View style={styles.paymentSourceInfo}>
+                    <Text style={styles.paymentSourceTitle}>MXI from Challenges</Text>
+                    <Text style={styles.paymentSourceBalance}>
+                      {availableBalances.mxiFromChallenges.toFixed(2)} MXI
+                    </Text>
+                  </View>
+                  <IconSymbol 
+                    ios_icon_name="chevron.right" 
+                    android_material_icon_name="chevron_right" 
+                    size={20} 
+                    color={colors.textSecondary} 
+                  />
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={[buttonStyles.outline, { marginTop: 16 }]}
+              onPress={() => setShowPaymentSourceModal(false)}
+            >
+              <Text style={buttonStyles.outlineText}>Cancel</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -708,8 +892,14 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 20,
+    marginBottom: 8,
     textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 20,
   },
   inputContainer: {
     marginBottom: 20,
@@ -772,5 +962,38 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
+  },
+  paymentSourcesList: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  paymentSourceItem: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  paymentSourceItemDisabled: {
+    opacity: 0.5,
+  },
+  paymentSourceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    gap: 12,
+  },
+  paymentSourceInfo: {
+    flex: 1,
+  },
+  paymentSourceTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  paymentSourceBalance: {
+    fontSize: 14,
+    color: colors.textSecondary,
   },
 });
