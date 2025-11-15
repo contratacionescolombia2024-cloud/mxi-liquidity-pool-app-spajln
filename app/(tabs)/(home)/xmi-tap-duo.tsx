@@ -96,7 +96,129 @@ export default function XMITapDuoScreen() {
   const [pendingWager, setPendingWager] = useState(0);
   const [pendingBattle, setPendingBattle] = useState<Battle | null>(null);
   const [isCreatingChallenge, setIsCreatingChallenge] = useState(false);
-  const [paymentSource, setPaymentSource] = useState<'purchased' | 'commissions' | 'challenges'>('purchased');
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const participationTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    requestNotificationPermissions();
+    loadActiveBattle();
+    loadWaitingBattles();
+    loadNotifications();
+    loadAvailableBalances();
+    setupRealtimeSubscription();
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+      if (participationTimerRef.current) {
+        clearInterval(participationTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    // StartNow let me update the XMI Tap Duo screen to use the proper cancellation function:
+
+<write file="app/(tabs)/(home)/xmi-tap-duo.tsx">
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'expo-router';
+import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
+import React, { useState, useEffect, useRef } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  TextInput,
+  Modal,
+  Animated,
+} from 'react-native';
+import { IconSymbol } from '@/components/IconSymbol';
+import { supabase } from '@/lib/supabase';
+import * as Notifications from 'expo-notifications';
+
+interface Battle {
+  id: string;
+  battle_number: number;
+  challenger_id: string;
+  opponent_id: string | null;
+  wager_amount: number;
+  total_pot: number;
+  prize_amount: number;
+  status: 'waiting' | 'matched' | 'in_progress' | 'completed' | 'cancelled';
+  challenge_type: 'friend' | 'random';
+  challenger_clicks: number;
+  opponent_clicks: number;
+  challenger_finished_at: string | null;
+  opponent_finished_at: string | null;
+  winner_user_id: string | null;
+  completed_at: string | null;
+  created_at: string;
+  expires_at: string | null;
+  challenger_name?: string;
+  opponent_name?: string;
+  challenger_referral_code?: string;
+  opponent_referral_code?: string;
+  cancellation_reason?: string | null;
+}
+
+interface NotificationData {
+  id: string;
+  battle_id: string;
+  notification_type: string;
+  title: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+interface AvailableBalances {
+  mxiPurchasedDirectly: number;
+  mxiFromUnifiedCommissions: number;
+  mxiFromChallenges: number;
+  total: number;
+}
+
+// Configure notifications
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
+
+export default function XMITapDuoScreen() {
+  const { user } = useAuth();
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [wagerAmount, setWagerAmount] = useState('10');
+  const [referralCode, setReferralCode] = useState('');
+  const [showChallengeModal, setShowChallengeModal] = useState(false);
+  const [challengeType, setChallengeType] = useState<'friend' | 'random'>('random');
+  const [activeBattle, setActiveBattle] = useState<Battle | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [clicks, setClicks] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(10);
+  const [participationTimeLeft, setParticipationTimeLeft] = useState(600); // 10 minutes in seconds
+  const [notifications, setNotifications] = useState<NotificationData[]>([]);
+  const [waitingBattles, setWaitingBattles] = useState<Battle[]>([]);
+  const [availableBalances, setAvailableBalances] = useState<AvailableBalances>({
+    mxiPurchasedDirectly: 0,
+    mxiFromUnifiedCommissions: 0,
+    mxiFromChallenges: 0,
+    total: 0,
+  });
+  const [showPaymentSourceModal, setShowPaymentSourceModal] = useState(false);
+  const [pendingWager, setPendingWager] = useState(0);
+  const [pendingBattle, setPendingBattle] = useState<Battle | null>(null);
+  const [isCreatingChallenge, setIsCreatingChallenge] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const participationTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -363,78 +485,118 @@ export default function XMITapDuoScreen() {
   const handleCancelChallenge = async () => {
     if (!activeBattle || !user) return;
 
-    Alert.alert(
-      'Cancel Challenge?',
-      'Are you sure you want to cancel this challenge? Your wager will be refunded to the original payment source.',
-      [
-        { text: 'No', style: 'cancel' },
-        {
-          text: 'Yes, Cancel',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setLoading(true);
-              
-              // Cancel the battle and get refund
-              const { error: updateError } = await supabase
-                .from('tap_duo_battles')
-                .update({
-                  status: 'cancelled',
-                  cancellation_reason: 'Cancelled by user',
-                  completed_at: new Date().toISOString(),
-                })
-                .eq('id', activeBattle.id);
+    console.log('🚫 Cancel challenge requested. Status:', activeBattle.status);
 
-              if (updateError) {
-                throw updateError;
-              }
+    const isChallenger = activeBattle.challenger_id === user.id;
 
-              // Refund to the original payment source
-              const refundColumn = 
-                paymentSource === 'purchased' ? 'mxi_purchased_directly' :
-                paymentSource === 'commissions' ? 'mxi_from_unified_commissions' :
-                'mxi_from_challenges';
+    // Only allow cancellation if waiting or if 10 minutes passed
+    if (activeBattle.status === 'waiting') {
+      Alert.alert(
+        'Cancel Challenge?',
+        'Are you sure you want to cancel this challenge? Your wager will be refunded.',
+        [
+          { text: 'No', style: 'cancel' },
+          {
+            text: 'Yes, Cancel',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                setLoading(true);
+                console.log('Cancelling waiting challenge...');
+                
+                const { data, error } = await supabase.rpc('cancel_tap_duo_battle', {
+                  p_battle_id: activeBattle.id,
+                  p_user_id: user.id,
+                  p_reason: 'User cancelled while waiting for opponent',
+                });
 
-              const { error: refundError } = await supabase.rpc('increment', {
-                table_name: 'users',
-                row_id: user.id,
-                column_name: refundColumn,
-                increment_value: activeBattle.wager_amount,
-              });
-
-              if (refundError) {
-                console.error('Refund error:', refundError);
-                // Try direct update as fallback
-                const { error: directError } = await supabase
-                  .from('users')
-                  .update({
-                    [refundColumn]: supabase.raw(`${refundColumn} + ${activeBattle.wager_amount}`),
-                  })
-                  .eq('id', user.id);
-
-                if (directError) {
-                  throw directError;
+                if (error) {
+                  console.error('Cancel error:', error);
+                  throw error;
                 }
+
+                console.log('Cancel result:', data);
+
+                if (data.success) {
+                  Alert.alert('✅ Challenge Cancelled', `Your wager of ${activeBattle.wager_amount} MXI has been refunded.`);
+                  loadActiveBattle();
+                  loadAvailableBalances();
+                } else {
+                  Alert.alert('❌ Error', data.error || 'Failed to cancel challenge');
+                }
+              } catch (error: any) {
+                console.error('Error cancelling challenge:', error);
+                Alert.alert('❌ Error', error.message || 'Failed to cancel challenge');
+              } finally {
+                setLoading(false);
               }
-
-              Alert.alert(
-                'Challenge Cancelled',
-                `Your wager of ${activeBattle.wager_amount} MXI has been refunded.`
-              );
-
-              setActiveBattle(null);
-              loadAvailableBalances();
-              loadWaitingBattles();
-            } catch (error: any) {
-              console.error('Error cancelling challenge:', error);
-              Alert.alert('Error', error.message || 'Failed to cancel challenge');
-            } finally {
-              setLoading(false);
-            }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    } else if (activeBattle.status === 'matched' || activeBattle.status === 'in_progress') {
+      const matchedAt = new Date(activeBattle.created_at).getTime();
+      const now = Date.now();
+      const elapsed = Math.floor((now - matchedAt) / 1000);
+
+      console.log('Matched/In-progress battle. Elapsed:', elapsed, 'seconds');
+
+      if (elapsed < 600) {
+        Alert.alert(
+          '⏰ Cannot Cancel Yet',
+          `You can cancel this challenge after 10 minutes if your opponent doesn't participate.\n\nTime remaining: ${formatParticipationTime(600 - elapsed)}`
+        );
+        return;
+      }
+
+      Alert.alert(
+        'Cancel Challenge?',
+        'Your opponent has not participated within 10 minutes. Do you want to cancel and claim the pot?',
+        [
+          { text: 'No', style: 'cancel' },
+          {
+            text: 'Yes, Cancel',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                setLoading(true);
+                console.log('Cancelling due to opponent timeout...');
+                
+                const { data, error } = await supabase.rpc('cancel_tap_duo_battle', {
+                  p_battle_id: activeBattle.id,
+                  p_user_id: user.id,
+                  p_reason: 'Opponent did not participate within 10 minutes',
+                });
+
+                if (error) {
+                  console.error('Cancel error:', error);
+                  throw error;
+                }
+
+                console.log('Cancel result:', data);
+
+                if (data.success) {
+                  if (data.winner_id) {
+                    Alert.alert('🏆 You Win!', `Your opponent didn't participate. You won ${data.prize} MXI!`);
+                  } else if (data.pot_to_admin) {
+                    Alert.alert('⚠️ Challenge Cancelled', 'Neither player participated. The pot goes to admin.');
+                  }
+                  loadActiveBattle();
+                  loadAvailableBalances();
+                } else {
+                  Alert.alert('❌ Error', data.error || 'Failed to cancel challenge');
+                }
+              } catch (error: any) {
+                console.error('Error cancelling challenge:', error);
+                Alert.alert('❌ Error', error.message || 'Failed to cancel challenge');
+              } finally {
+                setLoading(false);
+              }
+            },
+          },
+        ]
+      );
+    }
   };
 
   const handleCreateChallenge = async () => {
@@ -470,7 +632,6 @@ export default function XMITapDuoScreen() {
     if (!user) return;
 
     setShowPaymentSourceModal(false);
-    setPaymentSource(source); // Store the payment source for potential refund
 
     // Validate source balance
     const sourceBalance = 
@@ -612,7 +773,6 @@ export default function XMITapDuoScreen() {
     if (!user || !pendingBattle) return;
 
     setShowPaymentSourceModal(false);
-    setPaymentSource(source); // Store the payment source for potential refund
 
     // Validate source balance
     const sourceBalance = 
@@ -881,7 +1041,11 @@ export default function XMITapDuoScreen() {
               onPress={handleCancelChallenge}
               disabled={loading}
             >
-              <Text style={buttonStyles.outlineText}>Cancel Challenge</Text>
+              {loading ? (
+                <ActivityIndicator color={colors.primary} />
+              ) : (
+                <Text style={buttonStyles.outlineText}>Cancel Challenge</Text>
+              )}
             </TouchableOpacity>
           )}
         </View>
@@ -902,9 +1066,23 @@ export default function XMITapDuoScreen() {
             <React.Fragment>
               <Text style={styles.waitingText}>⏳ Waiting for opponent to finish...</Text>
               <Text style={styles.timerWarning}>
-                ⚠️ Opponent has 10 minutes to complete or will forfeit
+                ⚠️ Opponent has {formatParticipationTime(participationTimeLeft)} to complete
               </Text>
               <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
+              
+              {participationTimeLeft <= 0 && (
+                <TouchableOpacity
+                  style={[buttonStyles.outline, { marginTop: 20 }]}
+                  onPress={handleCancelChallenge}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color={colors.primary} />
+                  ) : (
+                    <Text style={buttonStyles.outlineText}>Claim Win (Opponent Timeout)</Text>
+                  )}
+                </TouchableOpacity>
+              )}
             </React.Fragment>
           )}
         </View>
@@ -972,6 +1150,20 @@ export default function XMITapDuoScreen() {
         >
           <Text style={buttonStyles.primaryText}>🎮 Start Tapping!</Text>
         </TouchableOpacity>
+        
+        {participationTimeLeft <= 0 && (
+          <TouchableOpacity
+            style={[buttonStyles.outline, { marginTop: 12 }]}
+            onPress={handleCancelChallenge}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : (
+              <Text style={buttonStyles.outlineText}>Cancel (Timeout)</Text>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
     );
   };
@@ -1118,7 +1310,7 @@ export default function XMITapDuoScreen() {
           </View>
           <View style={styles.infoItem}>
             <Text style={styles.infoBullet}>🚫</Text>
-            <Text style={styles.infoText}>You can only cancel challenges with no opponent</Text>
+            <Text style={styles.infoText}>You can cancel waiting challenges anytime, or claim win after 10 minutes if opponent doesn't participate</Text>
           </View>
         </View>
       </ScrollView>
@@ -1439,8 +1631,7 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: 12,
     color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: 8,
+    flex: 1,
   },
   startButton: {
     width: '100%',

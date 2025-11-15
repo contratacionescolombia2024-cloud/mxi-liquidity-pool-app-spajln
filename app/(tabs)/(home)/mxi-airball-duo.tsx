@@ -444,8 +444,6 @@ export default function MXIAirballDuoScreen() {
 
     console.log('🚫 Cancel challenge requested. Status:', activeBattle.status);
 
-    const isChallenger = activeBattle.challenger_id === user.id;
-
     // Only allow cancellation if waiting or if 10 minutes passed
     if (activeBattle.status === 'waiting') {
       Alert.alert(
@@ -458,7 +456,9 @@ export default function MXIAirballDuoScreen() {
             style: 'destructive',
             onPress: async () => {
               try {
+                setLoading(true);
                 console.log('Cancelling waiting challenge...');
+                
                 const { data, error } = await supabase.rpc('cancel_airball_duo_battle', {
                   p_battle_id: activeBattle.id,
                   p_user_id: user.id,
@@ -479,9 +479,11 @@ export default function MXIAirballDuoScreen() {
                 } else {
                   Alert.alert('❌ Error', data.error || 'Failed to cancel challenge');
                 }
-              } catch (error) {
+              } catch (error: any) {
                 console.error('Error cancelling challenge:', error);
-                Alert.alert('❌ Error', 'Failed to cancel challenge');
+                Alert.alert('❌ Error', error.message || 'Failed to cancel challenge');
+              } finally {
+                setLoading(false);
               }
             },
           },
@@ -512,7 +514,9 @@ export default function MXIAirballDuoScreen() {
             style: 'destructive',
             onPress: async () => {
               try {
+                setLoading(true);
                 console.log('Cancelling due to opponent timeout...');
+                
                 const { data, error } = await supabase.rpc('cancel_airball_duo_battle', {
                   p_battle_id: activeBattle.id,
                   p_user_id: user.id,
@@ -537,9 +541,11 @@ export default function MXIAirballDuoScreen() {
                 } else {
                   Alert.alert('❌ Error', data.error || 'Failed to cancel challenge');
                 }
-              } catch (error) {
+              } catch (error: any) {
                 console.error('Error cancelling challenge:', error);
-                Alert.alert('❌ Error', 'Failed to cancel challenge');
+                Alert.alert('❌ Error', error.message || 'Failed to cancel challenge');
+              } finally {
+                setLoading(false);
               }
             },
           },
@@ -1086,8 +1092,13 @@ export default function MXIAirballDuoScreen() {
           <TouchableOpacity
             style={[buttonStyles.outline, { marginTop: 20 }]}
             onPress={handleCancelChallenge}
+            disabled={loading}
           >
-            <Text style={buttonStyles.outlineText}>Cancel Challenge</Text>
+            {loading ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : (
+              <Text style={buttonStyles.outlineText}>Cancel Challenge</Text>
+            )}
           </TouchableOpacity>
         </View>
       );
@@ -1115,8 +1126,13 @@ export default function MXIAirballDuoScreen() {
                 <TouchableOpacity
                   style={[buttonStyles.outline, { marginTop: 20 }]}
                   onPress={handleCancelChallenge}
+                  disabled={loading}
                 >
-                  <Text style={buttonStyles.outlineText}>Claim Win (Opponent Timeout)</Text>
+                  {loading ? (
+                    <ActivityIndicator color={colors.primary} />
+                  ) : (
+                    <Text style={buttonStyles.outlineText}>Claim Win (Opponent Timeout)</Text>
+                  )}
                 </TouchableOpacity>
               )}
             </React.Fragment>
@@ -1202,8 +1218,13 @@ export default function MXIAirballDuoScreen() {
           <TouchableOpacity
             style={[buttonStyles.outline, { marginTop: 12 }]}
             onPress={handleCancelChallenge}
+            disabled={loading}
           >
-            <Text style={buttonStyles.outlineText}>Cancel (Timeout)</Text>
+            {loading ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : (
+              <Text style={buttonStyles.outlineText}>Cancel (Timeout)</Text>
+            )}
           </TouchableOpacity>
         )}
       </View>
@@ -1694,8 +1715,7 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: 12,
     color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: 8,
+    flex: 1,
   },
   timerWarning: {
     fontSize: 14,
