@@ -96,6 +96,7 @@ export default function XMITapDuoScreen() {
   const [pendingWager, setPendingWager] = useState(0);
   const [pendingBattle, setPendingBattle] = useState<Battle | null>(null);
   const [isCreatingChallenge, setIsCreatingChallenge] = useState(false);
+  const [paymentSource, setPaymentSource] = useState<'purchased' | 'commissions' | 'challenges'>('purchased');
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const participationTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -364,7 +365,7 @@ export default function XMITapDuoScreen() {
 
     Alert.alert(
       'Cancel Challenge?',
-      'Are you sure you want to cancel this challenge? Your wager will be refunded.',
+      'Are you sure you want to cancel this challenge? Your wager will be refunded to the original payment source.',
       [
         { text: 'No', style: 'cancel' },
         {
@@ -373,24 +374,52 @@ export default function XMITapDuoScreen() {
           onPress: async () => {
             try {
               setLoading(true);
-              const { data, error } = await supabase.rpc('cancel_duo_challenge', {
-                p_battle_id: activeBattle.id,
-                p_user_id: user.id,
-                p_battle_type: 'tap_duo',
-              });
+              
+              // Cancel the battle and get refund
+              const { error: updateError } = await supabase
+                .from('tap_duo_battles')
+                .update({
+                  status: 'cancelled',
+                  cancellation_reason: 'Cancelled by user',
+                  completed_at: new Date().toISOString(),
+                })
+                .eq('id', activeBattle.id);
 
-              if (error) {
-                throw error;
+              if (updateError) {
+                throw updateError;
               }
 
-              if (!data.success) {
-                Alert.alert('Error', data.error || 'Failed to cancel challenge');
-                return;
+              // Refund to the original payment source
+              const refundColumn = 
+                paymentSource === 'purchased' ? 'mxi_purchased_directly' :
+                paymentSource === 'commissions' ? 'mxi_from_unified_commissions' :
+                'mxi_from_challenges';
+
+              const { error: refundError } = await supabase.rpc('increment', {
+                table_name: 'users',
+                row_id: user.id,
+                column_name: refundColumn,
+                increment_value: activeBattle.wager_amount,
+              });
+
+              if (refundError) {
+                console.error('Refund error:', refundError);
+                // Try direct update as fallback
+                const { error: directError } = await supabase
+                  .from('users')
+                  .update({
+                    [refundColumn]: supabase.raw(`${refundColumn} + ${activeBattle.wager_amount}`),
+                  })
+                  .eq('id', user.id);
+
+                if (directError) {
+                  throw directError;
+                }
               }
 
               Alert.alert(
                 'Challenge Cancelled',
-                `Your wager of ${data.refund_amount} MXI has been refunded.`
+                `Your wager of ${activeBattle.wager_amount} MXI has been refunded.`
               );
 
               setActiveBattle(null);
@@ -441,6 +470,7 @@ export default function XMITapDuoScreen() {
     if (!user) return;
 
     setShowPaymentSourceModal(false);
+    setPaymentSource(source); // Store the payment source for potential refund
 
     // Validate source balance
     const sourceBalance = 
@@ -582,6 +612,7 @@ export default function XMITapDuoScreen() {
     if (!user || !pendingBattle) return;
 
     setShowPaymentSourceModal(false);
+    setPaymentSource(source); // Store the payment source for potential refund
 
     // Validate source balance
     const sourceBalance = 
