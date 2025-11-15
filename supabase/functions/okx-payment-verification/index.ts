@@ -335,7 +335,7 @@ async function processPaymentConfirmation(
         updated_at: new Date().toISOString(),
       })
       .eq('id', payment.id)
-      .eq('status', payment.status); // Only update if status hasn't changed (optimistic locking)
+      .in('status', ['pending', 'confirming']); // Accept both pending and confirming statuses
 
     if (updateError) {
       console.error('Error updating payment status:', updateError);

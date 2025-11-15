@@ -79,7 +79,7 @@ export default function PaymentApprovalsScreen() {
   const [payments, setPayments] = useState<OKXPayment[]>([]);
   const [selectedPayment, setSelectedPayment] = useState<OKXPayment | null>(null);
   const [processing, setProcessing] = useState(false);
-  const [filter, setFilter] = useState<'pending' | 'confirming' | 'all'>('confirming');
+  const [filter, setFilter] = useState<'awaiting' | 'pending' | 'all'>('awaiting');
   const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
@@ -100,10 +100,11 @@ export default function PaymentApprovalsScreen() {
         `)
         .order('created_at', { ascending: false });
 
-      if (filter === 'pending') {
+      if (filter === 'awaiting') {
+        // Show both pending and confirming statuses for admin approval
+        query = query.in('status', ['pending', 'confirming']);
+      } else if (filter === 'pending') {
         query = query.eq('status', 'pending');
-      } else if (filter === 'confirming') {
-        query = query.eq('status', 'confirming');
       }
 
       const { data, error } = await query;
@@ -280,7 +281,9 @@ export default function PaymentApprovalsScreen() {
       'Approve Payment',
       `Confirm payment of ${payment.usdt_amount} USDT for ${payment.mxi_amount} MXI?\n\n` +
       `User: ${payment.user_name}\n` +
-      `Transaction ID: ${payment.okx_transaction_id || 'Not provided'}`,
+      `Email: ${payment.user_email}\n` +
+      `Transaction ID: ${payment.okx_transaction_id || 'Not provided'}\n\n` +
+      `This will credit ${payment.mxi_amount} MXI to the user's balance.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -305,7 +308,7 @@ export default function PaymentApprovalsScreen() {
                 `Payment approved successfully!\n\n` +
                 `User's new balance: ${result.newBalance?.toFixed(2) || 'N/A'} MXI\n` +
                 `Yield rate: ${result.yieldRate?.toFixed(6) || 'N/A'} MXI/min\n\n` +
-                `The user's account has been credited.`
+                `The user's account has been credited with ${payment.mxi_amount} MXI.`
               );
               
               setSelectedPayment(null);
@@ -348,7 +351,8 @@ export default function PaymentApprovalsScreen() {
       'Reject Payment',
       `Are you sure you want to reject this payment?\n\n` +
       `User: ${payment.user_name}\n` +
-      `Amount: ${payment.usdt_amount} USDT`,
+      `Amount: ${payment.usdt_amount} USDT → ${payment.mxi_amount} MXI\n\n` +
+      `This will mark the payment as failed and the user will NOT receive any MXI.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -366,7 +370,7 @@ export default function PaymentApprovalsScreen() {
               console.log('=== REJECT PAYMENT SUCCESS ===');
               console.log('Result:', result);
               
-              Alert.alert('Success', 'Payment rejected successfully');
+              Alert.alert('Success', 'Payment rejected successfully. The user will not receive any MXI.');
               setSelectedPayment(null);
               await loadPayments();
             } catch (error: any) {
@@ -453,10 +457,10 @@ export default function PaymentApprovalsScreen() {
 
       <View style={styles.filterContainer}>
         <TouchableOpacity
-          style={[styles.filterButton, filter === 'confirming' && styles.filterButtonActive]}
-          onPress={() => setFilter('confirming')}
+          style={[styles.filterButton, filter === 'awaiting' && styles.filterButtonActive]}
+          onPress={() => setFilter('awaiting')}
         >
-          <Text style={[styles.filterText, filter === 'confirming' && styles.filterTextActive]}>
+          <Text style={[styles.filterText, filter === 'awaiting' && styles.filterTextActive]}>
             Awaiting Approval
           </Text>
         </TouchableOpacity>
@@ -465,7 +469,7 @@ export default function PaymentApprovalsScreen() {
           onPress={() => setFilter('pending')}
         >
           <Text style={[styles.filterText, filter === 'pending' && styles.filterTextActive]}>
-            Pending
+            Pending Only
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -493,7 +497,9 @@ export default function PaymentApprovalsScreen() {
           />
           <Text style={styles.emptyText}>No payments to review</Text>
           <Text style={styles.emptySubtext}>
-            Payments with automatic verification will not appear here
+            {filter === 'awaiting' 
+              ? 'All payments have been processed or are awaiting user submission'
+              : 'No payments match the selected filter'}
           </Text>
         </View>
       ) : (
@@ -665,7 +671,7 @@ export default function PaymentApprovalsScreen() {
                           color={colors.primary} 
                         />
                         <Text style={styles.infoText}>
-                          This payment requires manual approval. Please verify the transaction on OKX before approving.
+                          This payment requires manual approval. Please verify the transaction details before approving.
                           {retryCount > 0 && `\n\nRetrying... (${retryCount}/${MAX_RETRIES})`}
                         </Text>
                       </View>
