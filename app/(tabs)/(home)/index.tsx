@@ -176,6 +176,12 @@ export default function HomeScreen() {
     );
   }
 
+  // Calculate MXI breakdown
+  const mxiPurchased = user.mxiPurchasedDirectly || 0;
+  const mxiFromCommissions = user.mxiFromUnifiedCommissions || 0;
+  const mxiFromChallenges = (user as any).mxi_from_challenges || 0;
+  const mxiVestingLocked = (user as any).mxi_vesting_locked || 0;
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
@@ -227,10 +233,10 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* MXI Balance - Moved directly below Lanzamiento MXI */}
+        {/* MXI Balance with Breakdown */}
         <View style={[commonStyles.card, styles.balanceCard]}>
           <View style={styles.balanceHeader}>
-            <Text style={styles.balanceLabel}>MXI Balance</Text>
+            <Text style={styles.balanceLabel}>MXI Balance Total</Text>
             <TouchableOpacity onPress={() => router.push('/(tabs)/(home)/vesting')}>
               <IconSymbol ios_icon_name="info.circle" android_material_icon_name="info" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
@@ -240,14 +246,87 @@ export default function HomeScreen() {
           
           <View style={styles.balanceDivider} />
           
+          {/* MXI Breakdown Table */}
+          <View style={styles.breakdownContainer}>
+            <Text style={styles.breakdownTitle}>Desglose de Balance</Text>
+            
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownItem}>
+                <IconSymbol 
+                  ios_icon_name="cart.fill" 
+                  android_material_icon_name="shopping_cart" 
+                  size={20} 
+                  color={colors.primary} 
+                />
+                <View style={styles.breakdownText}>
+                  <Text style={styles.breakdownLabel}>MXI Comprados</Text>
+                  <Text style={styles.breakdownSubtext}>Disponible para retos</Text>
+                </View>
+              </View>
+              <Text style={styles.breakdownValue}>{mxiPurchased.toFixed(2)}</Text>
+            </View>
+
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownItem}>
+                <IconSymbol 
+                  ios_icon_name="person.3.fill" 
+                  android_material_icon_name="group" 
+                  size={20} 
+                  color={colors.success} 
+                />
+                <View style={styles.breakdownText}>
+                  <Text style={styles.breakdownLabel}>MXI por Referidos</Text>
+                  <Text style={styles.breakdownSubtext}>De comisiones unificadas</Text>
+                </View>
+              </View>
+              <Text style={styles.breakdownValue}>{mxiFromCommissions.toFixed(2)}</Text>
+            </View>
+
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownItem}>
+                <IconSymbol 
+                  ios_icon_name="trophy.fill" 
+                  android_material_icon_name="emoji_events" 
+                  size={20} 
+                  color={colors.warning} 
+                />
+                <View style={styles.breakdownText}>
+                  <Text style={styles.breakdownLabel}>MXI por Retos</Text>
+                  <Text style={styles.breakdownSubtext}>Ganados en competencias</Text>
+                </View>
+              </View>
+              <Text style={styles.breakdownValue}>{mxiFromChallenges.toFixed(2)}</Text>
+            </View>
+
+            {mxiVestingLocked > 0 && (
+              <View style={styles.breakdownRow}>
+                <View style={styles.breakdownItem}>
+                  <IconSymbol 
+                    ios_icon_name="lock.fill" 
+                    android_material_icon_name="lock" 
+                    size={20} 
+                    color={colors.accent} 
+                  />
+                  <View style={styles.breakdownText}>
+                    <Text style={styles.breakdownLabel}>MXI Vesting</Text>
+                    <Text style={styles.breakdownSubtext}>Bloqueado hasta lanzamiento</Text>
+                  </View>
+                </View>
+                <Text style={styles.breakdownValue}>{mxiVestingLocked.toFixed(2)}</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.balanceDivider} />
+          
           <View style={styles.balanceRow}>
             <View style={styles.balanceItem}>
-              <Text style={styles.balanceItemLabel}>USDT Contributed</Text>
-              <Text style={styles.balanceItemValue}>${user.usdtContributed.toFixed(2)}</Text>
+              <Text style={styles.balanceItemLabel}>Comisiones USDT</Text>
+              <Text style={styles.balanceItemValue}>${user.commissions.available.toFixed(2)}</Text>
             </View>
             <View style={styles.balanceItem}>
-              <Text style={styles.balanceItemLabel}>Commissions</Text>
-              <Text style={styles.balanceItemValue}>${user.commissions.available.toFixed(2)}</Text>
+              <Text style={styles.balanceItemLabel}>Referidos Activos</Text>
+              <Text style={styles.balanceItemValue}>{user.activeReferrals}</Text>
             </View>
           </View>
         </View>
@@ -687,6 +766,46 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     marginVertical: 16,
   },
+  breakdownContainer: {
+    width: '100%',
+    gap: 12,
+  },
+  breakdownTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  breakdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  breakdownText: {
+    flex: 1,
+  },
+  breakdownLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  breakdownSubtext: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  breakdownValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
   balanceRow: {
     flexDirection: 'row',
     width: '100%',
@@ -700,6 +819,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
     marginBottom: 4,
+    textAlign: 'center',
   },
   balanceItemValue: {
     fontSize: 18,

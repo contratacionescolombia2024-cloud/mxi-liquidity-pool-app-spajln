@@ -109,7 +109,8 @@ export default function PaymentApprovalsScreen() {
           onPress: async () => {
             try {
               setProcessing(true);
-              console.log('Approving payment:', payment.payment_id);
+              console.log('=== APPROVE PAYMENT START ===');
+              console.log('Payment ID:', payment.payment_id);
 
               // Get current session
               const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -119,13 +120,15 @@ export default function PaymentApprovalsScreen() {
                 throw new Error('Authentication required. Please log in again.');
               }
 
-              console.log('Session obtained, calling Edge Function...');
+              console.log('Session obtained successfully');
+              console.log('Access token present:', !!session.access_token);
 
-              // Get Supabase URL
-              const supabaseUrl = supabase.supabaseUrl || 'https://aeyfnjuatbtcauiumbhn.supabase.co';
+              // Get Supabase URL - use the correct URL
+              const supabaseUrl = 'https://aeyfnjuatbtcauiumbhn.supabase.co';
               const functionUrl = `${supabaseUrl}/functions/v1/okx-payment-verification`;
               
-              console.log('Calling function URL:', functionUrl);
+              console.log('Calling Edge Function:', functionUrl);
+              console.log('Request body:', { paymentId: payment.payment_id, action: 'confirm' });
 
               // Call Edge Function to confirm payment
               const response = await fetch(functionUrl, {
@@ -141,6 +144,7 @@ export default function PaymentApprovalsScreen() {
               });
 
               console.log('Response status:', response.status);
+              console.log('Response ok:', response.ok);
 
               const result = await response.json();
               console.log('Response data:', result);
@@ -149,6 +153,7 @@ export default function PaymentApprovalsScreen() {
                 throw new Error(result.error || 'Failed to approve payment');
               }
 
+              console.log('=== APPROVE PAYMENT SUCCESS ===');
               Alert.alert(
                 'Success',
                 `Payment approved successfully!\n\nUser's new balance: ${result.newBalance?.toFixed(2) || 'N/A'} MXI`
@@ -156,7 +161,8 @@ export default function PaymentApprovalsScreen() {
               setSelectedPayment(null);
               await loadPayments();
             } catch (error: any) {
-              console.error('Error approving payment:', error);
+              console.error('=== APPROVE PAYMENT ERROR ===');
+              console.error('Error details:', error);
               Alert.alert('Error', error.message || 'Failed to approve payment');
             } finally {
               setProcessing(false);
@@ -181,7 +187,8 @@ export default function PaymentApprovalsScreen() {
           onPress: async () => {
             try {
               setProcessing(true);
-              console.log('Rejecting payment:', payment.payment_id);
+              console.log('=== REJECT PAYMENT START ===');
+              console.log('Payment ID:', payment.payment_id);
 
               // Get current session
               const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -191,13 +198,14 @@ export default function PaymentApprovalsScreen() {
                 throw new Error('Authentication required. Please log in again.');
               }
 
-              console.log('Session obtained, calling Edge Function...');
+              console.log('Session obtained successfully');
 
-              // Get Supabase URL
-              const supabaseUrl = supabase.supabaseUrl || 'https://aeyfnjuatbtcauiumbhn.supabase.co';
+              // Get Supabase URL - use the correct URL
+              const supabaseUrl = 'https://aeyfnjuatbtcauiumbhn.supabase.co';
               const functionUrl = `${supabaseUrl}/functions/v1/okx-payment-verification`;
               
-              console.log('Calling function URL:', functionUrl);
+              console.log('Calling Edge Function:', functionUrl);
+              console.log('Request body:', { paymentId: payment.payment_id, action: 'reject' });
 
               // Call Edge Function to reject payment
               const response = await fetch(functionUrl, {
@@ -221,11 +229,13 @@ export default function PaymentApprovalsScreen() {
                 throw new Error(result.error || 'Failed to reject payment');
               }
 
+              console.log('=== REJECT PAYMENT SUCCESS ===');
               Alert.alert('Success', 'Payment rejected successfully');
               setSelectedPayment(null);
               await loadPayments();
             } catch (error: any) {
-              console.error('Error rejecting payment:', error);
+              console.error('=== REJECT PAYMENT ERROR ===');
+              console.error('Error details:', error);
               Alert.alert('Error', error.message || 'Failed to reject payment');
             } finally {
               setProcessing(false);
