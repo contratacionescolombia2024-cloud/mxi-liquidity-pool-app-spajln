@@ -364,6 +364,12 @@ export default function HomeScreen() {
     userBalance: user.mxiBalance
   });
 
+  // Calculate vesting data
+  const mxiInVesting = mxiPurchased + mxiFromCommissions;
+  const yieldPerSecond = user.yieldRatePerMinute / 60;
+  const totalYield = user.accumulatedYield + currentYield;
+  const canUnify = user.activeReferrals >= 10;
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
@@ -676,80 +682,78 @@ export default function HomeScreen() {
         <View style={styles.quickActions}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           
-          {/* SALES PANEL - Prominent Purchase Card */}
-          {phaseData && (
-            <TouchableOpacity
-              style={[commonStyles.card, styles.salesPanelCard]}
-              onPress={handleOpenSalesPanel}
-            >
-              <View style={styles.salesPanelHeader}>
-                <View style={styles.salesPanelIconContainer}>
-                  <IconSymbol 
-                    ios_icon_name="cart.fill.badge.plus" 
-                    android_material_icon_name="add_shopping_cart" 
-                    size={36} 
-                    color="#fff" 
-                  />
-                </View>
-                <View style={styles.salesPanelInfo}>
-                  <Text style={styles.salesPanelTitle}>💎 Comprar MXI</Text>
-                  <Text style={styles.salesPanelSubtitle}>
-                    Fase {phaseData.currentPhase} - ${phaseData.currentPriceUsdt.toFixed(2)} por MXI
-                  </Text>
-                </View>
+          {/* VESTING PANEL - Prominent Vesting Card */}
+          <TouchableOpacity
+            style={[commonStyles.card, styles.vestingPanelCard]}
+            onPress={() => router.push('/(tabs)/(home)/vesting')}
+          >
+            <View style={styles.vestingPanelHeader}>
+              <View style={styles.vestingPanelIconContainer}>
                 <IconSymbol 
-                  ios_icon_name="chevron.right" 
-                  android_material_icon_name="chevron_right" 
-                  size={28} 
+                  ios_icon_name="chart.line.uptrend.xyaxis" 
+                  android_material_icon_name="trending_up" 
+                  size={36} 
                   color="#fff" 
                 />
               </View>
-              
-              {currentPayment && (
-                <View style={styles.pendingPaymentBadge}>
-                  <IconSymbol 
-                    ios_icon_name="clock.fill" 
-                    android_material_icon_name="schedule" 
-                    size={16} 
-                    color={colors.warning} 
-                  />
-                  <Text style={styles.pendingPaymentText}>
-                    Pago pendiente: {currentPayment.usdtAmount} USDT
-                  </Text>
-                </View>
-              )}
-              
-              <View style={styles.salesPanelFeatures}>
-                <View style={styles.salesPanelFeature}>
-                  <IconSymbol 
-                    ios_icon_name="checkmark.circle.fill" 
-                    android_material_icon_name="check_circle" 
-                    size={18} 
-                    color="#fff" 
-                  />
-                  <Text style={styles.salesPanelFeatureText}>Desde 50 USDT</Text>
-                </View>
-                <View style={styles.salesPanelFeature}>
-                  <IconSymbol 
-                    ios_icon_name="checkmark.circle.fill" 
-                    android_material_icon_name="check_circle" 
-                    size={18} 
-                    color="#fff" 
-                  />
-                  <Text style={styles.salesPanelFeatureText}>Rendimiento automático</Text>
-                </View>
-                <View style={styles.salesPanelFeature}>
-                  <IconSymbol 
-                    ios_icon_name="checkmark.circle.fill" 
-                    android_material_icon_name="check_circle" 
-                    size={18} 
-                    color="#fff" 
-                  />
-                  <Text style={styles.salesPanelFeatureText}>Precio preferencial</Text>
-                </View>
+              <View style={styles.vestingPanelInfo}>
+                <Text style={styles.vestingPanelTitle}>⚡ Vesting & Rendimiento</Text>
+                <Text style={styles.vestingPanelSubtitle}>
+                  {yieldPerSecond.toFixed(8)} MXI por segundo
+                </Text>
               </View>
-            </TouchableOpacity>
-          )}
+              <IconSymbol 
+                ios_icon_name="chevron.right" 
+                android_material_icon_name="chevron_right" 
+                size={28} 
+                color="#fff" 
+              />
+            </View>
+            
+            <View style={styles.vestingPanelStats}>
+              <View style={styles.vestingPanelStat}>
+                <Text style={styles.vestingPanelStatLabel}>Balance en Vesting</Text>
+                <Text style={styles.vestingPanelStatValue}>{mxiInVesting.toFixed(2)} MXI</Text>
+              </View>
+              <View style={styles.vestingPanelDivider} />
+              <View style={styles.vestingPanelStat}>
+                <Text style={styles.vestingPanelStatLabel}>Rendimiento Acumulado</Text>
+                <Text style={styles.vestingPanelStatValue}>{totalYield.toFixed(6)} MXI</Text>
+              </View>
+            </View>
+            
+            <View style={styles.vestingPanelFeatures}>
+              <View style={styles.vestingPanelFeature}>
+                <IconSymbol 
+                  ios_icon_name="checkmark.circle.fill" 
+                  android_material_icon_name="check_circle" 
+                  size={18} 
+                  color="#fff" 
+                />
+                <Text style={styles.vestingPanelFeatureText}>Rendimiento en tiempo real</Text>
+              </View>
+              <View style={styles.vestingPanelFeature}>
+                <IconSymbol 
+                  ios_icon_name="checkmark.circle.fill" 
+                  android_material_icon_name="check_circle" 
+                  size={18} 
+                  color="#fff" 
+                />
+                <Text style={styles.vestingPanelFeatureText}>0.005% por hora</Text>
+              </View>
+              <View style={styles.vestingPanelFeature}>
+                <IconSymbol 
+                  ios_icon_name={canUnify ? "checkmark.circle.fill" : "lock.fill"}
+                  android_material_icon_name={canUnify ? "check_circle" : "lock"}
+                  size={18} 
+                  color="#fff" 
+                />
+                <Text style={styles.vestingPanelFeatureText}>
+                  {canUnify ? 'Listo para unificar' : `Requiere ${10 - user.activeReferrals} referidos más`}
+                </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
           
           <View style={styles.actionsGrid}>
             <TouchableOpacity
@@ -1411,19 +1415,19 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 16,
   },
-  salesPanelCard: {
+  vestingPanelCard: {
     marginBottom: 16,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.accent,
     borderWidth: 0,
     padding: 20,
   },
-  salesPanelHeader: {
+  vestingPanelHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
     marginBottom: 16,
   },
-  salesPanelIconContainer: {
+  vestingPanelIconContainer: {
     width: 56,
     height: 56,
     borderRadius: 28,
@@ -1431,43 +1435,53 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  salesPanelInfo: {
+  vestingPanelInfo: {
     flex: 1,
   },
-  salesPanelTitle: {
+  vestingPanelTitle: {
     fontSize: 22,
     fontWeight: '700',
     color: '#fff',
     marginBottom: 4,
   },
-  salesPanelSubtitle: {
+  vestingPanelSubtitle: {
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.9)',
   },
-  pendingPaymentBadge: {
+  vestingPanelStats: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 12,
+    padding: 16,
     marginBottom: 12,
+    gap: 16,
   },
-  pendingPaymentText: {
-    fontSize: 13,
+  vestingPanelStat: {
+    flex: 1,
+  },
+  vestingPanelStatLabel: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 4,
+  },
+  vestingPanelStatValue: {
+    fontSize: 16,
+    fontWeight: '700',
     color: '#fff',
-    fontWeight: '600',
   },
-  salesPanelFeatures: {
+  vestingPanelDivider: {
+    width: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  vestingPanelFeatures: {
     gap: 8,
   },
-  salesPanelFeature: {
+  vestingPanelFeature: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  salesPanelFeatureText: {
+  vestingPanelFeatureText: {
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.9)',
   },
