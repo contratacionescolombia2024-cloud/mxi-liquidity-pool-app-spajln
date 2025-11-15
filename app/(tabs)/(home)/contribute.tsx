@@ -1,5 +1,4 @@
 
-import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,14 +11,15 @@ import {
   Modal,
   Image,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'expo-router';
-import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { supabase } from '@/lib/supabase';
+import React, { useState, useEffect } from 'react';
 import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
+import { useAuth } from '@/contexts/AuthContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { supabase } from '@/lib/supabase';
+import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 
 interface OKXPayment {
   paymentId: string;
@@ -31,24 +31,37 @@ interface OKXPayment {
   qrCodeUri?: string;
 }
 
-const OKX_WALLET_ADDRESS = 'TYour-OKX-Wallet-Address-Here';
+interface PhaseInfo {
+  totalTokensSold: number;
+  currentPhase: number;
+  currentPriceUsdt: number;
+  phase1TokensSold: number;
+  phase2TokensSold: number;
+  phase3TokensSold: number;
+  phase1Remaining: number;
+  phase2Remaining: number;
+  tokensUntilNextPhase: number;
+}
+
+const OKX_WALLET_ADDRESS = 'TYDzsYUEpvnYmQk4zGP9sWWcTEd2MiAtW6';
 
 export default function ContributeScreen() {
-  const { user, addContribution } = useAuth();
   const router = useRouter();
+  const { user, addContribution, getPhaseInfo } = useAuth();
   const [usdtAmount, setUsdtAmount] = useState('');
   const [mxiAmount, setMxiAmount] = useState('0');
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
-  const [qrCodeUri, setQrCodeUri] = useState<string | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [currentPayment, setCurrentPayment] = useState<OKXPayment | null>(null);
-  const [phaseInfo, setPhaseInfo] = useState<any>(null);
+  const [qrCodeUri, setQrCodeUri] = useState<string | null>(null);
+  const [phaseInfo, setPhaseInfo] = useState<PhaseInfo | null>(null);
+  const [yieldRate, setYieldRate] = useState(0);
 
   useEffect(() => {
+    requestPermissions();
     loadPhaseInfo();
     checkExistingPayment();
-    requestPermissions();
   }, []);
 
   useEffect(() => {
@@ -60,81 +73,76 @@ export default function ContributeScreen() {
   const requestPermissions = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      console.log('Media library permission not granted');
+      Alert.alert('⚠️ Permission Required', '📸 We need camera roll permissions to upload QR codes');
     }
   };
 
   const loadPhaseInfo = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('metrics')
-        .select('*')
-        .single();
-
-      if (error) {
-        console.error('Error loading phase info:', error);
-        return;
-      }
-
-      setPhaseInfo(data);
-    } catch (error) {
-      console.error('Exception loading phase info:', error);
+    const info = await getPhaseInfo();
+    if (info) {
+      setPhaseInfo(info);
+      console.log('📊 Phase info loaded:', info);
     }
   };
 
   const checkExistingPayment = async () => {
     if (!user) return;
 
-    try {
-      const { data, error } = await supabase
-        .from('okx_payments')
-        .select('*')
-        .eq('user_id', user.id)
-        .in('status', ['pending', 'confirming'])
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+    const { data, error } = await supabase
+      .from('okx_payments')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-      if (error) {
-        console.error('Error checking existing payment:', error);
-        return;
-      }
+    if (error) {
+      console.error('❌ Error checking existing payment:', error);
+      return;
+    }
 
-      if (data) {
+    if (data) {
+      const expiresAt = new Date(data.expires_at);
+      if (expiresAt > new Date()) {
         setCurrentPayment({
           paymentId: data.payment_id,
-          usdtAmount: parseFloat(data.usdt_amount),
-          mxiAmount: parseFloat(data.mxi_amount),
-          paymentAddress: OKX_WALLET_ADDRESS,
+          usdtAmount: parseFloat(data.usdt_amount.toString()),
+          mxiAmount: parseFloat(data.mxi_amount.toString()),
+          paymentAddress: data.payment_address || OKX_WALLET_ADDRESS,
           status: data.status,
           expiresAt: data.expires_at,
           qrCodeUri: data.qr_code_url,
         });
         setShowPaymentModal(true);
+        console.log('💰 Existing payment found:', data.payment_id);
       }
-    } catch (error) {
-      console.error('Exception checking existing payment:', error);
     }
   };
 
   const calculateMxi = (usdt: string) => {
     const amount = parseFloat(usdt);
-    if (isNaN(amount) || !phaseInfo) {
+    if (isNaN(amount) || amount <= 0 || !phaseInfo) {
       setMxiAmount('0');
+      setYieldRate(0);
       return;
     }
 
-    const currentPrice = parseFloat(phaseInfo.current_price_usdt);
-    const mxi = amount / currentPrice;
-    setMxiAmount(mxi.toFixed(2));
+    const mxi = amount / phaseInfo.currentPriceUsdt;
+    setMxiAmount(mxi.toFixed(4));
+    
+    const rate = calculateYieldRate(amount);
+    setYieldRate(rate);
   };
 
   const calculateYieldRate = (investment: number): number => {
     if (investment < 50) return 0;
-    if (investment <= 500) return investment * 0.0001;
-    if (investment <= 5000) return investment * 0.00015;
-    if (investment <= 50000) return investment * 0.0002;
-    return investment * 0.00025;
+    if (investment >= 50 && investment < 500) return 0.0001;
+    if (investment >= 500 && investment < 1000) return 0.00015;
+    if (investment >= 1000 && investment < 5000) return 0.0002;
+    if (investment >= 5000 && investment < 10000) return 0.00025;
+    if (investment >= 10000) return 0.0003;
+    return 0;
   };
 
   const pickQRCode = async () => {
@@ -152,8 +160,8 @@ export default function ContributeScreen() {
         await uploadQRCode(uri);
       }
     } catch (error) {
-      console.error('Error picking QR code:', error);
-      Alert.alert('Error', 'Failed to pick image');
+      console.error('❌ Error picking QR code:', error);
+      Alert.alert('❌ Error', 'Failed to pick image');
     }
   };
 
@@ -166,7 +174,7 @@ export default function ContributeScreen() {
       const arrayBuffer = await blob.arrayBuffer();
       const fileExt = uri.split('.').pop() || 'jpg';
       const fileName = `${currentPayment.paymentId}.${fileExt}`;
-      const filePath = `payment-qr-codes/${fileName}`;
+      const filePath = `qr-codes/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('payment-proofs')
@@ -176,8 +184,8 @@ export default function ContributeScreen() {
         });
 
       if (uploadError) {
-        console.error('Upload error:', uploadError);
-        Alert.alert('Error', 'Failed to upload QR code');
+        console.error('❌ Upload error:', uploadError);
+        Alert.alert('❌ Error', 'Failed to upload QR code');
         return;
       }
 
@@ -191,61 +199,71 @@ export default function ContributeScreen() {
         .eq('payment_id', currentPayment.paymentId);
 
       if (updateError) {
-        console.error('Update error:', updateError);
+        console.error('❌ Update error:', updateError);
+      } else {
+        console.log('✅ QR code uploaded successfully');
+        Alert.alert('✅ Success', '📸 QR code uploaded successfully');
       }
-
-      Alert.alert('Success', 'QR code uploaded successfully');
     } catch (error) {
-      console.error('Exception uploading QR code:', error);
-      Alert.alert('Error', 'Failed to upload QR code');
+      console.error('❌ Upload exception:', error);
+      Alert.alert('❌ Error', 'Failed to upload QR code');
     }
   };
 
   const handleCreatePayment = async () => {
-    if (!user) return;
+    if (!user || !phaseInfo) return;
 
     const amount = parseFloat(usdtAmount);
-    if (isNaN(amount) || amount < 50 || amount > 100000) {
-      Alert.alert('Invalid Amount', 'Please enter an amount between $50 and $100,000');
+
+    if (isNaN(amount) || amount < 50) {
+      Alert.alert('❌ Invalid Amount', '💵 Minimum contribution is 50 USDT');
+      return;
+    }
+
+    if (amount > 100000) {
+      Alert.alert('❌ Invalid Amount', '💵 Maximum contribution is 100,000 USDT');
       return;
     }
 
     setLoading(true);
 
     try {
-      const { data, error } = await supabase
-        .from('okx_payments')
-        .insert({
-          user_id: user.id,
-          payment_id: `OKX-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          usdt_amount: amount,
-          mxi_amount: parseFloat(mxiAmount),
-          status: 'pending',
-          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        })
-        .select()
-        .single();
+      const mxi = amount / phaseInfo.currentPriceUsdt;
+      const paymentId = `MXI-${Date.now()}-${user.id.substring(0, 8)}`;
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+
+      const { error } = await supabase.from('okx_payments').insert({
+        user_id: user.id,
+        payment_id: paymentId,
+        usdt_amount: amount,
+        mxi_amount: mxi,
+        payment_address: OKX_WALLET_ADDRESS,
+        status: 'pending',
+        expires_at: expiresAt,
+      });
 
       if (error) {
-        console.error('Error creating payment:', error);
-        Alert.alert('Error', 'Failed to create payment');
+        console.error('❌ Payment creation error:', error);
+        Alert.alert('❌ Error', 'Failed to create payment request');
+        setLoading(false);
         return;
       }
 
       setCurrentPayment({
-        paymentId: data.payment_id,
-        usdtAmount: parseFloat(data.usdt_amount),
-        mxiAmount: parseFloat(data.mxi_amount),
+        paymentId,
+        usdtAmount: amount,
+        mxiAmount: mxi,
         paymentAddress: OKX_WALLET_ADDRESS,
-        status: data.status,
-        expiresAt: data.expires_at,
+        status: 'pending',
+        expiresAt,
       });
 
       setShowPaymentModal(true);
+      setLoading(false);
+      console.log('✅ Payment created:', paymentId);
     } catch (error) {
-      console.error('Exception creating payment:', error);
-      Alert.alert('Error', 'Failed to create payment');
-    } finally {
+      console.error('❌ Payment creation exception:', error);
+      Alert.alert('❌ Error', 'Failed to create payment');
       setLoading(false);
     }
   };
@@ -256,68 +274,74 @@ export default function ContributeScreen() {
     setVerifying(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('okx-payment-verification', {
+      const { data, error } = await supabase.functions.invoke('verify-okx-payment', {
         body: { paymentId: currentPayment.paymentId },
       });
 
       if (error) {
-        console.error('Verification error:', error);
-        Alert.alert(
-          'Verification Pending',
-          'Automatic verification is in progress. You will be notified once your payment is confirmed. This may take a few minutes.'
-        );
+        console.error('❌ Verification error:', error);
+        Alert.alert('❌ Error', 'Failed to verify payment. Please try again.');
+        setVerifying(false);
         return;
       }
 
-      if (data.verified) {
-        Alert.alert('Success', 'Payment verified! Your MXI has been credited to your account.');
-        setShowPaymentModal(false);
-        setCurrentPayment(null);
-        router.back();
+      if (data.success) {
+        Alert.alert(
+          '✅ Payment Verified',
+          '💰 Your payment has been verified! MXI tokens will be credited to your account shortly.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                setShowPaymentModal(false);
+                setCurrentPayment(null);
+                setUsdtAmount('');
+                setMxiAmount('0');
+                router.back();
+              },
+            },
+          ]
+        );
       } else {
         Alert.alert(
-          'Verification Pending',
-          'Your payment is being verified. Please wait a few minutes and try again.'
+          '⏳ Payment Pending',
+          data.message || '⏱️ Payment not yet confirmed. Please wait a few minutes and try again.',
+          [{ text: 'OK' }]
         );
       }
+
+      setVerifying(false);
     } catch (error) {
-      console.error('Exception verifying payment:', error);
-      Alert.alert('Error', 'Failed to verify payment');
-    } finally {
+      console.error('❌ Verification exception:', error);
+      Alert.alert('❌ Error', 'Failed to verify payment');
       setVerifying(false);
     }
   };
 
   const handleCopyAddress = async () => {
     await Clipboard.setStringAsync(OKX_WALLET_ADDRESS);
-    Alert.alert('Copied', 'Wallet address copied to clipboard');
+    Alert.alert('✅ Copied', '📋 Wallet address copied to clipboard');
   };
 
-  const handleReinvest = async () => {
+  const handleReinvest = () => {
     if (!user) return;
 
-    const availableYield = user.accumulatedYield;
-    if (availableYield <= 0) {
-      Alert.alert('No Yield Available', 'You don&apos;t have any accumulated yield to reinvest.');
-      return;
-    }
-
     Alert.alert(
-      'Reinvest Yield',
-      `Reinvest ${availableYield.toFixed(6)} MXI back into your vesting balance?`,
+      '🔄 Reinvest Commissions',
+      `💰 Reinvest ${user.commissions.available.toFixed(2)} USDT in commissions?\n\n💎 This will convert your commissions to MXI at the current rate.`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: '❌ Cancel', style: 'cancel' },
         {
-          text: 'Reinvest',
+          text: '✅ Reinvest',
           onPress: async () => {
             setLoading(true);
-            const result = await addContribution(availableYield * 0.012, 'reinvestment');
+            const result = await addContribution(user.commissions.available, 'reinvestment');
             setLoading(false);
 
             if (result.success) {
-              Alert.alert('Success', 'Yield reinvested successfully!');
+              Alert.alert('✅ Success', '💎 Commissions reinvested successfully!');
             } else {
-              Alert.alert('Error', result.error || 'Failed to reinvest yield');
+              Alert.alert('❌ Error', result.error || 'Failed to reinvest');
             }
           },
         },
@@ -327,74 +351,91 @@ export default function ContributeScreen() {
 
   const getPhaseDescription = () => {
     if (!phaseInfo) return '';
-    const phase = phaseInfo.current_phase;
-    switch (phase) {
-      case 1:
-        return 'Early Bird Phase - Best Price!';
-      case 2:
-        return 'Growth Phase - Limited Time';
-      case 3:
-        return 'Final Phase - Last Chance';
-      default:
-        return 'Pre-Sale Phase';
-    }
+    
+    const phaseEmojis = ['🥇', '🥈', '🥉'];
+    const phaseEmoji = phaseEmojis[phaseInfo.currentPhase - 1] || '💎';
+    
+    return `${phaseEmoji} Phase ${phaseInfo.currentPhase} - ${phaseInfo.currentPriceUsdt.toFixed(2)} USDT per MXI`;
   };
 
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Contribute</Text>
-        <View style={{ width: 40 }} />
-      </View>
+  if (!user) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
+  return (
+    <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Phase Info */}
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="chevron_left" size={24} color={colors.primary} />
+          </TouchableOpacity>
+          <Text style={styles.title}>💰 Contribute</Text>
+          <Text style={styles.subtitle}>Add USDT to get MXI tokens</Text>
+        </View>
+
         {phaseInfo && (
           <View style={[commonStyles.card, styles.phaseCard]}>
-            <View style={styles.phaseHeader}>
-              <View>
-                <Text style={styles.phaseTitle}>Phase {phaseInfo.current_phase}</Text>
-                <Text style={styles.phaseSubtitle}>{getPhaseDescription()}</Text>
+            <Text style={styles.phaseTitle}>📊 Current Phase</Text>
+            <Text style={styles.phaseDescription}>{getPhaseDescription()}</Text>
+            <View style={styles.phaseProgress}>
+              <View style={styles.phaseProgressBar}>
+                <View
+                  style={[
+                    styles.phaseProgressFill,
+                    {
+                      width: `${Math.min(
+                        (phaseInfo.tokensUntilNextPhase /
+                          (phaseInfo.currentPhase === 1
+                            ? 8333333
+                            : phaseInfo.currentPhase === 2
+                            ? 8333333
+                            : 8333333)) *
+                          100,
+                        100
+                      )}%`,
+                    },
+                  ]}
+                />
               </View>
-              <View style={styles.phasePriceContainer}>
-                <Text style={styles.phasePrice}>${phaseInfo.current_price_usdt}</Text>
-                <Text style={styles.phasePriceLabel}>per MXI</Text>
-              </View>
+              <Text style={styles.phaseProgressText}>
+                ⏳ {phaseInfo.tokensUntilNextPhase.toLocaleString()} MXI until next phase
+              </Text>
             </View>
           </View>
         )}
 
-        {/* Contribution Form */}
-        <View style={commonStyles.card}>
-          <Text style={styles.sectionTitle}>Enter Amount</Text>
-          
+        <View style={[commonStyles.card, styles.formCard]}>
+          <Text style={styles.formTitle}>💵 Contribution Amount</Text>
+
           <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>USDT Amount</Text>
+            <Text style={commonStyles.label}>💰 USDT Amount</Text>
             <TextInput
-              style={styles.input}
+              style={commonStyles.input}
+              placeholder="Enter amount (min: 50 USDT)"
+              placeholderTextColor={colors.textSecondary}
               value={usdtAmount}
               onChangeText={setUsdtAmount}
               keyboardType="decimal-pad"
-              placeholder="Min: $50, Max: $100,000"
-              placeholderTextColor={colors.textSecondary}
             />
           </View>
 
-          <View style={styles.conversionContainer}>
-            <IconSymbol 
-              ios_icon_name="arrow.down" 
-              android_material_icon_name="arrow_downward" 
-              size={24} 
-              color={colors.primary} 
-            />
-          </View>
-
-          <View style={styles.resultContainer}>
-            <Text style={styles.resultLabel}>You will receive</Text>
-            <Text style={styles.resultAmount}>{mxiAmount} MXI</Text>
+          <View style={styles.conversionCard}>
+            <View style={styles.conversionRow}>
+              <Text style={styles.conversionLabel}>💎 You will receive:</Text>
+              <Text style={styles.conversionValue}>{mxiAmount} MXI</Text>
+            </View>
+            {yieldRate > 0 && (
+              <View style={styles.conversionRow}>
+                <Text style={styles.conversionLabel}>⏱️ Yield rate:</Text>
+                <Text style={styles.conversionValue}>{yieldRate.toFixed(6)} MXI/min</Text>
+              </View>
+            )}
           </View>
 
           <TouchableOpacity
@@ -405,143 +446,135 @@ export default function ContributeScreen() {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={buttonStyles.primaryText}>Continue to Payment</Text>
+              <React.Fragment>
+                <IconSymbol ios_icon_name="plus.circle.fill" android_material_icon_name="add_circle" size={20} color="#fff" />
+                <Text style={styles.buttonText}>💰 Create Payment</Text>
+              </React.Fragment>
             )}
           </TouchableOpacity>
         </View>
 
-        {/* Reinvest Yield */}
-        {user && user.accumulatedYield > 0 && (
-          <View style={commonStyles.card}>
-            <Text style={styles.sectionTitle}>Reinvest Yield</Text>
-            <Text style={styles.reinvestText}>
-              You have {user.accumulatedYield.toFixed(6)} MXI in accumulated yield.
-            </Text>
-            <TouchableOpacity
-              style={[buttonStyles.outline, styles.reinvestButton]}
-              onPress={handleReinvest}
-              disabled={loading}
-            >
-              <Text style={buttonStyles.outlineText}>Reinvest Yield</Text>
-            </TouchableOpacity>
-          </View>
+        {user.commissions.available > 0 && (
+          <TouchableOpacity
+            style={[commonStyles.card, styles.reinvestCard]}
+            onPress={handleReinvest}
+          >
+            <View style={styles.reinvestContent}>
+              <IconSymbol ios_icon_name="arrow.triangle.2.circlepath" android_material_icon_name="sync" size={32} color={colors.accent} />
+              <View style={styles.reinvestText}>
+                <Text style={styles.reinvestTitle}>🔄 Reinvest Commissions</Text>
+                <Text style={styles.reinvestSubtitle}>
+                  💰 ${user.commissions.available.toFixed(2)} available
+                </Text>
+              </View>
+              <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={24} color={colors.textSecondary} />
+            </View>
+          </TouchableOpacity>
         )}
 
-        {/* Info Card */}
         <View style={[commonStyles.card, styles.infoCard]}>
-          <View style={styles.infoHeader}>
-            <IconSymbol 
-              ios_icon_name="info.circle.fill" 
-              android_material_icon_name="info" 
-              size={24} 
-              color={colors.primary} 
-            />
-            <Text style={styles.infoTitle}>Important Information</Text>
-          </View>
-          <View style={styles.infoList}>
-            <Text style={styles.infoItem}>• Minimum contribution: $50 USDT</Text>
-            <Text style={styles.infoItem}>• Maximum contribution: $100,000 USDT</Text>
-            <Text style={styles.infoItem}>• Payment via OKX Wallet only</Text>
-            <Text style={styles.infoItem}>• MXI tokens are vested and generate yield</Text>
-            <Text style={styles.infoItem}>• Payments expire after 24 hours</Text>
+          <IconSymbol ios_icon_name="info.circle.fill" android_material_icon_name="info" size={20} color={colors.primary} />
+          <View style={styles.infoContent}>
+            <Text style={styles.infoTitle}>ℹ️ Important Information:</Text>
+            <Text style={styles.infoText}>
+              • 💵 Minimum contribution: 50 USDT{'\n'}
+              • 💰 Maximum contribution: 100,000 USDT{'\n'}
+              • 💎 MXI price varies by phase{'\n'}
+              • ⏱️ Higher contributions earn more yield{'\n'}
+              • 🔒 Payments expire after 30 minutes{'\n'}
+              • ✅ Verification may take a few minutes
+            </Text>
           </View>
         </View>
       </ScrollView>
 
-      {/* Payment Modal */}
       <Modal
         visible={showPaymentModal}
-        transparent
         animationType="slide"
+        transparent={true}
         onRequestClose={() => setShowPaymentModal(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Complete Payment</Text>
-            
-            {currentPayment && (
-              <React.Fragment>
-                <View style={styles.paymentInfo}>
-                  <View style={styles.paymentRow}>
-                    <Text style={styles.paymentLabel}>Amount:</Text>
-                    <Text style={styles.paymentValue}>${currentPayment.usdtAmount} USDT</Text>
-                  </View>
-                  <View style={styles.paymentRow}>
-                    <Text style={styles.paymentLabel}>You will receive:</Text>
-                    <Text style={styles.paymentValue}>{currentPayment.mxiAmount} MXI</Text>
-                  </View>
-                  <View style={styles.paymentRow}>
-                    <Text style={styles.paymentLabel}>Status:</Text>
-                    <Text style={[styles.paymentValue, { color: colors.warning }]}>
-                      {currentPayment.status}
-                    </Text>
-                  </View>
-                </View>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>💰 Payment Instructions</Text>
+              <TouchableOpacity onPress={() => setShowPaymentModal(false)}>
+                <IconSymbol ios_icon_name="xmark.circle.fill" android_material_icon_name="cancel" size={28} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
 
-                <View style={styles.addressContainer}>
-                  <Text style={styles.addressLabel}>Send USDT (TRC20) to:</Text>
-                  <View style={styles.addressBox}>
-                    <Text style={styles.addressText}>{currentPayment.paymentAddress}</Text>
-                    <TouchableOpacity onPress={handleCopyAddress}>
-                      <IconSymbol 
-                        ios_icon_name="doc.on.doc" 
-                        android_material_icon_name="content_copy" 
-                        size={20} 
-                        color={colors.primary} 
+            <ScrollView style={styles.modalScroll}>
+              {currentPayment && (
+                <React.Fragment>
+                  <View style={styles.paymentInfo}>
+                    <Text style={styles.paymentLabel}>💵 Amount:</Text>
+                    <Text style={styles.paymentValue}>{currentPayment.usdtAmount} USDT</Text>
+                  </View>
+
+                  <View style={styles.paymentInfo}>
+                    <Text style={styles.paymentLabel}>💎 You will receive:</Text>
+                    <Text style={styles.paymentValue}>{currentPayment.mxiAmount.toFixed(4)} MXI</Text>
+                  </View>
+
+                  <View style={styles.paymentInfo}>
+                    <Text style={styles.paymentLabel}>🆔 Payment ID:</Text>
+                    <Text style={styles.paymentValue}>{currentPayment.paymentId}</Text>
+                  </View>
+
+                  <View style={styles.addressCard}>
+                    <Text style={styles.addressLabel}>🏦 Send USDT (TRC20) to:</Text>
+                    <View style={styles.addressContainer}>
+                      <Text style={styles.addressText}>{currentPayment.paymentAddress}</Text>
+                      <TouchableOpacity onPress={handleCopyAddress}>
+                        <IconSymbol ios_icon_name="doc.on.doc.fill" android_material_icon_name="content_copy" size={20} color={colors.primary} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  <View style={styles.qrSection}>
+                    <Text style={styles.qrLabel}>📸 Upload Payment QR Code (Optional)</Text>
+                    {qrCodeUri || currentPayment.qrCodeUri ? (
+                      <Image
+                        source={{ uri: qrCodeUri || currentPayment.qrCodeUri }}
+                        style={styles.qrImage}
                       />
-                    </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity style={styles.qrPlaceholder} onPress={pickQRCode}>
+                        <IconSymbol ios_icon_name="camera.fill" android_material_icon_name="add_a_photo" size={40} color={colors.textSecondary} />
+                        <Text style={styles.qrPlaceholderText}>📷 Tap to upload</Text>
+                      </TouchableOpacity>
+                    )}
+                    {(qrCodeUri || currentPayment.qrCodeUri) && (
+                      <TouchableOpacity style={styles.changeQrButton} onPress={pickQRCode}>
+                        <Text style={styles.changeQrText}>🔄 Change QR Code</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
-                </View>
 
-                <View style={styles.qrSection}>
-                  <Text style={styles.qrLabel}>Upload Payment QR Code (Optional)</Text>
-                  {qrCodeUri || currentPayment.qrCodeUri ? (
-                    <Image
-                      source={{ uri: qrCodeUri || currentPayment.qrCodeUri }}
-                      style={styles.qrImage}
-                    />
-                  ) : null}
                   <TouchableOpacity
-                    style={[buttonStyles.outline, styles.qrButton]}
-                    onPress={pickQRCode}
-                  >
-                    <IconSymbol 
-                      ios_icon_name="photo" 
-                      android_material_icon_name="photo_library" 
-                      size={20} 
-                      color={colors.primary} 
-                    />
-                    <Text style={buttonStyles.outlineText}>
-                      {qrCodeUri || currentPayment.qrCodeUri ? 'Change QR Code' : 'Upload QR Code'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity
-                    style={[buttonStyles.outline, styles.modalButton]}
-                    onPress={() => setShowPaymentModal(false)}
-                  >
-                    <Text style={buttonStyles.outlineText}>Close</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[buttonStyles.primary, styles.modalButton]}
+                    style={[buttonStyles.primary, styles.verifyButton]}
                     onPress={handleVerifyPayment}
                     disabled={verifying}
                   >
                     {verifying ? (
                       <ActivityIndicator color="#fff" />
                     ) : (
-                      <Text style={buttonStyles.primaryText}>Verify Payment</Text>
+                      <React.Fragment>
+                        <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={20} color="#fff" />
+                        <Text style={styles.buttonText}>✅ Verify Payment</Text>
+                      </React.Fragment>
                     )}
                   </TouchableOpacity>
-                </View>
 
-                <Text style={styles.modalNote}>
-                  After sending the payment, click &quot;Verify Payment&quot; to confirm your transaction.
-                </Text>
-              </React.Fragment>
-            )}
+                  <View style={styles.warningCard}>
+                    <IconSymbol ios_icon_name="exclamationmark.triangle.fill" android_material_icon_name="warning" size={20} color={colors.warning} />
+                    <Text style={styles.warningText}>
+                      ⚠️ Only send USDT (TRC20) to this address. Sending other tokens may result in permanent loss.
+                    </Text>
+                  </View>
+                </React.Fragment>
+              )}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -554,62 +587,72 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
+  loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-  },
   scrollContent: {
-    padding: 20,
+    flexGrow: 1,
+    padding: 24,
     paddingBottom: 100,
   },
-  phaseCard: {
-    borderWidth: 2,
-    borderColor: colors.primary,
+  header: {
+    marginBottom: 24,
   },
-  phaseHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+  backButton: {
+    marginBottom: 16,
+    alignSelf: 'flex-start',
   },
-  phaseTitle: {
-    fontSize: 24,
+  title: {
+    fontSize: 32,
     fontWeight: '700',
     color: colors.text,
+    marginBottom: 4,
   },
-  phaseSubtitle: {
-    fontSize: 14,
+  subtitle: {
+    fontSize: 16,
     color: colors.textSecondary,
-    marginTop: 4,
   },
-  phasePriceContainer: {
-    alignItems: 'flex-end',
+  phaseCard: {
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
   },
-  phasePrice: {
-    fontSize: 28,
+  phaseTitle: {
+    fontSize: 16,
     fontWeight: '700',
-    color: colors.primary,
+    color: colors.text,
+    marginBottom: 8,
   },
-  phasePriceLabel: {
-    fontSize: 12,
+  phaseDescription: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: colors.primary,
+    marginBottom: 12,
+  },
+  phaseProgress: {
+    gap: 8,
+  },
+  phaseProgressBar: {
+    height: 8,
+    backgroundColor: colors.border,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  phaseProgressFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 4,
+  },
+  phaseProgressText: {
+    fontSize: 13,
     color: colors.textSecondary,
   },
-  sectionTitle: {
+  formCard: {
+    marginBottom: 16,
+  },
+  formTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: colors.text,
@@ -618,143 +661,157 @@ const styles = StyleSheet.create({
   inputContainer: {
     marginBottom: 16,
   },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  input: {
+  conversionCard: {
     backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 16,
-    fontSize: 18,
-    color: colors.text,
+    marginBottom: 16,
+    gap: 12,
   },
-  conversionContainer: {
+  conversionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginVertical: 16,
   },
-  resultContainer: {
-    backgroundColor: colors.primary + '10',
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  resultLabel: {
+  conversionLabel: {
     fontSize: 14,
     color: colors.textSecondary,
-    marginBottom: 8,
   },
-  resultAmount: {
-    fontSize: 32,
+  conversionValue: {
+    fontSize: 18,
     fontWeight: '700',
     color: colors.primary,
   },
   contributeButton: {
-    marginTop: 8,
-  },
-  reinvestText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 16,
-  },
-  reinvestButton: {
-    marginTop: 8,
-  },
-  infoCard: {
-    backgroundColor: colors.primary + '10',
-    borderWidth: 1,
-    borderColor: colors.primary + '30',
-  },
-  infoHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
-  },
-  infoTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  infoList: {
+    justifyContent: 'center',
     gap: 8,
   },
-  infoItem: {
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  reinvestCard: {
+    marginBottom: 16,
+    backgroundColor: colors.highlight,
+    borderWidth: 2,
+    borderColor: colors.accent,
+  },
+  reinvestContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  reinvestText: {
+    flex: 1,
+  },
+  reinvestTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  reinvestSubtitle: {
     fontSize: 14,
+    color: colors.textSecondary,
+  },
+  infoCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+  },
+  infoContent: {
+    flex: 1,
+  },
+  infoTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  infoText: {
+    fontSize: 13,
     color: colors.textSecondary,
     lineHeight: 20,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
+    backgroundColor: colors.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '90%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: 24,
-    width: '100%',
-    maxWidth: 500,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   modalTitle: {
     fontSize: 24,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 20,
-    textAlign: 'center',
+  },
+  modalScroll: {
+    padding: 24,
   },
   paymentInfo: {
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 20,
-  },
-  paymentRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   paymentLabel: {
     fontSize: 14,
     color: colors.textSecondary,
   },
   paymentValue: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
     color: colors.text,
   },
-  addressContainer: {
-    marginBottom: 20,
+  addressCard: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    marginVertical: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   addressLabel: {
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  addressBox: {
+  addressContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: 12,
     gap: 12,
+    backgroundColor: colors.background,
+    padding: 12,
+    borderRadius: 8,
   },
   addressText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 13,
     color: colors.text,
     fontFamily: 'monospace',
   },
   qrSection: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   qrLabel: {
     fontSize: 14,
@@ -765,24 +822,55 @@ const styles = StyleSheet.create({
   qrImage: {
     width: '100%',
     height: 200,
-    borderRadius: 8,
-    marginBottom: 12,
+    borderRadius: 12,
+    backgroundColor: colors.card,
   },
-  qrButton: {
-    marginTop: 8,
-  },
-  modalButtons: {
-    flexDirection: 'row',
+  qrPlaceholder: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    backgroundColor: colors.card,
+    borderWidth: 2,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
     gap: 12,
+  },
+  qrPlaceholderText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  changeQrButton: {
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  changeQrText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  verifyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
     marginBottom: 16,
   },
-  modalButton: {
-    flex: 1,
+  warningCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    backgroundColor: colors.warning + '20',
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.warning,
   },
-  modalNote: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 18,
+  warningText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.text,
+    lineHeight: 20,
   },
 });

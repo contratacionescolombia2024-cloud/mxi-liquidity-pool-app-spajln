@@ -7,294 +7,308 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Image,
+  Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, commonStyles } from '@/styles/commonStyles';
+import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
-import ActionButton from '@/components/ActionButton';
-import MenuButton from '@/components/MenuButton';
+import { supabase } from '@/lib/supabase';
+import YieldDisplay from '@/components/YieldDisplay';
 import VestingCounter from '@/components/VestingCounter';
-import Footer from '@/components/Footer';
-
-interface PhaseInfo {
-  totalTokensSold: number;
-  currentPhase: number;
-  currentPriceUsdt: number;
-  phase1TokensSold: number;
-  phase2TokensSold: number;
-  phase3TokensSold: number;
-  phase1Remaining: number;
-  phase2Remaining: number;
-  tokensUntilNextPhase: number;
-}
 
 export default function HomeScreen() {
-  const { user, logout, getPoolStatus, getPhaseInfo } = useAuth();
   const router = useRouter();
+  const { user, getCurrentYield, claimYield, checkAdminStatus } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
-  const [poolCloseDate, setPoolCloseDate] = useState<Date | null>(null);
-  const [phaseInfo, setPhaseInfo] = useState<PhaseInfo | null>(null);
+  const [currentYield, setCurrentYield] = useState(0);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [poolMembers, setPoolMembers] = useState(56527);
 
   useEffect(() => {
-    loadPoolStatus();
-    loadPhaseInfo();
-  }, []);
+    loadData();
+    checkAdmin();
+    
+    const interval = setInterval(() => {
+      if (user) {
+        setCurrentYield(getCurrentYield());
+      }
+    }, 1000);
 
-  useEffect(() => {
-    if (poolCloseDate) {
-      console.log('Pool closes on:', poolCloseDate);
-    }
-  }, [poolCloseDate]);
+    return () => clearInterval(interval);
+  }, [user]);
 
-  const loadPoolStatus = async () => {
-    const status = await getPoolStatus();
-    if (status) {
-      setPoolCloseDate(new Date(status.pool_close_date));
+  const loadData = async () => {
+    if (!user) return;
+    
+    setCurrentYield(getCurrentYield());
+    
+    const { data: metricsData } = await supabase
+      .from('metrics')
+      .select('total_members')
+      .single();
+    
+    if (metricsData) {
+      setPoolMembers(metricsData.total_members);
     }
   };
 
-  const loadPhaseInfo = async () => {
-    const info = await getPhaseInfo();
-    if (info) {
-      setPhaseInfo(info);
-    }
+  const checkAdmin = async () => {
+    const adminStatus = await checkAdminStatus();
+    setIsAdmin(adminStatus);
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadPoolStatus();
-    await loadPhaseInfo();
+    await loadData();
     setRefreshing(false);
   };
 
-  const getPhaseDescription = (phase: number) => {
-    switch (phase) {
-      case 1:
-        return 'Early Bird Phase - Best Price!';
-      case 2:
-        return 'Growth Phase - Limited Time';
-      case 3:
-        return 'Final Phase - Last Chance';
-      default:
-        return 'Pre-Sale Phase';
+  const handleClaimYield = async () => {
+    if (currentYield === 0) {
+      Alert.alert('ℹ️ No Yield', '⏳ No yield available to claim yet');
+      return;
     }
+
+    Alert.alert(
+      '💰 Claim Yield',
+      `Claim ${currentYield.toFixed(6)} MXI yield?`,
+      [
+        { text: '❌ Cancel', style: 'cancel' },
+        {
+          text: '✅ Claim',
+          onPress: async () => {
+            const result = await claimYield();
+            if (result.success) {
+              Alert.alert('✅ Success', `💎 Claimed ${result.yieldEarned?.toFixed(6)} MXI!`);
+              setCurrentYield(0);
+            } else {
+              Alert.alert('❌ Error', result.error || 'Failed to claim yield');
+            }
+          },
+        },
+      ]
+    );
   };
 
-  const getPhaseProgress = () => {
-    if (!phaseInfo) return 0;
-    const maxTokensPerPhase = 8333333;
-    const currentPhaseTokens = 
-      phaseInfo.currentPhase === 1 ? phaseInfo.phase1TokensSold :
-      phaseInfo.currentPhase === 2 ? phaseInfo.phase2TokensSold :
-      phaseInfo.phase3TokensSold;
-    return (currentPhaseTokens / maxTokensPerPhase) * 100;
-  };
+  if (!user) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>⏳ Loading...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
-      <MenuButton />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
-        {/* Header */}
         <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Image
-              source={require('@/assets/images/04a4d9ac-4539-41d2-bafd-67dd75925bde.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
+          <View>
+            <Text style={styles.greeting}>👋 Welcome back,</Text>
+            <Text style={styles.userName}>{user.name}</Text>
           </View>
-          <View style={styles.headerText}>
-            <Text style={styles.welcomeText}>Welcome back,</Text>
-            <Text style={styles.userName}>{user?.name || 'User'}</Text>
-          </View>
+          <TouchableOpacity
+            style={styles.profileButton}
+            onPress={() => router.push('/(tabs)/profile')}
+          >
+            <IconSymbol ios_icon_name="person.circle.fill" android_material_icon_name="account_circle" size={40} color={colors.primary} />
+          </TouchableOpacity>
         </View>
 
-        {/* Balance Card */}
         <View style={[commonStyles.card, styles.balanceCard]}>
           <View style={styles.balanceHeader}>
-            <Text style={styles.balanceLabel}>Your MXI Balance</Text>
-            <TouchableOpacity onPress={onRefresh}>
-              <IconSymbol 
-                ios_icon_name="arrow.clockwise" 
-                android_material_icon_name="refresh" 
-                size={20} 
-                color={colors.primary} 
-              />
+            <Text style={styles.balanceLabel}>💎 MXI Balance</Text>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/(home)/vesting')}>
+              <IconSymbol ios_icon_name="info.circle" android_material_icon_name="info" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
-          <Text style={styles.balanceAmount}>
-            {user?.mxiBalance.toFixed(2) || '0.00'} MXI
-          </Text>
-          <Text style={styles.balanceSubtext}>
-            USDT Contributed: ${user?.usdtContributed.toFixed(2) || '0.00'}
-          </Text>
-        </View>
-
-        {/* Phase Info Card */}
-        {phaseInfo && (
-          <View style={[commonStyles.card, styles.phaseCard]}>
-            <View style={styles.phaseHeader}>
-              <View>
-                <Text style={styles.phaseTitle}>Phase {phaseInfo.currentPhase}</Text>
-                <Text style={styles.phaseSubtitle}>{getPhaseDescription(phaseInfo.currentPhase)}</Text>
-              </View>
-              <View style={styles.phasePriceContainer}>
-                <Text style={styles.phasePrice}>${phaseInfo.currentPriceUsdt}</Text>
-                <Text style={styles.phasePriceLabel}>per MXI</Text>
-              </View>
+          <Text style={styles.balanceAmount}>{user.mxiBalance.toFixed(2)}</Text>
+          <Text style={styles.balanceCurrency}>MXI</Text>
+          
+          <View style={styles.balanceDivider} />
+          
+          <View style={styles.balanceRow}>
+            <View style={styles.balanceItem}>
+              <Text style={styles.balanceItemLabel}>💵 USDT Contributed</Text>
+              <Text style={styles.balanceItemValue}>${user.usdtContributed.toFixed(2)}</Text>
             </View>
-            
-            <View style={styles.progressContainer}>
-              <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: `${getPhaseProgress()}%` }]} />
-              </View>
-              <Text style={styles.progressText}>{getPhaseProgress().toFixed(1)}% Complete</Text>
-            </View>
-
-            <View style={styles.phaseStats}>
-              <View style={styles.phaseStat}>
-                <Text style={styles.phaseStatValue}>{phaseInfo.totalTokensSold.toLocaleString()}</Text>
-                <Text style={styles.phaseStatLabel}>Total Sold</Text>
-              </View>
-              <View style={styles.phaseStatDivider} />
-              <View style={styles.phaseStat}>
-                <Text style={styles.phaseStatValue}>{phaseInfo.tokensUntilNextPhase.toLocaleString()}</Text>
-                <Text style={styles.phaseStatLabel}>Until Next Phase</Text>
-              </View>
+            <View style={styles.balanceItem}>
+              <Text style={styles.balanceItemLabel}>💰 Commissions</Text>
+              <Text style={styles.balanceItemValue}>${user.commissions.available.toFixed(2)}</Text>
             </View>
           </View>
+        </View>
+
+        {user.yieldRatePerMinute > 0 && (
+          <YieldDisplay
+            currentYield={currentYield}
+            yieldRatePerMinute={user.yieldRatePerMinute}
+            onClaim={handleClaimYield}
+          />
         )}
 
-        {/* Vesting Counter */}
-        {poolCloseDate && <VestingCounter targetDate={poolCloseDate} />}
+        <VestingCounter />
 
-        {/* Quick Actions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.menuGrid}>
-            <ActionButton
-              title="Contribute"
-              subtitle="Add USDT"
-              icon="plus.circle.fill"
-              androidIcon="add_circle"
+        <View style={styles.quickActions}>
+          <Text style={styles.sectionTitle}>⚡ Quick Actions</Text>
+          <View style={styles.actionsGrid}>
+            <TouchableOpacity
+              style={styles.actionCard}
               onPress={() => router.push('/(tabs)/(home)/contribute')}
-              color={colors.primary}
-            />
-            <ActionButton
-              title="Referrals"
-              subtitle="Earn rewards"
-              icon="person.2.fill"
-              androidIcon="group"
-              onPress={() => router.push('/(tabs)/(home)/referrals')}
-              color={colors.success}
-            />
-            <ActionButton
-              title="Vesting"
-              subtitle="View yield"
-              icon="chart.line.uptrend.xyaxis"
-              androidIcon="trending_up"
-              onPress={() => router.push('/(tabs)/(home)/vesting')}
-              color={colors.warning}
-            />
-            <ActionButton
-              title="Withdraw"
-              subtitle="Cash out"
-              icon="arrow.up.circle.fill"
-              androidIcon="arrow-circle-up"
+            >
+              <View style={styles.actionIconContainer}>
+                <IconSymbol ios_icon_name="plus.circle.fill" android_material_icon_name="add_circle" size={32} color={colors.primary} />
+              </View>
+              <Text style={styles.actionTitle}>💰 Contribute</Text>
+              <Text style={styles.actionSubtitle}>Add USDT</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionCard}
               onPress={() => router.push('/(tabs)/(home)/withdrawal')}
-              color={colors.error}
-            />
-          </View>
-        </View>
+            >
+              <View style={styles.actionIconContainer}>
+                <IconSymbol ios_icon_name="arrow.down.circle.fill" android_material_icon_name="arrow_circle_down" size={32} color={colors.success} />
+              </View>
+              <Text style={styles.actionTitle}>💵 Withdraw</Text>
+              <Text style={styles.actionSubtitle}>Get funds</Text>
+            </TouchableOpacity>
 
-        {/* Games Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🎮 Games & Challenges</Text>
-          <View style={styles.menuGrid}>
-            <ActionButton
-              title="Bonus MXI"
-              subtitle="Win prizes"
-              icon="gift.fill"
-              androidIcon="card_giftcard"
-              onPress={() => router.push('/(tabs)/(home)/lottery')}
-              color="#FF6B6B"
-            />
-            <ActionButton
-              title="Clickers"
-              subtitle="Compete"
-              icon="hand.tap.fill"
-              androidIcon="touch_app"
-              onPress={() => router.push('/(tabs)/(home)/clickers')}
-              color="#4ECDC4"
-            />
-            <ActionButton
-              title="Tap Duo"
-              subtitle="Battle friends"
-              icon="bolt.fill"
-              androidIcon="flash_on"
-              onPress={() => router.push('/(tabs)/(home)/xmi-tap-duo')}
-              color="#9B59B6"
-            />
-            <ActionButton
-              title="AirBall"
-              subtitle="Blow to win"
-              icon="balloon.fill"
-              androidIcon="sports_soccer"
-              onPress={() => router.push('/(tabs)/(home)/mxi-airball')}
-              color="#FF9F43"
-            />
-            <ActionButton
-              title="AirBall Duo"
-              subtitle="1v1 Battle"
-              icon="balloon.2.fill"
-              androidIcon="sports_soccer"
-              onPress={() => router.push('/(tabs)/(home)/mxi-airball-duo')}
-              color="#E74C3C"
-            />
-            <ActionButton
-              title="History"
-              subtitle="View records"
-              icon="clock.arrow.circlepath"
-              androidIcon="history"
-              onPress={() => router.push('/(tabs)/(home)/challenge-history')}
-              color="#34495E"
-            />
-          </View>
-        </View>
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => router.push('/(tabs)/(home)/referrals')}
+            >
+              <View style={styles.actionIconContainer}>
+                <IconSymbol ios_icon_name="person.3.fill" android_material_icon_name="group" size={32} color={colors.accent} />
+              </View>
+              <Text style={styles.actionTitle}>👥 Referrals</Text>
+              <Text style={styles.actionSubtitle}>Invite friends</Text>
+            </TouchableOpacity>
 
-        {/* Additional Features */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>More Features</Text>
-          <View style={styles.menuGrid}>
-            <ActionButton
-              title="KYC"
-              subtitle="Verify identity"
-              icon="checkmark.seal.fill"
-              androidIcon="verified_user"
+            <TouchableOpacity
+              style={styles.actionCard}
               onPress={() => router.push('/(tabs)/(home)/kyc-verification')}
-              color="#95E1D3"
-            />
-            <ActionButton
-              title="Support"
-              subtitle="Get help"
-              icon="questionmark.circle.fill"
-              androidIcon="help"
-              onPress={() => router.push('/(tabs)/(home)/support')}
-              color="#F38181"
-            />
+            >
+              <View style={styles.actionIconContainer}>
+                <IconSymbol ios_icon_name="checkmark.shield.fill" android_material_icon_name="verified_user" size={32} color={colors.warning} />
+              </View>
+              <Text style={styles.actionTitle}>🔐 KYC</Text>
+              <Text style={styles.actionSubtitle}>Verify identity</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
-        {/* Footer */}
-        <Footer />
+        <View style={styles.gamesSection}>
+          <Text style={styles.sectionTitle}>🎮 Challenge Games</Text>
+          <View style={styles.gamesGrid}>
+            <TouchableOpacity
+              style={styles.gameCard}
+              onPress={() => router.push('/(tabs)/(home)/xmi-tap-duo')}
+            >
+              <View style={styles.gameIconContainer}>
+                <IconSymbol ios_icon_name="hand.tap.fill" android_material_icon_name="touch_app" size={40} color={colors.primary} />
+              </View>
+              <Text style={styles.gameTitle}>👆 Tap Duo</Text>
+              <Text style={styles.gameSubtitle}>1v1 Tapping</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.gameCard}
+              onPress={() => router.push('/(tabs)/(home)/mxi-airball-duo')}
+            >
+              <View style={styles.gameIconContainer}>
+                <IconSymbol ios_icon_name="balloon.fill" android_material_icon_name="sports_volleyball" size={40} color={colors.accent} />
+              </View>
+              <Text style={styles.gameTitle}>🎈 Airball Duo</Text>
+              <Text style={styles.gameSubtitle}>1v1 Balance</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.gameCard}
+              onPress={() => router.push('/(tabs)/(home)/mxi-airball')}
+            >
+              <View style={styles.gameIconContainer}>
+                <IconSymbol ios_icon_name="balloon.2.fill" android_material_icon_name="sports_soccer" size={40} color={colors.success} />
+              </View>
+              <Text style={styles.gameTitle}>🎯 Airball</Text>
+              <Text style={styles.gameSubtitle}>Multi-player</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.gameCard}
+              onPress={() => router.push('/(tabs)/(home)/clickers')}
+            >
+              <View style={styles.gameIconContainer}>
+                <IconSymbol ios_icon_name="hand.point.up.left.fill" android_material_icon_name="ads_click" size={40} color={colors.warning} />
+              </View>
+              <Text style={styles.gameTitle}>🖱️ Clickers</Text>
+              <Text style={styles.gameSubtitle}>Speed clicking</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.gameCard}
+              onPress={() => router.push('/(tabs)/(home)/lottery')}
+            >
+              <View style={styles.gameIconContainer}>
+                <IconSymbol ios_icon_name="ticket.fill" android_material_icon_name="confirmation_number" size={40} color="#FFD700" />
+              </View>
+              <Text style={styles.gameTitle}>🎫 Lottery</Text>
+              <Text style={styles.gameSubtitle}>Win big!</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.gameCard}
+              onPress={() => router.push('/(tabs)/(home)/challenge-history')}
+            >
+              <View style={styles.gameIconContainer}>
+                <IconSymbol ios_icon_name="clock.fill" android_material_icon_name="history" size={40} color={colors.textSecondary} />
+              </View>
+              <Text style={styles.gameTitle}>📜 History</Text>
+              <Text style={styles.gameSubtitle}>View records</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={[commonStyles.card, styles.statsCard]}>
+          <Text style={styles.statsTitle}>📊 Pool Statistics</Text>
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <IconSymbol ios_icon_name="person.3.fill" android_material_icon_name="group" size={24} color={colors.primary} />
+              <Text style={styles.statValue}>{poolMembers.toLocaleString()}</Text>
+              <Text style={styles.statLabel}>👥 Members</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <IconSymbol ios_icon_name="person.2.fill" android_material_icon_name="people" size={24} color={colors.success} />
+              <Text style={styles.statValue}>{user.activeReferrals}</Text>
+              <Text style={styles.statLabel}>✅ Active Referrals</Text>
+            </View>
+          </View>
+        </View>
+
+        {isAdmin && (
+          <TouchableOpacity
+            style={[commonStyles.card, styles.adminCard]}
+            onPress={() => router.push('/(tabs)/(admin)')}
+          >
+            <View style={styles.adminContent}>
+              <IconSymbol ios_icon_name="shield.fill" android_material_icon_name="admin_panel_settings" size={32} color={colors.primary} />
+              <View style={styles.adminText}>
+                <Text style={styles.adminTitle}>🛡️ Admin Panel</Text>
+                <Text style={styles.adminSubtitle}>Manage system settings</Text>
+              </View>
+              <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={24} color={colors.textSecondary} />
+            </View>
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -305,44 +319,47 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: colors.textSecondary,
+  },
   scrollContent: {
-    padding: 20,
+    flexGrow: 1,
+    padding: 24,
     paddingBottom: 100,
   },
   header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 24,
-    marginTop: 60,
   },
-  logoContainer: {
-    width: 60,
-    height: 60,
-    marginRight: 16,
-  },
-  logo: {
-    width: '100%',
-    height: '100%',
-  },
-  headerText: {
-    flex: 1,
-  },
-  welcomeText: {
-    fontSize: 14,
+  greeting: {
+    fontSize: 16,
     color: colors.textSecondary,
+    marginBottom: 4,
   },
   userName: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '700',
     color: colors.text,
   },
+  profileButton: {
+    padding: 4,
+  },
   balanceCard: {
+    alignItems: 'center',
     marginBottom: 16,
   },
   balanceHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
     marginBottom: 8,
   },
   balanceLabel: {
@@ -350,100 +367,165 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   balanceAmount: {
-    fontSize: 36,
+    fontSize: 48,
     fontWeight: '700',
-    color: colors.primary,
+    color: colors.text,
     marginBottom: 4,
   },
-  balanceSubtext: {
-    fontSize: 14,
+  balanceCurrency: {
+    fontSize: 20,
+    fontWeight: '600',
     color: colors.textSecondary,
   },
-  phaseCard: {
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: colors.primary,
+  balanceDivider: {
+    width: '100%',
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: 16,
   },
-  phaseHeader: {
+  balanceRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    width: '100%',
+    gap: 16,
+  },
+  balanceItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  balanceItemLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  balanceItemValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  quickActions: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
     marginBottom: 16,
   },
-  phaseTitle: {
+  actionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  actionCard: {
+    flex: 1,
+    minWidth: '47%',
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  actionIconContainer: {
+    marginBottom: 12,
+  },
+  actionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  actionSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  gamesSection: {
+    marginBottom: 24,
+  },
+  gamesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  gameCard: {
+    flex: 1,
+    minWidth: '30%',
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  gameIconContainer: {
+    marginBottom: 12,
+  },
+  gameTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  gameSubtitle: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  statsCard: {
+    marginBottom: 16,
+  },
+  statsTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 16,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 8,
+  },
+  statValue: {
     fontSize: 24,
     fontWeight: '700',
     color: colors.text,
   },
-  phaseSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
-  phasePriceContainer: {
-    alignItems: 'flex-end',
-  },
-  phasePrice: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  phasePriceLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  progressContainer: {
-    marginBottom: 16,
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: colors.border,
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: colors.primary,
-  },
-  progressText: {
+  statLabel: {
     fontSize: 12,
     color: colors.textSecondary,
     textAlign: 'center',
   },
-  phaseStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  phaseStat: {
-    alignItems: 'center',
-  },
-  phaseStatValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  phaseStatLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
-  phaseStatDivider: {
+  statDivider: {
     width: 1,
+    height: 60,
     backgroundColor: colors.border,
   },
-  section: {
-    marginBottom: 24,
+  adminCard: {
+    backgroundColor: colors.highlight,
+    borderWidth: 2,
+    borderColor: colors.primary,
   },
-  sectionTitle: {
+  adminContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  adminText: {
+    flex: 1,
+  },
+  adminTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 12,
+    marginBottom: 4,
   },
-  menuGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+  adminSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
   },
 });

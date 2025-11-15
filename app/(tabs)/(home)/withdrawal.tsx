@@ -15,8 +15,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
+import { supabase } from '@/lib/supabase';
 
 type WithdrawalType = 'wallet' | 'unify';
+
+interface BalanceBreakdown {
+  mxiPurchasedDirectly: number;
+  mxiFromUnifiedCommissions: number;
+  mxiFromChallenges: number;
+  mxiVestingLocked: number;
+  commissionsAvailable: number;
+}
 
 export default function WithdrawalScreen() {
   const router = useRouter();
@@ -41,6 +50,13 @@ export default function WithdrawalScreen() {
   const [availableMXI, setAvailableMXI] = useState(0);
   const [currentPrice, setCurrentPrice] = useState(0.30);
   const [selectedType, setSelectedType] = useState<WithdrawalType>('wallet');
+  const [balanceBreakdown, setBalanceBreakdown] = useState<BalanceBreakdown>({
+    mxiPurchasedDirectly: 0,
+    mxiFromUnifiedCommissions: 0,
+    mxiFromChallenges: 0,
+    mxiVestingLocked: 0,
+    commissionsAvailable: 0,
+  });
 
   useEffect(() => {
     loadData();
@@ -59,6 +75,26 @@ export default function WithdrawalScreen() {
     if (phaseInfo) {
       setCurrentPrice(phaseInfo.currentPriceUsdt);
     }
+
+    // Load balance breakdown
+    if (user) {
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges, mxi_vesting_locked')
+        .eq('id', user.id)
+        .single();
+
+      if (!error && userData) {
+        setBalanceBreakdown({
+          mxiPurchasedDirectly: parseFloat(userData.mxi_purchased_directly?.toString() || '0'),
+          mxiFromUnifiedCommissions: parseFloat(userData.mxi_from_unified_commissions?.toString() || '0'),
+          mxiFromChallenges: parseFloat(userData.mxi_from_challenges?.toString() || '0'),
+          mxiVestingLocked: parseFloat(userData.mxi_vesting_locked?.toString() || '0'),
+          commissionsAvailable: user.commissions.available,
+        });
+      }
+    }
+    
     setCheckingEligibility(false);
   };
 
@@ -68,27 +104,27 @@ export default function WithdrawalScreen() {
     const amount = parseFloat(withdrawAmount);
 
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount');
+      Alert.alert('❌ Error', 'Please enter a valid amount');
       return;
     }
 
     if (amount > availableMXI) {
-      Alert.alert('Error', `You can only withdraw up to ${availableMXI.toFixed(2)} MXI at this time`);
+      Alert.alert('❌ Error', `You can only withdraw up to ${availableMXI.toFixed(2)} MXI at this time`);
       return;
     }
 
     if (!walletAddress || walletAddress.length < 10) {
-      Alert.alert('Error', 'Please enter a valid MXI wallet address');
+      Alert.alert('❌ Error', 'Please enter a valid MXI wallet address');
       return;
     }
 
     Alert.alert(
-      'Confirm MXI Withdrawal',
-      `You are about to withdraw ${amount.toFixed(2)} MXI to:\n\n${walletAddress}\n\nThis action cannot be undone.`,
+      '💰 Confirm MXI Withdrawal',
+      `You are about to withdraw ${amount.toFixed(2)} MXI to:\n\n${walletAddress}\n\n⚠️ This action cannot be undone.`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: '❌ Cancel', style: 'cancel' },
         {
-          text: 'Confirm',
+          text: '✅ Confirm',
           onPress: async () => {
             setLoading(true);
             const result = await withdrawMXI(amount, walletAddress);
@@ -96,8 +132,8 @@ export default function WithdrawalScreen() {
 
             if (result.success) {
               Alert.alert(
-                'Success',
-                'MXI withdrawal request submitted! Your tokens will be processed within 24-48 hours.',
+                '✅ Success',
+                '💰 MXI withdrawal request submitted! Your tokens will be processed within 24-48 hours.',
                 [
                   {
                     text: 'OK',
@@ -109,7 +145,7 @@ export default function WithdrawalScreen() {
                 ]
               );
             } else {
-              Alert.alert('Error', result.error || 'Failed to process withdrawal');
+              Alert.alert('❌ Error', result.error || 'Failed to process withdrawal');
             }
           },
         },
@@ -123,12 +159,12 @@ export default function WithdrawalScreen() {
     const amount = parseFloat(unifyAmount);
 
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount');
+      Alert.alert('❌ Error', 'Please enter a valid amount');
       return;
     }
 
     if (amount > user.commissions.available) {
-      Alert.alert('Error', `You only have ${user.commissions.available.toFixed(2)} USDT available`);
+      Alert.alert('❌ Error', `You only have ${user.commissions.available.toFixed(2)} USDT available`);
       return;
     }
 
@@ -136,11 +172,11 @@ export default function WithdrawalScreen() {
 
     Alert.alert(
       '💎 Unify Balance to MXI',
-      `Convert ${amount.toFixed(2)} USDT to ${mxiAmount.toFixed(4)} MXI?\n\nCurrent price: ${currentPrice.toFixed(2)} USDT per MXI\n\nThis will add the MXI to your general balance.`,
+      `Convert ${amount.toFixed(2)} USDT to ${mxiAmount.toFixed(4)} MXI?\n\n💵 Current price: ${currentPrice.toFixed(2)} USDT per MXI\n\n✨ This will add the MXI to your general balance.`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: '❌ Cancel', style: 'cancel' },
         {
-          text: 'Unify',
+          text: '✅ Unify',
           onPress: async () => {
             setUnifying(true);
             const result = await unifyCommissionToMXI(amount);
@@ -149,11 +185,11 @@ export default function WithdrawalScreen() {
             if (result.success) {
               Alert.alert(
                 '✅ Balance Unified',
-                `Successfully converted ${amount.toFixed(2)} USDT to ${result.mxiAmount?.toFixed(4)} MXI.\n\nYour MXI balance has been updated.`,
-                [{ text: 'Excellent', onPress: () => setUnifyAmount('') }]
+                `Successfully converted ${amount.toFixed(2)} USDT to ${result.mxiAmount?.toFixed(4)} MXI.\n\n💎 Your MXI balance has been updated.`,
+                [{ text: '🎉 Excellent', onPress: () => setUnifyAmount('') }]
               );
             } else {
-              Alert.alert('Error', result.error || 'Failed to unify balance');
+              Alert.alert('❌ Error', result.error || 'Failed to unify balance');
             }
           },
         },
@@ -175,42 +211,54 @@ export default function WithdrawalScreen() {
   const walletRequirements = [
     {
       id: 'active_referrals',
-      label: '5 Active Referrals',
+      label: '👥 5 Active Referrals',
       met: user.activeReferrals >= 5,
       progress: `${user.activeReferrals}/5`,
+      icon: 'person.3.fill',
+      androidIcon: 'group',
     },
     {
       id: 'kyc_verification',
-      label: 'KYC Verification',
+      label: '🔐 KYC Verification',
       met: user.kycStatus === 'approved',
-      progress: user.kycStatus === 'approved' ? 'Approved' : user.kycStatus === 'pending' ? 'Pending' : 'Not Submitted',
+      progress: user.kycStatus === 'approved' ? '✅ Approved' : user.kycStatus === 'pending' ? '⏳ Pending' : '❌ Not Submitted',
+      icon: 'checkmark.shield.fill',
+      androidIcon: 'verified_user',
     },
     {
       id: 'pool_launched',
-      label: 'Pool Launched',
+      label: '🚀 Pool Launched',
       met: poolStatus?.is_mxi_launched || false,
-      progress: poolStatus?.is_mxi_launched ? 'Launched' : `${poolStatus?.days_until_launch || 0} days`,
+      progress: poolStatus?.is_mxi_launched ? '✅ Launched' : `⏳ ${poolStatus?.days_until_launch || 0} days`,
+      icon: 'rocket.fill',
+      androidIcon: 'rocket_launch',
     },
     {
       id: 'available_balance',
-      label: 'Available MXI Balance',
+      label: '💰 Available MXI Balance',
       met: availableMXI > 0,
       progress: `${availableMXI.toFixed(2)} MXI`,
+      icon: 'dollarsign.circle.fill',
+      androidIcon: 'account_balance_wallet',
     },
     {
       id: 'membership_duration',
-      label: '10 Days Membership',
+      label: '⏱️ 10 Days Membership',
       met: user.canWithdraw,
-      progress: user.canWithdraw ? 'Completed' : 'In Progress',
+      progress: user.canWithdraw ? '✅ Completed' : '⏳ In Progress',
+      icon: 'calendar.badge.clock',
+      androidIcon: 'event_available',
     },
   ];
 
   const unifyRequirements = [
     {
       id: 'commission_balance',
-      label: 'Commission Balance Available',
+      label: '💵 Commission Balance Available',
       met: user.commissions.available > 0,
       progress: `${user.commissions.available.toFixed(2)} USDT`,
+      icon: 'banknote.fill',
+      androidIcon: 'payments',
     },
   ];
 
@@ -224,21 +272,21 @@ export default function WithdrawalScreen() {
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="chevron_left" size={24} color={colors.primary} />
           </TouchableOpacity>
-          <Text style={styles.title}>Withdrawal</Text>
+          <Text style={styles.title}>💰 Withdrawal</Text>
           <Text style={styles.subtitle}>Manage your balance withdrawals</Text>
         </View>
 
         {/* Balance Overview */}
         <View style={styles.balanceCard}>
-          <Text style={styles.balanceTitle}>💰 Balance Overview</Text>
+          <Text style={styles.balanceTitle}>📊 Balance Overview</Text>
           <View style={styles.balanceRow}>
             <View style={styles.balanceItem}>
-              <Text style={styles.balanceLabel}>Total Balance</Text>
+              <Text style={styles.balanceLabel}>💎 Total Balance</Text>
               <Text style={styles.balanceValue}>{user.mxiBalance.toFixed(2)} MXI</Text>
             </View>
             <View style={styles.balanceDivider} />
             <View style={styles.balanceItem}>
-              <Text style={styles.balanceLabel}>Available for Withdrawal</Text>
+              <Text style={styles.balanceLabel}>✅ Available for Withdrawal</Text>
               <Text style={[styles.balanceValue, styles.balanceValueHighlight]}>
                 {availableMXI.toFixed(2)} MXI
               </Text>
@@ -246,15 +294,65 @@ export default function WithdrawalScreen() {
           </View>
           <View style={styles.balanceRow}>
             <View style={styles.balanceItem}>
-              <Text style={styles.balanceLabel}>Commission Balance</Text>
+              <Text style={styles.balanceLabel}>💵 Commission Balance</Text>
               <Text style={styles.balanceValue}>{user.commissions.available.toFixed(2)} USDT</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Balance Breakdown Table */}
+        <View style={styles.breakdownCard}>
+          <Text style={styles.breakdownTitle}>📋 Balance Breakdown</Text>
+          <View style={styles.breakdownTable}>
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownLabelContainer}>
+                <Text style={styles.breakdownLabel}>💰 USDT Purchases (MXI)</Text>
+                <Text style={styles.breakdownNote}>🔒 Locked until launch</Text>
+              </View>
+              <Text style={styles.breakdownValue}>{balanceBreakdown.mxiPurchasedDirectly.toFixed(2)}</Text>
+            </View>
+            <View style={styles.breakdownDivider} />
+            
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownLabelContainer}>
+                <Text style={styles.breakdownLabel}>🔄 Unified Commissions (MXI)</Text>
+                <Text style={styles.breakdownNote}>🔒 Locked until launch</Text>
+              </View>
+              <Text style={styles.breakdownValue}>{balanceBreakdown.mxiFromUnifiedCommissions.toFixed(2)}</Text>
+            </View>
+            <View style={styles.breakdownDivider} />
+            
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownLabelContainer}>
+                <Text style={styles.breakdownLabel}>🎮 Challenge Winnings (MXI)</Text>
+                <Text style={styles.breakdownNote}>✅ Requires 5 referrals + KYC</Text>
+              </View>
+              <Text style={[styles.breakdownValue, styles.breakdownValueSuccess]}>{balanceBreakdown.mxiFromChallenges.toFixed(2)}</Text>
+            </View>
+            <View style={styles.breakdownDivider} />
+            
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownLabelContainer}>
+                <Text style={styles.breakdownLabel}>⏳ Vesting Gains (MXI)</Text>
+                <Text style={styles.breakdownNote}>🔒 Locked until launch</Text>
+              </View>
+              <Text style={styles.breakdownValue}>{balanceBreakdown.mxiVestingLocked.toFixed(2)}</Text>
+            </View>
+            <View style={styles.breakdownDivider} />
+            
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownLabelContainer}>
+                <Text style={styles.breakdownLabel}>💵 Referral Commissions (USDT)</Text>
+                <Text style={styles.breakdownNote}>✅ Requires 5 referrals + KYC</Text>
+              </View>
+              <Text style={[styles.breakdownValue, styles.breakdownValueSuccess]}>{balanceBreakdown.commissionsAvailable.toFixed(2)}</Text>
             </View>
           </View>
         </View>
 
         {/* Withdrawal Type Selector */}
         <View style={styles.typeSelectorCard}>
-          <Text style={styles.typeSelectorTitle}>Select Withdrawal Type</Text>
+          <Text style={styles.typeSelectorTitle}>🎯 Select Withdrawal Type</Text>
           <View style={styles.typeSelectorButtons}>
             <TouchableOpacity
               style={[
@@ -273,7 +371,7 @@ export default function WithdrawalScreen() {
                 styles.typeSelectorButtonText,
                 selectedType === 'wallet' && styles.typeSelectorButtonTextActive,
               ]}>
-                Withdraw to Wallet
+                💰 Withdraw to Wallet
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -293,7 +391,7 @@ export default function WithdrawalScreen() {
                 styles.typeSelectorButtonText,
                 selectedType === 'unify' && styles.typeSelectorButtonTextActive,
               ]}>
-                Unify Balance
+                🔄 Unify Balance
               </Text>
             </TouchableOpacity>
           </View>
@@ -309,7 +407,7 @@ export default function WithdrawalScreen() {
               color={colors.primary} 
             />
             <Text style={styles.requirementsTitle}>
-              {selectedType === 'wallet' ? 'Wallet Withdrawal Requirements' : 'Unify Balance Requirements'}
+              {selectedType === 'wallet' ? '📋 Wallet Withdrawal Requirements' : '📋 Unify Balance Requirements'}
             </Text>
           </View>
           
@@ -328,8 +426,8 @@ export default function WithdrawalScreen() {
             </View>
             <Text style={styles.requirementsProgressText}>
               {selectedType === 'wallet' 
-                ? `${walletRequirementsMet}/${walletRequirements.length} Requirements Met`
-                : `${unifyRequirementsMet}/${unifyRequirements.length} Requirements Met`}
+                ? `✅ ${walletRequirementsMet}/${walletRequirements.length} Requirements Met`
+                : `✅ ${unifyRequirementsMet}/${unifyRequirements.length} Requirements Met`}
             </Text>
           </View>
 
@@ -366,9 +464,9 @@ export default function WithdrawalScreen() {
             >
               <IconSymbol ios_icon_name="person.badge.shield.checkmark" android_material_icon_name="verified_user" size={20} color="#fff" />
               <Text style={styles.kycButtonText}>
-                {user.kycStatus === 'not_submitted' ? 'Start KYC Verification' :
-                 user.kycStatus === 'pending' ? 'View KYC Status' :
-                 'Resubmit KYC'}
+                {user.kycStatus === 'not_submitted' ? '🔐 Start KYC Verification' :
+                 user.kycStatus === 'pending' ? '⏳ View KYC Status' :
+                 '🔄 Resubmit KYC'}
               </Text>
             </TouchableOpacity>
           )}
@@ -380,7 +478,7 @@ export default function WithdrawalScreen() {
             <Text style={styles.formTitle}>💵 Withdraw to Wallet</Text>
             
             <View style={styles.inputContainer}>
-              <Text style={commonStyles.label}>Amount (MXI)</Text>
+              <Text style={commonStyles.label}>💰 Amount (MXI)</Text>
               <TextInput
                 style={commonStyles.input}
                 placeholder={`Max: ${availableMXI.toFixed(2)}`}
@@ -398,7 +496,7 @@ export default function WithdrawalScreen() {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={commonStyles.label}>MXI Wallet Address</Text>
+              <Text style={commonStyles.label}>🏦 MXI Wallet Address</Text>
               <TextInput
                 style={[commonStyles.input, styles.addressInput]}
                 placeholder="Enter your MXI wallet address"
@@ -420,7 +518,7 @@ export default function WithdrawalScreen() {
               ) : (
                 <React.Fragment>
                   <IconSymbol ios_icon_name="arrow.down.circle.fill" android_material_icon_name="arrow_circle_down" size={20} color="#fff" />
-                  <Text style={styles.submitButtonText}>Withdraw to Wallet</Text>
+                  <Text style={styles.submitButtonText}>💰 Withdraw to Wallet</Text>
                 </React.Fragment>
               )}
             </TouchableOpacity>
@@ -432,7 +530,7 @@ export default function WithdrawalScreen() {
             <Text style={styles.formTitle}>💎 Unify Balance to MXI</Text>
             
             <View style={styles.inputContainer}>
-              <Text style={commonStyles.label}>Amount (USDT)</Text>
+              <Text style={commonStyles.label}>💵 Amount (USDT)</Text>
               <TextInput
                 style={commonStyles.input}
                 placeholder={`Max: ${user.commissions.available.toFixed(2)}`}
@@ -451,12 +549,12 @@ export default function WithdrawalScreen() {
 
             {unifyAmount && parseFloat(unifyAmount) > 0 && (
               <View style={styles.conversionInfo}>
-                <Text style={styles.conversionLabel}>You will receive:</Text>
+                <Text style={styles.conversionLabel}>✨ You will receive:</Text>
                 <Text style={styles.conversionValue}>
                   ≈ {(parseFloat(unifyAmount) / currentPrice).toFixed(4)} MXI
                 </Text>
                 <Text style={styles.conversionRate}>
-                  Current rate: 1 MXI = {currentPrice.toFixed(2)} USDT
+                  💵 Current rate: 1 MXI = {currentPrice.toFixed(2)} USDT
                 </Text>
               </View>
             )}
@@ -471,7 +569,7 @@ export default function WithdrawalScreen() {
               ) : (
                 <React.Fragment>
                   <IconSymbol ios_icon_name="arrow.triangle.2.circlepath" android_material_icon_name="sync" size={20} color={colors.accent} />
-                  <Text style={[styles.submitButtonText, { color: colors.accent }]}>Unify to MXI Balance</Text>
+                  <Text style={[styles.submitButtonText, { color: colors.accent }]}>🔄 Unify to MXI Balance</Text>
                 </React.Fragment>
               )}
             </TouchableOpacity>
@@ -482,25 +580,25 @@ export default function WithdrawalScreen() {
         <View style={styles.infoCard}>
           <IconSymbol ios_icon_name="info.circle.fill" android_material_icon_name="info" size={20} color={colors.primary} />
           <View style={styles.infoContent}>
-            <Text style={styles.infoTitle}>Important Information:</Text>
+            <Text style={styles.infoTitle}>ℹ️ Important Information:</Text>
             <Text style={styles.infoText}>
               {selectedType === 'wallet' ? (
                 <>
-                  • Wallet withdrawals require 5 active referrals{'\n'}
-                  • KYC verification is mandatory{'\n'}
-                  • Only available MXI can be withdrawn{'\n'}
-                  • Remaining balance releases every 7 days{'\n'}
-                  • Processing time: 24-48 hours{'\n'}
-                  • Verify wallet address carefully{'\n'}
-                  • Transactions cannot be reversed
+                  • 👥 Wallet withdrawals require 5 active referrals{'\n'}
+                  • 🔐 KYC verification is mandatory{'\n'}
+                  • ✅ Only available MXI can be withdrawn{'\n'}
+                  • 📅 Remaining balance releases every 7 days{'\n'}
+                  • ⏱️ Processing time: 24-48 hours{'\n'}
+                  • ⚠️ Verify wallet address carefully{'\n'}
+                  • 🚫 Transactions cannot be reversed
                 </>
               ) : (
                 <>
-                  • No requirements for unifying balance{'\n'}
-                  • Converts USDT commissions to MXI{'\n'}
-                  • Uses current market price{'\n'}
-                  • Instant conversion{'\n'}
-                  • MXI added to general balance{'\n'}
+                  • ✅ No requirements for unifying balance{'\n'}
+                  • 🔄 Converts USDT commissions to MXI{'\n'}
+                  • 💵 Uses current market price{'\n'}
+                  • ⚡ Instant conversion{'\n'}
+                  • 💎 MXI added to general balance{'\n'}
                   • ⚠️ Unified MXI does NOT count for vesting percentage
                 </>
               )}
@@ -581,6 +679,56 @@ const styles = StyleSheet.create({
   },
   balanceDivider: {
     width: 1,
+    backgroundColor: colors.border,
+  },
+  breakdownCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  breakdownTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 16,
+  },
+  breakdownTable: {
+    gap: 0,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  breakdownLabelContainer: {
+    flex: 1,
+    marginRight: 12,
+  },
+  breakdownLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  breakdownNote: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+  },
+  breakdownValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  breakdownValueSuccess: {
+    color: colors.success,
+  },
+  breakdownDivider: {
+    height: 1,
     backgroundColor: colors.border,
   },
   typeSelectorCard: {
