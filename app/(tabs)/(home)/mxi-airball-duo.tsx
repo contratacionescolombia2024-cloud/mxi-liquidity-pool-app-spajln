@@ -30,7 +30,6 @@ const CENTER_ZONE_TOP = (GAME_HEIGHT - CENTER_ZONE_HEIGHT) / 2;
 const GRAVITY = 0.8;
 const BLOW_MULTIPLIER = 3;
 const GAME_DURATION = 40000; // 40 seconds
-const PARTICIPATION_TIMEOUT = 600; // 10 minutes in seconds
 
 interface Battle {
   id: string;
@@ -109,7 +108,6 @@ export default function MXIAirballDuoScreen() {
   const [pendingWager, setPendingWager] = useState(0);
   const [pendingBattle, setPendingBattle] = useState<Battle | null>(null);
   const [isCreatingChallenge, setIsCreatingChallenge] = useState(false);
-  const [cancellingBattle, setCancellingBattle] = useState(false);
 
   // Game state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -118,14 +116,12 @@ export default function MXIAirballDuoScreen() {
   const [blowStrength, setBlowStrength] = useState(0);
   const [centerTime, setCenterTime] = useState(0);
   const [timeLeft, setTimeLeft] = useState(40);
-  const [participationTimeLeft, setParticipationTimeLeft] = useState(PARTICIPATION_TIMEOUT);
 
   const ballAnim = useRef(new Animated.Value(GAME_HEIGHT / 2)).current;
   const recording = useRef<Audio.Recording | null>(null);
   const gameLoopRef = useRef<NodeJS.Timeout | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const meteringRef = useRef<NodeJS.Timeout | null>(null);
-  const participationTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     requestPermissions();
@@ -140,112 +136,8 @@ export default function MXIAirballDuoScreen() {
       if (gameLoopRef.current) clearInterval(gameLoopRef.current);
       if (timerRef.current) clearInterval(timerRef.current);
       if (meteringRef.current) clearInterval(meteringRef.current);
-      if (participationTimerRef.current) clearInterval(participationTimerRef.current);
     };
   }, []);
-
-  useEffect(() => {
-    // Start participation timer when battle is matched and user hasn't finished
-    if (activeBattle && activeBattle.status === 'matched' && !isPlaying) {
-      const isChallenger = activeBattle.challenger_id === user?.id;
-      const hasFinished = isChallenger
-        ? activeBattle.challenger_finished_at
-        : activeBattle.opponent_finished_at;
-
-      if (!hasFinished) {
-        startParticipationTimer();
-      }
-    }
-
-    return () => {
-      if (participationTimerRef.current) {
-        clearInterval(participationTimerRef.current);
-        participationTimerRef.current = null;
-      }
-    };
-  }, [activeBattle, isPlaying]);
-
-  const startParticipationTimer = () => {
-    if (!activeBattle) return;
-
-    if (participationTimerRef.current) {
-      clearInterval(participationTimerRef.current);
-    }
-
-    const matchedAt = new Date(activeBattle.created_at).getTime();
-    const now = Date.now();
-    const elapsed = Math.floor((now - matchedAt) / 1000);
-    const remaining = Math.max(0, PARTICIPATION_TIMEOUT - elapsed);
-
-    setParticipationTimeLeft(remaining);
-
-    if (remaining <= 0) {
-      handleParticipationTimeout();
-      return;
-    }
-
-    participationTimerRef.current = setInterval(() => {
-      setParticipationTimeLeft((prev) => {
-        if (prev <= 1) {
-          handleParticipationTimeout();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  const handleParticipationTimeout = async () => {
-    if (participationTimerRef.current) {
-      clearInterval(participationTimerRef.current);
-      participationTimerRef.current = null;
-    }
-
-    if (!activeBattle || !user || isPlaying) return;
-
-    const isChallenger = activeBattle.challenger_id === user.id;
-    const hasFinished = isChallenger
-      ? activeBattle.challenger_finished_at
-      : activeBattle.opponent_finished_at;
-
-    if (hasFinished) return;
-
-    // Submit score of 0
-    try {
-      console.log('⏰ Participation timeout - submitting score of 0');
-      const updateData: any = {
-        status: 'in_progress',
-      };
-
-      if (isChallenger) {
-        updateData.challenger_center_time = 0;
-        updateData.challenger_finished_at = new Date().toISOString();
-      } else {
-        updateData.opponent_center_time = 0;
-        updateData.opponent_finished_at = new Date().toISOString();
-      }
-
-      await supabase
-        .from('airball_duo_battles')
-        .update(updateData)
-        .eq('id', activeBattle.id);
-
-      Alert.alert(
-        '⏰ Time Expired',
-        'You did not complete the challenge within 10 minutes. Your score has been set to 0.'
-      );
-
-      loadActiveBattle();
-    } catch (error) {
-      console.error('Error handling timeout:', error);
-    }
-  };
-
-  const formatParticipationTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   const loadAvailableBalances = async () => {
     if (!user) return;
@@ -449,152 +341,6 @@ export default function MXIAirballDuoScreen() {
     }
   };
 
-  const handleCancelChallenge = async () => {
-    if (!activeBattle || !user || cancellingBattle) return;
-
-    console.log('🚫 ========== CANCEL CHALLENGE START ==========');
-    console.log('Battle ID:', activeBattle.id);
-    console.log('Battle Status:', activeBattle.status);
-    console.log('User ID:', user.id);
-    console.log('Challenger ID:', activeBattle.challenger_id);
-    console.log('Opponent ID:', activeBattle.opponent_id);
-    console.log('Wager Amount:', activeBattle.wager_amount);
-    console.log('Challenger Payment Source:', activeBattle.challenger_payment_source);
-    console.log('Opponent Payment Source:', activeBattle.opponent_payment_source);
-
-    const isChallenger = activeBattle.challenger_id === user.id;
-    console.log('Is Challenger:', isChallenger);
-
-    // Calculate elapsed time
-    const matchedAt = new Date(activeBattle.created_at).getTime();
-    const now = Date.now();
-    const elapsed = Math.floor((now - matchedAt) / 1000);
-    console.log('Elapsed seconds since creation:', elapsed);
-
-    // Determine cancellation type
-    if (activeBattle.status === 'waiting') {
-      console.log('Cancellation type: WAITING');
-      Alert.alert(
-        'Cancel Challenge?',
-        'Are you sure you want to cancel this challenge? Your wager will be refunded.',
-        [
-          { text: 'No', style: 'cancel' },
-          {
-            text: 'Yes, Cancel',
-            style: 'destructive',
-            onPress: () => executeCancellation('User cancelled while waiting for opponent'),
-          },
-        ]
-      );
-    } else if (activeBattle.status === 'matched' || activeBattle.status === 'in_progress') {
-      console.log('Cancellation type: MATCHED/IN_PROGRESS');
-      
-      if (elapsed < 600) {
-        console.log('Cannot cancel yet - less than 10 minutes elapsed');
-        Alert.alert(
-          '⏰ Cannot Cancel Yet',
-          `You can cancel this challenge after 10 minutes if your opponent doesn't participate.\n\nTime remaining: ${formatParticipationTime(600 - elapsed)}`
-        );
-        return;
-      }
-
-      console.log('Can cancel - 10 minutes elapsed');
-      Alert.alert(
-        'Cancel Challenge?',
-        'Your opponent has not participated within 10 minutes. Do you want to cancel and claim the pot?',
-        [
-          { text: 'No', style: 'cancel' },
-          {
-            text: 'Yes, Cancel',
-            style: 'destructive',
-            onPress: () => executeCancellation('Opponent did not participate within 10 minutes'),
-          },
-        ]
-      );
-    } else {
-      console.log('Cannot cancel - invalid status:', activeBattle.status);
-      Alert.alert('⚠️ Cannot Cancel', 'This challenge cannot be cancelled at this time.');
-    }
-  };
-
-  const executeCancellation = async (reason: string) => {
-    if (!activeBattle || !user) return;
-
-    setCancellingBattle(true);
-    console.log('🚀 Executing cancellation with reason:', reason);
-
-    try {
-      // Call the database function
-      console.log('Calling cancel_airball_duo_battle RPC...');
-      const { data, error } = await supabase.rpc('cancel_airball_duo_battle', {
-        p_battle_id: activeBattle.id,
-        p_user_id: user.id,
-        p_reason: reason,
-      });
-
-      console.log('RPC Response:', { data, error });
-
-      if (error) {
-        console.error('❌ RPC Error:', error);
-        throw new Error(error.message || 'Failed to cancel challenge');
-      }
-
-      if (!data) {
-        console.error('❌ No data returned from RPC');
-        throw new Error('No response from cancellation function');
-      }
-
-      console.log('✅ Cancellation result:', data);
-
-      // Handle different outcomes
-      if (data.success) {
-        if (data.winner_id) {
-          console.log('🏆 Winner declared:', data.winner_id);
-          Alert.alert(
-            '🏆 You Win!',
-            `Your opponent didn't participate. You won ${data.prize} MXI!`
-          );
-        } else if (data.refunded_both) {
-          console.log('💰 Both players refunded');
-          Alert.alert(
-            '✅ Challenge Cancelled',
-            'Neither player participated. Both wagers have been refunded.'
-          );
-        } else if (data.refund_amount) {
-          console.log('💰 Refund amount:', data.refund_amount);
-          Alert.alert(
-            '✅ Challenge Cancelled',
-            `Your wager of ${data.refund_amount} MXI has been refunded.`
-          );
-        } else {
-          console.log('✅ Generic success');
-          Alert.alert('✅ Challenge Cancelled', 'The challenge has been cancelled successfully.');
-        }
-
-        // Reload data
-        console.log('Reloading battle and balance data...');
-        await Promise.all([
-          loadActiveBattle(),
-          loadAvailableBalances(),
-          loadWaitingBattles(),
-        ]);
-        console.log('Data reloaded successfully');
-      } else {
-        console.error('❌ Cancellation failed:', data.error);
-        Alert.alert('❌ Error', data.error || 'Failed to cancel challenge');
-      }
-    } catch (error: any) {
-      console.error('❌ Exception during cancellation:', error);
-      Alert.alert(
-        '❌ Error',
-        error.message || 'An unexpected error occurred while cancelling the challenge.'
-      );
-    } finally {
-      setCancellingBattle(false);
-      console.log('🚫 ========== CANCEL CHALLENGE END ==========');
-    }
-  };
-
   const handleCreateChallenge = async () => {
     if (!user) return;
 
@@ -716,7 +462,7 @@ export default function MXIAirballDuoScreen() {
           challenge_type: challengeType,
           status: opponentId ? 'matched' : 'waiting',
           expires_at: null,
-          challenger_payment_source: source, // CRITICAL: Store payment source
+          challenger_payment_source: source,
         })
         .select()
         .single();
@@ -855,7 +601,7 @@ export default function MXIAirballDuoScreen() {
           prize_amount: prizeAmount,
           admin_fee: adminFee,
           status: 'matched',
-          opponent_payment_source: source, // CRITICAL: Store payment source
+          opponent_payment_source: source,
         })
         .eq('id', pendingBattle.id);
 
@@ -874,7 +620,7 @@ export default function MXIAirballDuoScreen() {
         message: `${user.name} has accepted your AirBall challenge!`,
       });
 
-      Alert.alert('✅ Challenge Accepted!', '💨 Get ready to blow! You have 10 minutes to complete the challenge.');
+      Alert.alert('✅ Challenge Accepted!', '💨 Get ready to blow!');
       loadActiveBattle();
       loadWaitingBattles();
       loadAvailableBalances();
@@ -895,11 +641,6 @@ export default function MXIAirballDuoScreen() {
 
     try {
       console.log('Starting game...');
-      
-      // Stop participation timer when game starts
-      if (participationTimerRef.current) {
-        clearInterval(participationTimerRef.current);
-      }
 
       // Mark that user has started
       if (activeBattle && user) {
@@ -1172,20 +913,6 @@ export default function MXIAirballDuoScreen() {
             Waiting for an opponent to accept your challenge
           </Text>
           <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
-          
-          {isChallenger && (
-            <TouchableOpacity
-              style={[buttonStyles.outline, styles.cancelButton]}
-              onPress={handleCancelChallenge}
-              disabled={cancellingBattle}
-            >
-              {cancellingBattle ? (
-                <ActivityIndicator color={colors.primary} />
-              ) : (
-                <Text style={buttonStyles.outlineText}>Cancel Challenge</Text>
-              )}
-            </TouchableOpacity>
-          )}
         </View>
       );
     }
@@ -1203,24 +930,7 @@ export default function MXIAirballDuoScreen() {
           {!opponentFinished && (
             <React.Fragment>
               <Text style={styles.waitingText}>⏳ Waiting for opponent to finish...</Text>
-              <Text style={styles.timerWarning}>
-                ⚠️ Opponent has {formatParticipationTime(participationTimeLeft)} to complete
-              </Text>
               <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
-              
-              {participationTimeLeft <= 0 && (
-                <TouchableOpacity
-                  style={[buttonStyles.outline, { marginTop: 20 }]}
-                  onPress={handleCancelChallenge}
-                  disabled={cancellingBattle}
-                >
-                  {cancellingBattle ? (
-                    <ActivityIndicator color={colors.primary} />
-                  ) : (
-                    <Text style={buttonStyles.outlineText}>Claim Win (Opponent Timeout)</Text>
-                  )}
-                </TouchableOpacity>
-              )}
             </React.Fragment>
           )}
         </View>
@@ -1288,18 +998,6 @@ export default function MXIAirballDuoScreen() {
           🏆 Prize (90%): {activeBattle.prize_amount.toFixed(2)} MXI
         </Text>
         
-        {participationTimeLeft > 0 && (
-          <View style={styles.participationTimer}>
-            <Text style={styles.participationTimerLabel}>⏰ Time to Start:</Text>
-            <Text style={styles.participationTimerValue}>
-              {formatParticipationTime(participationTimeLeft)}
-            </Text>
-            <Text style={styles.participationTimerWarning}>
-              ⚠️ Start within 10 minutes or score will be 0
-            </Text>
-          </View>
-        )}
-        
         <Text style={styles.battleInfo}>
           💨 Blow into your microphone to keep the ball in the center zone for 40 seconds!
         </Text>
@@ -1309,20 +1007,6 @@ export default function MXIAirballDuoScreen() {
         >
           <Text style={buttonStyles.primaryText}>🎮 Start Game!</Text>
         </TouchableOpacity>
-        
-        {participationTimeLeft <= 0 && (
-          <TouchableOpacity
-            style={[buttonStyles.outline, { marginTop: 12 }]}
-            onPress={handleCancelChallenge}
-            disabled={cancellingBattle}
-          >
-            {cancellingBattle ? (
-              <ActivityIndicator color={colors.primary} />
-            ) : (
-              <Text style={buttonStyles.outlineText}>Cancel (Timeout)</Text>
-            )}
-          </TouchableOpacity>
-        )}
       </View>
     );
   };
@@ -1453,23 +1137,11 @@ export default function MXIAirballDuoScreen() {
           </View>
           <View style={styles.infoItem}>
             <Text style={styles.infoBullet}>4️⃣</Text>
-            <Text style={styles.infoText}>You have 10 minutes to start the challenge after matching</Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoBullet}>5️⃣</Text>
             <Text style={styles.infoText}>Blow into your microphone to keep the ball in the center zone 💨</Text>
           </View>
           <View style={styles.infoItem}>
-            <Text style={styles.infoBullet}>6️⃣</Text>
+            <Text style={styles.infoBullet}>5️⃣</Text>
             <Text style={styles.infoText}>Longest center time wins 90% of the pot! 🏆</Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoBullet}>⚠️</Text>
-            <Text style={styles.infoText}>If you don&apos;t start within 10 minutes, your score will be 0 and you&apos;ll forfeit</Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoBullet}>🚫</Text>
-            <Text style={styles.infoText}>You can cancel waiting challenges anytime, or claim win after 10 minutes if opponent doesn&apos;t participate</Text>
           </View>
         </View>
       </ScrollView>
@@ -1794,40 +1466,6 @@ const styles = StyleSheet.create({
   },
   startButton: {
     width: '100%',
-  },
-  cancelButton: {
-    width: '100%',
-    marginTop: 16,
-  },
-  participationTimer: {
-    backgroundColor: colors.warning + '20',
-    borderRadius: 12,
-    padding: 16,
-    marginVertical: 16,
-    alignItems: 'center',
-    width: '100%',
-  },
-  participationTimerLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  participationTimerValue: {
-    fontSize: 36,
-    fontWeight: '700',
-    color: colors.warning,
-    marginBottom: 8,
-  },
-  participationTimerWarning: {
-    fontSize: 12,
-    color: colors.warning,
-    textAlign: 'center',
-  },
-  timerWarning: {
-    fontSize: 12,
-    color: colors.warning,
-    marginTop: 8,
-    textAlign: 'center',
   },
   gameCard: {
     minHeight: 400,
