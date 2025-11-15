@@ -12,13 +12,13 @@ import {
   Modal,
   Image,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'expo-router';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import * as Clipboard from 'expo-clipboard';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
+import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
 
 interface OKXPayment {
@@ -31,25 +31,19 @@ interface OKXPayment {
   qrCodeUri?: string;
 }
 
-// ⚠️ CONFIGURACIÓN IMPORTANTE ⚠️
-// Reemplaza esta dirección con tu dirección de wallet OKX real
-// Para obtenerla: OKX App → Assets → Funding Account → USDT → Deposit → TRC20
-// Ejemplo: TYourOKXWalletAddressHere123456789
-const OKX_WALLET_ADDRESS = 'CONFIGURA_TU_DIRECCION_DE_WALLET_OKX_AQUI';
+const OKX_WALLET_ADDRESS = 'TYour-OKX-Wallet-Address-Here';
 
 export default function ContributeScreen() {
-  const router = useRouter();
   const { user, addContribution } = useAuth();
+  const router = useRouter();
   const [usdtAmount, setUsdtAmount] = useState('');
   const [mxiAmount, setMxiAmount] = useState('0');
   const [loading, setLoading] = useState(false);
-  const [phaseInfo, setPhaseInfo] = useState<any>(null);
-  const [currentPayment, setCurrentPayment] = useState<OKXPayment | null>(null);
-  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
   const [verifying, setVerifying] = useState(false);
-  const [transactionId, setTransactionId] = useState('');
   const [qrCodeUri, setQrCodeUri] = useState<string | null>(null);
-  const [uploadingQR, setUploadingQR] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [currentPayment, setCurrentPayment] = useState<OKXPayment | null>(null);
+  const [phaseInfo, setPhaseInfo] = useState<any>(null);
 
   useEffect(() => {
     loadPhaseInfo();
@@ -57,17 +51,16 @@ export default function ContributeScreen() {
     requestPermissions();
   }, []);
 
-  // Recalculate MXI when phaseInfo is loaded
   useEffect(() => {
     if (phaseInfo && usdtAmount) {
       calculateMxi(usdtAmount);
     }
-  }, [phaseInfo]);
+  }, [phaseInfo, usdtAmount]);
 
   const requestPermissions = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      console.log('Camera roll permissions not granted');
+      console.log('Media library permission not granted');
     }
   };
 
@@ -80,25 +73,12 @@ export default function ContributeScreen() {
 
       if (error) {
         console.error('Error loading phase info:', error);
-        // Set default values if there's an error
-        setPhaseInfo({
-          current_phase: 1,
-          current_price_usdt: '0.30',
-          total_tokens_sold: '0',
-        });
         return;
       }
-      
-      console.log('Phase info loaded:', data);
+
       setPhaseInfo(data);
     } catch (error) {
-      console.error('Error loading phase info:', error);
-      // Set default values if there's an error
-      setPhaseInfo({
-        current_phase: 1,
-        current_price_usdt: '0.30',
-        total_tokens_sold: '0',
-      });
+      console.error('Exception loading phase info:', error);
     }
   };
 
@@ -113,65 +93,48 @@ export default function ContributeScreen() {
         .in('status', ['pending', 'confirming'])
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
-      if (data && !error) {
-        const expiresAt = new Date(data.expires_at);
-        if (expiresAt > new Date()) {
-          setCurrentPayment({
-            paymentId: data.payment_id,
-            usdtAmount: parseFloat(data.usdt_amount),
-            mxiAmount: parseFloat(data.mxi_amount),
-            paymentAddress: data.payment_address || OKX_WALLET_ADDRESS,
-            status: data.status,
-            expiresAt: data.expires_at,
-            qrCodeUri: data.qr_code_url || null,
-          });
-          setQrCodeUri(data.qr_code_url || null);
-          setPaymentModalVisible(true);
-        }
+      if (error) {
+        console.error('Error checking existing payment:', error);
+        return;
+      }
+
+      if (data) {
+        setCurrentPayment({
+          paymentId: data.payment_id,
+          usdtAmount: parseFloat(data.usdt_amount),
+          mxiAmount: parseFloat(data.mxi_amount),
+          paymentAddress: OKX_WALLET_ADDRESS,
+          status: data.status,
+          expiresAt: data.expires_at,
+          qrCodeUri: data.qr_code_url,
+        });
+        setShowPaymentModal(true);
       }
     } catch (error) {
-      console.error('Error checking existing payment:', error);
+      console.error('Exception checking existing payment:', error);
     }
   };
 
   const calculateMxi = (usdt: string) => {
-    console.log('Calculating MXI for USDT:', usdt);
-    console.log('Phase info:', phaseInfo);
-    
     const amount = parseFloat(usdt);
-    if (isNaN(amount) || amount <= 0) {
+    if (isNaN(amount) || !phaseInfo) {
       setMxiAmount('0');
       return;
     }
 
-    if (!phaseInfo) {
-      console.log('Phase info not loaded yet, using default price');
-      // Use default price if phase info is not loaded
-      const mxi = amount / 0.30;
-      setMxiAmount(mxi.toFixed(2));
-      return;
-    }
-
-    const currentPrice = parseFloat(phaseInfo.current_price_usdt || '0.30');
-    console.log('Current price:', currentPrice);
-    
+    const currentPrice = parseFloat(phaseInfo.current_price_usdt);
     const mxi = amount / currentPrice;
-    console.log('Calculated MXI:', mxi);
-    
     setMxiAmount(mxi.toFixed(2));
   };
 
   const calculateYieldRate = (investment: number): number => {
-    if (investment >= 20 && investment < 500) return 0.000347222;
-    if (investment >= 500 && investment < 1000) return 0.000694444;
-    if (investment >= 1000 && investment < 5000) return 0.001388889;
-    if (investment >= 5000 && investment < 10000) return 0.002777778;
-    if (investment >= 10000 && investment < 50000) return 0.005555556;
-    if (investment >= 50000 && investment < 100000) return 0.011111111;
-    if (investment >= 100000) return 0.022222222;
-    return 0;
+    if (investment < 50) return 0;
+    if (investment <= 500) return investment * 0.0001;
+    if (investment <= 5000) return investment * 0.00015;
+    if (investment <= 50000) return investment * 0.0002;
+    return investment * 0.00025;
   };
 
   const pickQRCode = async () => {
@@ -184,117 +147,104 @@ export default function ContributeScreen() {
       });
 
       if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-        setQrCodeUri(asset.uri);
-        await uploadQRCode(asset.uri);
+        const uri = result.assets[0].uri;
+        setQrCodeUri(uri);
+        await uploadQRCode(uri);
       }
     } catch (error) {
       console.error('Error picking QR code:', error);
-      Alert.alert('Error', 'Failed to pick image. Please try again.');
+      Alert.alert('Error', 'Failed to pick image');
     }
   };
 
   const uploadQRCode = async (uri: string) => {
-    if (!user || !currentPayment) return;
-
-    setUploadingQR(true);
+    if (!currentPayment) return;
 
     try {
-      const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
-      const fileName = `${user.id}/qr_${currentPayment.paymentId}.${fileExt}`;
-
       const response = await fetch(uri);
       const blob = await response.blob();
+      const arrayBuffer = await blob.arrayBuffer();
+      const fileExt = uri.split('.').pop() || 'jpg';
+      const fileName = `${currentPayment.paymentId}.${fileExt}`;
+      const filePath = `payment-qr-codes/${fileName}`;
 
-      const { data, error } = await supabase.storage
-        .from('payment-qr-codes')
-        .upload(fileName, blob, {
+      const { error: uploadError } = await supabase.storage
+        .from('payment-proofs')
+        .upload(filePath, arrayBuffer, {
           contentType: `image/${fileExt}`,
           upsert: true,
         });
 
-      if (error) throw error;
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        Alert.alert('Error', 'Failed to upload QR code');
+        return;
+      }
 
       const { data: urlData } = supabase.storage
-        .from('payment-qr-codes')
-        .getPublicUrl(fileName);
+        .from('payment-proofs')
+        .getPublicUrl(filePath);
 
-      // Update payment record with QR code URL
-      await supabase
+      const { error: updateError } = await supabase
         .from('okx_payments')
         .update({ qr_code_url: urlData.publicUrl })
         .eq('payment_id', currentPayment.paymentId);
 
-      Alert.alert('Success', 'QR code uploaded successfully!');
-    } catch (error: any) {
-      console.error('Upload error:', error);
-      Alert.alert('Upload Error', error.message || 'Failed to upload QR code. Please try again.');
-    } finally {
-      setUploadingQR(false);
+      if (updateError) {
+        console.error('Update error:', updateError);
+      }
+
+      Alert.alert('Success', 'QR code uploaded successfully');
+    } catch (error) {
+      console.error('Exception uploading QR code:', error);
+      Alert.alert('Error', 'Failed to upload QR code');
     }
   };
 
   const handleCreatePayment = async () => {
+    if (!user) return;
+
     const amount = parseFloat(usdtAmount);
-    
-    if (isNaN(amount) || amount < 20) {
-      Alert.alert('Invalid Amount', 'Minimum contribution is 20 USDT');
+    if (isNaN(amount) || amount < 50 || amount > 100000) {
+      Alert.alert('Invalid Amount', 'Please enter an amount between $50 and $100,000');
       return;
     }
 
-    if (amount > 100000) {
-      Alert.alert('Invalid Amount', 'Maximum contribution is 100,000 USDT');
-      return;
-    }
-
-    // Verificar que la dirección de wallet esté configurada
-    if (OKX_WALLET_ADDRESS === 'CONFIGURA_TU_DIRECCION_DE_WALLET_OKX_AQUI') {
-      Alert.alert(
-        'Configuration Required',
-        'The OKX wallet address has not been configured yet. Please contact the administrator.'
-      );
-      return;
-    }
+    setLoading(true);
 
     try {
-      setLoading(true);
-
-      const paymentId = `MXI-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
-      const expiresAt = new Date();
-      expiresAt.setMinutes(expiresAt.getMinutes() + 30);
-
       const { data, error } = await supabase
         .from('okx_payments')
         .insert({
-          user_id: user?.id,
-          payment_id: paymentId,
+          user_id: user.id,
+          payment_id: `OKX-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           usdt_amount: amount,
           mxi_amount: parseFloat(mxiAmount),
-          payment_address: OKX_WALLET_ADDRESS,
           status: 'pending',
-          expires_at: expiresAt.toISOString(),
+          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating payment:', error);
+        Alert.alert('Error', 'Failed to create payment');
+        return;
+      }
 
       setCurrentPayment({
         paymentId: data.payment_id,
         usdtAmount: parseFloat(data.usdt_amount),
         mxiAmount: parseFloat(data.mxi_amount),
-        paymentAddress: data.payment_address,
+        paymentAddress: OKX_WALLET_ADDRESS,
         status: data.status,
         expiresAt: data.expires_at,
       });
 
-      setPaymentModalVisible(true);
-      setUsdtAmount('');
-      setMxiAmount('0');
+      setShowPaymentModal(true);
     } catch (error) {
-      console.error('Error creating payment:', error);
-      Alert.alert('Error', 'Could not create payment. Please try again.');
+      console.error('Exception creating payment:', error);
+      Alert.alert('Error', 'Failed to create payment');
     } finally {
       setLoading(false);
     }
@@ -303,123 +253,71 @@ export default function ContributeScreen() {
   const handleVerifyPayment = async () => {
     if (!currentPayment) return;
 
-    if (!transactionId || transactionId.trim().length < 10) {
-      Alert.alert(
-        'Transaction ID Required',
-        'Please enter the transaction ID (TxID) from your wallet.\n\n' +
-        'You can find it in your wallet\'s transaction history:\n' +
-        '• OKX: Assets → Transaction History\n' +
-        '• Binance: Wallet → Transaction History\n' +
-        '• Trust Wallet: Activity tab\n' +
-        '• MetaMask: Activity tab'
-      );
-      return;
-    }
+    setVerifying(true);
 
     try {
-      setVerifying(true);
+      const { data, error } = await supabase.functions.invoke('okx-payment-verification', {
+        body: { paymentId: currentPayment.paymentId },
+      });
 
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      const response = await fetch(
-        `${supabase.supabaseUrl}/functions/v1/okx-payment-verification`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token}`,
-          },
-          body: JSON.stringify({
-            paymentId: currentPayment.paymentId,
-            action: 'verify',
-            transactionId: transactionId,
-          }),
-        }
-      );
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to verify payment');
+      if (error) {
+        console.error('Verification error:', error);
+        Alert.alert(
+          'Verification Pending',
+          'Automatic verification is in progress. You will be notified once your payment is confirmed. This may take a few minutes.'
+        );
+        return;
       }
 
-      if (result.status === 'confirmed') {
-        Alert.alert(
-          '✅ Payment Confirmed!',
-          `Your payment has been verified and your balance has been updated!\n\n` +
-          `New MXI Balance: ${result.newBalance?.toFixed(2) || 'N/A'} MXI\n` +
-          `Yield Rate: ${(result.yieldRate * 60 * 24)?.toFixed(6) || 'N/A'} MXI/day`,
-          [
-            {
-              text: 'View Balance',
-              onPress: () => {
-                setPaymentModalVisible(false);
-                setCurrentPayment(null);
-                setTransactionId('');
-                setQrCodeUri(null);
-                router.push('/(tabs)/(home)/');
-              },
-            },
-          ]
-        );
+      if (data.verified) {
+        Alert.alert('Success', 'Payment verified! Your MXI has been credited to your account.');
+        setShowPaymentModal(false);
+        setCurrentPayment(null);
+        router.back();
       } else {
         Alert.alert(
-          'Verification Submitted',
-          result.message || 'Your payment has been submitted for verification. An administrator will review it shortly.',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                setPaymentModalVisible(false);
-                setCurrentPayment(null);
-                setTransactionId('');
-                setQrCodeUri(null);
-                router.push('/(tabs)/(home)/okx-payments');
-              },
-            },
-          ]
+          'Verification Pending',
+          'Your payment is being verified. Please wait a few minutes and try again.'
         );
       }
-    } catch (error: any) {
-      console.error('Error verifying payment:', error);
-      Alert.alert('Error', error.message || 'Could not verify payment. Please try again.');
+    } catch (error) {
+      console.error('Exception verifying payment:', error);
+      Alert.alert('Error', 'Failed to verify payment');
     } finally {
       setVerifying(false);
     }
   };
 
   const handleCopyAddress = async () => {
-    if (currentPayment) {
-      await Clipboard.setStringAsync(currentPayment.paymentAddress);
-      Alert.alert('✅ Copied', 'Payment address copied to clipboard');
-    }
+    await Clipboard.setStringAsync(OKX_WALLET_ADDRESS);
+    Alert.alert('Copied', 'Wallet address copied to clipboard');
   };
 
   const handleReinvest = async () => {
     if (!user) return;
 
+    const availableYield = user.accumulatedYield;
+    if (availableYield <= 0) {
+      Alert.alert('No Yield Available', 'You don&apos;t have any accumulated yield to reinvest.');
+      return;
+    }
+
     Alert.alert(
       'Reinvest Yield',
-      'Convert your accumulated yield to MXI balance?',
+      `Reinvest ${availableYield.toFixed(6)} MXI back into your vesting balance?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Reinvest',
           onPress: async () => {
-            try {
-              setLoading(true);
-              const result = await addContribution(0, 'reinvestment');
-              
-              if (result.success) {
-                Alert.alert('Success', 'Yield reinvested successfully!');
-              } else {
-                Alert.alert('Error', result.error || 'Could not reinvest yield');
-              }
-            } catch (error) {
-              console.error('Error reinvesting:', error);
-              Alert.alert('Error', 'Could not reinvest yield');
-            } finally {
-              setLoading(false);
+            setLoading(true);
+            const result = await addContribution(availableYield * 0.012, 'reinvestment');
+            setLoading(false);
+
+            if (result.success) {
+              Alert.alert('Success', 'Yield reinvested successfully!');
+            } else {
+              Alert.alert('Error', result.error || 'Failed to reinvest yield');
             }
           },
         },
@@ -428,73 +326,61 @@ export default function ContributeScreen() {
   };
 
   const getPhaseDescription = () => {
-    if (!phaseInfo) return 'Loading...';
-    
+    if (!phaseInfo) return '';
     const phase = phaseInfo.current_phase;
-    const price = parseFloat(phaseInfo.current_price_usdt || '0.30');
-    
-    return `Phase ${phase}: $${price.toFixed(2)} USDT per MXI`;
+    switch (phase) {
+      case 1:
+        return 'Early Bird Phase - Best Price!';
+      case 2:
+        return 'Growth Phase - Limited Time';
+      case 3:
+        return 'Final Phase - Last Chance';
+      default:
+        return 'Pre-Sale Phase';
+    }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <IconSymbol 
-            ios_icon_name="chevron.left" 
-            android_material_icon_name="chevron_left" 
-            size={24} 
-            color={colors.primary} 
-          />
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.title}>Contribute</Text>
+        <Text style={styles.headerTitle}>Contribute</Text>
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Phase Info */}
         {phaseInfo && (
           <View style={[commonStyles.card, styles.phaseCard]}>
             <View style={styles.phaseHeader}>
-              <IconSymbol 
-                ios_icon_name="chart.line.uptrend.xyaxis" 
-                android_material_icon_name="trending_up" 
-                size={32} 
-                color={colors.primary} 
-              />
-              <View style={styles.phaseInfo}>
-                <Text style={styles.phaseTitle}>{getPhaseDescription()}</Text>
-                <Text style={styles.phaseSubtitle}>
-                  {parseFloat(phaseInfo.total_tokens_sold || '0').toLocaleString()} MXI sold
-                </Text>
+              <View>
+                <Text style={styles.phaseTitle}>Phase {phaseInfo.current_phase}</Text>
+                <Text style={styles.phaseSubtitle}>{getPhaseDescription()}</Text>
+              </View>
+              <View style={styles.phasePriceContainer}>
+                <Text style={styles.phasePrice}>${phaseInfo.current_price_usdt}</Text>
+                <Text style={styles.phasePriceLabel}>per MXI</Text>
               </View>
             </View>
           </View>
         )}
 
-        <View style={[commonStyles.card, styles.formCard]}>
-          <Text style={styles.formTitle}>Make a Contribution</Text>
-          <Text style={styles.formSubtitle}>
-            Minimum: 20 USDT • Maximum: 100,000 USDT
-          </Text>
-
+        {/* Contribution Form */}
+        <View style={commonStyles.card}>
+          <Text style={styles.sectionTitle}>Enter Amount</Text>
+          
           <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Amount in USDT</Text>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter amount"
-                placeholderTextColor={colors.textSecondary}
-                value={usdtAmount}
-                onChangeText={(text) => {
-                  setUsdtAmount(text);
-                  calculateMxi(text);
-                }}
-                keyboardType="numeric"
-              />
-              <Text style={styles.inputCurrency}>USDT</Text>
-            </View>
+            <Text style={styles.inputLabel}>USDT Amount</Text>
+            <TextInput
+              style={styles.input}
+              value={usdtAmount}
+              onChangeText={setUsdtAmount}
+              keyboardType="decimal-pad"
+              placeholder="Min: $50, Max: $100,000"
+              placeholderTextColor={colors.textSecondary}
+            />
           </View>
 
           <View style={styles.conversionContainer}>
@@ -502,297 +388,159 @@ export default function ContributeScreen() {
               ios_icon_name="arrow.down" 
               android_material_icon_name="arrow_downward" 
               size={24} 
-              color={colors.textSecondary} 
+              color={colors.primary} 
             />
           </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>You will receive</Text>
-            <View style={styles.inputWrapper}>
-              <Text style={styles.mxiAmount}>{mxiAmount}</Text>
-              <Text style={styles.inputCurrency}>MXI</Text>
-            </View>
+          <View style={styles.resultContainer}>
+            <Text style={styles.resultLabel}>You will receive</Text>
+            <Text style={styles.resultAmount}>{mxiAmount} MXI</Text>
           </View>
 
           <TouchableOpacity
             style={[buttonStyles.primary, styles.contributeButton]}
             onPress={handleCreatePayment}
-            disabled={loading || !usdtAmount || parseFloat(usdtAmount) < 20}
+            disabled={loading || !usdtAmount || parseFloat(usdtAmount) < 50}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <React.Fragment>
-                <IconSymbol 
-                  ios_icon_name="plus.circle.fill" 
-                  android_material_icon_name="add_circle" 
-                  size={20} 
-                  color="#fff" 
-                />
-                <Text style={buttonStyles.primaryText}>Create Payment</Text>
-              </React.Fragment>
+              <Text style={buttonStyles.primaryText}>Continue to Payment</Text>
             )}
           </TouchableOpacity>
         </View>
 
+        {/* Reinvest Yield */}
+        {user && user.accumulatedYield > 0 && (
+          <View style={commonStyles.card}>
+            <Text style={styles.sectionTitle}>Reinvest Yield</Text>
+            <Text style={styles.reinvestText}>
+              You have {user.accumulatedYield.toFixed(6)} MXI in accumulated yield.
+            </Text>
+            <TouchableOpacity
+              style={[buttonStyles.outline, styles.reinvestButton]}
+              onPress={handleReinvest}
+              disabled={loading}
+            >
+              <Text style={buttonStyles.outlineText}>Reinvest Yield</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Info Card */}
         <View style={[commonStyles.card, styles.infoCard]}>
-          <Text style={styles.infoTitle}>💡 How it works</Text>
-          <View style={styles.infoStep}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>1</Text>
-            </View>
-            <Text style={styles.stepText}>Enter the amount you want to contribute (minimum 20 USDT)</Text>
+          <View style={styles.infoHeader}>
+            <IconSymbol 
+              ios_icon_name="info.circle.fill" 
+              android_material_icon_name="info" 
+              size={24} 
+              color={colors.primary} 
+            />
+            <Text style={styles.infoTitle}>Important Information</Text>
           </View>
-          <View style={styles.infoStep}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>2</Text>
-            </View>
-            <Text style={styles.stepText}>Create payment and copy the wallet address</Text>
-          </View>
-          <View style={styles.infoStep}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>3</Text>
-            </View>
-            <Text style={styles.stepText}>Send USDT from ANY wallet (OKX, Binance, Trust Wallet, MetaMask, etc.) to the provided address</Text>
-          </View>
-          <View style={styles.infoStep}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>4</Text>
-            </View>
-            <Text style={styles.stepText}>Use TRC20 network for lowest fees (recommended)</Text>
-          </View>
-          <View style={styles.infoStep}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>5</Text>
-            </View>
-            <Text style={styles.stepText}>Upload a screenshot of the payment confirmation</Text>
-          </View>
-          <View style={styles.infoStep}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>6</Text>
-            </View>
-            <Text style={styles.stepText}>Copy the transaction ID (TxID) from your wallet</Text>
-          </View>
-          <View style={styles.infoStep}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>7</Text>
-            </View>
-            <Text style={styles.stepText}>Enter the TxID and click verify</Text>
-          </View>
-          <View style={styles.infoStep}>
-            <View style={styles.stepNumber}>
-              <Text style={styles.stepNumberText}>8</Text>
-            </View>
-            <Text style={styles.stepText}>Your balance will be updated automatically (or after admin approval if automatic verification fails)</Text>
+          <View style={styles.infoList}>
+            <Text style={styles.infoItem}>• Minimum contribution: $50 USDT</Text>
+            <Text style={styles.infoItem}>• Maximum contribution: $100,000 USDT</Text>
+            <Text style={styles.infoItem}>• Payment via OKX Wallet only</Text>
+            <Text style={styles.infoItem}>• MXI tokens are vested and generate yield</Text>
+            <Text style={styles.infoItem}>• Payments expire after 24 hours</Text>
           </View>
         </View>
-
-        <TouchableOpacity
-          style={[buttonStyles.secondary, styles.viewPaymentsButton]}
-          onPress={() => router.push('/(tabs)/(home)/okx-payments')}
-        >
-          <IconSymbol 
-            ios_icon_name="list.bullet" 
-            android_material_icon_name="list" 
-            size={20} 
-            color={colors.primary} 
-          />
-          <Text style={buttonStyles.secondaryText}>View Payment History</Text>
-        </TouchableOpacity>
       </ScrollView>
 
       {/* Payment Modal */}
       <Modal
-        visible={paymentModalVisible}
+        visible={showPaymentModal}
+        transparent
         animationType="slide"
-        transparent={true}
-        onRequestClose={() => setPaymentModalVisible(false)}
+        onRequestClose={() => setShowPaymentModal(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Payment Instructions</Text>
-              <TouchableOpacity onPress={() => setPaymentModalVisible(false)}>
-                <IconSymbol 
-                  ios_icon_name="xmark.circle.fill" 
-                  android_material_icon_name="cancel" 
-                  size={28} 
-                  color={colors.textSecondary} 
-                />
-              </TouchableOpacity>
-            </View>
-
+            <Text style={styles.modalTitle}>Complete Payment</Text>
+            
             {currentPayment && (
-              <ScrollView style={styles.modalBody}>
-                <View style={styles.paymentDetail}>
-                  <Text style={styles.paymentLabel}>Payment ID</Text>
-                  <Text style={styles.paymentValue}>{currentPayment.paymentId}</Text>
-                </View>
-
-                <View style={styles.paymentDetail}>
-                  <Text style={styles.paymentLabel}>Amount to Send</Text>
-                  <Text style={styles.paymentValue}>{currentPayment.usdtAmount} USDT</Text>
-                </View>
-
-                <View style={styles.paymentDetail}>
-                  <Text style={styles.paymentLabel}>You will receive</Text>
-                  <Text style={styles.paymentValue}>{currentPayment.mxiAmount} MXI</Text>
-                </View>
-
-                <View style={styles.paymentDetail}>
-                  <Text style={styles.paymentLabel}>Send to this address</Text>
-                  <View style={styles.addressContainer}>
-                    <Text style={styles.addressText}>{currentPayment.paymentAddress}</Text>
+              <React.Fragment>
+                <View style={styles.paymentInfo}>
+                  <View style={styles.paymentRow}>
+                    <Text style={styles.paymentLabel}>Amount:</Text>
+                    <Text style={styles.paymentValue}>${currentPayment.usdtAmount} USDT</Text>
                   </View>
-                  <TouchableOpacity 
-                    style={styles.copyAddressButton}
-                    onPress={handleCopyAddress}
+                  <View style={styles.paymentRow}>
+                    <Text style={styles.paymentLabel}>You will receive:</Text>
+                    <Text style={styles.paymentValue}>{currentPayment.mxiAmount} MXI</Text>
+                  </View>
+                  <View style={styles.paymentRow}>
+                    <Text style={styles.paymentLabel}>Status:</Text>
+                    <Text style={[styles.paymentValue, { color: colors.warning }]}>
+                      {currentPayment.status}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.addressContainer}>
+                  <Text style={styles.addressLabel}>Send USDT (TRC20) to:</Text>
+                  <View style={styles.addressBox}>
+                    <Text style={styles.addressText}>{currentPayment.paymentAddress}</Text>
+                    <TouchableOpacity onPress={handleCopyAddress}>
+                      <IconSymbol 
+                        ios_icon_name="doc.on.doc" 
+                        android_material_icon_name="content_copy" 
+                        size={20} 
+                        color={colors.primary} 
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={styles.qrSection}>
+                  <Text style={styles.qrLabel}>Upload Payment QR Code (Optional)</Text>
+                  {qrCodeUri || currentPayment.qrCodeUri ? (
+                    <Image
+                      source={{ uri: qrCodeUri || currentPayment.qrCodeUri }}
+                      style={styles.qrImage}
+                    />
+                  ) : null}
+                  <TouchableOpacity
+                    style={[buttonStyles.outline, styles.qrButton]}
+                    onPress={pickQRCode}
                   >
                     <IconSymbol 
-                      ios_icon_name="doc.on.doc.fill" 
-                      android_material_icon_name="content_copy" 
+                      ios_icon_name="photo" 
+                      android_material_icon_name="photo_library" 
                       size={20} 
-                      color="#fff" 
+                      color={colors.primary} 
                     />
-                    <Text style={styles.copyAddressButtonText}>Copy Address</Text>
+                    <Text style={buttonStyles.outlineText}>
+                      {qrCodeUri || currentPayment.qrCodeUri ? 'Change QR Code' : 'Upload QR Code'}
+                    </Text>
                   </TouchableOpacity>
                 </View>
 
-                <View style={styles.paymentDetail}>
-                  <Text style={styles.paymentLabel}>Recommended Network</Text>
-                  <Text style={styles.paymentValue}>TRC20 (Tron) - Low fees</Text>
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={[buttonStyles.outline, styles.modalButton]}
+                    onPress={() => setShowPaymentModal(false)}
+                  >
+                    <Text style={buttonStyles.outlineText}>Close</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[buttonStyles.primary, styles.modalButton]}
+                    onPress={handleVerifyPayment}
+                    disabled={verifying}
+                  >
+                    {verifying ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={buttonStyles.primaryText}>Verify Payment</Text>
+                    )}
+                  </TouchableOpacity>
                 </View>
 
-                <View style={styles.paymentDetail}>
-                  <Text style={styles.paymentLabel}>Status</Text>
-                  <Text style={[styles.paymentValue, { color: colors.warning }]}>
-                    {currentPayment.status === 'pending' ? 'PENDING' : 'CONFIRMING'}
-                  </Text>
-                </View>
-
-                <View style={styles.paymentDetail}>
-                  <Text style={styles.paymentLabel}>Expires at</Text>
-                  <Text style={styles.paymentValue}>
-                    {new Date(currentPayment.expiresAt).toLocaleString()}
-                  </Text>
-                </View>
-
-                <View style={styles.warningBox}>
-                  <IconSymbol 
-                    ios_icon_name="exclamationmark.triangle.fill" 
-                    android_material_icon_name="warning" 
-                    size={24} 
-                    color={colors.warning} 
-                  />
-                  <Text style={styles.warningText}>
-                    You can send USDT from ANY wallet (OKX, Binance, Trust Wallet, MetaMask, etc.) to the address above.
-                    {'\n\n'}
-                    Use TRC20 network for lowest fees. After sending, upload the payment confirmation screenshot and enter the transaction ID (TxID) from your wallet below.
-                  </Text>
-                </View>
-
-                {currentPayment.status === 'pending' && (
-                  <React.Fragment>
-                    <View style={styles.qrCodeSection}>
-                      <Text style={styles.qrCodeLabel}>📸 Upload Payment Confirmation</Text>
-                      <Text style={styles.qrCodeHint}>
-                        Upload a screenshot of the payment confirmation from your wallet
-                      </Text>
-                      
-                      {qrCodeUri ? (
-                        <View style={styles.qrCodePreview}>
-                          <Image source={{ uri: qrCodeUri }} style={styles.qrCodeImage} />
-                          <TouchableOpacity
-                            style={styles.changeQRButton}
-                            onPress={pickQRCode}
-                            disabled={uploadingQR}
-                          >
-                            <IconSymbol 
-                              ios_icon_name="arrow.triangle.2.circlepath" 
-                              android_material_icon_name="sync" 
-                              size={16} 
-                              color={colors.primary} 
-                            />
-                            <Text style={styles.changeQRButtonText}>Change Image</Text>
-                          </TouchableOpacity>
-                        </View>
-                      ) : (
-                        <TouchableOpacity
-                          style={styles.uploadQRButton}
-                          onPress={pickQRCode}
-                          disabled={uploadingQR}
-                        >
-                          {uploadingQR ? (
-                            <ActivityIndicator color={colors.primary} />
-                          ) : (
-                            <React.Fragment>
-                              <IconSymbol 
-                                ios_icon_name="photo.badge.plus" 
-                                android_material_icon_name="add_photo_alternate" 
-                                size={32} 
-                                color={colors.primary} 
-                              />
-                              <Text style={styles.uploadQRButtonText}>Tap to Upload Screenshot</Text>
-                            </React.Fragment>
-                          )}
-                        </TouchableOpacity>
-                      )}
-                    </View>
-
-                    <View style={styles.inputContainer}>
-                      <Text style={styles.inputLabel}>Transaction ID (TxID)</Text>
-                      <TextInput
-                        style={styles.txidInput}
-                        placeholder="Paste TxID here"
-                        placeholderTextColor={colors.textSecondary}
-                        value={transactionId}
-                        onChangeText={setTransactionId}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                      />
-                      <Text style={styles.inputHint}>
-                        Find TxID in your wallet's transaction history:
-                        {'\n'}• OKX: Assets → Transaction History
-                        {'\n'}• Binance: Wallet → Transaction History
-                        {'\n'}• Trust Wallet: Activity tab
-                        {'\n'}• MetaMask: Activity tab
-                      </Text>
-                    </View>
-
-                    <TouchableOpacity
-                      style={[buttonStyles.primary, styles.verifyButton]}
-                      onPress={handleVerifyPayment}
-                      disabled={verifying || !transactionId}
-                    >
-                      {verifying ? (
-                        <ActivityIndicator color="#fff" />
-                      ) : (
-                        <React.Fragment>
-                          <IconSymbol 
-                            ios_icon_name="checkmark.circle.fill" 
-                            android_material_icon_name="check_circle" 
-                            size={20} 
-                            color="#fff" 
-                          />
-                          <Text style={buttonStyles.primaryText}>Verify Payment</Text>
-                        </React.Fragment>
-                      )}
-                    </TouchableOpacity>
-                  </React.Fragment>
-                )}
-
-                {currentPayment.status === 'confirming' && (
-                  <View style={styles.confirmingBox}>
-                    <ActivityIndicator size="large" color={colors.primary} />
-                    <Text style={styles.confirmingText}>
-                      Verifying payment...
-                    </Text>
-                    <Text style={styles.confirmingSubtext}>
-                      Your payment is being verified. This usually takes a few minutes. Your balance will be updated automatically once confirmed.
-                    </Text>
-                  </View>
-                )}
-              </ScrollView>
+                <Text style={styles.modalNote}>
+                  After sending the payment, click &quot;Verify Payment&quot; to confirm your transaction.
+                </Text>
+              </React.Fragment>
             )}
           </View>
         </View>
@@ -809,16 +557,20 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   backButton: {
-    marginRight: 16,
-    padding: 8,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  title: {
-    fontSize: 24,
+  headerTitle: {
+    fontSize: 20,
     fontWeight: '700',
     color: colors.text,
   },
@@ -827,42 +579,44 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   phaseCard: {
-    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: colors.primary,
   },
   phaseHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  phaseInfo: {
-    flex: 1,
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
   phaseTitle: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 4,
   },
   phaseSubtitle: {
     fontSize: 14,
     color: colors.textSecondary,
+    marginTop: 4,
   },
-  formCard: {
-    marginBottom: 20,
+  phasePriceContainer: {
+    alignItems: 'flex-end',
   },
-  formTitle: {
-    fontSize: 20,
+  phasePrice: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  phasePriceLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  sectionTitle: {
+    fontSize: 18,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 8,
-  },
-  formSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 24,
+    marginBottom: 16,
   },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   inputLabel: {
     fontSize: 14,
@@ -870,266 +624,165 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 8,
   },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  input: {
     backgroundColor: colors.background,
-    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: 16,
-  },
-  input: {
-    flex: 1,
+    borderRadius: 8,
+    padding: 16,
     fontSize: 18,
     color: colors.text,
-    paddingVertical: 16,
-  },
-  inputCurrency: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textSecondary,
   },
   conversionContainer: {
     alignItems: 'center',
-    marginVertical: 12,
+    marginVertical: 16,
   },
-  mxiAmount: {
-    flex: 1,
-    fontSize: 24,
+  resultContainer: {
+    backgroundColor: colors.primary + '10',
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  resultLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  resultAmount: {
+    fontSize: 32,
     fontWeight: '700',
     color: colors.primary,
-    paddingVertical: 16,
   },
   contributeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+    marginTop: 8,
+  },
+  reinvestText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 16,
+  },
+  reinvestButton: {
     marginTop: 8,
   },
   infoCard: {
-    marginBottom: 20,
+    backgroundColor: colors.primary + '10',
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  infoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
   },
   infoTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 16,
   },
-  infoStep: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-    gap: 12,
-  },
-  stepNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stepNumberText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  stepText: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
-  },
-  viewPaymentsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+  infoList: {
     gap: 8,
+  },
+  infoItem: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   modalContent: {
-    backgroundColor: colors.background,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '90%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: 16,
     padding: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    width: '100%',
+    maxWidth: 500,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '700',
     color: colors.text,
+    marginBottom: 20,
+    textAlign: 'center',
   },
-  modalBody: {
-    padding: 24,
-  },
-  paymentDetail: {
+  paymentInfo: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: 16,
     marginBottom: 20,
   },
+  paymentRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
   paymentLabel: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 14,
     color: colors.textSecondary,
-    marginBottom: 8,
-    textTransform: 'uppercase',
   },
   paymentValue: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: colors.text,
   },
   addressContainer: {
-    backgroundColor: colors.card,
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
+    marginBottom: 20,
   },
-  addressText: {
+  addressLabel: {
     fontSize: 14,
-    color: colors.text,
-    fontFamily: 'monospace',
-  },
-  copyAddressButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-  },
-  copyAddressButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  warningBox: {
-    flexDirection: 'row',
-    gap: 12,
-    backgroundColor: colors.warning + '20',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 24,
-  },
-  warningText: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
-  },
-  qrCodeSection: {
-    marginBottom: 24,
-  },
-  qrCodeLabel: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600',
     color: colors.text,
     marginBottom: 8,
   },
-  qrCodeHint: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginBottom: 16,
-    lineHeight: 18,
-  },
-  qrCodePreview: {
-    alignItems: 'center',
-    gap: 12,
-  },
-  qrCodeImage: {
-    width: 200,
-    height: 200,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.success,
-  },
-  changeQRButton: {
+  addressBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    backgroundColor: colors.background,
     borderRadius: 8,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  changeQRButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  uploadQRButton: {
-    height: 200,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.border,
-    borderStyle: 'dashed',
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 12,
     gap: 12,
   },
-  uploadQRButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  txidInput: {
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 14,
+  addressText: {
+    flex: 1,
+    fontSize: 12,
     color: colors.text,
     fontFamily: 'monospace',
   },
-  inputHint: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 8,
-    fontStyle: 'italic',
-    lineHeight: 18,
+  qrSection: {
+    marginBottom: 20,
   },
-  verifyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  confirmingBox: {
-    alignItems: 'center',
-    padding: 24,
-    backgroundColor: colors.primary + '10',
-    borderRadius: 12,
-  },
-  confirmingText: {
-    fontSize: 16,
+  qrLabel: {
+    fontSize: 14,
     fontWeight: '600',
     color: colors.text,
-    marginTop: 16,
-    textAlign: 'center',
+    marginBottom: 12,
   },
-  confirmingSubtext: {
-    fontSize: 14,
-    color: colors.textSecondary,
+  qrImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  qrButton: {
     marginTop: 8,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  modalButton: {
+    flex: 1,
+  },
+  modalNote: {
+    fontSize: 12,
+    color: colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 18,
   },
 });

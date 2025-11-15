@@ -40,7 +40,7 @@ interface UserTicket {
   purchased_at: string;
 }
 
-export default function LotteryScreen() {
+export default function BonusMXIScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -73,11 +73,11 @@ export default function LotteryScreen() {
 
     channel
       .on('broadcast', { event: 'INSERT' }, () => {
-        console.log('Lottery round created');
+        console.log('Bonus MXI round created');
         loadLotteryData();
       })
       .on('broadcast', { event: 'UPDATE' }, () => {
-        console.log('Lottery round updated');
+        console.log('Bonus MXI round updated');
         loadLotteryData();
       })
       .subscribe();
@@ -97,7 +97,7 @@ export default function LotteryScreen() {
         .maybeSingle();
 
       if (roundError && roundError.code !== 'PGRST116') {
-        console.error('Error loading lottery round:', roundError);
+        console.error('Error loading bonus round:', roundError);
       }
 
       if (roundData) {
@@ -124,7 +124,7 @@ export default function LotteryScreen() {
           .rpc('get_current_lottery_round');
 
         if (createError) {
-          console.error('Error creating lottery round:', createError);
+          console.error('Error creating bonus round:', createError);
         } else if (newRoundId) {
           // Reload data
           loadLotteryData();
@@ -132,7 +132,7 @@ export default function LotteryScreen() {
         }
       }
     } catch (error) {
-      console.error('Exception loading lottery data:', error);
+      console.error('Exception loading bonus data:', error);
     } finally {
       setLoading(false);
     }
@@ -229,9 +229,16 @@ export default function LotteryScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Bonus MXI</Text>
+          <View style={{ width: 40 }} />
+        </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading lottery...</Text>
+          <Text style={styles.loadingText}>Loading bonus...</Text>
         </View>
       </SafeAreaView>
     );
@@ -244,11 +251,11 @@ export default function LotteryScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Lottery MXI</Text>
+          <Text style={styles.headerTitle}>Bonus MXI</Text>
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No active lottery round</Text>
+          <Text style={styles.emptyText}>No active bonus round</Text>
         </View>
       </SafeAreaView>
     );
@@ -260,7 +267,7 @@ export default function LotteryScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Lottery MXI</Text>
+        <Text style={styles.headerTitle}>Bonus MXI</Text>
         <View style={{ width: 40 }} />
       </View>
 

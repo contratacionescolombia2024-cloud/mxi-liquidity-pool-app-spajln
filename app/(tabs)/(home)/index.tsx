@@ -11,12 +11,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
-import { IconSymbol } from '@/components/IconSymbol';
 import { useRouter } from 'expo-router';
-import VestingCounter from '@/components/VestingCounter';
-import MenuButton from '@/components/MenuButton';
-import Footer from '@/components/Footer';
 import { colors, commonStyles } from '@/styles/commonStyles';
+import { IconSymbol } from '@/components/IconSymbol';
+import MenuButton from '@/components/MenuButton';
+import VestingCounter from '@/components/VestingCounter';
+import Footer from '@/components/Footer';
 
 interface PhaseInfo {
   totalTokensSold: number;
@@ -31,11 +31,10 @@ interface PhaseInfo {
 }
 
 export default function HomeScreen() {
-  const { user, getPoolStatus, getPhaseInfo } = useAuth();
+  const { user, logout, getPoolStatus, getPhaseInfo } = useAuth();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [poolCloseDate, setPoolCloseDate] = useState<Date | null>(null);
-  const [daysUntilClose, setDaysUntilClose] = useState(0);
   const [phaseInfo, setPhaseInfo] = useState<PhaseInfo | null>(null);
 
   useEffect(() => {
@@ -45,14 +44,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (poolCloseDate) {
-      const interval = setInterval(() => {
-        const now = new Date();
-        const diff = poolCloseDate.getTime() - now.getTime();
-        const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-        setDaysUntilClose(days);
-      }, 1000 * 60);
-
-      return () => clearInterval(interval);
+      console.log('Pool closes on:', poolCloseDate);
     }
   }, [poolCloseDate]);
 
@@ -60,7 +52,6 @@ export default function HomeScreen() {
     const status = await getPoolStatus();
     if (status) {
       setPoolCloseDate(new Date(status.pool_close_date));
-      setDaysUntilClose(status.days_until_close);
     }
   };
 
@@ -81,341 +72,185 @@ export default function HomeScreen() {
   const getPhaseDescription = (phase: number) => {
     switch (phase) {
       case 1:
-        return '8.33M MXI at $0.40 USDT';
+        return 'Early Bird Phase - Best Price!';
       case 2:
-        return '8.33M MXI at $0.60 USDT';
+        return 'Growth Phase - Limited Time';
       case 3:
-        return '8.33M MXI at $0.80 USDT';
+        return 'Final Phase - Last Chance';
       default:
-        return '';
+        return 'Pre-Sale Phase';
     }
   };
 
   const getPhaseProgress = () => {
     if (!phaseInfo) return 0;
-    
-    const phaseLimit = 8333333.33;
-    let currentPhaseSold = 0;
-    
-    if (phaseInfo.currentPhase === 1) {
-      currentPhaseSold = phaseInfo.phase1TokensSold;
-    } else if (phaseInfo.currentPhase === 2) {
-      currentPhaseSold = phaseInfo.phase2TokensSold;
-    } else if (phaseInfo.currentPhase === 3) {
-      currentPhaseSold = phaseInfo.phase3TokensSold;
-    }
-    
-    return (currentPhaseSold / phaseLimit) * 100;
+    const maxTokensPerPhase = 8333333;
+    const currentPhaseTokens = 
+      phaseInfo.currentPhase === 1 ? phaseInfo.phase1TokensSold :
+      phaseInfo.currentPhase === 2 ? phaseInfo.phase2TokensSold :
+      phaseInfo.phase3TokensSold;
+    return (currentPhaseTokens / maxTokensPerPhase) * 100;
   };
 
-  if (!user) {
-    return null;
-  }
-
-  // Debug logging for vesting counter visibility
-  console.log('=== VESTING COUNTER DEBUG ===');
-  console.log('User isActiveContributor:', user.isActiveContributor);
-  console.log('User yieldRatePerMinute:', user.yieldRatePerMinute);
-  console.log('User mxiPurchasedDirectly:', user.mxiPurchasedDirectly);
-  console.log('User mxiFromUnifiedCommissions:', user.mxiFromUnifiedCommissions);
-  console.log('Should show vesting counter:', user.isActiveContributor && user.yieldRatePerMinute > 0);
-
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <MenuButton />
+    <SafeAreaView style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
         {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Bienvenido de nuevo,</Text>
-            <Text style={styles.userName}>{user.name}</Text>
+          <View style={styles.logoContainer}>
+            <Image
+              source={require('@/assets/images/04a4d9ac-4539-41d2-bafd-67dd75925bde.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
           </View>
-          <TouchableOpacity
-            style={styles.profileButton}
-            onPress={() => router.push('/(tabs)/profile')}
-          >
-            <Text style={styles.profileButtonEmoji}>👤</Text>
-          </TouchableOpacity>
+          <View style={styles.headerText}>
+            <Text style={styles.welcomeText}>Welcome back,</Text>
+            <Text style={styles.userName}>{user?.name || 'User'}</Text>
+          </View>
         </View>
-
-        {/* Phase Progress Card */}
-        {phaseInfo && (
-          <View style={[commonStyles.card, styles.phaseCard]}>
-            <View style={styles.phaseHeader}>
-              <View style={styles.phaseHeaderLeft}>
-                <View style={styles.phaseIconContainer}>
-                  <Text style={styles.phaseIconEmoji}>📊</Text>
-                </View>
-                <View>
-                  <Text style={styles.phaseTitle}>Fase {phaseInfo.currentPhase} Activa</Text>
-                  <Text style={styles.phaseSubtitle}>{getPhaseDescription(phaseInfo.currentPhase)}</Text>
-                </View>
-              </View>
-              <View style={styles.phaseBadge}>
-                <Text style={styles.phaseBadgeText}>${phaseInfo.currentPriceUsdt.toFixed(2)}</Text>
-              </View>
-            </View>
-
-            <View style={styles.progressContainer}>
-              <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: `${Math.min(getPhaseProgress(), 100)}%` }]} />
-              </View>
-              <Text style={styles.progressText}>
-                {phaseInfo.tokensUntilNextPhase.toLocaleString()} MXI hasta la próxima fase
-              </Text>
-            </View>
-
-            <View style={styles.phaseStats}>
-              <View style={styles.phaseStat}>
-                <Text style={styles.phaseStatLabel}>Total Vendido</Text>
-                <Text style={styles.phaseStatValue}>
-                  {(phaseInfo.totalTokensSold / 1000000).toFixed(2)}M
-                </Text>
-              </View>
-              <View style={styles.phaseStatDivider} />
-              <View style={styles.phaseStat}>
-                <Text style={styles.phaseStatLabel}>Pre-Venta Total</Text>
-                <Text style={styles.phaseStatValue}>25M MXI</Text>
-              </View>
-              <View style={styles.phaseStatDivider} />
-              <View style={styles.phaseStat}>
-                <Text style={styles.phaseStatLabel}>Progreso</Text>
-                <Text style={styles.phaseStatValue}>
-                  {((phaseInfo.totalTokensSold / 25000000) * 100).toFixed(1)}%
-                </Text>
-              </View>
-            </View>
-          </View>
-        )}
 
         {/* Balance Card */}
         <View style={[commonStyles.card, styles.balanceCard]}>
           <View style={styles.balanceHeader}>
-            <Text style={styles.balanceLabel}>Balance MXI</Text>
-            <View style={styles.balanceIconContainer}>
-              <Text style={styles.balanceIconEmoji}>💎</Text>
-            </View>
-          </View>
-          <Text style={styles.balanceAmount}>{user.mxiBalance.toFixed(2)}</Text>
-          <View style={styles.balanceFooter}>
-            <View style={styles.balanceDetail}>
-              <Text style={styles.balanceDetailLabel}>Contribuido</Text>
-              <Text style={styles.balanceDetailValue}>${user.usdtContributed.toFixed(2)}</Text>
-            </View>
-            <View style={styles.balanceDetail}>
-              <Text style={styles.balanceDetailLabel}>Valor Actual</Text>
-              <Text style={styles.balanceDetailValue}>
-                ${(user.mxiBalance * (phaseInfo?.currentPriceUsdt || 0.4)).toFixed(2)}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Vesting Counter - Always show if user is active contributor */}
-        {user.isActiveContributor && (
-          <View style={styles.vestingSection}>
-            <VestingCounter />
-          </View>
-        )}
-
-        {/* Quick Actions */}
-        <View style={styles.actionsContainer}>
-          <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
-          
-          <View style={styles.actionsGrid}>
-            <TouchableOpacity
-              style={[commonStyles.card, styles.actionCard]}
-              onPress={() => router.push('/(tabs)/(home)/contribute')}
-            >
-              <View style={[styles.actionIcon, { backgroundColor: colors.primary + '20' }]}>
-                <Text style={styles.actionIconEmoji}>💰</Text>
-              </View>
-              <Text style={styles.actionTitle}>Comprar MXI</Text>
-              <Text style={styles.actionSubtitle}>
-                Min: $20{'\n'}Max: $40,000
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[commonStyles.card, styles.actionCard]}
-              onPress={() => router.push('/(tabs)/(home)/referrals')}
-            >
-              <View style={[styles.actionIcon, { backgroundColor: colors.success + '20' }]}>
-                <Text style={styles.actionIconEmoji}>👥</Text>
-              </View>
-              <Text style={styles.actionTitle}>Referidos</Text>
-              <Text style={styles.actionSubtitle}>
-                {user.activeReferrals} activos
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[commonStyles.card, styles.actionCard]}
-              onPress={() => router.push('/(tabs)/(home)/vesting')}
-            >
-              <View style={[styles.actionIcon, { backgroundColor: colors.accent + '20' }]}>
-                <Text style={styles.actionIconEmoji}>⛏️</Text>
-              </View>
-              <Text style={styles.actionTitle}>Vesting</Text>
-              <Text style={styles.actionSubtitle}>
-                {user.isActiveContributor ? 'Ver detalles' : 'No activo'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[commonStyles.card, styles.actionCard]}
-              onPress={() => router.push('/(tabs)/(home)/withdrawal')}
-            >
-              <View style={[styles.actionIcon, { backgroundColor: colors.warning + '20' }]}>
-                <Text style={styles.actionIconEmoji}>💸</Text>
-              </View>
-              <Text style={styles.actionTitle}>Retirar</Text>
-              <Text style={styles.actionSubtitle}>
-                ${user.commissions.available.toFixed(2)}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[commonStyles.card, styles.actionCard]}
-              onPress={() => router.push('/(tabs)/(home)/lottery')}
-            >
-              <View style={[styles.actionIcon, { backgroundColor: colors.primary + '20' }]}>
-                <Text style={styles.actionIconEmoji}>🎰</Text>
-              </View>
-              <Text style={styles.actionTitle}>Lottery MXI</Text>
-              <Text style={styles.actionSubtitle}>
-                Gana premios
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[commonStyles.card, styles.actionCard]}
-              onPress={() => router.push('/(tabs)/(home)/clickers')}
-            >
-              <View style={[styles.actionIcon, { backgroundColor: colors.accent + '20' }]}>
-                <Text style={styles.actionIconEmoji}>⚡</Text>
-              </View>
-              <Text style={styles.actionTitle}>Clickers</Text>
-              <Text style={styles.actionSubtitle}>
-                Compite ahora
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[commonStyles.card, styles.actionCard]}
-              onPress={() => router.push('/(tabs)/(home)/kyc-verification')}
-            >
-              <View style={[styles.actionIcon, { backgroundColor: colors.accent + '20' }]}>
-                <Text style={styles.actionIconEmoji}>🔐</Text>
-              </View>
-              <Text style={styles.actionTitle}>KYC</Text>
-              <Text style={styles.actionSubtitle}>
-                {user.kycStatus === 'approved' ? 'Verificado ✓' : 'Verificar ahora'}
-              </Text>
+            <Text style={styles.balanceLabel}>Your MXI Balance</Text>
+            <TouchableOpacity onPress={onRefresh}>
+              <IconSymbol 
+                ios_icon_name="arrow.clockwise" 
+                android_material_icon_name="refresh" 
+                size={20} 
+                color={colors.primary} 
+              />
             </TouchableOpacity>
           </View>
-        </View>
-
-        {/* Pool Status */}
-        <View style={[commonStyles.card, styles.poolCard]}>
-          <View style={styles.poolHeader}>
-            <View style={styles.poolIconContainer}>
-              <Text style={styles.poolIconEmoji}>⏰</Text>
-            </View>
-            <Text style={styles.poolTitle}>Preventa Cierra En</Text>
-          </View>
-          <Text style={styles.poolDays}>{daysUntilClose} días</Text>
-          <Text style={styles.poolDate}>
-            {poolCloseDate?.toLocaleDateString('es-ES', {
-              month: 'long',
-              day: 'numeric',
-              year: 'numeric',
-            })}
+          <Text style={styles.balanceAmount}>
+            {user?.mxiBalance.toFixed(2) || '0.00'} MXI
+          </Text>
+          <Text style={styles.balanceSubtext}>
+            USDT Contributed: ${user?.usdtContributed.toFixed(2) || '0.00'}
           </Text>
         </View>
 
-        {/* Phase Breakdown */}
+        {/* Phase Info Card */}
         {phaseInfo && (
-          <View style={commonStyles.card}>
-            <Text style={styles.sectionTitle}>Desglose de Fases</Text>
+          <View style={[commonStyles.card, styles.phaseCard]}>
+            <View style={styles.phaseHeader}>
+              <View>
+                <Text style={styles.phaseTitle}>Phase {phaseInfo.currentPhase}</Text>
+                <Text style={styles.phaseSubtitle}>{getPhaseDescription(phaseInfo.currentPhase)}</Text>
+              </View>
+              <View style={styles.phasePriceContainer}>
+                <Text style={styles.phasePrice}>${phaseInfo.currentPriceUsdt}</Text>
+                <Text style={styles.phasePriceLabel}>per MXI</Text>
+              </View>
+            </View>
             
-            <View style={styles.phaseBreakdown}>
-              <View style={[styles.phaseItem, phaseInfo.currentPhase === 1 && styles.phaseItemActive]}>
-                <View style={styles.phaseItemHeader}>
-                  <Text style={styles.phaseItemTitle}>Fase 1</Text>
-                  {phaseInfo.currentPhase === 1 && (
-                    <View style={styles.activeIndicator}>
-                      <Text style={styles.activeIndicatorText}>ACTIVA</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.phaseItemPrice}>$0.40 USDT por MXI</Text>
-                <Text style={styles.phaseItemSold}>
-                  {(phaseInfo.phase1TokensSold / 1000000).toFixed(2)}M / 8.33M vendidos
-                </Text>
-                <View style={styles.phaseProgressBar}>
-                  <View 
-                    style={[
-                      styles.phaseProgressFill, 
-                      { width: `${(phaseInfo.phase1TokensSold / 8333333.33) * 100}%` }
-                    ]} 
-                  />
-                </View>
+            <View style={styles.progressContainer}>
+              <View style={styles.progressBar}>
+                <View style={[styles.progressFill, { width: `${getPhaseProgress()}%` }]} />
               </View>
+              <Text style={styles.progressText}>{getPhaseProgress().toFixed(1)}% Complete</Text>
+            </View>
 
-              <View style={[styles.phaseItem, phaseInfo.currentPhase === 2 && styles.phaseItemActive]}>
-                <View style={styles.phaseItemHeader}>
-                  <Text style={styles.phaseItemTitle}>Fase 2</Text>
-                  {phaseInfo.currentPhase === 2 && (
-                    <View style={styles.activeIndicator}>
-                      <Text style={styles.activeIndicatorText}>ACTIVA</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.phaseItemPrice}>$0.60 USDT por MXI</Text>
-                <Text style={styles.phaseItemSold}>
-                  {(phaseInfo.phase2TokensSold / 1000000).toFixed(2)}M / 8.33M vendidos
-                </Text>
-                <View style={styles.phaseProgressBar}>
-                  <View 
-                    style={[
-                      styles.phaseProgressFill, 
-                      { width: `${(phaseInfo.phase2TokensSold / 8333333.33) * 100}%` }
-                    ]} 
-                  />
-                </View>
+            <View style={styles.phaseStats}>
+              <View style={styles.phaseStat}>
+                <Text style={styles.phaseStatValue}>{phaseInfo.totalTokensSold.toLocaleString()}</Text>
+                <Text style={styles.phaseStatLabel}>Total Sold</Text>
               </View>
-
-              <View style={[styles.phaseItem, phaseInfo.currentPhase === 3 && styles.phaseItemActive]}>
-                <View style={styles.phaseItemHeader}>
-                  <Text style={styles.phaseItemTitle}>Fase 3</Text>
-                  {phaseInfo.currentPhase === 3 && (
-                    <View style={styles.activeIndicator}>
-                      <Text style={styles.activeIndicatorText}>ACTIVA</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.phaseItemPrice}>$0.80 USDT por MXI</Text>
-                <Text style={styles.phaseItemSold}>
-                  {(phaseInfo.phase3TokensSold / 1000000).toFixed(2)}M / 8.33M vendidos
-                </Text>
-                <View style={styles.phaseProgressBar}>
-                  <View 
-                    style={[
-                      styles.phaseProgressFill, 
-                      { width: `${(phaseInfo.phase3TokensSold / 8333333.33) * 100}%` }
-                    ]} 
-                  />
-                </View>
+              <View style={styles.phaseStatDivider} />
+              <View style={styles.phaseStat}>
+                <Text style={styles.phaseStatValue}>{phaseInfo.tokensUntilNextPhase.toLocaleString()}</Text>
+                <Text style={styles.phaseStatLabel}>Until Next Phase</Text>
               </View>
             </View>
           </View>
         )}
+
+        {/* Vesting Counter */}
+        {poolCloseDate && <VestingCounter targetDate={poolCloseDate} />}
+
+        {/* Quick Actions */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <View style={styles.menuGrid}>
+            <MenuButton
+              title="Contribute"
+              subtitle="Add USDT"
+              icon="plus.circle.fill"
+              androidIcon="add_circle"
+              onPress={() => router.push('/(tabs)/(home)/contribute')}
+              color={colors.primary}
+            />
+            <MenuButton
+              title="Referrals"
+              subtitle="Earn rewards"
+              icon="person.2.fill"
+              androidIcon="people"
+              onPress={() => router.push('/(tabs)/(home)/referrals')}
+              color={colors.success}
+            />
+            <MenuButton
+              title="Vesting"
+              subtitle="View yield"
+              icon="chart.line.uptrend.xyaxis"
+              androidIcon="trending_up"
+              onPress={() => router.push('/(tabs)/(home)/vesting')}
+              color={colors.warning}
+            />
+            <MenuButton
+              title="Withdraw"
+              subtitle="Cash out"
+              icon="arrow.up.circle.fill"
+              androidIcon="upload"
+              onPress={() => router.push('/(tabs)/(home)/withdrawal')}
+              color={colors.error}
+            />
+          </View>
+        </View>
+
+        {/* Additional Features */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>More Features</Text>
+          <View style={styles.menuGrid}>
+            <MenuButton
+              title="Bonus MXI"
+              subtitle="Win prizes"
+              icon="gift.fill"
+              androidIcon="card_giftcard"
+              onPress={() => router.push('/(tabs)/(home)/lottery')}
+              color="#FF6B6B"
+            />
+            <MenuButton
+              title="Clickers"
+              subtitle="Compete"
+              icon="hand.tap.fill"
+              androidIcon="touch_app"
+              onPress={() => router.push('/(tabs)/(home)/clickers')}
+              color="#4ECDC4"
+            />
+            <MenuButton
+              title="KYC"
+              subtitle="Verify identity"
+              icon="checkmark.seal.fill"
+              androidIcon="verified_user"
+              onPress={() => router.push('/(tabs)/(home)/kyc-verification')}
+              color="#95E1D3"
+            />
+            <MenuButton
+              title="Support"
+              subtitle="Get help"
+              icon="questionmark.circle.fill"
+              androidIcon="help"
+              onPress={() => router.push('/(tabs)/(home)/support')}
+              color="#F38181"
+            />
+          </View>
+        </View>
 
         {/* Footer */}
         <Footer />
@@ -435,11 +270,22 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 24,
   },
-  greeting: {
+  logoContainer: {
+    width: 60,
+    height: 60,
+    marginRight: 16,
+  },
+  logo: {
+    width: '100%',
+    height: '100%',
+  },
+  headerText: {
+    flex: 1,
+  },
+  welcomeText: {
     fontSize: 14,
     color: colors.textSecondary,
   },
@@ -447,114 +293,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     color: colors.text,
-  },
-  profileButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  profileButtonEmoji: {
-    fontSize: 28,
-  },
-  phaseCard: {
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: colors.accent,
-  },
-  phaseHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  phaseHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  phaseIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: `${colors.accent}30`,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  phaseIconEmoji: {
-    fontSize: 24,
-  },
-  phaseTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  phaseSubtitle: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  phaseBadge: {
-    backgroundColor: colors.accent,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  phaseBadgeText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  progressContainer: {
-    marginBottom: 16,
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: colors.border,
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: colors.accent,
-    borderRadius: 4,
-  },
-  progressText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  phaseStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  phaseStat: {
-    alignItems: 'center',
-  },
-  phaseStatLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  phaseStatValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  phaseStatDivider: {
-    width: 1,
-    backgroundColor: colors.border,
   },
   balanceCard: {
     marginBottom: 16,
@@ -569,48 +307,91 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
   },
-  balanceIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: `${colors.primary}20`,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  balanceIconEmoji: {
-    fontSize: 20,
-  },
   balanceAmount: {
     fontSize: 36,
     fontWeight: '700',
-    color: colors.text,
-    marginBottom: 16,
-  },
-  balanceFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  balanceDetail: {
-    flex: 1,
-  },
-  balanceDetailLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
+    color: colors.primary,
     marginBottom: 4,
   },
-  balanceDetailValue: {
-    fontSize: 16,
-    fontWeight: '600',
+  balanceSubtext: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  phaseCard: {
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  phaseHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  phaseTitle: {
+    fontSize: 24,
+    fontWeight: '700',
     color: colors.text,
   },
-  vestingSection: {
+  phaseSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  phasePriceContainer: {
+    alignItems: 'flex-end',
+  },
+  phasePrice: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  phasePriceLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  progressContainer: {
     marginBottom: 16,
   },
-  actionsContainer: {
-    marginBottom: 16,
+  progressBar: {
+    height: 8,
+    backgroundColor: colors.border,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+  },
+  progressText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  phaseStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  phaseStat: {
+    alignItems: 'center',
+  },
+  phaseStatValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  phaseStatLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  phaseStatDivider: {
+    width: 1,
+    backgroundColor: colors.border,
+  },
+  section: {
+    marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 18,
@@ -618,133 +399,9 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 12,
   },
-  actionsGrid: {
+  menuGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
-  },
-  actionCard: {
-    flex: 1,
-    minWidth: '47%',
-    alignItems: 'center',
-    padding: 16,
-  },
-  actionIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  actionIconEmoji: {
-    fontSize: 36,
-  },
-  actionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  actionSubtitle: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  poolCard: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  poolHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  poolIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: `${colors.primary}20`,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  poolIconEmoji: {
-    fontSize: 20,
-  },
-  poolTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  poolDays: {
-    fontSize: 48,
-    fontWeight: '700',
-    color: colors.primary,
-    marginBottom: 4,
-  },
-  poolDate: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  phaseBreakdown: {
-    gap: 12,
-  },
-  phaseItem: {
-    padding: 16,
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  phaseItemActive: {
-    borderColor: colors.accent,
-    borderWidth: 2,
-    backgroundColor: colors.accent + '10',
-  },
-  phaseItemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  phaseItemTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  activeIndicator: {
-    backgroundColor: colors.accent,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  activeIndicatorText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  phaseItemPrice: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
-    marginBottom: 4,
-  },
-  phaseItemSold: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  phaseProgressBar: {
-    height: 4,
-    backgroundColor: colors.border,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  phaseProgressFill: {
-    height: '100%',
-    backgroundColor: colors.accent,
-    borderRadius: 2,
   },
 });
