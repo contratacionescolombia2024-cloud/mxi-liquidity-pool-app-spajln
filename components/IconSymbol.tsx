@@ -18,7 +18,7 @@ const MAPPING = {
 
   // Navigation & Home
   "house.fill": "home",
-  "house": "home-outlined",
+  "house": "home",
   "arrow.left": "arrow-back",
   "arrow.right": "arrow-forward",
   "arrow.up": "arrow-upward",
@@ -36,41 +36,41 @@ const MAPPING = {
 
   // Communication & Social
   "paperplane.fill": "send",
-  "paperplane": "send-outlined",
+  "paperplane": "send",
   "envelope.fill": "mail",
-  "envelope": "mail-outline",
+  "envelope": "mail",
   "envelope.open": "drafts",
   "phone.fill": "phone",
-  "phone": "phone-outlined",
+  "phone": "phone",
   "message.fill": "chat",
-  "message": "chat-bubble-outline",
+  "message": "chat",
   "bubble.left.fill": "chat-bubble",
-  "bubble.left": "chat-bubble-outline",
+  "bubble.left": "chat-bubble",
   "bell.fill": "notifications",
-  "bell": "notifications-none",
+  "bell": "notifications",
   "heart.fill": "favorite",
   "heart": "favorite-border",
 
   // Actions & Controls
   "plus": "add",
   "plus.circle.fill": "add-circle",
-  "plus.circle": "add-circle-outline",
+  "plus.circle": "add-circle",
   "minus": "remove",
   "minus.circle.fill": "remove-circle",
   "xmark": "close",
   "xmark.circle.fill": "cancel",
-  "xmark.circle": "cancel-outlined",
+  "xmark.circle": "cancel",
   "checkmark": "check",
   "checkmark.circle.fill": "check-circle",
-  "checkmark.circle": "check-circle-outline",
+  "checkmark.circle": "check-circle",
   "checkmark.square.fill": "check-box",
-  "checkmark.square": "check-box-outline-blank",
-  "checkmark.seal.fill": "verified-user",
+  "checkmark.square": "check-box",
+  "checkmark.seal.fill": "verified",
   "checkmark.shield.fill": "verified-user",
   "checkmark.shield": "verified-user",
   "multiply": "clear",
   "trash.fill": "delete",
-  "trash": "delete-outline",
+  "trash": "delete",
 
   // Editing & Creation
   "pencil": "edit",
@@ -82,7 +82,7 @@ const MAPPING = {
   "doc.on.doc": "content-copy",
   "doc.on.doc.fill": "content-copy",
   "folder.fill": "folder",
-  "folder": "folder-open",
+  "folder": "folder",
   "doc.fill": "insert-drive-file",
   "doc": "insert-drive-file",
   "tray.fill": "inbox",
@@ -90,11 +90,11 @@ const MAPPING = {
 
   // Media & Content
   "photo.fill": "image",
-  "photo": "image-outlined",
+  "photo": "image",
   "camera.fill": "camera-alt",
   "camera": "camera-alt",
   "video.fill": "videocam",
-  "video": "videocam-off",
+  "video": "videocam",
   "music.note": "music-note",
   "speaker.wave.2.fill": "volume-up",
   "speaker.slash.fill": "volume-off",
@@ -110,13 +110,13 @@ const MAPPING = {
   "gearshape.fill": "settings",
   "slider.horizontal.3": "tune",
   "info.circle.fill": "info",
-  "info.circle": "info-outlined",
+  "info.circle": "info",
   "exclamationmark.triangle.fill": "warning",
-  "exclamationmark.triangle": "warning-amber",
+  "exclamationmark.triangle": "warning",
   "exclamationmark.circle.fill": "error",
-  "exclamationmark.circle": "error-outline",
+  "exclamationmark.circle": "error",
   "questionmark.circle.fill": "help",
-  "questionmark.circle": "help-outline",
+  "questionmark.circle": "help",
 
   // Shapes & Symbols
   "square": "square",
@@ -134,7 +134,7 @@ const MAPPING = {
 
   // Technology & Code
   "chevron.left.forwardslash.chevron.right": "code",
-  "qrcode.viewfinder": "qr-code",
+  "qrcode.viewfinder": "qr-code-scanner",
   "qrcode": "qr-code",
   "wifi": "wifi",
   "antenna.radiowaves.left.and.right": "signal-cellular-alt",
@@ -147,11 +147,11 @@ const MAPPING = {
 
   // Shopping & Commerce
   "cart.fill": "shopping-cart",
-  "cart": "shopping-cart-outlined",
+  "cart": "shopping-cart",
   "creditcard.fill": "credit-card",
   "creditcard": "credit-card",
-  "dollarsign.circle.fill": "monetization-on",
-  "dollarsign.circle": "monetization-on",
+  "dollarsign.circle.fill": "attach-money",
+  "dollarsign.circle": "attach-money",
   "banknote.fill": "payments",
   "banknote": "payments",
   "bag.fill": "shopping-bag",
@@ -165,8 +165,8 @@ const MAPPING = {
   "compass.drawing": "explore",
 
   // Time & Calendar
-  "clock.fill": "access-time",
-  "clock": "access-time",
+  "clock.fill": "schedule",
+  "clock": "schedule",
   "calendar": "event",
   "calendar.fill": "event",
   "timer": "timer",
@@ -201,7 +201,7 @@ const MAPPING = {
   "eye.slash": "visibility-off",
   "eye.slash.fill": "visibility-off",
   "lightbulb.fill": "lightbulb",
-  "lightbulb": "lightbulb-outline",
+  "lightbulb": "lightbulb",
   "moon.fill": "dark-mode",
   "sun.max.fill": "light-mode",
 
@@ -229,8 +229,8 @@ const MAPPING = {
   "flag": "flag",
 
   // Security & Authentication
-  "shield.fill": "admin-panel-settings",
-  "shield": "admin-panel-settings",
+  "shield.fill": "security",
+  "shield": "security",
   "shield.checkmark.fill": "verified-user",
   "shield.checkmark": "verified-user",
 
@@ -246,6 +246,11 @@ const MAPPING = {
   "number.circle.fill": "badge",
   "number.circle": "badge",
   "number": "tag",
+
+  // Additional wallet and balance icons
+  "wallet.fill": "account-balance-wallet",
+  "wallet": "account-balance-wallet",
+  "account.balance.wallet": "account-balance-wallet",
 } as Partial<
   Record<
     import("expo-symbols").SymbolViewProps["name"],
