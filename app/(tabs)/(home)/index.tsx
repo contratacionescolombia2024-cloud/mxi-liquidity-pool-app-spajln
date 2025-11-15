@@ -171,6 +171,13 @@ export default function HomeScreen() {
     return num.toFixed(0);
   };
 
+  // Calculate MXI exchange value at Phase 1 price (0.4 USDT)
+  const getMxiExchangeValue = (): number => {
+    if (!user) return 0;
+    const mxiPhase1Price = 0.4; // Phase 1 sale price
+    return user.mxiBalance * mxiPhase1Price;
+  };
+
   if (!user) {
     return (
       <SafeAreaView style={styles.container}>
@@ -338,8 +345,10 @@ export default function HomeScreen() {
           
           <View style={styles.balanceRow}>
             <View style={styles.balanceItem}>
-              <Text style={styles.balanceItemLabel}>Comisiones USDT</Text>
-              <Text style={styles.balanceItemValue}>${user.commissions.available.toFixed(2)}</Text>
+              <Text style={styles.balanceItemLabel}>MXI Total</Text>
+              <Text style={styles.balanceItemValue}>{user.mxiBalance.toFixed(2)} MXI</Text>
+              <Text style={styles.balanceItemSubtext}>≈ ${getMxiExchangeValue().toFixed(2)} USDT</Text>
+              <Text style={styles.balanceItemNote}>(Fase 1: $0.40/MXI)</Text>
             </View>
             <View style={styles.balanceItem}>
               <Text style={styles.balanceItemLabel}>Referidos Activos</Text>
@@ -845,6 +854,19 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.text,
+    marginBottom: 4,
+  },
+  balanceItemSubtext: {
+    fontSize: 14,
+    color: colors.success,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  balanceItemNote: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    marginTop: 2,
+    fontStyle: 'italic',
   },
   salesCard: {
     marginBottom: 16,
