@@ -121,11 +121,7 @@ export default function MXIAirBallScreen() {
   const tiebreakerTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    requestPermissions();
-    loadCompetitionData();
-    loadAvailableBalances();
-    setupRealtimeSubscription();
-    loadNotifications();
+    initializeScreen();
 
     return () => {
       stopGame();
@@ -147,10 +143,28 @@ export default function MXIAirBallScreen() {
     }
   }, [currentCompetition]);
 
+  const initializeScreen = async () => {
+    console.log('Initializing MXI AirBall screen...');
+    try {
+      await requestPermissions();
+      await loadAvailableBalances();
+      await loadCompetitionData();
+      setupRealtimeSubscription();
+      await loadNotifications();
+    } catch (error) {
+      console.error('Error initializing screen:', error);
+      Alert.alert('Error', 'Failed to load competition data. Please try again.');
+    }
+  };
+
   const loadAvailableBalances = async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('No user found, skipping balance load');
+      return;
+    }
 
     try {
+      console.log('Loading available balances for user:', user.id);
       const { data, error } = await supabase
         .from('users')
         .select('mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges')
@@ -165,6 +179,8 @@ export default function MXIAirBallScreen() {
       const purchased = parseFloat(data.mxi_purchased_directly?.toString() || '0');
       const commissions = parseFloat(data.mxi_from_unified_commissions?.toString() || '0');
       const challenges = parseFloat(data.mxi_from_challenges?.toString() || '0');
+
+      console.log('Loaded balances:', { purchased, commissions, challenges });
 
       setAvailableBalances({
         mxiPurchasedDirectly: purchased,
@@ -210,9 +226,11 @@ export default function MXIAirBallScreen() {
 
   const requestPermissions = async () => {
     try {
+      console.log('Requesting permissions...');
       // Request microphone permission
       const audioPermission = await Audio.requestPermissionsAsync();
       if (audioPermission.status !== 'granted') {
+        console.log('Microphone permission denied');
         Alert.alert('Permission Required', 'Microphone access is required to play this game.');
         setHasPermission(false);
         return;
@@ -221,9 +239,11 @@ export default function MXIAirBallScreen() {
       // Request notification permission
       const notificationPermission = await Notifications.requestPermissionsAsync();
       if (notificationPermission.status !== 'granted') {
+        console.log('Notification permission denied');
         Alert.alert('Permission Required', 'Notification access is recommended for game updates.');
       }
 
+      console.log('Permissions granted');
       setHasPermission(true);
     } catch (error) {
       console.error('Error requesting permissions:', error);
@@ -232,6 +252,7 @@ export default function MXIAirBallScreen() {
   };
 
   const setupRealtimeSubscription = () => {
+    console.log('Setting up realtime subscriptions...');
     // Subscribe to competition updates
     const competitionChannel = supabase
       .channel('airball_competitions_changes')
@@ -287,8 +308,10 @@ export default function MXIAirBallScreen() {
 
   const loadCompetitionData = async () => {
     try {
+      console.log('Loading competition data...');
       setLoading(true);
 
+      // First, try to get existing competition
       const { data: compData, error: compError } = await supabase
         .from('airball_competitions')
         .select('*')
@@ -299,9 +322,11 @@ export default function MXIAirBallScreen() {
 
       if (compError && compError.code !== 'PGRST116') {
         console.error('Error loading competition:', compError);
+        throw compError;
       }
 
       if (compData) {
+        console.log('Found existing competition:', compData.id);
         setCurrentCompetition(compData);
 
         if (user) {
@@ -316,21 +341,30 @@ export default function MXIAirBallScreen() {
             console.error('Error loading participant:', partError);
           }
 
+          console.log('User participant status:', partData ? 'Joined' : 'Not joined');
           setUserParticipant(partData);
         }
       } else {
+        // No competition found, create one using RPC
+        console.log('No competition found, creating new one...');
         const { data: newCompId, error: createError } = await supabase
           .rpc('get_current_airball_competition');
 
         if (createError) {
           console.error('Error creating competition:', createError);
-        } else if (newCompId) {
-          loadCompetitionData();
+          throw createError;
+        }
+
+        if (newCompId) {
+          console.log('Created new competition:', newCompId);
+          // Reload data to get the new competition
+          setTimeout(() => loadCompetitionData(), 500);
           return;
         }
       }
     } catch (error) {
       console.error('Exception loading competition data:', error);
+      Alert.alert('Error', 'Failed to load competition. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -340,6 +374,7 @@ export default function MXIAirBallScreen() {
     if (!currentCompetition) return;
 
     try {
+      console.log('Loading participants for competition:', currentCompetition.id);
       const { data, error } = await supabase
         .from('airball_participants')
         .select(`
@@ -359,6 +394,7 @@ export default function MXIAirBallScreen() {
         user_name: p.users?.name || 'Unknown',
       }));
 
+      console.log('Loaded participants:', participantsWithNames.length);
       setParticipants(participantsWithNames);
     } catch (error) {
       console.error('Exception loading participants:', error);
@@ -461,6 +497,7 @@ export default function MXIAirBallScreen() {
                 });
 
               if (deductError || !deductResult) {
+                console.error('Deduct error:', deductError);
                 Alert.alert('Error', 'Failed to deduct entry fee. Please try again.');
                 setJoining(false);
                 return;
@@ -526,6 +563,7 @@ export default function MXIAirBallScreen() {
     setShowStartPrompt(false);
 
     try {
+      console.log('Starting game...');
       // Configure audio mode
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
@@ -640,9 +678,13 @@ export default function MXIAirBallScreen() {
   };
 
   const endGame = async (ballFell: boolean) => {
+    console.log('Game ended. Ball fell:', ballFell, 'Center time:', centerTime);
     await stopGame();
 
-    if (!userParticipant || !currentCompetition) return;
+    if (!userParticipant || !currentCompetition) {
+      console.error('No user participant or competition found');
+      return;
+    }
 
     if (ballFell) {
       Alert.alert('Game Over!', 'The ball fell! Your center time: ' + centerTime.toFixed(1) + ' seconds');
@@ -651,6 +693,7 @@ export default function MXIAirBallScreen() {
     }
 
     try {
+      console.log('Submitting score:', centerTime);
       const { data, error } = await supabase.rpc('submit_airball_score', {
         p_participant_id: userParticipant.id,
         p_center_time: centerTime,
@@ -661,6 +704,8 @@ export default function MXIAirBallScreen() {
         Alert.alert('Error', 'Failed to submit score');
         return;
       }
+
+      console.log('Score submission result:', data);
 
       if (!data.success) {
         Alert.alert('Error', data.error || 'Failed to submit score');
@@ -723,6 +768,12 @@ export default function MXIAirBallScreen() {
         </View>
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>No active competition</Text>
+          <TouchableOpacity
+            style={[buttonStyles.primary, { marginTop: 20 }]}
+            onPress={loadCompetitionData}
+          >
+            <Text style={buttonStyles.primaryText}>Retry</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -1004,23 +1055,23 @@ export default function MXIAirBallScreen() {
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>5.</Text>
-              <Text style={styles.infoText}>Leaderboard updates in real-time as users complete</Text>
+              <Text style={styles.infoText}>You have ONE attempt - make it count!</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>6.</Text>
-              <Text style={styles.infoText}>Player with longest center time wins 90% of pool</Text>
+              <Text style={styles.infoText}>Scores are automatically submitted when you finish</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>7.</Text>
-              <Text style={styles.infoText}>Ties trigger automatic tiebreaker rounds</Text>
+              <Text style={styles.infoText}>Leaderboard updates in real-time as users complete</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>8.</Text>
-              <Text style={styles.infoText}>Tiebreaker: 10 min to play or score becomes 0</Text>
+              <Text style={styles.infoText}>Player with longest center time wins 90% of pool</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>9.</Text>
-              <Text style={styles.infoText}>If no one plays tiebreaker in 1 hour, prize goes to admin</Text>
+              <Text style={styles.infoText}>Ties trigger automatic tiebreaker rounds</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>10.</Text>
@@ -1139,10 +1190,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   emptyText: {
     fontSize: 16,
     color: colors.textSecondary,
+    textAlign: 'center',
   },
   header: {
     flexDirection: 'row',

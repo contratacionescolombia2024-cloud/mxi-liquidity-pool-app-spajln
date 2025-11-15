@@ -66,9 +66,7 @@ export default function BonusMXIScreen() {
   const channelRef = useRef<any>(null);
 
   useEffect(() => {
-    loadLotteryData();
-    loadAvailableBalances();
-    setupRealtimeSubscription();
+    initializeScreen();
 
     return () => {
       if (channelRef.current) {
@@ -78,21 +76,42 @@ export default function BonusMXIScreen() {
     };
   }, []);
 
+  const initializeScreen = async () => {
+    console.log('Initializing Bonus MXI screen...');
+    try {
+      await loadAvailableBalances();
+      await loadLotteryData();
+      setupRealtimeSubscription();
+    } catch (error) {
+      console.error('Error initializing screen:', error);
+      Alert.alert('Error', 'Failed to load lottery data. Please try again.');
+    }
+  };
+
   const loadAvailableBalances = async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('No user found, skipping balance load');
+      return;
+    }
 
     try {
+      console.log('Loading available balances for user:', user.id);
       const { data, error } = await supabase
         .from('users')
         .select('mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges')
         .eq('id', user.id)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading balances:', error);
+        throw error;
+      }
 
       const purchased = data?.mxi_purchased_directly || 0;
       const commissions = data?.mxi_from_unified_commissions || 0;
       const challenges = data?.mxi_from_challenges || 0;
+
+      console.log('Loaded balances:', { purchased, commissions, challenges });
 
       setAvailableBalances({
         mxiPurchasedDirectly: purchased,
@@ -106,8 +125,12 @@ export default function BonusMXIScreen() {
   };
 
   const setupRealtimeSubscription = async () => {
-    if (channelRef.current?.state === 'subscribed') return;
+    if (channelRef.current?.state === 'subscribed') {
+      console.log('Already subscribed to lottery updates');
+      return;
+    }
 
+    console.log('Setting up realtime subscription...');
     const channel = supabase.channel('lottery:updates', {
       config: { private: false }
     });
@@ -127,6 +150,7 @@ export default function BonusMXIScreen() {
 
   const loadLotteryData = async () => {
     try {
+      console.log('Loading lottery data...');
       setLoading(true);
 
       // Get current round
@@ -140,9 +164,11 @@ export default function BonusMXIScreen() {
 
       if (roundError && roundError.code !== 'PGRST116') {
         console.error('Error loading bonus round:', roundError);
+        throw roundError;
       }
 
       if (roundData) {
+        console.log('Found existing round:', roundData.id);
         setCurrentRound(roundData);
 
         // Get user's tickets for this round
@@ -157,24 +183,31 @@ export default function BonusMXIScreen() {
           if (ticketsError) {
             console.error('Error loading user tickets:', ticketsError);
           } else {
+            console.log('Loaded user tickets:', ticketsData?.length || 0);
             setUserTickets(ticketsData || []);
           }
         }
       } else {
         // No open round, try to create one
+        console.log('No round found, creating new one...');
         const { data: newRoundId, error: createError } = await supabase
           .rpc('get_current_lottery_round');
 
         if (createError) {
           console.error('Error creating bonus round:', createError);
-        } else if (newRoundId) {
-          // Reload data
-          loadLotteryData();
+          throw createError;
+        }
+
+        if (newRoundId) {
+          console.log('Created new round:', newRoundId);
+          // Reload data to get the new round
+          setTimeout(() => loadLotteryData(), 500);
           return;
         }
       }
     } catch (error) {
       console.error('Exception loading bonus data:', error);
+      Alert.alert('Error', 'Failed to load lottery. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -240,18 +273,21 @@ export default function BonusMXIScreen() {
       setPurchasing(true);
       setShowPaymentSourceModal(false);
 
+      console.log('Deducting balance from source:', source);
       // Deduct from the selected source
-      const { error: deductError } = await supabase.rpc('deduct_challenge_balance', {
+      const { data: deductResult, error: deductError } = await supabase.rpc('deduct_challenge_balance', {
         p_user_id: user.id,
         p_amount: totalCost,
+        p_source: source,
       });
 
-      if (deductError) {
+      if (deductError || !deductResult) {
         console.error('Deduct error:', deductError);
         Alert.alert('Error', 'Failed to deduct balance');
         return;
       }
 
+      console.log('Purchasing tickets:', quantity);
       // Purchase tickets
       const { data, error } = await supabase.rpc('purchase_lottery_tickets', {
         p_user_id: user.id,
@@ -269,6 +305,7 @@ export default function BonusMXIScreen() {
         return;
       }
 
+      console.log('Purchase successful:', data);
       Alert.alert(
         'Success!',
         `Successfully purchased ${data.tickets_purchased} ticket(s) for ${data.total_cost.toFixed(2)} MXI using ${sourceName}!`
@@ -325,6 +362,12 @@ export default function BonusMXIScreen() {
         </View>
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>No active bonus round</Text>
+          <TouchableOpacity
+            style={[buttonStyles.primary, { marginTop: 20 }]}
+            onPress={loadLotteryData}
+          >
+            <Text style={buttonStyles.primaryText}>Retry</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -461,6 +504,10 @@ export default function BonusMXIScreen() {
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>5.</Text>
               <Text style={styles.infoText}>Winner announced on social media</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoBullet}>6.</Text>
+              <Text style={styles.infoText}>Purchase is final - no refunds</Text>
             </View>
           </View>
         </View>
@@ -666,10 +713,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   emptyText: {
     fontSize: 16,
     color: colors.textSecondary,
+    textAlign: 'center',
   },
   header: {
     flexDirection: 'row',
