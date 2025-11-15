@@ -69,7 +69,10 @@ export default function PaymentApprovalsScreen() {
 
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading payments:', error);
+        throw error;
+      }
 
       const mapped = data?.map((p: any) => ({
         ...p,
@@ -78,6 +81,7 @@ export default function PaymentApprovalsScreen() {
       })) || [];
 
       setPayments(mapped);
+      console.log(`Loaded ${mapped.length} payments with filter: ${filter}`);
     } catch (error) {
       console.error('Error loading payments:', error);
       Alert.alert('Error', 'Failed to load payments');
@@ -105,26 +109,41 @@ export default function PaymentApprovalsScreen() {
           onPress: async () => {
             try {
               setProcessing(true);
+              console.log('Approving payment:', payment.payment_id);
+
+              // Get current session
+              const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+              
+              if (sessionError || !session) {
+                console.error('Session error:', sessionError);
+                throw new Error('Authentication required. Please log in again.');
+              }
+
+              console.log('Session obtained, calling Edge Function...');
+
+              // Get Supabase URL
+              const supabaseUrl = supabase.supabaseUrl || 'https://aeyfnjuatbtcauiumbhn.supabase.co';
+              const functionUrl = `${supabaseUrl}/functions/v1/okx-payment-verification`;
+              
+              console.log('Calling function URL:', functionUrl);
 
               // Call Edge Function to confirm payment
-              const { data: { session } } = await supabase.auth.getSession();
-              
-              const response = await fetch(
-                `${supabase.supabaseUrl}/functions/v1/okx-payment-verification`,
-                {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session?.access_token}`,
-                  },
-                  body: JSON.stringify({
-                    paymentId: payment.payment_id,
-                    action: 'confirm',
-                  }),
-                }
-              );
+              const response = await fetch(functionUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({
+                  paymentId: payment.payment_id,
+                  action: 'confirm',
+                }),
+              });
+
+              console.log('Response status:', response.status);
 
               const result = await response.json();
+              console.log('Response data:', result);
 
               if (!response.ok) {
                 throw new Error(result.error || 'Failed to approve payment');
@@ -135,7 +154,7 @@ export default function PaymentApprovalsScreen() {
                 `Payment approved successfully!\n\nUser's new balance: ${result.newBalance?.toFixed(2) || 'N/A'} MXI`
               );
               setSelectedPayment(null);
-              loadPayments();
+              await loadPayments();
             } catch (error: any) {
               console.error('Error approving payment:', error);
               Alert.alert('Error', error.message || 'Failed to approve payment');
@@ -162,34 +181,49 @@ export default function PaymentApprovalsScreen() {
           onPress: async () => {
             try {
               setProcessing(true);
+              console.log('Rejecting payment:', payment.payment_id);
+
+              // Get current session
+              const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+              
+              if (sessionError || !session) {
+                console.error('Session error:', sessionError);
+                throw new Error('Authentication required. Please log in again.');
+              }
+
+              console.log('Session obtained, calling Edge Function...');
+
+              // Get Supabase URL
+              const supabaseUrl = supabase.supabaseUrl || 'https://aeyfnjuatbtcauiumbhn.supabase.co';
+              const functionUrl = `${supabaseUrl}/functions/v1/okx-payment-verification`;
+              
+              console.log('Calling function URL:', functionUrl);
 
               // Call Edge Function to reject payment
-              const { data: { session } } = await supabase.auth.getSession();
-              
-              const response = await fetch(
-                `${supabase.supabaseUrl}/functions/v1/okx-payment-verification`,
-                {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session?.access_token}`,
-                  },
-                  body: JSON.stringify({
-                    paymentId: payment.payment_id,
-                    action: 'reject',
-                  }),
-                }
-              );
+              const response = await fetch(functionUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({
+                  paymentId: payment.payment_id,
+                  action: 'reject',
+                }),
+              });
+
+              console.log('Response status:', response.status);
 
               const result = await response.json();
+              console.log('Response data:', result);
 
               if (!response.ok) {
                 throw new Error(result.error || 'Failed to reject payment');
               }
 
-              Alert.alert('Success', 'Payment rejected');
+              Alert.alert('Success', 'Payment rejected successfully');
               setSelectedPayment(null);
-              loadPayments();
+              await loadPayments();
             } catch (error: any) {
               console.error('Error rejecting payment:', error);
               Alert.alert('Error', error.message || 'Failed to reject payment');
