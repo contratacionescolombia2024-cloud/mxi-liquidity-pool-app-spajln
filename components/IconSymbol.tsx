@@ -29,6 +29,7 @@ const MAPPING = {
   "chevron.down": "keyboard-arrow-down",
   "arrow.clockwise": "refresh",
   "arrow.counterclockwise": "refresh",
+  "arrow.up.circle.fill": "arrow-circle-up",
 
   // Communication & Social
   "paperplane.fill": "send",
@@ -49,11 +50,13 @@ const MAPPING = {
   "plus.circle.fill": "add-circle",
   "minus": "remove",
   "xmark": "close",
+  "xmark.circle.fill": "cancel",
   "checkmark": "check",
   "checkmark.circle.fill": "check-circle",
   "checkmark.circle": "check-circle-outline",
   "checkmark.square.fill": "check-box",
   "checkmark.square": "check-box-outline-blank",
+  "checkmark.seal.fill": "verified-user",
   "multiply": "clear",
   "trash.fill": "delete",
   "trash": "delete-outline",
@@ -103,6 +106,7 @@ const MAPPING = {
   "star": "star-border",
   "bookmark.fill": "bookmark",
   "bookmark": "bookmark-border",
+  "gift.fill": "card-giftcard",
 
   // Technology & Code
   "chevron.left.forwardslash.chevron.right": "code",
@@ -170,6 +174,12 @@ const MAPPING = {
   // Crypto & Finance
   "bitcoinsign.circle.fill": "currency-bitcoin",
   "target": "track-changes",
+
+  // Charts & Analytics
+  "chart.line.uptrend.xyaxis": "trending-up",
+
+  // Gestures
+  "hand.tap.fill": "touch-app",
 } as Partial<
   Record<
     import("expo-symbols").SymbolViewProps["name"],
@@ -186,21 +196,34 @@ export type IconSymbolName = keyof typeof MAPPING;
  */
 export function IconSymbol({
   name,
+  ios_icon_name,
+  android_material_icon_name,
   size = 24,
   color,
   style,
 }: {
-  name: IconSymbolName;
+  name?: IconSymbolName;
+  ios_icon_name?: IconSymbolName;
+  android_material_icon_name?: string;
   size?: number;
   color: string | OpaqueColorValue;
   style?: StyleProp<ViewStyle>;
   weight?: SymbolWeight;
 }) {
+  // Support both prop patterns
+  const iconName = name || ios_icon_name;
+  const materialIconName = android_material_icon_name || (iconName ? MAPPING[iconName] : undefined);
+
+  if (!materialIconName) {
+    console.warn(`IconSymbol: No mapping found for icon "${iconName}"`);
+    return null;
+  }
+
   return (
     <MaterialIcons
       color={color}
       size={size}
-      name={MAPPING[name]}
+      name={materialIconName as any}
       style={style as StyleProp<TextStyle>}
     />
   );

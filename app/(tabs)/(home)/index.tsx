@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { colors, commonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
+import ActionButton from '@/components/ActionButton';
 import MenuButton from '@/components/MenuButton';
 import VestingCounter from '@/components/VestingCounter';
 import Footer from '@/components/Footer';
@@ -94,6 +95,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <MenuButton />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
@@ -178,7 +180,7 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.menuGrid}>
-            <MenuButton
+            <ActionButton
               title="Contribute"
               subtitle="Add USDT"
               icon="plus.circle.fill"
@@ -186,15 +188,15 @@ export default function HomeScreen() {
               onPress={() => router.push('/(tabs)/(home)/contribute')}
               color={colors.primary}
             />
-            <MenuButton
+            <ActionButton
               title="Referrals"
               subtitle="Earn rewards"
               icon="person.2.fill"
-              androidIcon="people"
+              androidIcon="group"
               onPress={() => router.push('/(tabs)/(home)/referrals')}
               color={colors.success}
             />
-            <MenuButton
+            <ActionButton
               title="Vesting"
               subtitle="View yield"
               icon="chart.line.uptrend.xyaxis"
@@ -202,11 +204,11 @@ export default function HomeScreen() {
               onPress={() => router.push('/(tabs)/(home)/vesting')}
               color={colors.warning}
             />
-            <MenuButton
+            <ActionButton
               title="Withdraw"
               subtitle="Cash out"
               icon="arrow.up.circle.fill"
-              androidIcon="upload"
+              androidIcon="arrow-circle-up"
               onPress={() => router.push('/(tabs)/(home)/withdrawal')}
               color={colors.error}
             />
@@ -217,7 +219,7 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>More Features</Text>
           <View style={styles.menuGrid}>
-            <MenuButton
+            <ActionButton
               title="Bonus MXI"
               subtitle="Win prizes"
               icon="gift.fill"
@@ -225,7 +227,7 @@ export default function HomeScreen() {
               onPress={() => router.push('/(tabs)/(home)/lottery')}
               color="#FF6B6B"
             />
-            <MenuButton
+            <ActionButton
               title="Clickers"
               subtitle="Compete"
               icon="hand.tap.fill"
@@ -233,7 +235,7 @@ export default function HomeScreen() {
               onPress={() => router.push('/(tabs)/(home)/clickers')}
               color="#4ECDC4"
             />
-            <MenuButton
+            <ActionButton
               title="KYC"
               subtitle="Verify identity"
               icon="checkmark.seal.fill"
@@ -241,7 +243,7 @@ export default function HomeScreen() {
               onPress={() => router.push('/(tabs)/(home)/kyc-verification')}
               color="#95E1D3"
             />
-            <MenuButton
+            <ActionButton
               title="Support"
               subtitle="Get help"
               icon="questionmark.circle.fill"
@@ -272,6 +274,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 24,
+    marginTop: 60,
   },
   logoContainer: {
     width: 60,
@@ -402,6 +405,6 @@ const styles = StyleSheet.create({
   menuGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    justifyContent: 'space-between',
   },
 });
