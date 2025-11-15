@@ -251,6 +251,10 @@ const MAPPING = {
   "wallet.fill": "account-balance-wallet",
   "wallet": "account-balance-wallet",
   "account.balance.wallet": "account-balance-wallet",
+  
+  // Additional icons
+  "checkmark.seal": "verified",
+  "arrow.clockwise.circle.fill": "refresh",
 } as Partial<
   Record<
     import("expo-symbols").SymbolViewProps["name"],
@@ -283,10 +287,16 @@ export function IconSymbol({
 }) {
   // Support both prop patterns
   const iconName = name || ios_icon_name;
-  const materialIconName = android_material_icon_name || (iconName ? MAPPING[iconName] : undefined);
+  let materialIconName = android_material_icon_name || (iconName ? MAPPING[iconName] : undefined);
+
+  // Convert underscores to hyphens for Material Icons
+  // This handles cases where developers use underscores instead of hyphens
+  if (materialIconName && typeof materialIconName === 'string') {
+    materialIconName = materialIconName.replace(/_/g, '-');
+  }
 
   if (!materialIconName) {
-    console.warn(`IconSymbol: No mapping found for icon "${iconName}"`);
+    console.warn(`IconSymbol: No mapping found for icon "${iconName}". Using fallback icon.`);
     // Return a fallback icon instead of null to avoid question marks
     return (
       <MaterialIcons
