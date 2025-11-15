@@ -17,7 +17,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.maxcoinpool.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSMicrophoneUsageDescription": "This app needs access to your microphone to play the AirBall game where you blow to keep the ball in the air."
       }
     },
     "android": {
@@ -45,7 +46,8 @@
         }
       ],
       "permissions": [
-        "android.permission.POST_NOTIFICATIONS"
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -67,6 +69,12 @@
           "icon": "./assets/images/04a4d9ac-4539-41d2-bafd-67dd75925bde.png",
           "color": "#ffffff",
           "sounds": []
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow MXI Liquidity Pool to access your microphone for the AirBall game."
         }
       ]
     ],

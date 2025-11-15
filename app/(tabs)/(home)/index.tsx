@@ -215,9 +215,9 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Additional Features */}
+        {/* Games Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>More Features</Text>
+          <Text style={styles.sectionTitle}>🎮 Games & Challenges</Text>
           <View style={styles.menuGrid}>
             <ActionButton
               title="Bonus MXI"
@@ -244,6 +244,21 @@ export default function HomeScreen() {
               color="#9B59B6"
             />
             <ActionButton
+              title="AirBall"
+              subtitle="Blow to win"
+              icon="balloon.fill"
+              androidIcon="sports_soccer"
+              onPress={() => router.push('/(tabs)/(home)/mxi-airball')}
+              color="#FF9F43"
+            />
+          </View>
+        </View>
+
+        {/* Additional Features */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>More Features</Text>
+          <View style={styles.menuGrid}>
+            <ActionButton
               title="KYC"
               subtitle="Verify identity"
               icon="checkmark.seal.fill"
@@ -251,19 +266,15 @@ export default function HomeScreen() {
               onPress={() => router.push('/(tabs)/(home)/kyc-verification')}
               color="#95E1D3"
             />
+            <ActionButton
+              title="Support"
+              subtitle="Get help"
+              icon="questionmark.circle.fill"
+              androidIcon="help"
+              onPress={() => router.push('/(tabs)/(home)/support')}
+              color="#F38181"
+            />
           </View>
-        </View>
-
-        {/* Support */}
-        <View style={styles.section}>
-          <ActionButton
-            title="Support"
-            subtitle="Get help"
-            icon="questionmark.circle.fill"
-            androidIcon="help"
-            onPress={() => router.push('/(tabs)/(home)/support')}
-            color="#F38181"
-          />
         </View>
 
         {/* Footer */}
