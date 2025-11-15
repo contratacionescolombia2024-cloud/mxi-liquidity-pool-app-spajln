@@ -29,6 +29,7 @@ const CENTER_ZONE_TOP = (GAME_HEIGHT - CENTER_ZONE_HEIGHT) / 2;
 const GRAVITY = 0.8;
 const BLOW_MULTIPLIER = 3;
 const GAME_DURATION = 40000; // 40 seconds
+const PARTICIPATION_TIMEOUT = 600; // 10 minutes in seconds
 
 interface AirballCompetition {
   id: string;
@@ -57,6 +58,7 @@ interface Participant {
   joined_at: string;
   user_name?: string;
   is_tiebreaker_participant: boolean;
+  game_started_at: string | null;
 }
 
 interface NotificationData {
@@ -95,6 +97,7 @@ export default function MXIAirBallScreen() {
   const [userParticipant, setUserParticipant] = useState<Participant | null>(null);
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const [tiebreakerTimeLeft, setTiebreakerTimeLeft] = useState<number | null>(null);
+  const [participationTimeLeft, setParticipationTimeLeft] = useState(PARTICIPATION_TIMEOUT);
   const [showStartPrompt, setShowStartPrompt] = useState(false);
   const [availableBalances, setAvailableBalances] = useState<AvailableBalances>({
     mxiPurchasedDirectly: 0,
@@ -119,6 +122,7 @@ export default function MXIAirBallScreen() {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const meteringRef = useRef<NodeJS.Timeout | null>(null);
   const tiebreakerTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const participationTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     initializeScreen();
@@ -129,6 +133,7 @@ export default function MXIAirBallScreen() {
       if (timerRef.current) clearInterval(timerRef.current);
       if (meteringRef.current) clearInterval(meteringRef.current);
       if (tiebreakerTimerRef.current) clearInterval(tiebreakerTimerRef.current);
+      if (participationTimerRef.current) clearInterval(participationTimerRef.current);
     };
   }, []);
 
@@ -142,6 +147,83 @@ export default function MXIAirBallScreen() {
       }
     }
   }, [currentCompetition]);
+
+  useEffect(() => {
+    // Start participation timer when user has joined but hasn't played
+    if (userParticipant && !userParticipant.has_played && !isPlaying && currentCompetition?.status !== 'completed') {
+      startParticipationTimer();
+    }
+
+    return () => {
+      if (participationTimerRef.current) {
+        clearInterval(participationTimerRef.current);
+        participationTimerRef.current = null;
+      }
+    };
+  }, [userParticipant, isPlaying]);
+
+  const startParticipationTimer = () => {
+    if (!userParticipant) return;
+
+    const joinedAt = new Date(userParticipant.joined_at).getTime();
+    const now = Date.now();
+    const elapsed = Math.floor((now - joinedAt) / 1000);
+    const remaining = Math.max(0, PARTICIPATION_TIMEOUT - elapsed);
+
+    setParticipationTimeLeft(remaining);
+
+    if (remaining <= 0) {
+      handleParticipationTimeout();
+      return;
+    }
+
+    participationTimerRef.current = setInterval(() => {
+      setParticipationTimeLeft((prev) => {
+        if (prev <= 1) {
+          handleParticipationTimeout();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const handleParticipationTimeout = async () => {
+    if (participationTimerRef.current) {
+      clearInterval(participationTimerRef.current);
+      participationTimerRef.current = null;
+    }
+
+    if (!userParticipant || userParticipant.has_played) return;
+
+    // Submit score of 0
+    try {
+      console.log('⏰ Participation timeout - submitting score of 0');
+      const { error } = await supabase.rpc('submit_airball_score', {
+        p_participant_id: userParticipant.id,
+        p_center_time: 0,
+      });
+
+      if (error) {
+        console.error('Error submitting timeout score:', error);
+      }
+
+      Alert.alert(
+        '⏰ Time Expired',
+        'You did not complete the challenge within 10 minutes. Your score has been set to 0.'
+      );
+
+      loadCompetitionData();
+    } catch (error) {
+      console.error('Error handling timeout:', error);
+    }
+  };
+
+  const formatParticipationTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const initializeScreen = async () => {
     console.log('Initializing MXI AirBall screen...');
@@ -564,6 +646,15 @@ export default function MXIAirBallScreen() {
 
     try {
       console.log('Starting game...');
+      
+      // Mark game as started
+      if (userParticipant) {
+        await supabase
+          .from('airball_participants')
+          .update({ game_started_at: new Date().toISOString() })
+          .eq('id', userParticipant.id);
+      }
+
       // Configure audio mode
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
@@ -804,6 +895,23 @@ export default function MXIAirBallScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Participation Timer Warning */}
+        {userParticipant && !userParticipant.has_played && !isPlaying && participationTimeLeft > 0 && participationTimeLeft < 300 && (
+          <View style={[commonStyles.card, styles.timerWarning]}>
+            <View style={styles.warningHeader}>
+              <Text style={styles.warningEmoji}>⏰</Text>
+              <Text style={styles.warningTitle}>TIME RUNNING OUT!</Text>
+            </View>
+            <Text style={styles.warningText}>
+              You must start the game within:
+            </Text>
+            <Text style={styles.tiebreakerTimer}>{formatParticipationTime(participationTimeLeft)}</Text>
+            <Text style={styles.warningSubtext}>
+              If you don&apos;t play within this time, your score will be set to 0.
+            </Text>
+          </View>
+        )}
+
         {/* Tiebreaker Warning */}
         {currentCompetition.is_tiebreaker && tiebreakerTimeLeft !== null && tiebreakerTimeLeft > 0 && (
           <View style={[commonStyles.card, styles.tiebreakerWarning]}>
@@ -948,6 +1056,11 @@ export default function MXIAirBallScreen() {
                       <Text style={styles.startPromptText}>
                         You&apos;ve successfully joined the competition. Start the challenge when you&apos;re ready!
                       </Text>
+                      {participationTimeLeft < PARTICIPATION_TIMEOUT && (
+                        <Text style={styles.startPromptTimer}>
+                          ⏰ Time remaining: {formatParticipationTime(participationTimeLeft)}
+                        </Text>
+                      )}
                     </View>
                   )}
                   <Text style={styles.instructionText}>
@@ -970,6 +1083,10 @@ export default function MXIAirBallScreen() {
                     <View style={styles.ruleItem}>
                       <Text style={styles.ruleEmoji}>⏱️</Text>
                       <Text style={styles.ruleText}>40 seconds to play</Text>
+                    </View>
+                    <View style={styles.ruleItem}>
+                      <Text style={styles.ruleEmoji}>⏰</Text>
+                      <Text style={styles.ruleText}>10 minutes to start after joining</Text>
                     </View>
                   </View>
                   <TouchableOpacity
@@ -1051,7 +1168,7 @@ export default function MXIAirBallScreen() {
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>4.</Text>
-              <Text style={styles.infoText}>Start the game when you&apos;re ready to play</Text>
+              <Text style={styles.infoText}>Start the game within 10 minutes of joining</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>5.</Text>
@@ -1063,7 +1180,7 @@ export default function MXIAirBallScreen() {
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>7.</Text>
-              <Text style={styles.infoText}>Leaderboard updates in real-time as users complete</Text>
+              <Text style={styles.infoText}>If you don&apos;t play within 10 minutes, your score will be 0</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>8.</Text>
@@ -1241,6 +1358,12 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 20,
     paddingBottom: 100,
+  },
+  timerWarning: {
+    backgroundColor: colors.warning + '20',
+    borderWidth: 2,
+    borderColor: colors.warning,
+    marginBottom: 20,
   },
   tiebreakerWarning: {
     backgroundColor: colors.warning + '20',
@@ -1440,6 +1563,12 @@ const styles = StyleSheet.create({
     color: colors.text,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  startPromptTimer: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.warning,
+    marginTop: 12,
   },
   timerContainer: {
     alignItems: 'center',
