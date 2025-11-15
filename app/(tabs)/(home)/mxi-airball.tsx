@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Animated,
   Dimensions,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
@@ -68,6 +69,13 @@ interface NotificationData {
   created_at: string;
 }
 
+interface AvailableBalances {
+  mxiPurchasedDirectly: number;
+  mxiFromUnifiedCommissions: number;
+  mxiFromChallenges: number;
+  total: number;
+}
+
 // Configure notifications
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -88,6 +96,13 @@ export default function MXIAirBallScreen() {
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const [tiebreakerTimeLeft, setTiebreakerTimeLeft] = useState<number | null>(null);
   const [showStartPrompt, setShowStartPrompt] = useState(false);
+  const [availableBalances, setAvailableBalances] = useState<AvailableBalances>({
+    mxiPurchasedDirectly: 0,
+    mxiFromUnifiedCommissions: 0,
+    mxiFromChallenges: 0,
+    total: 0,
+  });
+  const [showPaymentSourceModal, setShowPaymentSourceModal] = useState(false);
   
   // Game state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -108,6 +123,7 @@ export default function MXIAirBallScreen() {
   useEffect(() => {
     requestPermissions();
     loadCompetitionData();
+    loadAvailableBalances();
     setupRealtimeSubscription();
     loadNotifications();
 
@@ -130,6 +146,36 @@ export default function MXIAirBallScreen() {
       }
     }
   }, [currentCompetition]);
+
+  const loadAvailableBalances = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error loading balances:', error);
+        return;
+      }
+
+      const purchased = parseFloat(data.mxi_purchased_directly?.toString() || '0');
+      const commissions = parseFloat(data.mxi_from_unified_commissions?.toString() || '0');
+      const challenges = parseFloat(data.mxi_from_challenges?.toString() || '0');
+
+      setAvailableBalances({
+        mxiPurchasedDirectly: purchased,
+        mxiFromUnifiedCommissions: commissions,
+        mxiFromChallenges: challenges,
+        total: purchased + commissions + challenges,
+      });
+    } catch (error) {
+      console.error('Exception loading balances:', error);
+    }
+  };
 
   const startTiebreakerCountdown = () => {
     if (!currentCompetition?.tiebreaker_deadline) return;
@@ -346,10 +392,16 @@ export default function MXIAirBallScreen() {
     if (!user || !currentCompetition) return;
 
     // Tiebreakers have no entry fee
-    if (!currentCompetition.is_tiebreaker && user.mxiBalance < currentCompetition.entry_fee) {
+    if (currentCompetition.is_tiebreaker) {
+      proceedWithJoin('purchased');
+      return;
+    }
+
+    // Check if user has sufficient balance
+    if (availableBalances.total < currentCompetition.entry_fee) {
       Alert.alert(
         'Insufficient Balance',
-        `You need ${currentCompetition.entry_fee} MXI to join. Your current balance is ${user.mxiBalance.toFixed(2)} MXI.`
+        `You need ${currentCompetition.entry_fee} MXI to join. Your available balance is ${availableBalances.total.toFixed(2)} MXI.`
       );
       return;
     }
@@ -357,6 +409,33 @@ export default function MXIAirBallScreen() {
     if (!hasPermission) {
       Alert.alert('Permission Required', 'Please grant microphone permission to play this game.');
       await requestPermissions();
+      return;
+    }
+
+    // Show payment source selection modal
+    setShowPaymentSourceModal(true);
+  };
+
+  const proceedWithJoin = async (source: 'purchased' | 'commissions' | 'challenges') => {
+    if (!user || !currentCompetition) return;
+
+    setShowPaymentSourceModal(false);
+
+    // Validate source balance
+    const sourceBalance = 
+      source === 'purchased' ? availableBalances.mxiPurchasedDirectly :
+      source === 'commissions' ? availableBalances.mxiFromUnifiedCommissions :
+      availableBalances.mxiFromChallenges;
+
+    if (!currentCompetition.is_tiebreaker && sourceBalance < currentCompetition.entry_fee) {
+      Alert.alert(
+        'Insufficient Balance',
+        `You need ${currentCompetition.entry_fee} MXI from ${
+          source === 'purchased' ? 'direct purchases' :
+          source === 'commissions' ? 'unified commissions' :
+          'challenge winnings'
+        }. Available: ${sourceBalance.toFixed(2)} MXI`
+      );
       return;
     }
 
@@ -371,6 +450,22 @@ export default function MXIAirBallScreen() {
         onPress: async () => {
           try {
             setJoining(true);
+
+            // Deduct entry fee if not a tiebreaker
+            if (!currentCompetition.is_tiebreaker) {
+              const { data: deductResult, error: deductError } = await supabase
+                .rpc('deduct_challenge_balance', {
+                  p_user_id: user.id,
+                  p_amount: currentCompetition.entry_fee,
+                  p_source: source,
+                });
+
+              if (deductError || !deductResult) {
+                Alert.alert('Error', 'Failed to deduct entry fee. Please try again.');
+                setJoining(false);
+                return;
+              }
+            }
 
             const { data, error } = await supabase.rpc('join_airball_competition', {
               p_user_id: user.id,
@@ -389,6 +484,7 @@ export default function MXIAirBallScreen() {
 
             // Successfully joined - reload data and show start prompt
             await loadCompetitionData();
+            await loadAvailableBalances();
             setShowStartPrompt(true);
             
             // Show success alert with option to start immediately
@@ -719,8 +815,8 @@ export default function MXIAirBallScreen() {
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Your Balance</Text>
-              <Text style={styles.statValue}>{user?.mxiBalance.toFixed(2)} MXI</Text>
+              <Text style={styles.statLabel}>Available Balance</Text>
+              <Text style={styles.statValue}>{availableBalances.total.toFixed(2)} MXI</Text>
             </View>
           </View>
         </View>
@@ -900,35 +996,126 @@ export default function MXIAirBallScreen() {
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>3.</Text>
-              <Text style={styles.infoText}>Start the game when you&apos;re ready to play</Text>
+              <Text style={styles.infoText}>Choose payment source: purchased MXI, commissions, or challenge winnings</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>4.</Text>
-              <Text style={styles.infoText}>Leaderboard updates in real-time as users complete</Text>
+              <Text style={styles.infoText}>Start the game when you&apos;re ready to play</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>5.</Text>
-              <Text style={styles.infoText}>Player with longest center time wins 90% of pool</Text>
+              <Text style={styles.infoText}>Leaderboard updates in real-time as users complete</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>6.</Text>
-              <Text style={styles.infoText}>Ties trigger automatic tiebreaker rounds</Text>
+              <Text style={styles.infoText}>Player with longest center time wins 90% of pool</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>7.</Text>
-              <Text style={styles.infoText}>Tiebreaker: 10 min to play or score becomes 0</Text>
+              <Text style={styles.infoText}>Ties trigger automatic tiebreaker rounds</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>8.</Text>
-              <Text style={styles.infoText}>If no one plays tiebreaker in 1 hour, prize goes to admin</Text>
+              <Text style={styles.infoText}>Tiebreaker: 10 min to play or score becomes 0</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>9.</Text>
+              <Text style={styles.infoText}>If no one plays tiebreaker in 1 hour, prize goes to admin</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoBullet}>10.</Text>
               <Text style={styles.infoText}>All results stored for 10 days in your history</Text>
             </View>
           </View>
         </View>
       </ScrollView>
+
+      {/* Payment Source Selection Modal */}
+      <Modal
+        visible={showPaymentSourceModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPaymentSourceModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Payment Source</Text>
+              <TouchableOpacity onPress={() => setShowPaymentSourceModal(false)}>
+                <IconSymbol
+                  ios_icon_name="xmark.circle.fill"
+                  android_material_icon_name="cancel"
+                  size={28}
+                  color={colors.textSecondary}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <Text style={styles.modalSubtitle}>
+                Choose which balance to use for the {currentCompetition?.entry_fee} MXI entry fee:
+              </Text>
+
+              <TouchableOpacity
+                style={[
+                  styles.sourceOption,
+                  availableBalances.mxiPurchasedDirectly < (currentCompetition?.entry_fee || 0) && styles.sourceOptionDisabled,
+                ]}
+                onPress={() => proceedWithJoin('purchased')}
+                disabled={availableBalances.mxiPurchasedDirectly < (currentCompetition?.entry_fee || 0)}
+              >
+                <View style={styles.sourceOptionHeader}>
+                  <Text style={styles.sourceOptionTitle}>💰 MXI Purchased Directly</Text>
+                  <Text style={styles.sourceOptionBalance}>
+                    {availableBalances.mxiPurchasedDirectly.toFixed(2)} MXI
+                  </Text>
+                </View>
+                <Text style={styles.sourceOptionDescription}>
+                  From USDT purchases
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.sourceOption,
+                  availableBalances.mxiFromUnifiedCommissions < (currentCompetition?.entry_fee || 0) && styles.sourceOptionDisabled,
+                ]}
+                onPress={() => proceedWithJoin('commissions')}
+                disabled={availableBalances.mxiFromUnifiedCommissions < (currentCompetition?.entry_fee || 0)}
+              >
+                <View style={styles.sourceOptionHeader}>
+                  <Text style={styles.sourceOptionTitle}>🎁 Unified Commissions</Text>
+                  <Text style={styles.sourceOptionBalance}>
+                    {availableBalances.mxiFromUnifiedCommissions.toFixed(2)} MXI
+                  </Text>
+                </View>
+                <Text style={styles.sourceOptionDescription}>
+                  From referral commissions
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.sourceOption,
+                  availableBalances.mxiFromChallenges < (currentCompetition?.entry_fee || 0) && styles.sourceOptionDisabled,
+                ]}
+                onPress={() => proceedWithJoin('challenges')}
+                disabled={availableBalances.mxiFromChallenges < (currentCompetition?.entry_fee || 0)}
+              >
+                <View style={styles.sourceOptionHeader}>
+                  <Text style={styles.sourceOptionTitle}>🏆 Challenge Winnings</Text>
+                  <Text style={styles.sourceOptionBalance}>
+                    {availableBalances.mxiFromChallenges.toFixed(2)} MXI
+                  </Text>
+                </View>
+                <Text style={styles.sourceOptionDescription}>
+                  From challenge victories
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1398,5 +1585,70 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
     lineHeight: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  modalBody: {
+    padding: 20,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  sourceOption: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  sourceOptionDisabled: {
+    opacity: 0.5,
+    borderColor: colors.border,
+  },
+  sourceOptionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  sourceOptionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  sourceOptionBalance: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  sourceOptionDescription: {
+    fontSize: 12,
+    color: colors.textSecondary,
   },
 });

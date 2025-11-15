@@ -54,6 +54,13 @@ interface NotificationData {
   created_at: string;
 }
 
+interface AvailableBalances {
+  mxiPurchasedDirectly: number;
+  mxiFromUnifiedCommissions: number;
+  mxiFromChallenges: number;
+  total: number;
+}
+
 // Configure notifications
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -77,7 +84,14 @@ export default function XMITapDuoScreen() {
   const [timeLeft, setTimeLeft] = useState(10);
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const [waitingBattles, setWaitingBattles] = useState<Battle[]>([]);
-  const [availableBalance, setAvailableBalance] = useState(0);
+  const [availableBalances, setAvailableBalances] = useState<AvailableBalances>({
+    mxiPurchasedDirectly: 0,
+    mxiFromUnifiedCommissions: 0,
+    mxiFromChallenges: 0,
+    total: 0,
+  });
+  const [showPaymentSourceModal, setShowPaymentSourceModal] = useState(false);
+  const [pendingWager, setPendingWager] = useState(0);
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -86,7 +100,7 @@ export default function XMITapDuoScreen() {
     loadActiveBattle();
     loadWaitingBattles();
     loadNotifications();
-    loadAvailableBalance();
+    loadAvailableBalances();
     setupRealtimeSubscription();
 
     return () => {
@@ -96,26 +110,33 @@ export default function XMITapDuoScreen() {
     };
   }, []);
 
-  const loadAvailableBalance = async () => {
+  const loadAvailableBalances = async () => {
     if (!user) return;
     
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('mxi_purchased_directly, mxi_from_unified_commissions')
+        .select('mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges')
         .eq('id', user.id)
         .single();
       
       if (error) {
-        console.error('Error loading balance:', error);
+        console.error('Error loading balances:', error);
         return;
       }
       
-      const available = (parseFloat(data.mxi_purchased_directly?.toString() || '0') + 
-                        parseFloat(data.mxi_from_unified_commissions?.toString() || '0'));
-      setAvailableBalance(available);
+      const purchased = parseFloat(data.mxi_purchased_directly?.toString() || '0');
+      const commissions = parseFloat(data.mxi_from_unified_commissions?.toString() || '0');
+      const challenges = parseFloat(data.mxi_from_challenges?.toString() || '0');
+
+      setAvailableBalances({
+        mxiPurchasedDirectly: purchased,
+        mxiFromUnifiedCommissions: commissions,
+        mxiFromChallenges: challenges,
+        total: purchased + commissions + challenges,
+      });
     } catch (error) {
-      console.error('Exception loading balance:', error);
+      console.error('Exception loading balances:', error);
     }
   };
 
@@ -201,7 +222,7 @@ export default function XMITapDuoScreen() {
         .in('status', ['waiting', 'matched', 'in_progress'])
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error loading active battle:', error);
@@ -283,16 +304,45 @@ export default function XMITapDuoScreen() {
       return;
     }
 
-    if (availableBalance < wager) {
+    if (availableBalances.total < wager) {
       Alert.alert(
         '💰 Insufficient Balance', 
-        `You need ${wager} MXI from USDT purchases or referral commissions to create this challenge.\n\nAvailable: ${availableBalance.toFixed(2)} MXI\n\n⚠️ Vesting rewards cannot be used for challenges until launch date.`
+        `You need ${wager} MXI from USDT purchases, referral commissions, or challenge winnings.\n\nAvailable: ${availableBalances.total.toFixed(2)} MXI\n\n⚠️ Vesting rewards cannot be used for challenges until launch date.`
       );
       return;
     }
 
     if (challengeType === 'friend' && !referralCode.trim()) {
       Alert.alert('⚠️ Referral Code Required', 'Please enter your friend\'s referral code.');
+      return;
+    }
+
+    // Store wager and show payment source modal
+    setPendingWager(wager);
+    setShowChallengeModal(false);
+    setShowPaymentSourceModal(true);
+  };
+
+  const proceedWithCreateChallenge = async (source: 'purchased' | 'commissions' | 'challenges') => {
+    if (!user) return;
+
+    setShowPaymentSourceModal(false);
+
+    // Validate source balance
+    const sourceBalance = 
+      source === 'purchased' ? availableBalances.mxiPurchasedDirectly :
+      source === 'commissions' ? availableBalances.mxiFromUnifiedCommissions :
+      availableBalances.mxiFromChallenges;
+
+    if (sourceBalance < pendingWager) {
+      Alert.alert(
+        'Insufficient Balance',
+        `You need ${pendingWager} MXI from ${
+          source === 'purchased' ? 'direct purchases' :
+          source === 'commissions' ? 'unified commissions' :
+          'challenge winnings'
+        }. Available: ${sourceBalance.toFixed(2)} MXI`
+      );
       return;
     }
 
@@ -327,7 +377,8 @@ export default function XMITapDuoScreen() {
       const { data: deductResult, error: deductError } = await supabase
         .rpc('deduct_challenge_balance', {
           p_user_id: user.id,
-          p_amount: wager,
+          p_amount: pendingWager,
+          p_source: source,
         });
 
       if (deductError || !deductResult) {
@@ -336,7 +387,7 @@ export default function XMITapDuoScreen() {
         return;
       }
 
-      const totalPot = opponentId ? wager * 2 : wager;
+      const totalPot = opponentId ? pendingWager * 2 : pendingWager;
       const prizeAmount = totalPot * 0.90;
       const adminFee = totalPot * 0.10;
 
@@ -345,7 +396,7 @@ export default function XMITapDuoScreen() {
         .insert({
           challenger_id: user.id,
           opponent_id: opponentId,
-          wager_amount: wager,
+          wager_amount: pendingWager,
           total_pot: totalPot,
           prize_amount: prizeAmount,
           admin_fee: adminFee,
@@ -363,7 +414,8 @@ export default function XMITapDuoScreen() {
       if (opponentId) {
         await supabase.rpc('deduct_challenge_balance', {
           p_user_id: opponentId,
-          p_amount: wager,
+          p_amount: pendingWager,
+          p_source: source,
         });
 
         await supabase.from('tap_duo_notifications').insert({
@@ -371,7 +423,7 @@ export default function XMITapDuoScreen() {
           battle_id: battleData.id,
           notification_type: 'challenge_received',
           title: '⚔️ Battle Challenge!',
-          message: `${user.name} has challenged you to a ${wager} MXI battle!`,
+          message: `${user.name} has challenged you to a ${pendingWager} MXI battle!`,
         });
       }
 
@@ -382,10 +434,9 @@ export default function XMITapDuoScreen() {
           : '⏳ Waiting for an opponent to accept...'
       );
 
-      setShowChallengeModal(false);
       setReferralCode('');
       loadActiveBattle();
-      loadAvailableBalance();
+      loadAvailableBalances();
     } catch (error) {
       console.error('Error creating challenge:', error);
       Alert.alert('❌ Error', 'Failed to create challenge. Please try again.');
@@ -397,10 +448,38 @@ export default function XMITapDuoScreen() {
   const handleAcceptChallenge = async (battle: Battle) => {
     if (!user) return;
 
-    if (availableBalance < battle.wager_amount) {
+    if (availableBalances.total < battle.wager_amount) {
       Alert.alert(
         '💰 Insufficient Balance', 
-        `You need ${battle.wager_amount} MXI from USDT purchases or referral commissions.\n\nAvailable: ${availableBalance.toFixed(2)} MXI`
+        `You need ${battle.wager_amount} MXI from USDT purchases, referral commissions, or challenge winnings.\n\nAvailable: ${availableBalances.total.toFixed(2)} MXI`
+      );
+      return;
+    }
+
+    // Store battle wager and show payment source modal
+    setPendingWager(battle.wager_amount);
+    setShowPaymentSourceModal(true);
+  };
+
+  const proceedWithAcceptChallenge = async (source: 'purchased' | 'commissions' | 'challenges', battle: Battle) => {
+    if (!user) return;
+
+    setShowPaymentSourceModal(false);
+
+    // Validate source balance
+    const sourceBalance = 
+      source === 'purchased' ? availableBalances.mxiPurchasedDirectly :
+      source === 'commissions' ? availableBalances.mxiFromUnifiedCommissions :
+      availableBalances.mxiFromChallenges;
+
+    if (sourceBalance < battle.wager_amount) {
+      Alert.alert(
+        'Insufficient Balance',
+        `You need ${battle.wager_amount} MXI from ${
+          source === 'purchased' ? 'direct purchases' :
+          source === 'commissions' ? 'unified commissions' :
+          'challenge winnings'
+        }. Available: ${sourceBalance.toFixed(2)} MXI`
       );
       return;
     }
@@ -412,6 +491,7 @@ export default function XMITapDuoScreen() {
         .rpc('deduct_challenge_balance', {
           p_user_id: user.id,
           p_amount: battle.wager_amount,
+          p_source: source,
         });
 
       if (deductError || !deductResult) {
@@ -450,7 +530,7 @@ export default function XMITapDuoScreen() {
       Alert.alert('✅ Challenge Accepted!', '🎮 Get ready to tap!');
       loadActiveBattle();
       loadWaitingBattles();
-      loadAvailableBalance();
+      loadAvailableBalances();
     } catch (error) {
       console.error('Error accepting challenge:', error);
       Alert.alert('❌ Error', 'Failed to accept challenge. Please try again.');
@@ -736,9 +816,9 @@ export default function XMITapDuoScreen() {
         {/* Balance Card */}
         <View style={[commonStyles.card, styles.balanceCard]}>
           <Text style={styles.balanceLabel}>💰 Available for Challenges</Text>
-          <Text style={styles.balanceAmount}>{availableBalance.toFixed(2)} MXI</Text>
+          <Text style={styles.balanceAmount}>{availableBalances.total.toFixed(2)} MXI</Text>
           <Text style={styles.balanceNote}>
-            ℹ️ From USDT purchases & referral commissions
+            ℹ️ From USDT purchases, referral commissions & challenge winnings
           </Text>
         </View>
 
@@ -829,14 +909,18 @@ export default function XMITapDuoScreen() {
           </View>
           <View style={styles.infoItem}>
             <Text style={styles.infoBullet}>2️⃣</Text>
-            <Text style={styles.infoText}>Challenge a friend or find a random opponent</Text>
+            <Text style={styles.infoText}>Select payment source: purchased MXI, commissions, or challenge winnings</Text>
           </View>
           <View style={styles.infoItem}>
             <Text style={styles.infoBullet}>3️⃣</Text>
-            <Text style={styles.infoText}>Tap as fast as you can for 10 seconds 👆</Text>
+            <Text style={styles.infoText}>Challenge a friend or find a random opponent</Text>
           </View>
           <View style={styles.infoItem}>
             <Text style={styles.infoBullet}>4️⃣</Text>
+            <Text style={styles.infoText}>Tap as fast as you can for 10 seconds 👆</Text>
+          </View>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoBullet}>5️⃣</Text>
             <Text style={styles.infoText}>Winner takes 90% of the pot! 🏆</Text>
           </View>
           <View style={styles.infoItem}>
@@ -850,6 +934,7 @@ export default function XMITapDuoScreen() {
         </View>
       </ScrollView>
 
+      {/* Challenge Creation Modal */}
       <Modal
         visible={showChallengeModal}
         transparent
@@ -883,7 +968,7 @@ export default function XMITapDuoScreen() {
                 placeholderTextColor={colors.textSecondary}
               />
               <Text style={styles.balanceInfo}>
-                Available: {availableBalance.toFixed(2)} MXI
+                Available: {availableBalances.total.toFixed(2)} MXI
               </Text>
 
               {challengeType === 'friend' && (
@@ -920,6 +1005,93 @@ export default function XMITapDuoScreen() {
                 ) : (
                   <Text style={buttonStyles.primaryText}>🎮 Create Challenge</Text>
                 )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Payment Source Selection Modal */}
+      <Modal
+        visible={showPaymentSourceModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPaymentSourceModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Payment Source</Text>
+              <TouchableOpacity onPress={() => setShowPaymentSourceModal(false)}>
+                <IconSymbol
+                  ios_icon_name="xmark.circle.fill"
+                  android_material_icon_name="cancel"
+                  size={28}
+                  color={colors.textSecondary}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <Text style={styles.modalSubtitle}>
+                Choose which balance to use for the {pendingWager} MXI wager:
+              </Text>
+
+              <TouchableOpacity
+                style={[
+                  styles.sourceOption,
+                  availableBalances.mxiPurchasedDirectly < pendingWager && styles.sourceOptionDisabled,
+                ]}
+                onPress={() => proceedWithCreateChallenge('purchased')}
+                disabled={availableBalances.mxiPurchasedDirectly < pendingWager}
+              >
+                <View style={styles.sourceOptionHeader}>
+                  <Text style={styles.sourceOptionTitle}>💰 MXI Purchased Directly</Text>
+                  <Text style={styles.sourceOptionBalance}>
+                    {availableBalances.mxiPurchasedDirectly.toFixed(2)} MXI
+                  </Text>
+                </View>
+                <Text style={styles.sourceOptionDescription}>
+                  From USDT purchases
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.sourceOption,
+                  availableBalances.mxiFromUnifiedCommissions < pendingWager && styles.sourceOptionDisabled,
+                ]}
+                onPress={() => proceedWithCreateChallenge('commissions')}
+                disabled={availableBalances.mxiFromUnifiedCommissions < pendingWager}
+              >
+                <View style={styles.sourceOptionHeader}>
+                  <Text style={styles.sourceOptionTitle}>🎁 Unified Commissions</Text>
+                  <Text style={styles.sourceOptionBalance}>
+                    {availableBalances.mxiFromUnifiedCommissions.toFixed(2)} MXI
+                  </Text>
+                </View>
+                <Text style={styles.sourceOptionDescription}>
+                  From referral commissions
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.sourceOption,
+                  availableBalances.mxiFromChallenges < pendingWager && styles.sourceOptionDisabled,
+                ]}
+                onPress={() => proceedWithCreateChallenge('challenges')}
+                disabled={availableBalances.mxiFromChallenges < pendingWager}
+              >
+                <View style={styles.sourceOptionHeader}>
+                  <Text style={styles.sourceOptionTitle}>🏆 Challenge Winnings</Text>
+                  <Text style={styles.sourceOptionBalance}>
+                    {availableBalances.mxiFromChallenges.toFixed(2)} MXI
+                  </Text>
+                </View>
+                <Text style={styles.sourceOptionDescription}>
+                  From challenge victories
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -991,6 +1163,11 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 4,
     textAlign: 'center',
+  },
+  balanceInfo: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 16,
   },
   activeNotification: {
     backgroundColor: colors.primary + '20',
@@ -1275,6 +1452,12 @@ const styles = StyleSheet.create({
   modalBody: {
     padding: 20,
   },
+  modalSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 20,
+    lineHeight: 20,
+  },
   inputLabel: {
     fontSize: 14,
     fontWeight: '600',
@@ -1290,11 +1473,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.text,
     marginBottom: 8,
-  },
-  balanceInfo: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 16,
   },
   prizePreview: {
     backgroundColor: colors.primary + '20',
@@ -1320,5 +1498,37 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     width: '100%',
+  },
+  sourceOption: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  sourceOptionDisabled: {
+    opacity: 0.5,
+    borderColor: colors.border,
+  },
+  sourceOptionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  sourceOptionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  sourceOptionBalance: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  sourceOptionDescription: {
+    fontSize: 12,
+    color: colors.textSecondary,
   },
 });
