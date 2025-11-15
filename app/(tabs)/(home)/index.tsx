@@ -807,50 +807,6 @@ export default function HomeScreen() {
           <View style={styles.gamesGrid}>
             <TouchableOpacity
               style={styles.gameCard}
-              onPress={() => router.push('/(tabs)/(home)/xmi-tap-duo')}
-            >
-              <View style={styles.gameIconContainer}>
-                <IconSymbol ios_icon_name="hand.tap.fill" android_material_icon_name="touch_app" size={40} color={colors.primary} />
-              </View>
-              <Text style={styles.gameTitle}>Tap Duo</Text>
-              <Text style={styles.gameSubtitle}>1v1 Tapping</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.gameCard}
-              onPress={() => router.push('/(tabs)/(home)/mxi-airball-duo')}
-            >
-              <View style={styles.gameIconContainer}>
-                <IconSymbol ios_icon_name="mic.fill" android_material_icon_name="mic" size={40} color={colors.accent} />
-              </View>
-              <Text style={styles.gameTitle}>Airball Duo</Text>
-              <Text style={styles.gameSubtitle}>1v1 Balance</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.gameCard}
-              onPress={() => router.push('/(tabs)/(home)/mxi-airball')}
-            >
-              <View style={styles.gameIconContainer}>
-                <IconSymbol ios_icon_name="mic.fill" android_material_icon_name="mic" size={40} color={colors.success} />
-              </View>
-              <Text style={styles.gameTitle}>Airball</Text>
-              <Text style={styles.gameSubtitle}>Multi-player</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.gameCard}
-              onPress={() => router.push('/(tabs)/(home)/clickers')}
-            >
-              <View style={styles.gameIconContainer}>
-                <IconSymbol ios_icon_name="hand.tap.fill" android_material_icon_name="ads_click" size={40} color={colors.warning} />
-              </View>
-              <Text style={styles.gameTitle}>Clickers</Text>
-              <Text style={styles.gameSubtitle}>Speed clicking</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.gameCard}
               onPress={() => router.push('/(tabs)/(home)/lottery')}
             >
               <View style={styles.gameIconContainer}>

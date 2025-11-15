@@ -76,14 +76,6 @@ export default function ChallengeHistoryScreen() {
 
   const getChallengeIcon = (type: string) => {
     switch (type) {
-      case 'tap_duo':
-        return { ios: 'hand.tap.fill', android: 'touch_app' };
-      case 'airball_duo':
-        return { ios: 'mic.fill', android: 'mic' };
-      case 'airball':
-        return { ios: 'mic.fill', android: 'mic' };
-      case 'clickers':
-        return { ios: 'hand.tap.fill', android: 'ads_click' };
       case 'lottery':
         return { ios: 'ticket.fill', android: 'confirmation_number' };
       default:
@@ -93,10 +85,6 @@ export default function ChallengeHistoryScreen() {
 
   const getChallengeLabel = (type: string) => {
     switch (type) {
-      case 'tap_duo': return 'Tap Duo';
-      case 'airball_duo': return 'Airball Duo';
-      case 'airball': return 'Airball';
-      case 'clickers': return 'Clickers';
       case 'lottery': return 'Lottery';
       default: return type;
     }
