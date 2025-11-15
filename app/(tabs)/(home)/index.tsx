@@ -282,6 +282,32 @@ export default function HomeScreen() {
 
             <TouchableOpacity
               style={[commonStyles.card, styles.actionCard]}
+              onPress={() => router.push('/(tabs)/(home)/lottery')}
+            >
+              <View style={[styles.actionIcon, { backgroundColor: colors.primary + '20' }]}>
+                <Text style={styles.actionIconEmoji}>🎰</Text>
+              </View>
+              <Text style={styles.actionTitle}>Lottery MXI</Text>
+              <Text style={styles.actionSubtitle}>
+                Gana premios
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[commonStyles.card, styles.actionCard]}
+              onPress={() => router.push('/(tabs)/(home)/clickers')}
+            >
+              <View style={[styles.actionIcon, { backgroundColor: colors.accent + '20' }]}>
+                <Text style={styles.actionIconEmoji}>⚡</Text>
+              </View>
+              <Text style={styles.actionTitle}>Clickers</Text>
+              <Text style={styles.actionSubtitle}>
+                Compite ahora
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[commonStyles.card, styles.actionCard]}
               onPress={() => router.push('/(tabs)/(home)/kyc-verification')}
             >
               <View style={[styles.actionIcon, { backgroundColor: colors.accent + '20' }]}>
