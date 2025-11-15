@@ -15,8 +15,12 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
+  TextInput,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
-import { colors, commonStyles } from '@/styles/commonStyles';
+import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
+import * as Clipboard from 'expo-clipboard';
 
 interface PhaseData {
   totalTokensSold: number;
@@ -34,6 +38,17 @@ interface CountdownTime {
   seconds: number;
 }
 
+interface OKXPayment {
+  paymentId: string;
+  usdtAmount: number;
+  mxiAmount: number;
+  paymentAddress: string;
+  status: string;
+  expiresAt: string;
+}
+
+const OKX_WALLET_ADDRESS = 'TYDzsYUEpvnYmQk4zGP9sWWcTEd2MiAtW6';
+
 export default function HomeScreen() {
   const router = useRouter();
   const { user, getCurrentYield, claimYield, checkAdminStatus } = useAuth();
@@ -44,10 +59,19 @@ export default function HomeScreen() {
   const [phaseData, setPhaseData] = useState<PhaseData | null>(null);
   const [countdown, setCountdown] = useState<CountdownTime>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [launchDate] = useState(new Date('2026-02-15T12:00:00Z'));
+  
+  // Sales panel states
+  const [showSalesModal, setShowSalesModal] = useState(false);
+  const [usdtAmount, setUsdtAmount] = useState('');
+  const [mxiAmount, setMxiAmount] = useState('0');
+  const [loading, setLoading] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [currentPayment, setCurrentPayment] = useState<OKXPayment | null>(null);
 
   useEffect(() => {
     loadData();
     checkAdmin();
+    checkExistingPayment();
     
     const interval = setInterval(() => {
       if (user) {
@@ -109,9 +133,43 @@ export default function HomeScreen() {
     console.log('Admin status:', adminStatus);
   };
 
+  const checkExistingPayment = async () => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('okx_payments')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error checking existing payment:', error);
+      return;
+    }
+
+    if (data) {
+      const expiresAt = new Date(data.expires_at);
+      if (expiresAt > new Date()) {
+        setCurrentPayment({
+          paymentId: data.payment_id,
+          usdtAmount: parseFloat(data.usdt_amount.toString()),
+          mxiAmount: parseFloat(data.mxi_amount.toString()),
+          paymentAddress: data.payment_address || OKX_WALLET_ADDRESS,
+          status: data.status,
+          expiresAt: data.expires_at,
+        });
+        console.log('Existing payment found:', data.payment_id);
+      }
+    }
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadData();
+    await checkExistingPayment();
     setRefreshing(false);
   };
 
@@ -136,6 +194,106 @@ export default function HomeScreen() {
             } else {
               Alert.alert('Error', result.error || 'Failed to claim yield');
             }
+          },
+        },
+      ]
+    );
+  };
+
+  const calculateMxi = (usdt: string) => {
+    const amount = parseFloat(usdt);
+    if (isNaN(amount) || amount <= 0 || !phaseData) {
+      setMxiAmount('0');
+      return;
+    }
+
+    const mxi = amount / phaseData.currentPriceUsdt;
+    setMxiAmount(mxi.toFixed(4));
+  };
+
+  const handleOpenSalesPanel = () => {
+    if (currentPayment) {
+      setShowPaymentModal(true);
+    } else {
+      setShowSalesModal(true);
+    }
+  };
+
+  const handleCreatePayment = async () => {
+    if (!user || !phaseData) return;
+
+    const amount = parseFloat(usdtAmount);
+
+    if (isNaN(amount) || amount < 50) {
+      Alert.alert('Invalid Amount', 'Minimum contribution is 50 USDT');
+      return;
+    }
+
+    if (amount > 100000) {
+      Alert.alert('Invalid Amount', 'Maximum contribution is 100,000 USDT');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const mxi = amount / phaseData.currentPriceUsdt;
+      const paymentId = `MXI-${Date.now()}-${user.id.substring(0, 8)}`;
+      const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
+
+      const { error } = await supabase.from('okx_payments').insert({
+        user_id: user.id,
+        payment_id: paymentId,
+        usdt_amount: amount,
+        mxi_amount: mxi,
+        payment_address: OKX_WALLET_ADDRESS,
+        status: 'pending',
+        expires_at: expiresAt,
+      });
+
+      if (error) {
+        console.error('Payment creation error:', error);
+        Alert.alert('Error', 'Failed to create payment request');
+        setLoading(false);
+        return;
+      }
+
+      setCurrentPayment({
+        paymentId,
+        usdtAmount: amount,
+        mxiAmount: mxi,
+        paymentAddress: OKX_WALLET_ADDRESS,
+        status: 'pending',
+        expiresAt,
+      });
+
+      setShowSalesModal(false);
+      setShowPaymentModal(true);
+      setLoading(false);
+      console.log('Payment created:', paymentId);
+    } catch (error) {
+      console.error('Payment creation exception:', error);
+      Alert.alert('Error', 'Failed to create payment');
+      setLoading(false);
+    }
+  };
+
+  const handleCopyAddress = async () => {
+    await Clipboard.setStringAsync(OKX_WALLET_ADDRESS);
+    Alert.alert('Copied', 'Wallet address copied to clipboard');
+  };
+
+  const handleVerifyPayment = async () => {
+    if (!currentPayment) return;
+
+    Alert.alert(
+      'Verify Payment',
+      'Payment verification is handled by administrators. You will be notified once your payment is confirmed.',
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            setShowPaymentModal(false);
           },
         },
       ]
@@ -517,6 +675,82 @@ export default function HomeScreen() {
 
         <View style={styles.quickActions}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
+          
+          {/* SALES PANEL - Prominent Purchase Card */}
+          {phaseData && (
+            <TouchableOpacity
+              style={[commonStyles.card, styles.salesPanelCard]}
+              onPress={handleOpenSalesPanel}
+            >
+              <View style={styles.salesPanelHeader}>
+                <View style={styles.salesPanelIconContainer}>
+                  <IconSymbol 
+                    ios_icon_name="cart.fill.badge.plus" 
+                    android_material_icon_name="add_shopping_cart" 
+                    size={36} 
+                    color="#fff" 
+                  />
+                </View>
+                <View style={styles.salesPanelInfo}>
+                  <Text style={styles.salesPanelTitle}>💎 Comprar MXI</Text>
+                  <Text style={styles.salesPanelSubtitle}>
+                    Fase {phaseData.currentPhase} - ${phaseData.currentPriceUsdt.toFixed(2)} por MXI
+                  </Text>
+                </View>
+                <IconSymbol 
+                  ios_icon_name="chevron.right" 
+                  android_material_icon_name="chevron_right" 
+                  size={28} 
+                  color="#fff" 
+                />
+              </View>
+              
+              {currentPayment && (
+                <View style={styles.pendingPaymentBadge}>
+                  <IconSymbol 
+                    ios_icon_name="clock.fill" 
+                    android_material_icon_name="schedule" 
+                    size={16} 
+                    color={colors.warning} 
+                  />
+                  <Text style={styles.pendingPaymentText}>
+                    Pago pendiente: {currentPayment.usdtAmount} USDT
+                  </Text>
+                </View>
+              )}
+              
+              <View style={styles.salesPanelFeatures}>
+                <View style={styles.salesPanelFeature}>
+                  <IconSymbol 
+                    ios_icon_name="checkmark.circle.fill" 
+                    android_material_icon_name="check_circle" 
+                    size={18} 
+                    color="#fff" 
+                  />
+                  <Text style={styles.salesPanelFeatureText}>Desde 50 USDT</Text>
+                </View>
+                <View style={styles.salesPanelFeature}>
+                  <IconSymbol 
+                    ios_icon_name="checkmark.circle.fill" 
+                    android_material_icon_name="check_circle" 
+                    size={18} 
+                    color="#fff" 
+                  />
+                  <Text style={styles.salesPanelFeatureText}>Rendimiento automático</Text>
+                </View>
+                <View style={styles.salesPanelFeature}>
+                  <IconSymbol 
+                    ios_icon_name="checkmark.circle.fill" 
+                    android_material_icon_name="check_circle" 
+                    size={18} 
+                    color="#fff" 
+                  />
+                  <Text style={styles.salesPanelFeatureText}>Precio preferencial</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
+          
           <View style={styles.actionsGrid}>
             <TouchableOpacity
               style={styles.actionCard}
@@ -525,8 +759,8 @@ export default function HomeScreen() {
               <View style={styles.actionIconContainer}>
                 <IconSymbol ios_icon_name="plus.circle.fill" android_material_icon_name="add_circle" size={32} color={colors.primary} />
               </View>
-              <Text style={styles.actionTitle}>Contribute</Text>
-              <Text style={styles.actionSubtitle}>Add USDT</Text>
+              <Text style={styles.actionTitle}>Depositar</Text>
+              <Text style={styles.actionSubtitle}>Ver historial</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -536,8 +770,8 @@ export default function HomeScreen() {
               <View style={styles.actionIconContainer}>
                 <IconSymbol ios_icon_name="arrow.down.circle.fill" android_material_icon_name="arrow_circle_down" size={32} color={colors.success} />
               </View>
-              <Text style={styles.actionTitle}>Withdraw</Text>
-              <Text style={styles.actionSubtitle}>Get funds</Text>
+              <Text style={styles.actionTitle}>Retirar</Text>
+              <Text style={styles.actionSubtitle}>Fondos</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -547,8 +781,8 @@ export default function HomeScreen() {
               <View style={styles.actionIconContainer}>
                 <IconSymbol ios_icon_name="person.3.fill" android_material_icon_name="group" size={32} color={colors.accent} />
               </View>
-              <Text style={styles.actionTitle}>Referrals</Text>
-              <Text style={styles.actionSubtitle}>Invite friends</Text>
+              <Text style={styles.actionTitle}>Referidos</Text>
+              <Text style={styles.actionSubtitle}>Invitar</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -559,7 +793,7 @@ export default function HomeScreen() {
                 <IconSymbol ios_icon_name="checkmark.shield.fill" android_material_icon_name="verified_user" size={32} color={colors.warning} />
               </View>
               <Text style={styles.actionTitle}>KYC</Text>
-              <Text style={styles.actionSubtitle}>Verify identity</Text>
+              <Text style={styles.actionSubtitle}>Verificar</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -668,6 +902,152 @@ export default function HomeScreen() {
           </TouchableOpacity>
         )}
       </ScrollView>
+
+      {/* Sales Modal */}
+      <Modal
+        visible={showSalesModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowSalesModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>💎 Comprar MXI</Text>
+              <TouchableOpacity onPress={() => setShowSalesModal(false)}>
+                <IconSymbol ios_icon_name="xmark.circle.fill" android_material_icon_name="cancel" size={28} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalScroll}>
+              {phaseData && (
+                <React.Fragment>
+                  <View style={styles.modalPhaseInfo}>
+                    <Text style={styles.modalPhaseLabel}>Fase Actual</Text>
+                    <Text style={styles.modalPhaseValue}>
+                      Fase {phaseData.currentPhase} - ${phaseData.currentPriceUsdt.toFixed(2)} por MXI
+                    </Text>
+                  </View>
+
+                  <View style={styles.modalInputContainer}>
+                    <Text style={styles.modalInputLabel}>💵 Cantidad en USDT</Text>
+                    <TextInput
+                      style={styles.modalInput}
+                      placeholder="Mínimo: 50 USDT"
+                      placeholderTextColor={colors.textSecondary}
+                      value={usdtAmount}
+                      onChangeText={(text) => {
+                        setUsdtAmount(text);
+                        calculateMxi(text);
+                      }}
+                      keyboardType="decimal-pad"
+                    />
+                  </View>
+
+                  <View style={styles.modalConversionCard}>
+                    <View style={styles.modalConversionRow}>
+                      <Text style={styles.modalConversionLabel}>💎 Recibirás:</Text>
+                      <Text style={styles.modalConversionValue}>{mxiAmount} MXI</Text>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[buttonStyles.primary, styles.modalButton]}
+                    onPress={handleCreatePayment}
+                    disabled={loading || !usdtAmount || parseFloat(usdtAmount) < 50}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <React.Fragment>
+                        <IconSymbol ios_icon_name="cart.fill" android_material_icon_name="shopping_cart" size={20} color="#fff" />
+                        <Text style={styles.buttonText}>Crear Orden de Pago</Text>
+                      </React.Fragment>
+                    )}
+                  </TouchableOpacity>
+
+                  <View style={styles.modalInfoCard}>
+                    <IconSymbol ios_icon_name="info.circle.fill" android_material_icon_name="info" size={20} color={colors.primary} />
+                    <View style={styles.modalInfoContent}>
+                      <Text style={styles.modalInfoText}>
+                        • Mínimo: 50 USDT{'\n'}
+                        • Máximo: 100,000 USDT{'\n'}
+                        • Pago expira en 8 horas{'\n'}
+                        • Verificación por administrador
+                      </Text>
+                    </View>
+                  </View>
+                </React.Fragment>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Payment Instructions Modal */}
+      <Modal
+        visible={showPaymentModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowPaymentModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>💰 Instrucciones de Pago</Text>
+              <TouchableOpacity onPress={() => setShowPaymentModal(false)}>
+                <IconSymbol ios_icon_name="xmark.circle.fill" android_material_icon_name="cancel" size={28} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalScroll}>
+              {currentPayment && (
+                <React.Fragment>
+                  <View style={styles.paymentInfo}>
+                    <Text style={styles.paymentLabel}>💵 Cantidad:</Text>
+                    <Text style={styles.paymentValue}>{currentPayment.usdtAmount} USDT</Text>
+                  </View>
+
+                  <View style={styles.paymentInfo}>
+                    <Text style={styles.paymentLabel}>💎 Recibirás:</Text>
+                    <Text style={styles.paymentValue}>{currentPayment.mxiAmount.toFixed(4)} MXI</Text>
+                  </View>
+
+                  <View style={styles.paymentInfo}>
+                    <Text style={styles.paymentLabel}>🆔 ID de Pago:</Text>
+                    <Text style={styles.paymentValue}>{currentPayment.paymentId}</Text>
+                  </View>
+
+                  <View style={styles.addressCard}>
+                    <Text style={styles.addressLabel}>🏦 Enviar USDT (TRC20) a:</Text>
+                    <View style={styles.addressContainer}>
+                      <Text style={styles.addressText}>{currentPayment.paymentAddress}</Text>
+                      <TouchableOpacity onPress={handleCopyAddress}>
+                        <IconSymbol ios_icon_name="doc.on.doc.fill" android_material_icon_name="content_copy" size={20} color={colors.primary} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[buttonStyles.primary, styles.modalButton]}
+                    onPress={handleVerifyPayment}
+                  >
+                    <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={20} color="#fff" />
+                    <Text style={styles.buttonText}>Entendido</Text>
+                  </TouchableOpacity>
+
+                  <View style={styles.warningCard}>
+                    <IconSymbol ios_icon_name="exclamationmark.triangle.fill" android_material_icon_name="warning" size={20} color={colors.warning} />
+                    <Text style={styles.warningText}>
+                      ⚠️ Solo enviar USDT (TRC20) a esta dirección. El pago será verificado por un administrador.
+                    </Text>
+                  </View>
+                </React.Fragment>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1031,6 +1411,66 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 16,
   },
+  salesPanelCard: {
+    marginBottom: 16,
+    backgroundColor: colors.primary,
+    borderWidth: 0,
+    padding: 20,
+  },
+  salesPanelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 16,
+  },
+  salesPanelIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  salesPanelInfo: {
+    flex: 1,
+  },
+  salesPanelTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  salesPanelSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.9)',
+  },
+  pendingPaymentBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  pendingPaymentText: {
+    fontSize: 13,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  salesPanelFeatures: {
+    gap: 8,
+  },
+  salesPanelFeature: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  salesPanelFeatureText: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.9)',
+  },
   actionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1147,5 +1587,179 @@ const styles = StyleSheet.create({
   adminSubtitle: {
     fontSize: 14,
     color: colors.textSecondary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '90%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  modalScroll: {
+    padding: 24,
+  },
+  modalPhaseInfo: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+  },
+  modalPhaseLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  modalPhaseValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  modalInputContainer: {
+    marginBottom: 16,
+  },
+  modalInputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  modalInput: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modalConversionCard: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  modalConversionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalConversionLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  modalConversionValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  modalButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalInfoCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    backgroundColor: colors.card,
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+  },
+  modalInfoContent: {
+    flex: 1,
+  },
+  modalInfoText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  paymentInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  paymentLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  paymentValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  addressCard: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    marginVertical: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  addressLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  addressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.background,
+    padding: 12,
+    borderRadius: 8,
+  },
+  addressText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.text,
+    fontFamily: 'monospace',
+  },
+  warningCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    backgroundColor: colors.warning + '20',
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.warning,
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.text,
+    lineHeight: 20,
   },
 });
