@@ -1,5 +1,10 @@
 
+import { IconSymbol } from '@/components/IconSymbol';
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { supabase } from '@/lib/supabase';
 import {
   View,
   Text,
@@ -10,14 +15,9 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
-import { useAuth } from '@/contexts/AuthContext';
-import { IconSymbol } from '@/components/IconSymbol';
-import { supabase } from '@/lib/supabase';
 
-type WithdrawalType = 'wallet' | 'unify';
+type WithdrawalType = 'commission' | 'mxi';
 
 interface BalanceBreakdown {
   mxiPurchasedDirectly: number;
@@ -29,27 +29,13 @@ interface BalanceBreakdown {
 
 export default function WithdrawalScreen() {
   const router = useRouter();
-  const { 
-    user, 
-    withdrawMXI, 
-    checkMXIWithdrawalEligibility, 
-    getPoolStatus, 
-    getAvailableMXI,
-    unifyCommissionToMXI,
-    getPhaseInfo,
-  } = useAuth();
-  
-  const [walletAddress, setWalletAddress] = useState('');
-  const [withdrawAmount, setWithdrawAmount] = useState('');
-  const [unifyAmount, setUnifyAmount] = useState('');
+  const { user, withdrawCommission, withdrawMXI, checkWithdrawalEligibility, checkMXIWithdrawalEligibility } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [unifying, setUnifying] = useState(false);
+  const [withdrawalType, setWithdrawalType] = useState<WithdrawalType>('commission');
+  const [amount, setAmount] = useState('');
+  const [walletAddress, setWalletAddress] = useState('');
+  const [canWithdrawCommission, setCanWithdrawCommission] = useState(false);
   const [canWithdrawMXI, setCanWithdrawMXI] = useState(false);
-  const [poolStatus, setPoolStatus] = useState<any>(null);
-  const [checkingEligibility, setCheckingEligibility] = useState(true);
-  const [availableMXI, setAvailableMXI] = useState(0);
-  const [currentPrice, setCurrentPrice] = useState(0.30);
-  const [selectedType, setSelectedType] = useState<WithdrawalType>('wallet');
   const [balanceBreakdown, setBalanceBreakdown] = useState<BalanceBreakdown>({
     mxiPurchasedDirectly: 0,
     mxiFromUnifiedCommissions: 0,
@@ -57,147 +43,148 @@ export default function WithdrawalScreen() {
     mxiVestingLocked: 0,
     commissionsAvailable: 0,
   });
+  const [poolStatus, setPoolStatus] = useState<any>(null);
 
   useEffect(() => {
     loadData();
   }, []);
 
   const loadData = async () => {
-    setCheckingEligibility(true);
-    const eligible = await checkMXIWithdrawalEligibility();
-    const status = await getPoolStatus();
-    const available = await getAvailableMXI();
-    const phaseInfo = await getPhaseInfo();
-    
-    setCanWithdrawMXI(eligible);
-    setPoolStatus(status);
-    setAvailableMXI(available);
-    if (phaseInfo) {
-      setCurrentPrice(phaseInfo.currentPriceUsdt);
-    }
+    if (!user) return;
 
-    // Load balance breakdown
-    if (user) {
-      const { data: userData, error } = await supabase
-        .from('users')
-        .select('mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges, mxi_vesting_locked')
-        .eq('id', user.id)
-        .single();
+    setLoading(true);
 
-      if (!error && userData) {
-        setBalanceBreakdown({
-          mxiPurchasedDirectly: parseFloat(userData.mxi_purchased_directly?.toString() || '0'),
-          mxiFromUnifiedCommissions: parseFloat(userData.mxi_from_unified_commissions?.toString() || '0'),
-          mxiFromChallenges: parseFloat(userData.mxi_from_challenges?.toString() || '0'),
-          mxiVestingLocked: parseFloat(userData.mxi_vesting_locked?.toString() || '0'),
-          commissionsAvailable: user.commissions.available,
-        });
-      }
-    }
-    
-    setCheckingEligibility(false);
+    const commissionEligible = await checkWithdrawalEligibility();
+    setCanWithdrawCommission(commissionEligible);
+
+    const mxiEligible = await checkMXIWithdrawalEligibility();
+    setCanWithdrawMXI(mxiEligible);
+
+    const { data: userData } = await supabase
+      .from('users')
+      .select('mxi_purchased_directly, mxi_from_unified_commissions')
+      .eq('id', user.id)
+      .single();
+
+    const { data: challengeData } = await supabase
+      .from('challenge_history')
+      .select('amount_won')
+      .eq('user_id', user.id)
+      .eq('result', 'win');
+
+    const totalChallengeWinnings = challengeData?.reduce((sum, record) => sum + record.amount_won, 0) || 0;
+
+    const { data: poolData } = await supabase
+      .from('settings')
+      .select('setting_value')
+      .eq('setting_key', 'pool_close_date')
+      .single();
+
+    const poolCloseDate = poolData?.setting_value ? new Date(poolData.setting_value) : null;
+    const isPoolClosed = poolCloseDate ? new Date() > poolCloseDate : false;
+
+    setPoolStatus({ isPoolClosed });
+
+    const mxiPurchased = userData?.mxi_purchased_directly || 0;
+    const mxiFromCommissions = userData?.mxi_from_unified_commissions || 0;
+    const mxiFromChallenges = totalChallengeWinnings;
+    const mxiVesting = user.mxiBalance - mxiPurchased - mxiFromCommissions - mxiFromChallenges;
+
+    setBalanceBreakdown({
+      mxiPurchasedDirectly: mxiPurchased,
+      mxiFromUnifiedCommissions: mxiFromCommissions,
+      mxiFromChallenges: mxiFromChallenges,
+      mxiVestingLocked: Math.max(0, mxiVesting),
+      commissionsAvailable: user.commissions.available,
+    });
+
+    setLoading(false);
   };
 
   const handleWithdrawToWallet = async () => {
     if (!user) return;
 
-    const amount = parseFloat(withdrawAmount);
-
-    if (isNaN(amount) || amount <= 0) {
-      Alert.alert('❌ Error', 'Please enter a valid amount');
+    const amountNum = parseFloat(amount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+      Alert.alert('Invalid Amount', 'Please enter a valid amount');
       return;
     }
 
-    if (amount > availableMXI) {
-      Alert.alert('❌ Error', `You can only withdraw up to ${availableMXI.toFixed(2)} MXI at this time`);
+    if (!walletAddress.trim()) {
+      Alert.alert('Missing Information', 'Please enter your wallet address');
       return;
     }
 
-    if (!walletAddress || walletAddress.length < 10) {
-      Alert.alert('❌ Error', 'Please enter a valid MXI wallet address');
-      return;
+    if (withdrawalType === 'commission') {
+      if (amountNum > balanceBreakdown.commissionsAvailable) {
+        Alert.alert('Insufficient Balance', 'You don&apos;t have enough available commissions');
+        return;
+      }
+
+      if (!canWithdrawCommission) {
+        Alert.alert(
+          'Not Eligible',
+          'You need at least 5 active referrals and approved KYC to withdraw commissions'
+        );
+        return;
+      }
+
+      setLoading(true);
+      const result = await withdrawCommission(amountNum, walletAddress);
+      setLoading(false);
+
+      if (result.success) {
+        Alert.alert('Success', 'Withdrawal request submitted successfully!');
+        setAmount('');
+        setWalletAddress('');
+        loadData();
+      } else {
+        Alert.alert('Error', result.error || 'Failed to submit withdrawal request');
+      }
+    } else {
+      const availableMXI = balanceBreakdown.mxiFromUnifiedCommissions + balanceBreakdown.mxiFromChallenges;
+
+      if (!poolStatus?.isPoolClosed) {
+        Alert.alert(
+          'Not Available',
+          'MXI withdrawals will be available after the pool closes and MXI launches'
+        );
+        return;
+      }
+
+      if (amountNum > availableMXI) {
+        Alert.alert('Insufficient Balance', 'You don&apos;t have enough withdrawable MXI');
+        return;
+      }
+
+      if (!canWithdrawMXI) {
+        Alert.alert(
+          'Not Eligible',
+          'You need at least 5 active referrals and approved KYC to withdraw MXI'
+        );
+        return;
+      }
+
+      setLoading(true);
+      const result = await withdrawMXI(amountNum, walletAddress);
+      setLoading(false);
+
+      if (result.success) {
+        Alert.alert('Success', 'MXI withdrawal request submitted successfully!');
+        setAmount('');
+        setWalletAddress('');
+        loadData();
+      } else {
+        Alert.alert('Error', result.error || 'Failed to submit withdrawal request');
+      }
     }
-
-    Alert.alert(
-      '💰 Confirm MXI Withdrawal',
-      `You are about to withdraw ${amount.toFixed(2)} MXI to:\n\n${walletAddress}\n\n⚠️ This action cannot be undone.`,
-      [
-        { text: '❌ Cancel', style: 'cancel' },
-        {
-          text: '✅ Confirm',
-          onPress: async () => {
-            setLoading(true);
-            const result = await withdrawMXI(amount, walletAddress);
-            setLoading(false);
-
-            if (result.success) {
-              Alert.alert(
-                '✅ Success',
-                '💰 MXI withdrawal request submitted! Your tokens will be processed within 24-48 hours.',
-                [
-                  {
-                    text: 'OK',
-                    onPress: () => {
-                      setWalletAddress('');
-                      setWithdrawAmount('');
-                    },
-                  },
-                ]
-              );
-            } else {
-              Alert.alert('❌ Error', result.error || 'Failed to process withdrawal');
-            }
-          },
-        },
-      ]
-    );
   };
 
-  const handleUnifyBalance = async () => {
-    if (!user) return;
-
-    const amount = parseFloat(unifyAmount);
-
-    if (isNaN(amount) || amount <= 0) {
-      Alert.alert('❌ Error', 'Please enter a valid amount');
-      return;
-    }
-
-    if (amount > user.commissions.available) {
-      Alert.alert('❌ Error', `You only have ${user.commissions.available.toFixed(2)} USDT available`);
-      return;
-    }
-
-    const mxiAmount = amount / currentPrice;
-
-    Alert.alert(
-      '💎 Unify Balance to MXI',
-      `Convert ${amount.toFixed(2)} USDT to ${mxiAmount.toFixed(4)} MXI?\n\n💵 Current price: ${currentPrice.toFixed(2)} USDT per MXI\n\n✨ This will add the MXI to your general balance.`,
-      [
-        { text: '❌ Cancel', style: 'cancel' },
-        {
-          text: '✅ Unify',
-          onPress: async () => {
-            setUnifying(true);
-            const result = await unifyCommissionToMXI(amount);
-            setUnifying(false);
-
-            if (result.success) {
-              Alert.alert(
-                '✅ Balance Unified',
-                `Successfully converted ${amount.toFixed(2)} USDT to ${result.mxiAmount?.toFixed(4)} MXI.\n\n💎 Your MXI balance has been updated.`,
-                [{ text: '🎉 Excellent', onPress: () => setUnifyAmount('') }]
-              );
-            } else {
-              Alert.alert('❌ Error', result.error || 'Failed to unify balance');
-            }
-          },
-        },
-      ]
-    );
+  const handleUnifyBalance = () => {
+    router.push('/(tabs)/(home)/referrals');
   };
 
-  if (!user) {
+  if (loading && !user) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
@@ -207,402 +194,196 @@ export default function WithdrawalScreen() {
     );
   }
 
-  // Calculate requirements for wallet withdrawal
-  const walletRequirements = [
-    {
-      id: 'active_referrals',
-      label: '👥 5 Active Referrals',
-      met: user.activeReferrals >= 5,
-      progress: `${user.activeReferrals}/5`,
-      icon: 'person.3.fill',
-      androidIcon: 'group',
-    },
-    {
-      id: 'kyc_verification',
-      label: '🔐 KYC Verification',
-      met: user.kycStatus === 'approved',
-      progress: user.kycStatus === 'approved' ? '✅ Approved' : user.kycStatus === 'pending' ? '⏳ Pending' : '❌ Not Submitted',
-      icon: 'checkmark.shield.fill',
-      androidIcon: 'verified_user',
-    },
-    {
-      id: 'pool_launched',
-      label: '🚀 Pool Launched',
-      met: poolStatus?.is_mxi_launched || false,
-      progress: poolStatus?.is_mxi_launched ? '✅ Launched' : `⏳ ${poolStatus?.days_until_launch || 0} days`,
-      icon: 'rocket.fill',
-      androidIcon: 'rocket_launch',
-    },
-    {
-      id: 'available_balance',
-      label: '💰 Available MXI Balance',
-      met: availableMXI > 0,
-      progress: `${availableMXI.toFixed(2)} MXI`,
-      icon: 'dollarsign.circle.fill',
-      androidIcon: 'account_balance_wallet',
-    },
-    {
-      id: 'membership_duration',
-      label: '⏱️ 10 Days Membership',
-      met: user.canWithdraw,
-      progress: user.canWithdraw ? '✅ Completed' : '⏳ In Progress',
-      icon: 'calendar.badge.clock',
-      androidIcon: 'event_available',
-    },
-  ];
-
-  const unifyRequirements = [
-    {
-      id: 'commission_balance',
-      label: '💵 Commission Balance Available',
-      met: user.commissions.available > 0,
-      progress: `${user.commissions.available.toFixed(2)} USDT`,
-      icon: 'banknote.fill',
-      androidIcon: 'payments',
-    },
-  ];
-
-  const walletRequirementsMet = walletRequirements.filter(r => r.met).length;
-  const unifyRequirementsMet = unifyRequirements.filter(r => r.met).length;
-
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Withdraw Funds</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="chevron_left" size={24} color={colors.primary} />
-          </TouchableOpacity>
-          <Text style={styles.title}>💰 Withdrawal</Text>
-          <Text style={styles.subtitle}>Manage your balance withdrawals</Text>
-        </View>
-
-        {/* Balance Overview */}
-        <View style={styles.balanceCard}>
-          <Text style={styles.balanceTitle}>📊 Balance Overview</Text>
-          <View style={styles.balanceRow}>
-            <View style={styles.balanceItem}>
-              <Text style={styles.balanceLabel}>💎 Total Balance</Text>
-              <Text style={styles.balanceValue}>{user.mxiBalance.toFixed(2)} MXI</Text>
-            </View>
-            <View style={styles.balanceDivider} />
-            <View style={styles.balanceItem}>
-              <Text style={styles.balanceLabel}>✅ Available for Withdrawal</Text>
-              <Text style={[styles.balanceValue, styles.balanceValueHighlight]}>
-                {availableMXI.toFixed(2)} MXI
-              </Text>
-            </View>
-          </View>
-          <View style={styles.balanceRow}>
-            <View style={styles.balanceItem}>
-              <Text style={styles.balanceLabel}>💵 Commission Balance</Text>
-              <Text style={styles.balanceValue}>{user.commissions.available.toFixed(2)} USDT</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Balance Breakdown Table */}
-        <View style={styles.breakdownCard}>
-          <Text style={styles.breakdownTitle}>📋 Balance Breakdown</Text>
-          <View style={styles.breakdownTable}>
-            <View style={styles.breakdownRow}>
-              <View style={styles.breakdownLabelContainer}>
-                <Text style={styles.breakdownLabel}>💰 USDT Purchases (MXI)</Text>
-                <Text style={styles.breakdownNote}>🔒 Locked until launch</Text>
-              </View>
-              <Text style={styles.breakdownValue}>{balanceBreakdown.mxiPurchasedDirectly.toFixed(2)}</Text>
-            </View>
-            <View style={styles.breakdownDivider} />
-            
-            <View style={styles.breakdownRow}>
-              <View style={styles.breakdownLabelContainer}>
-                <Text style={styles.breakdownLabel}>🔄 Unified Commissions (MXI)</Text>
-                <Text style={styles.breakdownNote}>🔒 Locked until launch</Text>
-              </View>
-              <Text style={styles.breakdownValue}>{balanceBreakdown.mxiFromUnifiedCommissions.toFixed(2)}</Text>
-            </View>
-            <View style={styles.breakdownDivider} />
-            
-            <View style={styles.breakdownRow}>
-              <View style={styles.breakdownLabelContainer}>
-                <Text style={styles.breakdownLabel}>🎮 Challenge Winnings (MXI)</Text>
-                <Text style={styles.breakdownNote}>✅ Requires 5 referrals + KYC</Text>
-              </View>
-              <Text style={[styles.breakdownValue, styles.breakdownValueSuccess]}>{balanceBreakdown.mxiFromChallenges.toFixed(2)}</Text>
-            </View>
-            <View style={styles.breakdownDivider} />
-            
-            <View style={styles.breakdownRow}>
-              <View style={styles.breakdownLabelContainer}>
-                <Text style={styles.breakdownLabel}>⏳ Vesting Gains (MXI)</Text>
-                <Text style={styles.breakdownNote}>🔒 Locked until launch</Text>
-              </View>
-              <Text style={styles.breakdownValue}>{balanceBreakdown.mxiVestingLocked.toFixed(2)}</Text>
-            </View>
-            <View style={styles.breakdownDivider} />
-            
-            <View style={styles.breakdownRow}>
-              <View style={styles.breakdownLabelContainer}>
-                <Text style={styles.breakdownLabel}>💵 Referral Commissions (USDT)</Text>
-                <Text style={styles.breakdownNote}>✅ Requires 5 referrals + KYC</Text>
-              </View>
-              <Text style={[styles.breakdownValue, styles.breakdownValueSuccess]}>{balanceBreakdown.commissionsAvailable.toFixed(2)}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Withdrawal Type Selector */}
-        <View style={styles.typeSelectorCard}>
-          <Text style={styles.typeSelectorTitle}>🎯 Select Withdrawal Type</Text>
-          <View style={styles.typeSelectorButtons}>
-            <TouchableOpacity
-              style={[
-                styles.typeSelectorButton,
-                selectedType === 'wallet' && styles.typeSelectorButtonActive,
-              ]}
-              onPress={() => setSelectedType('wallet')}
-            >
-              <IconSymbol 
-                ios_icon_name="arrow.down.circle.fill" 
-                android_material_icon_name="arrow_circle_down" 
-                size={24} 
-                color={selectedType === 'wallet' ? '#fff' : colors.primary} 
-              />
-              <Text style={[
-                styles.typeSelectorButtonText,
-                selectedType === 'wallet' && styles.typeSelectorButtonTextActive,
-              ]}>
-                💰 Withdraw to Wallet
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.typeSelectorButton,
-                selectedType === 'unify' && styles.typeSelectorButtonActive,
-              ]}
-              onPress={() => setSelectedType('unify')}
-            >
-              <IconSymbol 
-                ios_icon_name="arrow.triangle.2.circlepath" 
-                android_material_icon_name="sync" 
-                size={24} 
-                color={selectedType === 'unify' ? '#fff' : colors.accent} 
-              />
-              <Text style={[
-                styles.typeSelectorButtonText,
-                selectedType === 'unify' && styles.typeSelectorButtonTextActive,
-              ]}>
-                🔄 Unify Balance
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Requirements Checklist */}
-        <View style={styles.requirementsCard}>
-          <View style={styles.requirementsHeader}>
-            <IconSymbol 
-              ios_icon_name="checklist" 
-              android_material_icon_name="checklist" 
-              size={24} 
-              color={colors.primary} 
-            />
-            <Text style={styles.requirementsTitle}>
-              {selectedType === 'wallet' ? '📋 Wallet Withdrawal Requirements' : '📋 Unify Balance Requirements'}
-            </Text>
-          </View>
+        <View style={[commonStyles.card, styles.balanceCard]}>
+          <Text style={styles.sectionTitle}>Balance Breakdown</Text>
           
-          <View style={styles.requirementsProgress}>
-            <View style={styles.requirementsProgressBar}>
-              <View 
-                style={[
-                  styles.requirementsProgressFill,
-                  {
-                    width: selectedType === 'wallet' 
-                      ? `${(walletRequirementsMet / walletRequirements.length) * 100}%`
-                      : `${(unifyRequirementsMet / unifyRequirements.length) * 100}%`,
-                  },
-                ]}
-              />
+          <View style={styles.balanceItem}>
+            <View style={styles.balanceItemHeader}>
+              <IconSymbol ios_icon_name="dollarsign.circle.fill" android_material_icon_name="monetization_on" size={20} color={colors.primary} />
+              <Text style={styles.balanceItemLabel}>MXI Purchased (USDT)</Text>
             </View>
-            <Text style={styles.requirementsProgressText}>
-              {selectedType === 'wallet' 
-                ? `✅ ${walletRequirementsMet}/${walletRequirements.length} Requirements Met`
-                : `✅ ${unifyRequirementsMet}/${unifyRequirements.length} Requirements Met`}
+            <Text style={styles.balanceItemValue}>{balanceBreakdown.mxiPurchasedDirectly.toFixed(2)} MXI</Text>
+            <Text style={styles.balanceItemStatus}>Locked until launch</Text>
+          </View>
+
+          <View style={styles.balanceItem}>
+            <View style={styles.balanceItemHeader}>
+              <IconSymbol ios_icon_name="arrow.triangle.merge" android_material_icon_name="merge_type" size={20} color={colors.success} />
+              <Text style={styles.balanceItemLabel}>MXI from Commissions</Text>
+            </View>
+            <Text style={styles.balanceItemValue}>{balanceBreakdown.mxiFromUnifiedCommissions.toFixed(2)} MXI</Text>
+            <Text style={[styles.balanceItemStatus, { color: colors.success }]}>
+              {poolStatus?.isPoolClosed ? 'Withdrawable' : 'Locked until launch'}
             </Text>
           </View>
 
-          <View style={styles.requirementsList}>
-            {(selectedType === 'wallet' ? walletRequirements : unifyRequirements).map((req, index) => (
-              <React.Fragment key={req.id}>
-                <View style={styles.requirementItem}>
-                  <View style={styles.requirementIconContainer}>
-                    <IconSymbol
-                      ios_icon_name={req.met ? 'checkmark.circle.fill' : 'circle'}
-                      android_material_icon_name={req.met ? 'check_circle' : 'radio_button_unchecked'}
-                      size={24}
-                      color={req.met ? colors.success : colors.textSecondary}
-                    />
-                  </View>
-                  <View style={styles.requirementContent}>
-                    <Text style={[styles.requirementLabel, req.met && styles.requirementLabelMet]}>
-                      {req.label}
-                    </Text>
-                    <Text style={styles.requirementProgress}>{req.progress}</Text>
-                  </View>
-                </View>
-                {index < (selectedType === 'wallet' ? walletRequirements : unifyRequirements).length - 1 && (
-                  <View style={styles.requirementDivider} />
-                )}
-              </React.Fragment>
-            ))}
+          <View style={styles.balanceItem}>
+            <View style={styles.balanceItemHeader}>
+              <IconSymbol ios_icon_name="trophy.fill" android_material_icon_name="emoji_events" size={20} color={colors.warning} />
+              <Text style={styles.balanceItemLabel}>MXI from Challenges</Text>
+            </View>
+            <Text style={styles.balanceItemValue}>{balanceBreakdown.mxiFromChallenges.toFixed(2)} MXI</Text>
+            <Text style={[styles.balanceItemStatus, { color: colors.success }]}>
+              {poolStatus?.isPoolClosed ? 'Withdrawable' : 'Locked until launch'}
+            </Text>
           </View>
 
-          {selectedType === 'wallet' && user.kycStatus !== 'approved' && (
-            <TouchableOpacity
-              style={styles.kycButton}
-              onPress={() => router.push('/(tabs)/(home)/kyc-verification')}
-            >
-              <IconSymbol ios_icon_name="person.badge.shield.checkmark" android_material_icon_name="verified_user" size={20} color="#fff" />
-              <Text style={styles.kycButtonText}>
-                {user.kycStatus === 'not_submitted' ? '🔐 Start KYC Verification' :
-                 user.kycStatus === 'pending' ? '⏳ View KYC Status' :
-                 '🔄 Resubmit KYC'}
-              </Text>
-            </TouchableOpacity>
+          <View style={styles.balanceItem}>
+            <View style={styles.balanceItemHeader}>
+              <IconSymbol ios_icon_name="lock.fill" android_material_icon_name="lock" size={20} color={colors.textSecondary} />
+              <Text style={styles.balanceItemLabel}>MXI Vesting (Yield)</Text>
+            </View>
+            <Text style={styles.balanceItemValue}>{balanceBreakdown.mxiVestingLocked.toFixed(2)} MXI</Text>
+            <Text style={styles.balanceItemStatus}>Locked until launch</Text>
+          </View>
+
+          <View style={styles.balanceDivider} />
+
+          <View style={styles.balanceItem}>
+            <View style={styles.balanceItemHeader}>
+              <IconSymbol ios_icon_name="banknote.fill" android_material_icon_name="payments" size={20} color={colors.accent} />
+              <Text style={styles.balanceItemLabel}>Commission Balance (USDT)</Text>
+            </View>
+            <Text style={styles.balanceItemValue}>${balanceBreakdown.commissionsAvailable.toFixed(2)}</Text>
+            <Text style={[styles.balanceItemStatus, { color: colors.success }]}>Withdrawable</Text>
+          </View>
+        </View>
+
+        <View style={[commonStyles.card, styles.requirementsCard]}>
+          <Text style={styles.sectionTitle}>Withdrawal Requirements</Text>
+          
+          <View style={styles.requirementItem}>
+            <IconSymbol 
+              ios_icon_name={user?.kycStatus === 'approved' ? 'checkmark.circle.fill' : 'xmark.circle.fill'} 
+              android_material_icon_name={user?.kycStatus === 'approved' ? 'check_circle' : 'cancel'} 
+              size={20} 
+              color={user?.kycStatus === 'approved' ? colors.success : colors.error} 
+            />
+            <Text style={styles.requirementText}>KYC Approved</Text>
+          </View>
+
+          <View style={styles.requirementItem}>
+            <IconSymbol 
+              ios_icon_name={user && user.activeReferrals >= 5 ? 'checkmark.circle.fill' : 'xmark.circle.fill'} 
+              android_material_icon_name={user && user.activeReferrals >= 5 ? 'check_circle' : 'cancel'} 
+              size={20} 
+              color={user && user.activeReferrals >= 5 ? colors.success : colors.error} 
+            />
+            <Text style={styles.requirementText}>5 Active Referrals ({user?.activeReferrals || 0}/5)</Text>
+          </View>
+
+          {!poolStatus?.isPoolClosed && (
+            <View style={styles.requirementItem}>
+              <IconSymbol ios_icon_name="clock.fill" android_material_icon_name="schedule" size={20} color={colors.warning} />
+              <Text style={styles.requirementText}>Pool must close for MXI withdrawals</Text>
+            </View>
           )}
         </View>
 
-        {/* Withdrawal Form */}
-        {selectedType === 'wallet' && canWithdrawMXI && availableMXI > 0 && (
-          <View style={styles.formCard}>
-            <Text style={styles.formTitle}>💵 Withdraw to Wallet</Text>
-            
-            <View style={styles.inputContainer}>
-              <Text style={commonStyles.label}>💰 Amount (MXI)</Text>
-              <TextInput
-                style={commonStyles.input}
-                placeholder={`Max: ${availableMXI.toFixed(2)}`}
-                placeholderTextColor={colors.textSecondary}
-                value={withdrawAmount}
-                onChangeText={setWithdrawAmount}
-                keyboardType="decimal-pad"
+        <View style={commonStyles.card}>
+          <Text style={styles.sectionTitle}>Withdrawal Type</Text>
+          <View style={styles.typeSelector}>
+            <TouchableOpacity
+              style={[styles.typeButton, withdrawalType === 'commission' && styles.typeButtonActive]}
+              onPress={() => setWithdrawalType('commission')}
+            >
+              <IconSymbol 
+                ios_icon_name="banknote.fill" 
+                android_material_icon_name="payments" 
+                size={24} 
+                color={withdrawalType === 'commission' ? '#fff' : colors.text} 
               />
-              <TouchableOpacity
-                style={styles.maxButton}
-                onPress={() => setWithdrawAmount(availableMXI.toString())}
-              >
-                <Text style={styles.maxButtonText}>MAX</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={commonStyles.label}>🏦 MXI Wallet Address</Text>
-              <TextInput
-                style={[commonStyles.input, styles.addressInput]}
-                placeholder="Enter your MXI wallet address"
-                placeholderTextColor={colors.textSecondary}
-                value={walletAddress}
-                onChangeText={setWalletAddress}
-                autoCapitalize="none"
-                multiline
-              />
-            </View>
+              <Text style={[styles.typeButtonText, withdrawalType === 'commission' && styles.typeButtonTextActive]}>
+                Commission (USDT)
+              </Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
-              style={[buttonStyles.primary, styles.submitButton]}
-              onPress={handleWithdrawToWallet}
-              disabled={loading}
+              style={[styles.typeButton, withdrawalType === 'mxi' && styles.typeButtonActive]}
+              onPress={() => setWithdrawalType('mxi')}
             >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <React.Fragment>
-                  <IconSymbol ios_icon_name="arrow.down.circle.fill" android_material_icon_name="arrow_circle_down" size={20} color="#fff" />
-                  <Text style={styles.submitButtonText}>💰 Withdraw to Wallet</Text>
-                </React.Fragment>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {selectedType === 'unify' && user.commissions.available > 0 && (
-          <View style={styles.formCard}>
-            <Text style={styles.formTitle}>💎 Unify Balance to MXI</Text>
-            
-            <View style={styles.inputContainer}>
-              <Text style={commonStyles.label}>💵 Amount (USDT)</Text>
-              <TextInput
-                style={commonStyles.input}
-                placeholder={`Max: ${user.commissions.available.toFixed(2)}`}
-                placeholderTextColor={colors.textSecondary}
-                value={unifyAmount}
-                onChangeText={setUnifyAmount}
-                keyboardType="decimal-pad"
+              <IconSymbol 
+                ios_icon_name="dollarsign.circle.fill" 
+                android_material_icon_name="monetization_on" 
+                size={24} 
+                color={withdrawalType === 'mxi' ? '#fff' : colors.text} 
               />
-              <TouchableOpacity
-                style={styles.maxButton}
-                onPress={() => setUnifyAmount(user.commissions.available.toString())}
-              >
-                <Text style={styles.maxButtonText}>MAX</Text>
-              </TouchableOpacity>
-            </View>
-
-            {unifyAmount && parseFloat(unifyAmount) > 0 && (
-              <View style={styles.conversionInfo}>
-                <Text style={styles.conversionLabel}>✨ You will receive:</Text>
-                <Text style={styles.conversionValue}>
-                  ≈ {(parseFloat(unifyAmount) / currentPrice).toFixed(4)} MXI
-                </Text>
-                <Text style={styles.conversionRate}>
-                  💵 Current rate: 1 MXI = {currentPrice.toFixed(2)} USDT
-                </Text>
-              </View>
-            )}
-
-            <TouchableOpacity
-              style={[buttonStyles.secondary, styles.submitButton]}
-              onPress={handleUnifyBalance}
-              disabled={unifying}
-            >
-              {unifying ? (
-                <ActivityIndicator color={colors.accent} />
-              ) : (
-                <React.Fragment>
-                  <IconSymbol ios_icon_name="arrow.triangle.2.circlepath" android_material_icon_name="sync" size={20} color={colors.accent} />
-                  <Text style={[styles.submitButtonText, { color: colors.accent }]}>🔄 Unify to MXI Balance</Text>
-                </React.Fragment>
-              )}
+              <Text style={[styles.typeButtonText, withdrawalType === 'mxi' && styles.typeButtonTextActive]}>
+                MXI Tokens
+              </Text>
             </TouchableOpacity>
           </View>
-        )}
+        </View>
 
-        {/* Info Card */}
-        <View style={styles.infoCard}>
-          <IconSymbol ios_icon_name="info.circle.fill" android_material_icon_name="info" size={20} color={colors.primary} />
-          <View style={styles.infoContent}>
-            <Text style={styles.infoTitle}>ℹ️ Important Information:</Text>
-            <Text style={styles.infoText}>
-              {selectedType === 'wallet' ? (
-                <>
-                  • 👥 Wallet withdrawals require 5 active referrals{'\n'}
-                  • 🔐 KYC verification is mandatory{'\n'}
-                  • ✅ Only available MXI can be withdrawn{'\n'}
-                  • 📅 Remaining balance releases every 7 days{'\n'}
-                  • ⏱️ Processing time: 24-48 hours{'\n'}
-                  • ⚠️ Verify wallet address carefully{'\n'}
-                  • 🚫 Transactions cannot be reversed
-                </>
-              ) : (
-                <>
-                  • ✅ No requirements for unifying balance{'\n'}
-                  • 🔄 Converts USDT commissions to MXI{'\n'}
-                  • 💵 Uses current market price{'\n'}
-                  • ⚡ Instant conversion{'\n'}
-                  • 💎 MXI added to general balance{'\n'}
-                  • ⚠️ Unified MXI does NOT count for vesting percentage
-                </>
-              )}
+        <View style={commonStyles.card}>
+          <Text style={styles.sectionTitle}>Withdrawal Details</Text>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Amount</Text>
+            <TextInput
+              style={styles.input}
+              value={amount}
+              onChangeText={setAmount}
+              keyboardType="decimal-pad"
+              placeholder={`Enter amount in ${withdrawalType === 'commission' ? 'USDT' : 'MXI'}`}
+              placeholderTextColor={colors.textSecondary}
+            />
+            <Text style={styles.inputHint}>
+              Available: {withdrawalType === 'commission' 
+                ? `$${balanceBreakdown.commissionsAvailable.toFixed(2)}` 
+                : `${(balanceBreakdown.mxiFromUnifiedCommissions + balanceBreakdown.mxiFromChallenges).toFixed(2)} MXI`}
             </Text>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Wallet Address (TRC20)</Text>
+            <TextInput
+              style={styles.input}
+              value={walletAddress}
+              onChangeText={setWalletAddress}
+              placeholder="Enter your TRC20 wallet address"
+              placeholderTextColor={colors.textSecondary}
+            />
+          </View>
+
+          <TouchableOpacity
+            style={[buttonStyles.primary, styles.withdrawButton]}
+            onPress={handleWithdrawToWallet}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <React.Fragment>
+                <IconSymbol ios_icon_name="arrow.down.circle.fill" android_material_icon_name="arrow_circle_down" size={20} color="#fff" />
+                <Text style={buttonStyles.primaryText}>Request Withdrawal</Text>
+              </React.Fragment>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <View style={[commonStyles.card, styles.infoCard]}>
+          <View style={styles.infoHeader}>
+            <IconSymbol ios_icon_name="info.circle.fill" android_material_icon_name="info" size={24} color={colors.primary} />
+            <Text style={styles.infoTitle}>Important Information</Text>
+          </View>
+          <View style={styles.infoList}>
+            <Text style={styles.infoItem}>- Commission withdrawals require 5 active referrals and approved KYC</Text>
+            <Text style={styles.infoItem}>- MXI from USDT purchases is locked until launch</Text>
+            <Text style={styles.infoItem}>- MXI from commissions and challenges can be withdrawn after launch</Text>
+            <Text style={styles.infoItem}>- Vesting yield MXI is locked until launch</Text>
+            <Text style={styles.infoItem}>- All withdrawals are processed within 24-48 hours</Text>
           </View>
         </View>
       </ScrollView>
@@ -620,343 +401,161 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  scrollContent: {
-    flexGrow: 1,
-    padding: 24,
-    paddingBottom: 120,
-  },
   header: {
-    marginBottom: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   backButton: {
-    marginBottom: 16,
-    alignSelf: 'flex-start',
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  title: {
-    fontSize: 32,
+  headerTitle: {
+    fontSize: 20,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 4,
   },
-  subtitle: {
-    fontSize: 16,
-    color: colors.textSecondary,
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 100,
   },
   balanceCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 20,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
-  balanceTitle: {
+  sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: colors.text,
     marginBottom: 16,
-  },
-  balanceRow: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 12,
   },
   balanceItem: {
-    flex: 1,
-  },
-  balanceLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  balanceValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  balanceValueHighlight: {
-    color: colors.success,
-  },
-  balanceDivider: {
-    width: 1,
-    backgroundColor: colors.border,
-  },
-  breakdownCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 20,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
+    paddingBottom: 16,
   },
-  breakdownTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 16,
-  },
-  breakdownTable: {
-    gap: 0,
-  },
-  breakdownRow: {
+  balanceItemHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    gap: 8,
+    marginBottom: 8,
   },
-  breakdownLabelContainer: {
-    flex: 1,
-    marginRight: 12,
-  },
-  breakdownLabel: {
+  balanceItemLabel: {
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
+  },
+  balanceItemValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
     marginBottom: 4,
   },
-  breakdownNote: {
-    fontSize: 11,
+  balanceItemStatus: {
+    fontSize: 12,
     color: colors.textSecondary,
-    fontStyle: 'italic',
   },
-  breakdownValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  breakdownValueSuccess: {
-    color: colors.success,
-  },
-  breakdownDivider: {
+  balanceDivider: {
     height: 1,
     backgroundColor: colors.border,
-  },
-  typeSelectorCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  typeSelectorTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  typeSelectorButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  typeSelectorButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.background,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.border,
-  },
-  typeSelectorButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  typeSelectorButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.text,
-    textAlign: 'center',
-  },
-  typeSelectorButtonTextActive: {
-    color: '#fff',
+    marginVertical: 8,
   },
   requirementsCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 20,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  requirementsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
-  },
-  requirementsTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-    flex: 1,
-  },
-  requirementsProgress: {
-    marginBottom: 16,
-  },
-  requirementsProgressBar: {
-    height: 8,
-    backgroundColor: colors.border,
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  requirementsProgressFill: {
-    height: '100%',
-    backgroundColor: colors.success,
-    borderRadius: 4,
-  },
-  requirementsProgressText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  requirementsList: {
-    gap: 0,
   },
   requirementItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 12,
+    marginBottom: 12,
   },
-  requirementIconContainer: {
-    width: 32,
-    alignItems: 'center',
-  },
-  requirementContent: {
-    flex: 1,
-  },
-  requirementLabel: {
+  requirementText: {
     fontSize: 14,
-    fontWeight: '600',
     color: colors.text,
-    marginBottom: 2,
   },
-  requirementLabelMet: {
-    color: colors.success,
+  typeSelector: {
+    flexDirection: 'row',
+    gap: 12,
   },
-  requirementProgress: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  requirementDivider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginLeft: 44,
-  },
-  kycButton: {
+  typeButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 16,
     borderRadius: 12,
-    marginTop: 16,
-  },
-  kycButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  formCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
+    backgroundColor: colors.background,
+    borderWidth: 2,
     borderColor: colors.border,
   },
-  formTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+  typeButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  typeButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
     color: colors.text,
-    marginBottom: 16,
+  },
+  typeButtonTextActive: {
+    color: '#fff',
   },
   inputContainer: {
     marginBottom: 16,
-    position: 'relative',
   },
-  addressInput: {
-    minHeight: 60,
-    textAlignVertical: 'top',
-    paddingTop: 12,
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
   },
-  maxButton: {
-    position: 'absolute',
-    right: 12,
-    top: 38,
-    backgroundColor: colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  maxButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  conversionInfo: {
+  input: {
     backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: colors.text,
   },
-  conversionLabel: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  conversionValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.accent,
-    marginBottom: 4,
-  },
-  conversionRate: {
+  inputHint: {
     fontSize: 12,
     color: colors.textSecondary,
+    marginTop: 6,
   },
-  submitButton: {
+  withdrawButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    marginTop: 8,
   },
   infoCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: colors.card,
-    padding: 16,
-    borderRadius: 12,
-    gap: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
+    backgroundColor: colors.primary + '10',
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
   },
-  infoContent: {
-    flex: 1,
+  infoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
   },
   infoTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 8,
   },
-  infoText: {
-    fontSize: 13,
+  infoList: {
+    gap: 8,
+  },
+  infoItem: {
+    fontSize: 14,
     color: colors.textSecondary,
     lineHeight: 20,
   },

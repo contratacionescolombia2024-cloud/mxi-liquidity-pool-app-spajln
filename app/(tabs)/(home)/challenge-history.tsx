@@ -1,5 +1,9 @@
 
+import { useRouter } from 'expo-router';
+import { IconSymbol } from '@/components/IconSymbol';
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   View,
   Text,
@@ -9,12 +13,8 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'expo-router';
-import { colors, commonStyles } from '@/styles/commonStyles';
-import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
+import { colors, commonStyles } from '@/styles/commonStyles';
 
 interface ChallengeHistory {
   id: string;
@@ -31,19 +31,12 @@ interface ChallengeHistory {
 }
 
 export default function ChallengeHistoryScreen() {
-  const { user } = useAuth();
   const router = useRouter();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [history, setHistory] = useState<ChallengeHistory[]>([]);
-  const [filter, setFilter] = useState<'all' | 'win' | 'loss' | 'tie'>('all');
-  const [stats, setStats] = useState({
-    totalWins: 0,
-    totalLosses: 0,
-    totalTies: 0,
-    totalWinnings: 0,
-    totalLosses: 0,
-  });
+  const [filter, setFilter] = useState<'all' | 'win' | 'loss'>('all');
 
   useEffect(() => {
     loadHistory();
@@ -53,8 +46,6 @@ export default function ChallengeHistoryScreen() {
     if (!user) return;
 
     try {
-      setLoading(true);
-
       let query = supabase
         .from('challenge_history')
         .select('*')
@@ -67,29 +58,11 @@ export default function ChallengeHistoryScreen() {
 
       const { data, error } = await query;
 
-      if (error) {
-        console.error('Error loading history:', error);
-        return;
-      }
+      if (error) throw error;
 
       setHistory(data || []);
-
-      // Calculate stats
-      const wins = data?.filter(h => h.result === 'win').length || 0;
-      const losses = data?.filter(h => h.result === 'loss').length || 0;
-      const ties = data?.filter(h => h.result === 'tie').length || 0;
-      const totalWinnings = data?.reduce((sum, h) => sum + (h.amount_won || 0), 0) || 0;
-      const totalLossesAmount = data?.reduce((sum, h) => sum + (h.amount_lost || 0), 0) || 0;
-
-      setStats({
-        totalWins: wins,
-        totalLosses: losses,
-        totalTies: ties,
-        totalWinnings,
-        totalLosses: totalLossesAmount,
-      });
     } catch (error) {
-      console.error('Exception loading history:', error);
+      console.error('Error loading history:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -103,115 +76,88 @@ export default function ChallengeHistoryScreen() {
 
   const getChallengeIcon = (type: string) => {
     switch (type) {
-      case 'airball':
-        return '🎈';
-      case 'airball_duo':
-        return '🎈⚔️';
-      case 'clicker':
-        return '👆';
       case 'tap_duo':
-        return '⚔️';
+        return { ios: 'hand.tap.fill', android: 'touch_app' };
+      case 'airball_duo':
+        return { ios: 'mic.fill', android: 'mic' };
+      case 'airball':
+        return { ios: 'mic.fill', android: 'mic' };
+      case 'clickers':
+        return { ios: 'hand.tap.fill', android: 'ads_click' };
       case 'lottery':
-        return '🎰';
+        return { ios: 'ticket.fill', android: 'confirmation_number' };
       default:
-        return '🎮';
+        return { ios: 'gamecontroller.fill', android: 'sports_esports' };
     }
   };
 
   const getChallengeLabel = (type: string) => {
     switch (type) {
-      case 'airball':
-        return 'MXI AirBall';
-      case 'airball_duo':
-        return 'AirBall Duo';
-      case 'clicker':
-        return 'Clickers';
-      case 'tap_duo':
-        return 'XMI Tap Duo';
-      case 'lottery':
-        return 'Bonus MXI';
-      default:
-        return 'Challenge';
+      case 'tap_duo': return 'Tap Duo';
+      case 'airball_duo': return 'Airball Duo';
+      case 'airball': return 'Airball';
+      case 'clickers': return 'Clickers';
+      case 'lottery': return 'Lottery';
+      default: return type;
     }
   };
 
   const getResultColor = (result: string) => {
     switch (result) {
-      case 'win':
-        return colors.success;
-      case 'loss':
-        return colors.error;
-      case 'tie':
-        return colors.warning;
-      case 'forfeit':
-        return colors.textSecondary;
-      default:
-        return colors.text;
+      case 'win': return colors.success;
+      case 'loss': return colors.error;
+      case 'tie': return colors.warning;
+      case 'forfeit': return colors.textSecondary;
+      default: return colors.text;
     }
   };
 
   const getResultIcon = (result: string) => {
     switch (result) {
       case 'win':
-        return '🏆';
+        return { ios: 'trophy.fill', android: 'emoji_events' };
       case 'loss':
-        return '❌';
+        return { ios: 'xmark.circle.fill', android: 'cancel' };
       case 'tie':
-        return '🤝';
+        return { ios: 'equal.circle.fill', android: 'drag_handle' };
       case 'forfeit':
-        return '⏰';
+        return { ios: 'flag.fill', android: 'flag' };
       default:
-        return '•';
+        return { ios: 'circle.fill', android: 'circle' };
     }
   };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 60) {
-      return `${diffMins}m ago`;
-    } else if (diffHours < 24) {
-      return `${diffHours}h ago`;
-    } else if (diffDays < 7) {
-      return `${diffDays}d ago`;
-    } else {
-      return date.toLocaleDateString();
-    }
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   const getDaysUntilExpiry = (expiresAt: string) => {
-    const expiry = new Date(expiresAt);
     const now = new Date();
-    const diffMs = expiry.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffMs / 86400000);
+    const expiry = new Date(expiresAt);
+    const diffTime = expiry.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
   };
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Challenge History</Text>
-          <View style={{ width: 40 }} />
-        </View>
+      <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading history...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.text} />
@@ -220,206 +166,123 @@ export default function ChallengeHistoryScreen() {
         <View style={{ width: 40 }} />
       </View>
 
+      <View style={styles.filterContainer}>
+        <TouchableOpacity
+          style={[styles.filterButton, filter === 'all' && styles.filterButtonActive]}
+          onPress={() => setFilter('all')}
+        >
+          <Text style={[styles.filterButtonText, filter === 'all' && styles.filterButtonTextActive]}>
+            All
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterButton, filter === 'win' && styles.filterButtonActive]}
+          onPress={() => setFilter('win')}
+        >
+          <Text style={[styles.filterButtonText, filter === 'win' && styles.filterButtonTextActive]}>
+            Wins
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterButton, filter === 'loss' && styles.filterButtonActive]}
+          onPress={() => setFilter('loss')}
+        >
+          <Text style={[styles.filterButtonText, filter === 'loss' && styles.filterButtonTextActive]}>
+            Losses
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
-        {/* Stats Card */}
-        <View style={[commonStyles.card, styles.statsCard]}>
-          <Text style={styles.sectionTitle}>Your Stats</Text>
-          <View style={styles.statsGrid}>
-            <View style={styles.statBox}>
-              <Text style={styles.statEmoji}>🏆</Text>
-              <Text style={styles.statValue}>{stats.totalWins}</Text>
-              <Text style={styles.statLabel}>Wins</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statEmoji}>❌</Text>
-              <Text style={styles.statValue}>{stats.totalLosses}</Text>
-              <Text style={styles.statLabel}>Losses</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statEmoji}>🤝</Text>
-              <Text style={styles.statValue}>{stats.totalTies}</Text>
-              <Text style={styles.statLabel}>Ties</Text>
-            </View>
-          </View>
-          <View style={styles.balanceStats}>
-            <View style={styles.balanceItem}>
-              <Text style={styles.balanceLabel}>Total Winnings</Text>
-              <Text style={[styles.balanceValue, { color: colors.success }]}>
-                +{stats.totalWinnings.toFixed(2)} MXI
-              </Text>
-            </View>
-            <View style={styles.balanceItem}>
-              <Text style={styles.balanceLabel}>Total Losses</Text>
-              <Text style={[styles.balanceValue, { color: colors.error }]}>
-                -{stats.totalLosses.toFixed(2)} MXI
-              </Text>
-            </View>
-            <View style={styles.balanceItem}>
-              <Text style={styles.balanceLabel}>Net Result</Text>
-              <Text
-                style={[
-                  styles.balanceValue,
-                  {
-                    color:
-                      stats.totalWinnings - stats.totalLosses > 0
-                        ? colors.success
-                        : colors.error,
-                  },
-                ]}
-              >
-                {stats.totalWinnings - stats.totalLosses > 0 ? '+' : ''}
-                {(stats.totalWinnings - stats.totalLosses).toFixed(2)} MXI
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Filter Tabs */}
-        <View style={styles.filterContainer}>
-          <TouchableOpacity
-            style={[styles.filterTab, filter === 'all' && styles.filterTabActive]}
-            onPress={() => setFilter('all')}
-          >
-            <Text style={[styles.filterText, filter === 'all' && styles.filterTextActive]}>
-              All
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterTab, filter === 'win' && styles.filterTabActive]}
-            onPress={() => setFilter('win')}
-          >
-            <Text style={[styles.filterText, filter === 'win' && styles.filterTextActive]}>
-              Wins
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterTab, filter === 'loss' && styles.filterTabActive]}
-            onPress={() => setFilter('loss')}
-          >
-            <Text style={[styles.filterText, filter === 'loss' && styles.filterTextActive]}>
-              Losses
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterTab, filter === 'tie' && styles.filterTabActive]}
-            onPress={() => setFilter('tie')}
-          >
-            <Text style={[styles.filterText, filter === 'tie' && styles.filterTextActive]}>
-              Ties
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* History List */}
         {history.length === 0 ? (
-          <View style={commonStyles.card}>
-            <Text style={styles.emptyText}>No challenge history yet</Text>
-            <Text style={styles.emptySubtext}>
-              Participate in challenges to see your history here
+          <View style={styles.emptyState}>
+            <IconSymbol ios_icon_name="tray.fill" android_material_icon_name="inbox" size={64} color={colors.textSecondary} />
+            <Text style={styles.emptyTitle}>No History Yet</Text>
+            <Text style={styles.emptyText}>
+              Your challenge history will appear here once you participate in games
             </Text>
           </View>
         ) : (
-          <View style={styles.historyList}>
-            {history.map((item) => (
-              <View key={item.id} style={[commonStyles.card, styles.historyCard]}>
+          history.map((record) => {
+            const challengeIcon = getChallengeIcon(record.challenge_type);
+            const resultIcon = getResultIcon(record.result);
+            const daysUntilExpiry = getDaysUntilExpiry(record.expires_at);
+
+            return (
+              <View key={record.id} style={[commonStyles.card, styles.historyCard]}>
                 <View style={styles.historyHeader}>
-                  <View style={styles.historyIconContainer}>
-                    <Text style={styles.historyIcon}>{getChallengeIcon(item.challenge_type)}</Text>
+                  <View style={styles.challengeInfo}>
+                    <IconSymbol
+                      ios_icon_name={challengeIcon.ios}
+                      android_material_icon_name={challengeIcon.android}
+                      size={24}
+                      color={colors.primary}
+                    />
+                    <View>
+                      <Text style={styles.challengeType}>{getChallengeLabel(record.challenge_type)}</Text>
+                      <Text style={styles.challengeDate}>{formatDate(record.created_at)}</Text>
+                    </View>
                   </View>
-                  <View style={styles.historyInfo}>
-                    <Text style={styles.historyTitle}>{getChallengeLabel(item.challenge_type)}</Text>
-                    <Text style={styles.historyDate}>{formatDate(item.created_at)}</Text>
-                  </View>
-                  <View style={styles.historyResult}>
-                    <Text style={styles.resultEmoji}>{getResultIcon(item.result)}</Text>
-                    <Text style={[styles.resultText, { color: getResultColor(item.result) }]}>
-                      {item.result.toUpperCase()}
+                  <View style={[styles.resultBadge, { backgroundColor: getResultColor(record.result) + '20' }]}>
+                    <IconSymbol
+                      ios_icon_name={resultIcon.ios}
+                      android_material_icon_name={resultIcon.android}
+                      size={16}
+                      color={getResultColor(record.result)}
+                    />
+                    <Text style={[styles.resultText, { color: getResultColor(record.result) }]}>
+                      {record.result.toUpperCase()}
                     </Text>
                   </View>
                 </View>
 
                 <View style={styles.historyDetails}>
-                  {item.rank && item.total_participants && (
+                  {record.score !== null && (
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Score:</Text>
+                      <Text style={styles.detailValue}>{record.score}</Text>
+                    </View>
+                  )}
+                  {record.rank !== null && record.total_participants !== null && (
                     <View style={styles.detailRow}>
                       <Text style={styles.detailLabel}>Rank:</Text>
                       <Text style={styles.detailValue}>
-                        #{item.rank} of {item.total_participants}
+                        {record.rank} of {record.total_participants}
                       </Text>
                     </View>
                   )}
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Score:</Text>
-                    <Text style={styles.detailValue}>{item.score.toFixed(2)}</Text>
-                  </View>
-                  {item.amount_won > 0 && (
+                  {record.amount_won > 0 && (
                     <View style={styles.detailRow}>
                       <Text style={styles.detailLabel}>Won:</Text>
                       <Text style={[styles.detailValue, { color: colors.success }]}>
-                        +{item.amount_won.toFixed(2)} MXI
+                        +{record.amount_won.toFixed(2)} MXI
                       </Text>
                     </View>
                   )}
-                  {item.amount_lost > 0 && (
+                  {record.amount_lost > 0 && (
                     <View style={styles.detailRow}>
                       <Text style={styles.detailLabel}>Lost:</Text>
                       <Text style={[styles.detailValue, { color: colors.error }]}>
-                        -{item.amount_lost.toFixed(2)} MXI
+                        -{record.amount_lost.toFixed(2)} MXI
                       </Text>
                     </View>
                   )}
-                </View>
-
-                <View style={styles.expiryInfo}>
-                  <IconSymbol
-                    ios_icon_name="clock"
-                    android_material_icon_name="schedule"
-                    size={12}
-                    color={colors.textSecondary}
-                  />
-                  <Text style={styles.expiryText}>
-                    Expires in {getDaysUntilExpiry(item.expires_at)} days
-                  </Text>
+                  {daysUntilExpiry > 0 && (
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Expires in:</Text>
+                      <Text style={styles.detailValue}>{daysUntilExpiry} days</Text>
+                    </View>
+                  )}
                 </View>
               </View>
-            ))}
-          </View>
+            );
+          })
         )}
-
-        {/* Info Card */}
-        <View style={commonStyles.card}>
-          <Text style={styles.sectionTitle}>About History</Text>
-          <View style={styles.infoList}>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoBullet}>•</Text>
-              <Text style={styles.infoText}>
-                All challenge results are stored for 10 days
-              </Text>
-            </View>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoBullet}>•</Text>
-              <Text style={styles.infoText}>
-                Records are kept longer in case of disputes
-              </Text>
-            </View>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoBullet}>•</Text>
-              <Text style={styles.infoText}>
-                Your complete transaction history is tracked
-              </Text>
-            </View>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoBullet}>•</Text>
-              <Text style={styles.infoText}>
-                Tiebreaker results are also recorded
-              </Text>
-            </View>
-          </View>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -434,11 +297,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: colors.textSecondary,
   },
   header: {
     flexDirection: 'row',
@@ -460,137 +318,99 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 100,
-  },
-  statsCard: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 16,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 20,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  statBox: {
-    alignItems: 'center',
-  },
-  statEmoji: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  balanceStats: {
-    gap: 12,
-  },
-  balanceItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  balanceLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  balanceValue: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
   filterContainer: {
     flexDirection: 'row',
-    marginBottom: 20,
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 4,
-  },
-  filterTab: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderRadius: 8,
-  },
-  filterTabActive: {
-    backgroundColor: colors.primary,
-  },
-  filterText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  filterTextActive: {
-    color: '#FFFFFF',
-  },
-  historyList: {
+    padding: 20,
     gap: 12,
   },
+  filterButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: colors.card,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  filterButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  filterButtonTextActive: {
+    color: '#fff',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    padding: 20,
+    paddingTop: 0,
+    paddingBottom: 100,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    paddingHorizontal: 40,
+    lineHeight: 20,
+  },
   historyCard: {
-    padding: 16,
+    marginBottom: 16,
   },
   historyHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  historyIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.primary + '20',
-    justifyContent: 'center',
+  challengeInfo: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 12,
+    gap: 12,
   },
-  historyIcon: {
-    fontSize: 24,
-  },
-  historyInfo: {
-    flex: 1,
-  },
-  historyTitle: {
+  challengeType: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.text,
-    marginBottom: 4,
   },
-  historyDate: {
+  challengeDate: {
     fontSize: 12,
     color: colors.textSecondary,
+    marginTop: 2,
   },
-  historyResult: {
+  resultBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
-  },
-  resultEmoji: {
-    fontSize: 24,
-    marginBottom: 4,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
   resultText: {
     fontSize: 12,
     fontWeight: '700',
   },
   historyDetails: {
-    gap: 8,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    marginBottom: 12,
+    gap: 12,
   },
   detailRow: {
     flexDirection: 'row',
@@ -605,49 +425,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
-  },
-  expiryInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  expiryText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  emptyText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  infoList: {
-    gap: 12,
-  },
-  infoItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  infoBullet: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.primary,
-    marginRight: 12,
-    width: 16,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
   },
 });

@@ -67,24 +67,24 @@ export default function HomeScreen() {
 
   const handleClaimYield = async () => {
     if (currentYield === 0) {
-      Alert.alert('ℹ️ No Yield', '⏳ No yield available to claim yet');
+      Alert.alert('No Yield', 'No yield available to claim yet');
       return;
     }
 
     Alert.alert(
-      '💰 Claim Yield',
+      'Claim Yield',
       `Claim ${currentYield.toFixed(6)} MXI yield?`,
       [
-        { text: '❌ Cancel', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: '✅ Claim',
+          text: 'Claim',
           onPress: async () => {
             const result = await claimYield();
             if (result.success) {
-              Alert.alert('✅ Success', `💎 Claimed ${result.yieldEarned?.toFixed(6)} MXI!`);
+              Alert.alert('Success', `Claimed ${result.yieldEarned?.toFixed(6)} MXI!`);
               setCurrentYield(0);
             } else {
-              Alert.alert('❌ Error', result.error || 'Failed to claim yield');
+              Alert.alert('Error', result.error || 'Failed to claim yield');
             }
           },
         },
@@ -96,7 +96,7 @@ export default function HomeScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>⏳ Loading...</Text>
+          <Text style={styles.loadingText}>Loading...</Text>
         </View>
       </SafeAreaView>
     );
@@ -112,7 +112,7 @@ export default function HomeScreen() {
       >
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>👋 Welcome back,</Text>
+            <Text style={styles.greeting}>Welcome back,</Text>
             <Text style={styles.userName}>{user.name}</Text>
           </View>
           <TouchableOpacity
@@ -125,7 +125,7 @@ export default function HomeScreen() {
 
         <View style={[commonStyles.card, styles.balanceCard]}>
           <View style={styles.balanceHeader}>
-            <Text style={styles.balanceLabel}>💎 MXI Balance</Text>
+            <Text style={styles.balanceLabel}>MXI Balance</Text>
             <TouchableOpacity onPress={() => router.push('/(tabs)/(home)/vesting')}>
               <IconSymbol ios_icon_name="info.circle" android_material_icon_name="info" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
@@ -137,11 +137,11 @@ export default function HomeScreen() {
           
           <View style={styles.balanceRow}>
             <View style={styles.balanceItem}>
-              <Text style={styles.balanceItemLabel}>💵 USDT Contributed</Text>
+              <Text style={styles.balanceItemLabel}>USDT Contributed</Text>
               <Text style={styles.balanceItemValue}>${user.usdtContributed.toFixed(2)}</Text>
             </View>
             <View style={styles.balanceItem}>
-              <Text style={styles.balanceItemLabel}>💰 Commissions</Text>
+              <Text style={styles.balanceItemLabel}>Commissions</Text>
               <Text style={styles.balanceItemValue}>${user.commissions.available.toFixed(2)}</Text>
             </View>
           </View>
@@ -158,7 +158,7 @@ export default function HomeScreen() {
         <VestingCounter />
 
         <View style={styles.quickActions}>
-          <Text style={styles.sectionTitle}>⚡ Quick Actions</Text>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionsGrid}>
             <TouchableOpacity
               style={styles.actionCard}
@@ -167,7 +167,7 @@ export default function HomeScreen() {
               <View style={styles.actionIconContainer}>
                 <IconSymbol ios_icon_name="plus.circle.fill" android_material_icon_name="add_circle" size={32} color={colors.primary} />
               </View>
-              <Text style={styles.actionTitle}>💰 Contribute</Text>
+              <Text style={styles.actionTitle}>Contribute</Text>
               <Text style={styles.actionSubtitle}>Add USDT</Text>
             </TouchableOpacity>
 
@@ -178,7 +178,7 @@ export default function HomeScreen() {
               <View style={styles.actionIconContainer}>
                 <IconSymbol ios_icon_name="arrow.down.circle.fill" android_material_icon_name="arrow_circle_down" size={32} color={colors.success} />
               </View>
-              <Text style={styles.actionTitle}>💵 Withdraw</Text>
+              <Text style={styles.actionTitle}>Withdraw</Text>
               <Text style={styles.actionSubtitle}>Get funds</Text>
             </TouchableOpacity>
 
@@ -189,7 +189,7 @@ export default function HomeScreen() {
               <View style={styles.actionIconContainer}>
                 <IconSymbol ios_icon_name="person.3.fill" android_material_icon_name="group" size={32} color={colors.accent} />
               </View>
-              <Text style={styles.actionTitle}>👥 Referrals</Text>
+              <Text style={styles.actionTitle}>Referrals</Text>
               <Text style={styles.actionSubtitle}>Invite friends</Text>
             </TouchableOpacity>
 
@@ -200,14 +200,14 @@ export default function HomeScreen() {
               <View style={styles.actionIconContainer}>
                 <IconSymbol ios_icon_name="checkmark.shield.fill" android_material_icon_name="verified_user" size={32} color={colors.warning} />
               </View>
-              <Text style={styles.actionTitle}>🔐 KYC</Text>
+              <Text style={styles.actionTitle}>KYC</Text>
               <Text style={styles.actionSubtitle}>Verify identity</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         <View style={styles.gamesSection}>
-          <Text style={styles.sectionTitle}>🎮 Challenge Games</Text>
+          <Text style={styles.sectionTitle}>Challenge Games</Text>
           <View style={styles.gamesGrid}>
             <TouchableOpacity
               style={styles.gameCard}
@@ -216,7 +216,7 @@ export default function HomeScreen() {
               <View style={styles.gameIconContainer}>
                 <IconSymbol ios_icon_name="hand.tap.fill" android_material_icon_name="touch_app" size={40} color={colors.primary} />
               </View>
-              <Text style={styles.gameTitle}>👆 Tap Duo</Text>
+              <Text style={styles.gameTitle}>Tap Duo</Text>
               <Text style={styles.gameSubtitle}>1v1 Tapping</Text>
             </TouchableOpacity>
 
@@ -225,9 +225,9 @@ export default function HomeScreen() {
               onPress={() => router.push('/(tabs)/(home)/mxi-airball-duo')}
             >
               <View style={styles.gameIconContainer}>
-                <IconSymbol ios_icon_name="balloon.fill" android_material_icon_name="sports_volleyball" size={40} color={colors.accent} />
+                <IconSymbol ios_icon_name="mic.fill" android_material_icon_name="mic" size={40} color={colors.accent} />
               </View>
-              <Text style={styles.gameTitle}>🎈 Airball Duo</Text>
+              <Text style={styles.gameTitle}>Airball Duo</Text>
               <Text style={styles.gameSubtitle}>1v1 Balance</Text>
             </TouchableOpacity>
 
@@ -236,9 +236,9 @@ export default function HomeScreen() {
               onPress={() => router.push('/(tabs)/(home)/mxi-airball')}
             >
               <View style={styles.gameIconContainer}>
-                <IconSymbol ios_icon_name="balloon.2.fill" android_material_icon_name="sports_soccer" size={40} color={colors.success} />
+                <IconSymbol ios_icon_name="mic.fill" android_material_icon_name="mic" size={40} color={colors.success} />
               </View>
-              <Text style={styles.gameTitle}>🎯 Airball</Text>
+              <Text style={styles.gameTitle}>Airball</Text>
               <Text style={styles.gameSubtitle}>Multi-player</Text>
             </TouchableOpacity>
 
@@ -247,9 +247,9 @@ export default function HomeScreen() {
               onPress={() => router.push('/(tabs)/(home)/clickers')}
             >
               <View style={styles.gameIconContainer}>
-                <IconSymbol ios_icon_name="hand.point.up.left.fill" android_material_icon_name="ads_click" size={40} color={colors.warning} />
+                <IconSymbol ios_icon_name="hand.tap.fill" android_material_icon_name="ads_click" size={40} color={colors.warning} />
               </View>
-              <Text style={styles.gameTitle}>🖱️ Clickers</Text>
+              <Text style={styles.gameTitle}>Clickers</Text>
               <Text style={styles.gameSubtitle}>Speed clicking</Text>
             </TouchableOpacity>
 
@@ -260,7 +260,7 @@ export default function HomeScreen() {
               <View style={styles.gameIconContainer}>
                 <IconSymbol ios_icon_name="ticket.fill" android_material_icon_name="confirmation_number" size={40} color="#FFD700" />
               </View>
-              <Text style={styles.gameTitle}>🎫 Lottery</Text>
+              <Text style={styles.gameTitle}>Lottery</Text>
               <Text style={styles.gameSubtitle}>Win big!</Text>
             </TouchableOpacity>
 
@@ -271,25 +271,25 @@ export default function HomeScreen() {
               <View style={styles.gameIconContainer}>
                 <IconSymbol ios_icon_name="clock.fill" android_material_icon_name="history" size={40} color={colors.textSecondary} />
               </View>
-              <Text style={styles.gameTitle}>📜 History</Text>
+              <Text style={styles.gameTitle}>History</Text>
               <Text style={styles.gameSubtitle}>View records</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         <View style={[commonStyles.card, styles.statsCard]}>
-          <Text style={styles.statsTitle}>📊 Pool Statistics</Text>
+          <Text style={styles.statsTitle}>Pool Statistics</Text>
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <IconSymbol ios_icon_name="person.3.fill" android_material_icon_name="group" size={24} color={colors.primary} />
               <Text style={styles.statValue}>{poolMembers.toLocaleString()}</Text>
-              <Text style={styles.statLabel}>👥 Members</Text>
+              <Text style={styles.statLabel}>Members</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <IconSymbol ios_icon_name="person.2.fill" android_material_icon_name="people" size={24} color={colors.success} />
               <Text style={styles.statValue}>{user.activeReferrals}</Text>
-              <Text style={styles.statLabel}>✅ Active Referrals</Text>
+              <Text style={styles.statLabel}>Active Referrals</Text>
             </View>
           </View>
         </View>
@@ -302,7 +302,7 @@ export default function HomeScreen() {
             <View style={styles.adminContent}>
               <IconSymbol ios_icon_name="shield.fill" android_material_icon_name="admin_panel_settings" size={32} color={colors.primary} />
               <View style={styles.adminText}>
-                <Text style={styles.adminTitle}>🛡️ Admin Panel</Text>
+                <Text style={styles.adminTitle}>Admin Panel</Text>
                 <Text style={styles.adminSubtitle}>Manage system settings</Text>
               </View>
               <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={24} color={colors.textSecondary} />

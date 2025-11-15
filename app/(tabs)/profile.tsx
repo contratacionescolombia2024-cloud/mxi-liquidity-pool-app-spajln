@@ -22,12 +22,12 @@ export default function ProfileScreen() {
 
   const handleLogout = () => {
     Alert.alert(
-      '🚪 Logout',
+      'Logout',
       'Are you sure you want to logout?',
       [
-        { text: '❌ Cancel', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: '✅ Logout',
+          text: 'Logout',
           style: 'destructive',
           onPress: async () => {
             setLoggingOut(true);
@@ -49,15 +49,6 @@ export default function ProfileScreen() {
     );
   }
 
-  const getKYCStatusEmoji = () => {
-    switch (user.kycStatus) {
-      case 'approved': return '✅';
-      case 'pending': return '⏳';
-      case 'rejected': return '❌';
-      default: return '⚠️';
-    }
-  };
-
   const getKYCStatusText = () => {
     switch (user.kycStatus) {
       case 'approved': return 'Approved';
@@ -70,7 +61,7 @@ export default function ProfileScreen() {
   const menuItems = [
     {
       id: 'edit-profile',
-      title: '✏️ Edit Profile',
+      title: 'Edit Profile',
       subtitle: 'Update your information',
       icon: 'person.fill',
       androidIcon: 'person',
@@ -78,15 +69,15 @@ export default function ProfileScreen() {
     },
     {
       id: 'kyc',
-      title: '🔐 KYC Verification',
-      subtitle: `${getKYCStatusEmoji()} ${getKYCStatusText()}`,
+      title: 'KYC Verification',
+      subtitle: getKYCStatusText(),
       icon: 'checkmark.shield.fill',
       androidIcon: 'verified_user',
       route: '/(tabs)/(home)/kyc-verification',
     },
     {
       id: 'referrals',
-      title: '👥 Referrals',
+      title: 'Referrals',
       subtitle: `${user.activeReferrals} active referrals`,
       icon: 'person.3.fill',
       androidIcon: 'group',
@@ -94,7 +85,7 @@ export default function ProfileScreen() {
     },
     {
       id: 'withdrawals',
-      title: '💰 Withdrawal History',
+      title: 'Withdrawal History',
       subtitle: 'View past withdrawals',
       icon: 'arrow.down.circle.fill',
       androidIcon: 'arrow_circle_down',
@@ -102,15 +93,15 @@ export default function ProfileScreen() {
     },
     {
       id: 'challenge-history',
-      title: '🎮 Challenge History',
+      title: 'Challenge History',
       subtitle: 'View game records',
-      icon: 'gamecontroller.fill',
-      androidIcon: 'sports_esports',
+      icon: 'clock.fill',
+      androidIcon: 'history',
       route: '/(tabs)/(home)/challenge-history',
     },
     {
       id: 'support',
-      title: '💬 Support',
+      title: 'Support',
       subtitle: 'Get help',
       icon: 'questionmark.circle.fill',
       androidIcon: 'help',
@@ -128,33 +119,33 @@ export default function ProfileScreen() {
           <Text style={styles.userName}>{user.name}</Text>
           <Text style={styles.userEmail}>{user.email}</Text>
           <View style={styles.referralCodeContainer}>
-            <Text style={styles.referralCodeLabel}>🎫 Referral Code:</Text>
+            <Text style={styles.referralCodeLabel}>Referral Code:</Text>
             <Text style={styles.referralCode}>{user.referralCode}</Text>
           </View>
         </View>
 
         <View style={[commonStyles.card, styles.statsCard]}>
-          <Text style={styles.statsTitle}>📊 Account Statistics</Text>
+          <Text style={styles.statsTitle}>Account Statistics</Text>
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
               <IconSymbol ios_icon_name="dollarsign.circle.fill" android_material_icon_name="account_balance_wallet" size={32} color={colors.primary} />
               <Text style={styles.statValue}>{user.mxiBalance.toFixed(2)}</Text>
-              <Text style={styles.statLabel}>💎 MXI Balance</Text>
+              <Text style={styles.statLabel}>MXI Balance</Text>
             </View>
             <View style={styles.statItem}>
               <IconSymbol ios_icon_name="banknote.fill" android_material_icon_name="payments" size={32} color={colors.success} />
               <Text style={styles.statValue}>${user.usdtContributed.toFixed(2)}</Text>
-              <Text style={styles.statLabel}>💵 Contributed</Text>
+              <Text style={styles.statLabel}>Contributed</Text>
             </View>
             <View style={styles.statItem}>
               <IconSymbol ios_icon_name="person.3.fill" android_material_icon_name="group" size={32} color={colors.accent} />
               <Text style={styles.statValue}>{user.activeReferrals}</Text>
-              <Text style={styles.statLabel}>👥 Referrals</Text>
+              <Text style={styles.statLabel}>Referrals</Text>
             </View>
             <View style={styles.statItem}>
               <IconSymbol ios_icon_name="chart.line.uptrend.xyaxis" android_material_icon_name="trending_up" size={32} color={colors.warning} />
               <Text style={styles.statValue}>${user.commissions.total.toFixed(2)}</Text>
-              <Text style={styles.statLabel}>💰 Commissions</Text>
+              <Text style={styles.statLabel}>Commissions</Text>
             </View>
           </View>
         </View>
@@ -192,17 +183,17 @@ export default function ProfileScreen() {
           ) : (
             <React.Fragment>
               <IconSymbol ios_icon_name="rectangle.portrait.and.arrow.right" android_material_icon_name="logout" size={20} color={colors.error} />
-              <Text style={styles.logoutButtonText}>🚪 Logout</Text>
+              <Text style={styles.logoutButtonText}>Logout</Text>
             </React.Fragment>
           )}
         </TouchableOpacity>
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            📅 Member since {new Date(user.joinedDate).toLocaleDateString()}
+            Member since {new Date(user.joinedDate).toLocaleDateString()}
           </Text>
           <Text style={styles.footerText}>
-            🆔 ID: {user.idNumber}
+            ID: {user.idNumber}
           </Text>
         </View>
       </ScrollView>
