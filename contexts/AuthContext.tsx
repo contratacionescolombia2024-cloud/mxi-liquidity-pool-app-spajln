@@ -546,23 +546,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Current session:', session?.user?.id);
       console.log('Current user:', user?.id);
       
-      // Clear local state FIRST to trigger navigation immediately
+      // Sign out from Supabase FIRST
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      
+      if (error) {
+        console.error('Supabase signOut error:', error);
+        // Continue anyway to clear local state
+      } else {
+        console.log('Supabase signOut successful');
+      }
+      
+      // Then clear local state - this will trigger the navigation in _layout.tsx
       setUser(null);
       setSession(null);
       setIsAuthenticated(false);
       
       console.log('Local state cleared');
-      
-      // Then sign out from Supabase
-      const { error } = await supabase.auth.signOut({ scope: 'local' });
-      
-      if (error) {
-        console.error('Supabase signOut error:', error);
-        // Don't throw - we already cleared local state
-      } else {
-        console.log('Supabase signOut successful');
-      }
-      
       console.log('=== LOGOUT COMPLETE ===');
     } catch (error) {
       console.error('=== LOGOUT EXCEPTION ===');

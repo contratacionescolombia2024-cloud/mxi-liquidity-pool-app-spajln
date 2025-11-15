@@ -164,95 +164,54 @@ export default function PaymentApprovalsScreen() {
         const currentSession = sessionData.session;
         console.log('Session obtained successfully, user:', currentSession.user.id);
 
-        // Construct Edge Function URL
-        const supabaseUrl = 'https://aeyfnjuatbtcauiumbhn.supabase.co';
-        const functionName = 'okx-payment-verification';
-        const functionUrl = `${supabaseUrl}/functions/v1/${functionName}`;
+        // Call Edge Function using Supabase client
+        console.log('Calling Edge Function: okx-payment-verification');
+        console.log('Payload:', { paymentId, action });
 
-        // Prepare request payload
-        const requestPayload = {
-          paymentId: paymentId,
-          action: action,
-        };
+        const { data, error } = await supabase.functions.invoke('okx-payment-verification', {
+          body: {
+            paymentId: paymentId,
+            action: action,
+          },
+        });
 
-        console.log('Calling Edge Function:', functionUrl);
-        console.log('Payload:', requestPayload);
-        console.log('Using access token from user:', currentSession.user.email);
-
-        // Make the API call with timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
-        let response: Response;
-        try {
-          response = await fetch(functionUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${currentSession.access_token}`,
-              'apikey': currentSession.access_token,
-            },
-            body: JSON.stringify(requestPayload),
-            signal: controller.signal,
-          });
-        } finally {
-          clearTimeout(timeoutId);
-        }
-
-        console.log('Response status:', response.status);
-        console.log('Response ok:', response.ok);
-
-        // Read response body
-        const responseText = await response.text();
-        console.log('Response text:', responseText);
-
-        // Parse JSON response
-        let result: any;
-        try {
-          result = JSON.parse(responseText);
-        } catch (parseError) {
-          console.error('JSON parse error:', parseError);
-          throw new Error(`Invalid JSON response: ${responseText.substring(0, 200)}`);
-        }
+        console.log('Response received:', { data, error });
 
         // Check for errors
-        if (!response.ok) {
-          const apiError: ApiError = result;
-          const errorMessage = apiError.message || apiError.error || `HTTP ${response.status}`;
-          
-          console.error('API error:', apiError);
+        if (error) {
+          console.error('Edge Function error:', error);
           
           // Check if error is retryable
-          if (isRetryableError(apiError) && attempt < retries - 1) {
+          if (isRetryableError(error) && attempt < retries - 1) {
             const delay = INITIAL_RETRY_DELAY * Math.pow(2, attempt); // Exponential backoff
             console.log(`Retryable error detected. Waiting ${delay}ms before retry...`);
             await sleep(delay);
-            lastError = new Error(errorMessage);
+            lastError = error;
             continue; // Retry
           }
           
-          throw new Error(errorMessage);
+          throw new Error(error.message || 'Edge Function call failed');
         }
 
-        if (result.error) {
-          console.error('Result contains error:', result.error);
+        if (data?.error) {
+          console.error('Result contains error:', data.error);
           
           // Check if error is retryable
-          if (isRetryableError(result) && attempt < retries - 1) {
+          if (isRetryableError(data) && attempt < retries - 1) {
             const delay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
             console.log(`Retryable error detected. Waiting ${delay}ms before retry...`);
             await sleep(delay);
-            lastError = new Error(result.error);
+            lastError = new Error(data.error);
             continue; // Retry
           }
           
-          throw new Error(result.error);
+          throw new Error(data.error);
         }
 
         // Success!
-        console.log('API call successful:', result);
+        console.log('API call successful:', data);
         setRetryCount(0); // Reset retry count on success
-        return result;
+        return data;
 
       } catch (error: any) {
         console.error(`Attempt ${attempt + 1} failed:`, error);
@@ -323,11 +282,11 @@ export default function PaymentApprovalsScreen() {
               let errorMessage = error.message || 'Unknown error occurred';
               
               // Add helpful context based on error type
-              if (error.message?.includes('session') || error.message?.includes('log')) {
+              if (errorMessage.includes('session') || errorMessage.includes('log')) {
                 errorMessage = 'Your session has expired. Please log out and log back in to continue.';
-              } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+              } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
                 errorMessage += '\n\nPlease check your internet connection and try again.';
-              } else if (error.message?.includes('timeout')) {
+              } else if (errorMessage.includes('timeout')) {
                 errorMessage += '\n\nThe request timed out. Please try again.';
               }
               
@@ -382,11 +341,11 @@ export default function PaymentApprovalsScreen() {
               
               let errorMessage = error.message || 'Unknown error occurred';
               
-              if (error.message?.includes('session') || error.message?.includes('log')) {
+              if (errorMessage.includes('session') || errorMessage.includes('log')) {
                 errorMessage = 'Your session has expired. Please log out and log back in to continue.';
-              } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+              } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
                 errorMessage += '\n\nPlease check your internet connection and try again.';
-              } else if (error.message?.includes('timeout')) {
+              } else if (errorMessage.includes('timeout')) {
                 errorMessage += '\n\nThe request timed out. Please try again.';
               }
               
