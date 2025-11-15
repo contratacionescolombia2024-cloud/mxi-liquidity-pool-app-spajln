@@ -111,77 +111,132 @@ export default function PaymentApprovalsScreen() {
           onPress: async () => {
             try {
               setProcessing(true);
-              console.log('=== APPROVE PAYMENT START ===');
+              console.log('=== APPROVE PAYMENT START (DRASTIC APPROACH) ===');
               console.log('Payment ID:', payment.payment_id);
               console.log('User ID:', payment.user_id);
               console.log('USDT Amount:', payment.usdt_amount);
               console.log('MXI Amount:', payment.mxi_amount);
 
-              // Get current session
-              const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+              // Get current session with detailed logging
+              console.log('Step 1: Getting session...');
+              const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
               
-              if (sessionError || !session) {
+              if (sessionError) {
                 console.error('Session error:', sessionError);
-                throw new Error('Authentication required. Please log in again.');
+                throw new Error(`Session error: ${sessionError.message}`);
               }
 
-              console.log('Session obtained successfully');
-              console.log('User authenticated:', session.user.id);
+              if (!sessionData?.session) {
+                console.error('No session found');
+                throw new Error('No active session. Please log in again.');
+              }
 
-              // Get project details to construct the correct URL
-              const { data: { project } } = await supabase.auth.getSession();
-              const supabaseUrl = 'https://aeyfnjuatbtcauiumbhn.supabase.co';
-              const functionUrl = `${supabaseUrl}/functions/v1/okx-payment-verification`;
-              
-              console.log('Calling Edge Function:', functionUrl);
-              console.log('Request body:', { paymentId: payment.payment_id, action: 'confirm' });
-
-              // Call Edge Function to confirm payment
-              const response = await fetch(functionUrl, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${session.access_token}`,
-                },
-                body: JSON.stringify({
-                  paymentId: payment.payment_id,
-                  action: 'confirm',
-                }),
+              const session = sessionData.session;
+              console.log('Session obtained:', {
+                userId: session.user.id,
+                email: session.user.email,
+                tokenLength: session.access_token?.length || 0
               });
 
-              console.log('Response status:', response.status);
-              console.log('Response ok:', response.ok);
+              // Construct Edge Function URL with multiple fallbacks
+              console.log('Step 2: Constructing Edge Function URL...');
+              const supabaseUrl = 'https://aeyfnjuatbtcauiumbhn.supabase.co';
+              const functionName = 'okx-payment-verification';
+              const functionUrl = `${supabaseUrl}/functions/v1/${functionName}`;
+              
+              console.log('Edge Function URL:', functionUrl);
 
-              const responseText = await response.text();
-              console.log('Response text:', responseText);
+              // Prepare request payload
+              const requestPayload = {
+                paymentId: payment.payment_id,
+                action: 'confirm',
+              };
+              console.log('Request payload:', requestPayload);
 
-              let result;
+              // Make the API call with comprehensive error handling
+              console.log('Step 3: Calling Edge Function...');
+              let response: Response;
+              try {
+                response = await fetch(functionUrl, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'apikey': session.access_token, // Some Edge Functions might need this
+                  },
+                  body: JSON.stringify(requestPayload),
+                });
+              } catch (fetchError: any) {
+                console.error('Fetch error:', fetchError);
+                throw new Error(`Network error: ${fetchError.message}`);
+              }
+
+              console.log('Response received:', {
+                status: response.status,
+                statusText: response.statusText,
+                ok: response.ok,
+                headers: Object.fromEntries(response.headers.entries())
+              });
+
+              // Read response body
+              console.log('Step 4: Reading response body...');
+              let responseText: string;
+              try {
+                responseText = await response.text();
+                console.log('Response text:', responseText);
+              } catch (readError: any) {
+                console.error('Error reading response:', readError);
+                throw new Error(`Failed to read response: ${readError.message}`);
+              }
+
+              // Parse JSON response
+              console.log('Step 5: Parsing JSON response...');
+              let result: any;
               try {
                 result = JSON.parse(responseText);
-              } catch (parseError) {
-                console.error('Failed to parse response:', parseError);
-                throw new Error(`Invalid response from server: ${responseText}`);
+                console.log('Parsed result:', result);
+              } catch (parseError: any) {
+                console.error('JSON parse error:', parseError);
+                console.error('Raw response:', responseText);
+                throw new Error(`Invalid JSON response: ${responseText.substring(0, 200)}`);
               }
 
-              console.log('Response data:', result);
-
+              // Check for errors
               if (!response.ok) {
-                throw new Error(result.error || 'Failed to approve payment');
+                const errorMessage = result.error || result.message || `HTTP ${response.status}: ${response.statusText}`;
+                console.error('API error:', errorMessage);
+                throw new Error(errorMessage);
               }
 
+              if (result.error) {
+                console.error('Result contains error:', result.error);
+                throw new Error(result.error);
+              }
+
+              // Success!
               console.log('=== APPROVE PAYMENT SUCCESS ===');
+              console.log('Result:', result);
+              
               Alert.alert(
                 'Success',
-                `Payment approved successfully!\n\nUser's new balance: ${result.newBalance?.toFixed(2) || 'N/A'} MXI`
+                `Payment approved successfully!\n\n` +
+                `User's new balance: ${result.newBalance?.toFixed(2) || 'N/A'} MXI\n\n` +
+                `The user's account has been credited.`
               );
+              
               setSelectedPayment(null);
               await loadPayments();
             } catch (error: any) {
               console.error('=== APPROVE PAYMENT ERROR ===');
-              console.error('Error details:', error);
+              console.error('Error type:', error.constructor.name);
               console.error('Error message:', error.message);
               console.error('Error stack:', error.stack);
-              Alert.alert('Error', error.message || 'Failed to approve payment');
+              
+              Alert.alert(
+                'Error',
+                `Failed to approve payment:\n\n${error.message}\n\n` +
+                `Please check the console logs for more details.`
+              );
             } finally {
               setProcessing(false);
             }
@@ -205,66 +260,111 @@ export default function PaymentApprovalsScreen() {
           onPress: async () => {
             try {
               setProcessing(true);
-              console.log('=== REJECT PAYMENT START ===');
+              console.log('=== REJECT PAYMENT START (DRASTIC APPROACH) ===');
               console.log('Payment ID:', payment.payment_id);
 
               // Get current session
-              const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+              console.log('Step 1: Getting session...');
+              const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
               
-              if (sessionError || !session) {
+              if (sessionError) {
                 console.error('Session error:', sessionError);
-                throw new Error('Authentication required. Please log in again.');
+                throw new Error(`Session error: ${sessionError.message}`);
               }
 
+              if (!sessionData?.session) {
+                console.error('No session found');
+                throw new Error('No active session. Please log in again.');
+              }
+
+              const session = sessionData.session;
               console.log('Session obtained successfully');
 
-              // Get Supabase URL
+              // Construct Edge Function URL
+              console.log('Step 2: Constructing Edge Function URL...');
               const supabaseUrl = 'https://aeyfnjuatbtcauiumbhn.supabase.co';
-              const functionUrl = `${supabaseUrl}/functions/v1/okx-payment-verification`;
+              const functionName = 'okx-payment-verification';
+              const functionUrl = `${supabaseUrl}/functions/v1/${functionName}`;
               
-              console.log('Calling Edge Function:', functionUrl);
-              console.log('Request body:', { paymentId: payment.payment_id, action: 'reject' });
+              console.log('Edge Function URL:', functionUrl);
 
-              // Call Edge Function to reject payment
-              const response = await fetch(functionUrl, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${session.access_token}`,
-                },
-                body: JSON.stringify({
-                  paymentId: payment.payment_id,
-                  action: 'reject',
-                }),
-              });
+              // Prepare request payload
+              const requestPayload = {
+                paymentId: payment.payment_id,
+                action: 'reject',
+              };
+              console.log('Request payload:', requestPayload);
+
+              // Make the API call
+              console.log('Step 3: Calling Edge Function...');
+              let response: Response;
+              try {
+                response = await fetch(functionUrl, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'apikey': session.access_token,
+                  },
+                  body: JSON.stringify(requestPayload),
+                });
+              } catch (fetchError: any) {
+                console.error('Fetch error:', fetchError);
+                throw new Error(`Network error: ${fetchError.message}`);
+              }
 
               console.log('Response status:', response.status);
 
-              const responseText = await response.text();
-              console.log('Response text:', responseText);
+              // Read response body
+              console.log('Step 4: Reading response body...');
+              let responseText: string;
+              try {
+                responseText = await response.text();
+                console.log('Response text:', responseText);
+              } catch (readError: any) {
+                console.error('Error reading response:', readError);
+                throw new Error(`Failed to read response: ${readError.message}`);
+              }
 
-              let result;
+              // Parse JSON response
+              console.log('Step 5: Parsing JSON response...');
+              let result: any;
               try {
                 result = JSON.parse(responseText);
-              } catch (parseError) {
-                console.error('Failed to parse response:', parseError);
-                throw new Error(`Invalid response from server: ${responseText}`);
+                console.log('Parsed result:', result);
+              } catch (parseError: any) {
+                console.error('JSON parse error:', parseError);
+                throw new Error(`Invalid JSON response: ${responseText.substring(0, 200)}`);
               }
 
-              console.log('Response data:', result);
-
+              // Check for errors
               if (!response.ok) {
-                throw new Error(result.error || 'Failed to reject payment');
+                const errorMessage = result.error || result.message || `HTTP ${response.status}`;
+                console.error('API error:', errorMessage);
+                throw new Error(errorMessage);
               }
 
+              if (result.error) {
+                console.error('Result contains error:', result.error);
+                throw new Error(result.error);
+              }
+
+              // Success!
               console.log('=== REJECT PAYMENT SUCCESS ===');
               Alert.alert('Success', 'Payment rejected successfully');
               setSelectedPayment(null);
               await loadPayments();
             } catch (error: any) {
               console.error('=== REJECT PAYMENT ERROR ===');
-              console.error('Error details:', error);
-              Alert.alert('Error', error.message || 'Failed to reject payment');
+              console.error('Error type:', error.constructor.name);
+              console.error('Error message:', error.message);
+              console.error('Error stack:', error.stack);
+              
+              Alert.alert(
+                'Error',
+                `Failed to reject payment:\n\n${error.message}\n\n` +
+                `Please check the console logs for more details.`
+              );
             } finally {
               setProcessing(false);
             }
