@@ -42,6 +42,7 @@ interface Battle {
   opponent_name?: string;
   challenger_referral_code?: string;
   opponent_referral_code?: string;
+  cancellation_reason?: string | null;
 }
 
 interface NotificationData {
@@ -82,6 +83,7 @@ export default function XMITapDuoScreen() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [clicks, setClicks] = useState(0);
   const [timeLeft, setTimeLeft] = useState(10);
+  const [participationTimeLeft, setParticipationTimeLeft] = useState(600); // 10 minutes in seconds
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const [waitingBattles, setWaitingBattles] = useState<Battle[]>([]);
   const [availableBalances, setAvailableBalances] = useState<AvailableBalances>({
@@ -92,8 +94,11 @@ export default function XMITapDuoScreen() {
   });
   const [showPaymentSourceModal, setShowPaymentSourceModal] = useState(false);
   const [pendingWager, setPendingWager] = useState(0);
+  const [pendingBattle, setPendingBattle] = useState<Battle | null>(null);
+  const [isCreatingChallenge, setIsCreatingChallenge] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const participationTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     requestNotificationPermissions();
@@ -107,8 +112,67 @@ export default function XMITapDuoScreen() {
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
+      if (participationTimerRef.current) {
+        clearInterval(participationTimerRef.current);
+      }
     };
   }, []);
+
+  useEffect(() => {
+    // Start participation timer when battle is matched and user hasn't finished
+    if (activeBattle && activeBattle.status === 'matched') {
+      const isChallenger = activeBattle.challenger_id === user?.id;
+      const hasFinished = isChallenger
+        ? activeBattle.challenger_finished_at
+        : activeBattle.opponent_finished_at;
+
+      if (!hasFinished && !isPlaying) {
+        startParticipationTimer();
+      }
+    }
+
+    return () => {
+      if (participationTimerRef.current) {
+        clearInterval(participationTimerRef.current);
+      }
+    };
+  }, [activeBattle, isPlaying]);
+
+  const startParticipationTimer = () => {
+    if (participationTimerRef.current) {
+      clearInterval(participationTimerRef.current);
+    }
+
+    // Calculate time left based on when the battle was matched
+    const matchedTime = new Date(activeBattle?.created_at || Date.now()).getTime();
+    const now = Date.now();
+    const elapsed = Math.floor((now - matchedTime) / 1000);
+    const remaining = Math.max(0, 600 - elapsed); // 10 minutes = 600 seconds
+
+    setParticipationTimeLeft(remaining);
+
+    participationTimerRef.current = setInterval(() => {
+      setParticipationTimeLeft((prev) => {
+        if (prev <= 1) {
+          if (participationTimerRef.current) {
+            clearInterval(participationTimerRef.current);
+          }
+          // Auto-submit score of 0
+          if (!isPlaying) {
+            endGame();
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const formatParticipationTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const loadAvailableBalances = async () => {
     if (!user) return;
@@ -295,6 +359,55 @@ export default function XMITapDuoScreen() {
     }
   };
 
+  const handleCancelChallenge = async () => {
+    if (!activeBattle || !user) return;
+
+    Alert.alert(
+      'Cancel Challenge?',
+      'Are you sure you want to cancel this challenge? Your wager will be refunded.',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes, Cancel',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              const { data, error } = await supabase.rpc('cancel_duo_challenge', {
+                p_battle_id: activeBattle.id,
+                p_user_id: user.id,
+                p_battle_type: 'tap_duo',
+              });
+
+              if (error) {
+                throw error;
+              }
+
+              if (!data.success) {
+                Alert.alert('Error', data.error || 'Failed to cancel challenge');
+                return;
+              }
+
+              Alert.alert(
+                'Challenge Cancelled',
+                `Your wager of ${data.refund_amount} MXI has been refunded.`
+              );
+
+              setActiveBattle(null);
+              loadAvailableBalances();
+              loadWaitingBattles();
+            } catch (error: any) {
+              console.error('Error cancelling challenge:', error);
+              Alert.alert('Error', error.message || 'Failed to cancel challenge');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleCreateChallenge = async () => {
     if (!user) return;
 
@@ -319,6 +432,7 @@ export default function XMITapDuoScreen() {
 
     // Store wager and show payment source modal
     setPendingWager(wager);
+    setIsCreatingChallenge(true);
     setShowChallengeModal(false);
     setShowPaymentSourceModal(true);
   };
@@ -402,7 +516,7 @@ export default function XMITapDuoScreen() {
           admin_fee: adminFee,
           challenge_type: challengeType,
           status: opponentId ? 'matched' : 'waiting',
-          expires_at: null, // No expiry for duo challenges
+          expires_at: null,
         })
         .select()
         .single();
@@ -442,6 +556,7 @@ export default function XMITapDuoScreen() {
       Alert.alert('❌ Error', 'Failed to create challenge. Please try again.');
     } finally {
       setLoading(false);
+      setIsCreatingChallenge(false);
     }
   };
 
@@ -458,11 +573,13 @@ export default function XMITapDuoScreen() {
 
     // Store battle wager and show payment source modal
     setPendingWager(battle.wager_amount);
+    setPendingBattle(battle);
+    setIsCreatingChallenge(false);
     setShowPaymentSourceModal(true);
   };
 
-  const proceedWithAcceptChallenge = async (source: 'purchased' | 'commissions' | 'challenges', battle: Battle) => {
-    if (!user) return;
+  const proceedWithAcceptChallenge = async (source: 'purchased' | 'commissions' | 'challenges') => {
+    if (!user || !pendingBattle) return;
 
     setShowPaymentSourceModal(false);
 
@@ -472,10 +589,10 @@ export default function XMITapDuoScreen() {
       source === 'commissions' ? availableBalances.mxiFromUnifiedCommissions :
       availableBalances.mxiFromChallenges;
 
-    if (sourceBalance < battle.wager_amount) {
+    if (sourceBalance < pendingBattle.wager_amount) {
       Alert.alert(
         'Insufficient Balance',
-        `You need ${battle.wager_amount} MXI from ${
+        `You need ${pendingBattle.wager_amount} MXI from ${
           source === 'purchased' ? 'direct purchases' :
           source === 'commissions' ? 'unified commissions' :
           'challenge winnings'
@@ -490,7 +607,7 @@ export default function XMITapDuoScreen() {
       const { data: deductResult, error: deductError } = await supabase
         .rpc('deduct_challenge_balance', {
           p_user_id: user.id,
-          p_amount: battle.wager_amount,
+          p_amount: pendingBattle.wager_amount,
           p_source: source,
         });
 
@@ -500,7 +617,7 @@ export default function XMITapDuoScreen() {
         return;
       }
 
-      const totalPot = battle.wager_amount * 2;
+      const totalPot = pendingBattle.wager_amount * 2;
       const prizeAmount = totalPot * 0.90;
       const adminFee = totalPot * 0.10;
 
@@ -513,24 +630,25 @@ export default function XMITapDuoScreen() {
           admin_fee: adminFee,
           status: 'matched',
         })
-        .eq('id', battle.id);
+        .eq('id', pendingBattle.id);
 
       if (battleError) {
         throw battleError;
       }
 
       await supabase.from('tap_duo_notifications').insert({
-        user_id: battle.challenger_id,
-        battle_id: battle.id,
+        user_id: pendingBattle.challenger_id,
+        battle_id: pendingBattle.id,
         notification_type: 'battle_matched',
         title: '✅ Battle Matched!',
         message: `${user.name} has accepted your challenge!`,
       });
 
-      Alert.alert('✅ Challenge Accepted!', '🎮 Get ready to tap!');
+      Alert.alert('✅ Challenge Accepted!', '🎮 Get ready to tap! You have 10 minutes to complete the challenge.');
       loadActiveBattle();
       loadWaitingBattles();
       loadAvailableBalances();
+      setPendingBattle(null);
     } catch (error) {
       console.error('Error accepting challenge:', error);
       Alert.alert('❌ Error', 'Failed to accept challenge. Please try again.');
@@ -545,6 +663,11 @@ export default function XMITapDuoScreen() {
     setIsPlaying(true);
     setClicks(0);
     setTimeLeft(10);
+
+    // Stop participation timer when game starts
+    if (participationTimerRef.current) {
+      clearInterval(participationTimerRef.current);
+    }
 
     timerRef.current = setInterval(() => {
       setTimeLeft((prev) => {
@@ -655,6 +778,11 @@ export default function XMITapDuoScreen() {
             <Text style={styles.battleTitle}>
               {isWinner ? 'You Won!' : isTie ? 'It\'s a Tie!' : 'You Lost'}
             </Text>
+            {activeBattle.cancellation_reason && (
+              <Text style={styles.cancellationReason}>
+                {activeBattle.cancellation_reason}
+              </Text>
+            )}
           </View>
 
           <View style={styles.scoreContainer}>
@@ -712,9 +840,19 @@ export default function XMITapDuoScreen() {
             💰 Wager: {activeBattle.wager_amount} MXI
           </Text>
           <Text style={styles.infoText}>
-            ♾️ No time limit - challenge stays active until accepted
+            Waiting for an opponent to accept your challenge
           </Text>
           <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
+          
+          {isChallenger && (
+            <TouchableOpacity
+              style={[buttonStyles.outline, styles.cancelButton]}
+              onPress={handleCancelChallenge}
+              disabled={loading}
+            >
+              <Text style={buttonStyles.outlineText}>Cancel Challenge</Text>
+            </TouchableOpacity>
+          )}
         </View>
       );
     }
@@ -732,6 +870,9 @@ export default function XMITapDuoScreen() {
           {!opponentFinished && (
             <React.Fragment>
               <Text style={styles.waitingText}>⏳ Waiting for opponent to finish...</Text>
+              <Text style={styles.timerWarning}>
+                ⚠️ Opponent has 10 minutes to complete or will forfeit
+              </Text>
               <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
             </React.Fragment>
           )}
@@ -778,6 +919,19 @@ export default function XMITapDuoScreen() {
         <Text style={styles.battleSubtitle}>
           🏆 Prize (90%): {activeBattle.prize_amount.toFixed(2)} MXI
         </Text>
+        
+        {participationTimeLeft > 0 && (
+          <View style={styles.participationTimer}>
+            <Text style={styles.participationTimerLabel}>⏰ Time to Start:</Text>
+            <Text style={styles.participationTimerValue}>
+              {formatParticipationTime(participationTimeLeft)}
+            </Text>
+            <Text style={styles.participationTimerWarning}>
+              ⚠️ Start within 10 minutes or score will be 0
+            </Text>
+          </View>
+        )}
+        
         <Text style={styles.battleInfo}>
           👆 Tap as fast as you can for 10 seconds!
         </Text>
@@ -917,19 +1071,23 @@ export default function XMITapDuoScreen() {
           </View>
           <View style={styles.infoItem}>
             <Text style={styles.infoBullet}>4️⃣</Text>
-            <Text style={styles.infoText}>Tap as fast as you can for 10 seconds 👆</Text>
+            <Text style={styles.infoText}>You have 10 minutes to start the challenge after matching</Text>
           </View>
           <View style={styles.infoItem}>
             <Text style={styles.infoBullet}>5️⃣</Text>
+            <Text style={styles.infoText}>Tap as fast as you can for 10 seconds 👆</Text>
+          </View>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoBullet}>6️⃣</Text>
             <Text style={styles.infoText}>Winner takes 90% of the pot! 🏆</Text>
           </View>
           <View style={styles.infoItem}>
             <Text style={styles.infoBullet}>⚠️</Text>
-            <Text style={styles.infoText}>Challenge winnings require 5 active referrals to withdraw</Text>
+            <Text style={styles.infoText}>If you don't start within 10 minutes, your score will be 0 and you'll forfeit</Text>
           </View>
           <View style={styles.infoItem}>
-            <Text style={styles.infoBullet}>♾️</Text>
-            <Text style={styles.infoText}>Challenges stay active until accepted (no expiry)</Text>
+            <Text style={styles.infoBullet}>🚫</Text>
+            <Text style={styles.infoText}>You can only cancel challenges with no opponent</Text>
           </View>
         </View>
       </ScrollView>
@@ -1042,7 +1200,7 @@ export default function XMITapDuoScreen() {
                   styles.sourceOption,
                   availableBalances.mxiPurchasedDirectly < pendingWager && styles.sourceOptionDisabled,
                 ]}
-                onPress={() => proceedWithCreateChallenge('purchased')}
+                onPress={() => isCreatingChallenge ? proceedWithCreateChallenge('purchased') : proceedWithAcceptChallenge('purchased')}
                 disabled={availableBalances.mxiPurchasedDirectly < pendingWager}
               >
                 <View style={styles.sourceOptionHeader}>
@@ -1061,7 +1219,7 @@ export default function XMITapDuoScreen() {
                   styles.sourceOption,
                   availableBalances.mxiFromUnifiedCommissions < pendingWager && styles.sourceOptionDisabled,
                 ]}
-                onPress={() => proceedWithCreateChallenge('commissions')}
+                onPress={() => isCreatingChallenge ? proceedWithCreateChallenge('commissions') : proceedWithAcceptChallenge('commissions')}
                 disabled={availableBalances.mxiFromUnifiedCommissions < pendingWager}
               >
                 <View style={styles.sourceOptionHeader}>
@@ -1080,7 +1238,7 @@ export default function XMITapDuoScreen() {
                   styles.sourceOption,
                   availableBalances.mxiFromChallenges < pendingWager && styles.sourceOptionDisabled,
                 ]}
-                onPress={() => proceedWithCreateChallenge('challenges')}
+                onPress={() => isCreatingChallenge ? proceedWithCreateChallenge('challenges') : proceedWithAcceptChallenge('challenges')}
                 disabled={availableBalances.mxiFromChallenges < pendingWager}
               >
                 <View style={styles.sourceOptionHeader}>
@@ -1228,6 +1386,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
+  cancellationReason: {
+    fontSize: 12,
+    color: colors.warning,
+    marginTop: 8,
+    textAlign: 'center',
+  },
   battleSubtitle: {
     fontSize: 16,
     color: colors.textSecondary,
@@ -1250,6 +1414,34 @@ const styles = StyleSheet.create({
   startButton: {
     width: '100%',
   },
+  cancelButton: {
+    width: '100%',
+    marginTop: 16,
+  },
+  participationTimer: {
+    backgroundColor: colors.warning + '20',
+    borderRadius: 12,
+    padding: 16,
+    marginVertical: 16,
+    alignItems: 'center',
+    width: '100%',
+  },
+  participationTimerLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  participationTimerValue: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: colors.warning,
+    marginBottom: 8,
+  },
+  participationTimerWarning: {
+    fontSize: 12,
+    color: colors.warning,
+    textAlign: 'center',
+  },
   timerContainer: {
     alignItems: 'center',
     marginBottom: 24,
@@ -1262,6 +1454,12 @@ const styles = StyleSheet.create({
   timerLabel: {
     fontSize: 16,
     color: colors.textSecondary,
+  },
+  timerWarning: {
+    fontSize: 12,
+    color: colors.warning,
+    marginTop: 8,
+    textAlign: 'center',
   },
   clicksContainer: {
     alignItems: 'center',
@@ -1418,12 +1616,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginRight: 12,
     width: 24,
-  },
-  infoText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    flex: 1,
-    lineHeight: 20,
   },
   modalOverlay: {
     flex: 1,
