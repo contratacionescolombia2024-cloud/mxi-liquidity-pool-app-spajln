@@ -1,3 +1,4 @@
+
 {
   "expo": {
     "name": "MXI Liquidity Pool",
@@ -42,6 +43,9 @@
             "DEFAULT"
           ]
         }
+      ],
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
     "web": {
@@ -55,6 +59,14 @@
         "expo-web-browser",
         {
           "preferredBrowserPackage": "com.android.chrome"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/04a4d9ac-4539-41d2-bafd-67dd75925bde.png",
+          "color": "#ffffff",
+          "sounds": []
         }
       ]
     ],

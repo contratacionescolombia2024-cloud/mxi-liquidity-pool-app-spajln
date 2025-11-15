@@ -11,6 +11,7 @@ export default function HomeLayout() {
       <Stack.Screen name="withdrawals" />
       <Stack.Screen name="withdraw-mxi" />
       <Stack.Screen name="contrataciones" />
+      <Stack.Screen name="xmi-tap-duo" />
     </Stack>
   );
 }

@@ -236,6 +236,14 @@ export default function HomeScreen() {
               color="#4ECDC4"
             />
             <ActionButton
+              title="Tap Duo"
+              subtitle="Battle friends"
+              icon="bolt.fill"
+              androidIcon="flash_on"
+              onPress={() => router.push('/(tabs)/(home)/xmi-tap-duo')}
+              color="#9B59B6"
+            />
+            <ActionButton
               title="KYC"
               subtitle="Verify identity"
               icon="checkmark.seal.fill"
@@ -243,15 +251,19 @@ export default function HomeScreen() {
               onPress={() => router.push('/(tabs)/(home)/kyc-verification')}
               color="#95E1D3"
             />
-            <ActionButton
-              title="Support"
-              subtitle="Get help"
-              icon="questionmark.circle.fill"
-              androidIcon="help"
-              onPress={() => router.push('/(tabs)/(home)/support')}
-              color="#F38181"
-            />
           </View>
+        </View>
+
+        {/* Support */}
+        <View style={styles.section}>
+          <ActionButton
+            title="Support"
+            subtitle="Get help"
+            icon="questionmark.circle.fill"
+            androidIcon="help"
+            onPress={() => router.push('/(tabs)/(home)/support')}
+            color="#F38181"
+          />
         </View>
 
         {/* Footer */}
