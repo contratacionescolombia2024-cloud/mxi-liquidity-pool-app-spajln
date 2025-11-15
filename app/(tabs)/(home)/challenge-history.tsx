@@ -105,6 +105,8 @@ export default function ChallengeHistoryScreen() {
     switch (type) {
       case 'airball':
         return '🎈';
+      case 'airball_duo':
+        return '🎈⚔️';
       case 'clicker':
         return '👆';
       case 'tap_duo':
@@ -120,6 +122,8 @@ export default function ChallengeHistoryScreen() {
     switch (type) {
       case 'airball':
         return 'MXI AirBall';
+      case 'airball_duo':
+        return 'AirBall Duo';
       case 'clicker':
         return 'Clickers';
       case 'tap_duo':

@@ -251,6 +251,22 @@ export default function HomeScreen() {
               onPress={() => router.push('/(tabs)/(home)/mxi-airball')}
               color="#FF9F43"
             />
+            <ActionButton
+              title="AirBall Duo"
+              subtitle="1v1 Battle"
+              icon="balloon.2.fill"
+              androidIcon="sports_soccer"
+              onPress={() => router.push('/(tabs)/(home)/mxi-airball-duo')}
+              color="#E74C3C"
+            />
+            <ActionButton
+              title="History"
+              subtitle="View records"
+              icon="clock.arrow.circlepath"
+              androidIcon="history"
+              onPress={() => router.push('/(tabs)/(home)/challenge-history')}
+              color="#34495E"
+            />
           </View>
         </View>
 

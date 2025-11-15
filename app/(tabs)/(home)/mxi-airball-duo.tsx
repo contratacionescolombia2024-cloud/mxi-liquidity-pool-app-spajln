@@ -15,10 +15,21 @@ import {
   TextInput,
   Modal,
   Animated,
+  Dimensions,
 } from 'react-native';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
+import { Audio } from 'expo-av';
 import * as Notifications from 'expo-notifications';
+
+const { width, height } = Dimensions.get('window');
+const BALL_SIZE = 60;
+const GAME_HEIGHT = height * 0.5;
+const CENTER_ZONE_HEIGHT = 150;
+const CENTER_ZONE_TOP = (GAME_HEIGHT - CENTER_ZONE_HEIGHT) / 2;
+const GRAVITY = 0.8;
+const BLOW_MULTIPLIER = 3;
+const GAME_DURATION = 40000; // 40 seconds
 
 interface Battle {
   id: string;
@@ -30,8 +41,8 @@ interface Battle {
   prize_amount: number;
   status: 'waiting' | 'matched' | 'in_progress' | 'completed' | 'cancelled';
   challenge_type: 'friend' | 'random';
-  challenger_clicks: number;
-  opponent_clicks: number;
+  challenger_center_time: number;
+  opponent_center_time: number;
   challenger_finished_at: string | null;
   opponent_finished_at: string | null;
   winner_user_id: string | null;
@@ -61,7 +72,7 @@ Notifications.setNotificationHandler({
   }),
 });
 
-export default function XMITapDuoScreen() {
+export default function MXIAirballDuoScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -70,52 +81,69 @@ export default function XMITapDuoScreen() {
   const [showChallengeModal, setShowChallengeModal] = useState(false);
   const [challengeType, setChallengeType] = useState<'friend' | 'random'>('random');
   const [activeBattle, setActiveBattle] = useState<Battle | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [clicks, setClicks] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(10);
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const [waitingBattles, setWaitingBattles] = useState<Battle[]>([]);
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const [hasPermission, setHasPermission] = useState(false);
+
+  // Game state
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [ballY, setBallY] = useState(GAME_HEIGHT / 2);
+  const [velocity, setVelocity] = useState(0);
+  const [blowStrength, setBlowStrength] = useState(0);
+  const [centerTime, setCenterTime] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(40);
+
+  const ballAnim = useRef(new Animated.Value(GAME_HEIGHT / 2)).current;
+  const recording = useRef<Audio.Recording | null>(null);
+  const gameLoopRef = useRef<NodeJS.Timeout | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const meteringRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    requestNotificationPermissions();
+    requestPermissions();
     loadActiveBattle();
     loadWaitingBattles();
     loadNotifications();
     setupRealtimeSubscription();
 
     return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
+      stopGame();
+      if (gameLoopRef.current) clearInterval(gameLoopRef.current);
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (meteringRef.current) clearInterval(meteringRef.current);
     };
   }, []);
 
-  const requestNotificationPermissions = async () => {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-    
-    if (finalStatus !== 'granted') {
-      Alert.alert('Permission Required', 'Please enable notifications to receive battle challenges.');
+  const requestPermissions = async () => {
+    try {
+      const audioPermission = await Audio.requestPermissionsAsync();
+      if (audioPermission.status !== 'granted') {
+        Alert.alert('Permission Required', 'Microphone access is required to play this game.');
+        setHasPermission(false);
+        return;
+      }
+
+      const notificationPermission = await Notifications.requestPermissionsAsync();
+      if (notificationPermission.status !== 'granted') {
+        Alert.alert('Permission Required', 'Notification access is recommended for game updates.');
+      }
+
+      setHasPermission(true);
+    } catch (error) {
+      console.error('Error requesting permissions:', error);
+      setHasPermission(false);
     }
   };
 
   const setupRealtimeSubscription = () => {
-    // Subscribe to battle updates
     const battleChannel = supabase
-      .channel('tap_duo_battles_changes')
+      .channel('airball_duo_battles_changes')
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'tap_duo_battles',
+          table: 'airball_duo_battles',
           filter: `challenger_id=eq.${user?.id},opponent_id=eq.${user?.id}`,
         },
         (payload) => {
@@ -126,22 +154,20 @@ export default function XMITapDuoScreen() {
       )
       .subscribe();
 
-    // Subscribe to notifications
     const notificationChannel = supabase
-      .channel('tap_duo_notifications_changes')
+      .channel('airball_duo_notifications_changes')
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'tap_duo_notifications',
+          table: 'airball_duo_notifications',
           filter: `user_id=eq.${user?.id}`,
         },
         async (payload) => {
           console.log('New notification:', payload);
           const notification = payload.new as NotificationData;
-          
-          // Show local notification
+
           await Notifications.scheduleNotificationAsync({
             content: {
               title: notification.title,
@@ -150,7 +176,7 @@ export default function XMITapDuoScreen() {
             },
             trigger: null,
           });
-          
+
           loadNotifications();
         }
       )
@@ -167,17 +193,17 @@ export default function XMITapDuoScreen() {
 
     try {
       const { data, error } = await supabase
-        .from('tap_duo_battles')
+        .from('airball_duo_battles')
         .select(`
           *,
-          challenger:users!tap_duo_battles_challenger_id_fkey(name),
-          opponent:users!tap_duo_battles_opponent_id_fkey(name)
+          challenger:users!airball_duo_battles_challenger_id_fkey(name),
+          opponent:users!airball_duo_battles_opponent_id_fkey(name)
         `)
         .or(`challenger_id.eq.${user.id},opponent_id.eq.${user.id}`)
         .in('status', ['waiting', 'matched', 'in_progress'])
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error loading active battle:', error);
@@ -203,10 +229,10 @@ export default function XMITapDuoScreen() {
 
     try {
       const { data, error } = await supabase
-        .from('tap_duo_battles')
+        .from('airball_duo_battles')
         .select(`
           *,
-          challenger:users!tap_duo_battles_challenger_id_fkey(name)
+          challenger:users!airball_duo_battles_challenger_id_fkey(name)
         `)
         .eq('status', 'waiting')
         .eq('challenge_type', 'random')
@@ -230,7 +256,7 @@ export default function XMITapDuoScreen() {
 
     try {
       const { data, error } = await supabase
-        .from('tap_duo_notifications')
+        .from('airball_duo_notifications')
         .select('*')
         .eq('user_id', user.id)
         .eq('is_read', false)
@@ -267,12 +293,17 @@ export default function XMITapDuoScreen() {
       return;
     }
 
+    if (!hasPermission) {
+      Alert.alert('Permission Required', 'Please grant microphone permission to play this game.');
+      await requestPermissions();
+      return;
+    }
+
     setLoading(true);
 
     try {
       let opponentId = null;
 
-      // If challenging a friend, find them by referral code
       if (challengeType === 'friend') {
         const { data: opponentData, error: opponentError } = await supabase
           .from('users')
@@ -312,7 +343,7 @@ export default function XMITapDuoScreen() {
 
       // Create battle
       const { data: battleData, error: battleError } = await supabase
-        .from('tap_duo_battles')
+        .from('airball_duo_battles')
         .insert({
           challenger_id: user.id,
           opponent_id: opponentId,
@@ -322,7 +353,7 @@ export default function XMITapDuoScreen() {
           admin_fee: adminFee,
           challenge_type: challengeType,
           status: opponentId ? 'matched' : 'waiting',
-          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
+          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         })
         .select()
         .single();
@@ -331,20 +362,24 @@ export default function XMITapDuoScreen() {
         throw battleError;
       }
 
-      // If challenging a friend, create notification
       if (opponentId) {
-        await supabase.from('tap_duo_notifications').insert({
+        // Deduct opponent's wager
+        const { error: opponentBalanceError } = await supabase
+          .from('users')
+          .update({ mxi_balance: user.mxiBalance - wager })
+          .eq('id', opponentId);
+
+        if (opponentBalanceError) {
+          console.error('Error deducting opponent balance:', opponentBalanceError);
+        }
+
+        // Create notification for opponent
+        await supabase.from('airball_duo_notifications').insert({
           user_id: opponentId,
           battle_id: battleData.id,
           notification_type: 'challenge_received',
-          title: 'Battle Challenge!',
-          message: `${user.name} has challenged you to a ${wager} MXI battle!`,
-        });
-
-        // Deduct opponent's wager
-        await supabase.rpc('deduct_user_balance', {
-          p_user_id: opponentId,
-          p_amount: wager,
+          title: 'AirBall Battle Challenge!',
+          message: `${user.name} has challenged you to a ${wager} MXI AirBall battle!`,
         });
       }
 
@@ -374,6 +409,12 @@ export default function XMITapDuoScreen() {
       return;
     }
 
+    if (!hasPermission) {
+      Alert.alert('Permission Required', 'Please grant microphone permission to play this game.');
+      await requestPermissions();
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -387,13 +428,13 @@ export default function XMITapDuoScreen() {
         throw balanceError;
       }
 
-      // Update battle with opponent
+      // Update battle
       const totalPot = battle.wager_amount * 2;
       const prizeAmount = totalPot * 0.90;
       const adminFee = totalPot * 0.10;
 
       const { error: battleError } = await supabase
-        .from('tap_duo_battles')
+        .from('airball_duo_battles')
         .update({
           opponent_id: user.id,
           total_pot: totalPot,
@@ -408,15 +449,15 @@ export default function XMITapDuoScreen() {
       }
 
       // Notify challenger
-      await supabase.from('tap_duo_notifications').insert({
+      await supabase.from('airball_duo_notifications').insert({
         user_id: battle.challenger_id,
         battle_id: battle.id,
         notification_type: 'battle_matched',
         title: 'Battle Matched!',
-        message: `${user.name} has accepted your challenge!`,
+        message: `${user.name} has accepted your AirBall challenge!`,
       });
 
-      Alert.alert('Challenge Accepted!', 'Get ready to tap!');
+      Alert.alert('Challenge Accepted!', 'Get ready to blow!');
       loadActiveBattle();
       loadWaitingBattles();
     } catch (error) {
@@ -427,32 +468,123 @@ export default function XMITapDuoScreen() {
     }
   };
 
-  const startGame = () => {
-    if (!activeBattle) return;
+  const startGame = async () => {
+    if (!hasPermission) {
+      Alert.alert('Permission Required', 'Please grant microphone permission to play this game.');
+      return;
+    }
 
-    setIsPlaying(true);
-    setClicks(0);
-    setTimeLeft(10);
-
-    timerRef.current = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          endGame();
-          return 0;
-        }
-        return prev - 1;
+    try {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
       });
-    }, 1000);
+
+      const { recording: newRecording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+      recording.current = newRecording;
+
+      meteringRef.current = setInterval(async () => {
+        if (recording.current) {
+          const status = await recording.current.getStatusAsync();
+          if (status.isRecording && status.metering !== undefined) {
+            const normalizedMetering = Math.max(0, (status.metering + 160) / 160);
+            setBlowStrength(normalizedMetering * BLOW_MULTIPLIER);
+          }
+        }
+      }, 100);
+
+      setIsPlaying(true);
+      setBallY(GAME_HEIGHT / 2);
+      setVelocity(0);
+      setCenterTime(0);
+      setTimeLeft(40);
+
+      gameLoopRef.current = setInterval(() => {
+        setBallY((prevY) => {
+          setVelocity((prevVelocity) => {
+            const newVelocity = prevVelocity + GRAVITY - blowStrength;
+            let newY = prevY + newVelocity;
+
+            if (newY <= 0) {
+              newY = 0;
+              return 0;
+            }
+            if (newY >= GAME_HEIGHT - BALL_SIZE) {
+              endGame(true);
+              return 0;
+            }
+
+            if (newY >= CENTER_ZONE_TOP && newY <= CENTER_ZONE_TOP + CENTER_ZONE_HEIGHT - BALL_SIZE) {
+              setCenterTime((prev) => prev + 0.1);
+            }
+
+            Animated.timing(ballAnim, {
+              toValue: newY,
+              duration: 100,
+              useNativeDriver: true,
+            }).start();
+
+            return newVelocity;
+          });
+
+          return prevY;
+        });
+      }, 100);
+
+      timerRef.current = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            endGame(false);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } catch (error) {
+      console.error('Error starting game:', error);
+      Alert.alert('Error', 'Failed to start game. Please try again.');
+    }
   };
 
-  const endGame = async () => {
+  const stopGame = async () => {
+    if (recording.current) {
+      try {
+        await recording.current.stopAndUnloadAsync();
+        recording.current = null;
+      } catch (error) {
+        console.error('Error stopping recording:', error);
+      }
+    }
+
+    if (gameLoopRef.current) {
+      clearInterval(gameLoopRef.current);
+      gameLoopRef.current = null;
+    }
     if (timerRef.current) {
       clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    if (meteringRef.current) {
+      clearInterval(meteringRef.current);
+      meteringRef.current = null;
     }
 
     setIsPlaying(false);
+    setBlowStrength(0);
+  };
+
+  const endGame = async (ballFell: boolean) => {
+    await stopGame();
 
     if (!activeBattle || !user) return;
+
+    if (ballFell) {
+      Alert.alert('Game Over!', 'The ball fell! Your center time: ' + centerTime.toFixed(1) + ' seconds');
+    } else {
+      Alert.alert('Time\'s Up!', 'Your center time: ' + centerTime.toFixed(1) + ' seconds');
+    }
 
     try {
       const isChallenger = activeBattle.challenger_id === user.id;
@@ -461,15 +593,15 @@ export default function XMITapDuoScreen() {
       };
 
       if (isChallenger) {
-        updateData.challenger_clicks = clicks;
+        updateData.challenger_center_time = centerTime;
         updateData.challenger_finished_at = new Date().toISOString();
       } else {
-        updateData.opponent_clicks = clicks;
+        updateData.opponent_center_time = centerTime;
         updateData.opponent_finished_at = new Date().toISOString();
       }
 
       const { error } = await supabase
-        .from('tap_duo_battles')
+        .from('airball_duo_battles')
         .update(updateData)
         .eq('id', activeBattle.id);
 
@@ -477,23 +609,35 @@ export default function XMITapDuoScreen() {
         throw error;
       }
 
-      // Notify opponent if they haven't finished yet
-      const opponentId = isChallenger ? activeBattle.opponent_id : activeBattle.challenger_id;
-      const opponentFinished = isChallenger
-        ? activeBattle.opponent_finished_at
-        : activeBattle.challenger_finished_at;
+      // Check if both players finished
+      const { data: updatedBattle } = await supabase
+        .from('airball_duo_battles')
+        .select('*')
+        .eq('id', activeBattle.id)
+        .single();
 
-      if (opponentId && !opponentFinished) {
-        await supabase.from('tap_duo_notifications').insert({
-          user_id: opponentId,
-          battle_id: activeBattle.id,
-          notification_type: 'opponent_finished',
-          title: 'Opponent Finished!',
-          message: `Your opponent scored ${clicks} clicks! Your turn!`,
-        });
+      if (updatedBattle && updatedBattle.challenger_finished_at && updatedBattle.opponent_finished_at) {
+        // Both finished, complete the battle
+        const { data: result, error: completeError } = await supabase
+          .rpc('complete_airball_duo_battle', { p_battle_id: activeBattle.id });
+
+        if (completeError) {
+          console.error('Error completing battle:', completeError);
+        }
+      } else {
+        // Notify opponent
+        const opponentId = isChallenger ? activeBattle.opponent_id : activeBattle.challenger_id;
+        if (opponentId) {
+          await supabase.from('airball_duo_notifications').insert({
+            user_id: opponentId,
+            battle_id: activeBattle.id,
+            notification_type: 'opponent_finished',
+            title: 'Opponent Finished!',
+            message: `Your opponent scored ${centerTime.toFixed(1)}s center time! Your turn!`,
+          });
+        }
       }
 
-      Alert.alert('Time\'s Up!', `You scored ${clicks} clicks!`);
       loadActiveBattle();
     } catch (error) {
       console.error('Error ending game:', error);
@@ -501,24 +645,8 @@ export default function XMITapDuoScreen() {
     }
   };
 
-  const handleClick = () => {
-    if (!isPlaying) return;
-
-    setClicks((prev) => prev + 1);
-
-    // Animate button
-    Animated.sequence([
-      Animated.timing(scaleAnim, {
-        toValue: 0.9,
-        duration: 50,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleAnim, {
-        toValue: 1,
-        duration: 50,
-        useNativeDriver: true,
-      }),
-    ]).start();
+  const isInCenterZone = () => {
+    return ballY >= CENTER_ZONE_TOP && ballY <= CENTER_ZONE_TOP + CENTER_ZONE_HEIGHT - BALL_SIZE;
   };
 
   const renderActiveBattle = () => {
@@ -553,14 +681,14 @@ export default function XMITapDuoScreen() {
           <View style={styles.scoreContainer}>
             <View style={styles.scoreBox}>
               <Text style={styles.scoreName}>{activeBattle.challenger_name}</Text>
-              <Text style={styles.scoreValue}>{activeBattle.challenger_clicks}</Text>
-              <Text style={styles.scoreLabel}>clicks</Text>
+              <Text style={styles.scoreValue}>{activeBattle.challenger_center_time.toFixed(1)}s</Text>
+              <Text style={styles.scoreLabel}>center time</Text>
             </View>
             <Text style={styles.vsText}>VS</Text>
             <View style={styles.scoreBox}>
               <Text style={styles.scoreName}>{activeBattle.opponent_name}</Text>
-              <Text style={styles.scoreValue}>{activeBattle.opponent_clicks}</Text>
-              <Text style={styles.scoreLabel}>clicks</Text>
+              <Text style={styles.scoreValue}>{activeBattle.opponent_center_time.toFixed(1)}s</Text>
+              <Text style={styles.scoreLabel}>center time</Text>
             </View>
           </View>
 
@@ -623,12 +751,14 @@ export default function XMITapDuoScreen() {
             />
             <Text style={styles.battleTitle}>You Finished!</Text>
           </View>
-          <Text style={styles.battleSubtitle}>Your Score: {isChallenger ? activeBattle.challenger_clicks : activeBattle.opponent_clicks} clicks</Text>
+          <Text style={styles.battleSubtitle}>
+            Your Score: {(isChallenger ? activeBattle.challenger_center_time : activeBattle.opponent_center_time).toFixed(1)}s center time
+          </Text>
           {!opponentFinished && (
-            <>
+            <React.Fragment>
               <Text style={styles.waitingText}>Waiting for opponent to finish...</Text>
               <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
-            </>
+            </React.Fragment>
           )}
         </View>
       );
@@ -636,32 +766,48 @@ export default function XMITapDuoScreen() {
 
     if (isPlaying) {
       return (
-        <View style={[commonStyles.card, styles.battleCard]}>
+        <View style={[commonStyles.card, styles.gameCard]}>
           <View style={styles.timerContainer}>
-            <Text style={styles.timerText}>{timeLeft}</Text>
-            <Text style={styles.timerLabel}>seconds left</Text>
+            <Text style={styles.timerText}>{timeLeft}s</Text>
+            <Text style={styles.centerTimeText}>
+              Center Time: {centerTime.toFixed(1)}s
+            </Text>
           </View>
 
-          <View style={styles.clicksContainer}>
-            <Text style={styles.clicksText}>{clicks}</Text>
-            <Text style={styles.clicksLabel}>clicks</Text>
-          </View>
+          <View style={styles.gameArea}>
+            <View style={[styles.centerZone, { top: CENTER_ZONE_TOP }]}>
+              <Text style={styles.centerZoneText}>CENTER ZONE</Text>
+            </View>
 
-          <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-            <TouchableOpacity
-              style={styles.tapButton}
-              onPress={handleClick}
-              activeOpacity={0.8}
+            <Animated.View
+              style={[
+                styles.ball,
+                {
+                  transform: [{ translateY: ballAnim }],
+                  backgroundColor: isInCenterZone() ? colors.success : colors.primary,
+                },
+              ]}
             >
-              <IconSymbol
-                ios_icon_name="hand.tap.fill"
-                android_material_icon_name="touch_app"
-                size={64}
-                color="#FFFFFF"
+              <Text style={styles.ballEmoji}>⚽</Text>
+            </Animated.View>
+
+            <View style={styles.ground}>
+              <Text style={styles.groundText}>GROUND</Text>
+            </View>
+          </View>
+
+          <View style={styles.blowIndicator}>
+            <Text style={styles.blowLabel}>Blow Strength</Text>
+            <View style={styles.blowBar}>
+              <View
+                style={[
+                  styles.blowFill,
+                  { width: `${(blowStrength / BLOW_MULTIPLIER) * 100}%` },
+                ]}
               />
-              <Text style={styles.tapButtonText}>TAP!</Text>
-            </TouchableOpacity>
-          </Animated.View>
+            </View>
+            <Text style={styles.blowHint}>💨 Blow into the microphone!</Text>
+          </View>
         </View>
       );
     }
@@ -684,13 +830,13 @@ export default function XMITapDuoScreen() {
           Prize (90%): {activeBattle.prize_amount.toFixed(2)} MXI
         </Text>
         <Text style={styles.battleInfo}>
-          Tap as fast as you can for 10 seconds!
+          Blow into your microphone to keep the ball in the center zone for 40 seconds!
         </Text>
         <TouchableOpacity
           style={[buttonStyles.primary, styles.startButton]}
           onPress={startGame}
         >
-          <Text style={buttonStyles.primaryText}>Start Tapping!</Text>
+          <Text style={buttonStyles.primaryText}>Start Game!</Text>
         </TouchableOpacity>
       </View>
     );
@@ -707,7 +853,7 @@ export default function XMITapDuoScreen() {
             color={colors.text}
           />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>XMI Tap Duo</Text>
+        <Text style={styles.headerTitle}>MXI AirBall Duo</Text>
         <View style={styles.headerRight}>
           {notifications.length > 0 && (
             <View style={styles.notificationBadge}>
@@ -718,18 +864,15 @@ export default function XMITapDuoScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Balance Card */}
         <View style={[commonStyles.card, styles.balanceCard]}>
           <Text style={styles.balanceLabel}>Your MXI Balance</Text>
           <Text style={styles.balanceAmount}>{user?.mxiBalance.toFixed(2) || '0.00'} MXI</Text>
         </View>
 
-        {/* Active Battle */}
         {activeBattle ? (
           renderActiveBattle()
         ) : (
-          <>
-            {/* Create Challenge Buttons */}
+          <React.Fragment>
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Create Challenge</Text>
               <TouchableOpacity
@@ -769,7 +912,6 @@ export default function XMITapDuoScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Waiting Battles */}
             {waitingBattles.length > 0 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Available Battles</Text>
@@ -795,10 +937,9 @@ export default function XMITapDuoScreen() {
                 ))}
               </View>
             )}
-          </>
+          </React.Fragment>
         )}
 
-        {/* How to Play */}
         <View style={[commonStyles.card, styles.infoCard]}>
           <Text style={styles.infoTitle}>How to Play</Text>
           <View style={styles.infoItem}>
@@ -811,16 +952,15 @@ export default function XMITapDuoScreen() {
           </View>
           <View style={styles.infoItem}>
             <Text style={styles.infoBullet}>3.</Text>
-            <Text style={styles.infoText}>Tap as fast as you can for 10 seconds</Text>
+            <Text style={styles.infoText}>Blow into your microphone to keep the ball in the center zone</Text>
           </View>
           <View style={styles.infoItem}>
             <Text style={styles.infoBullet}>4.</Text>
-            <Text style={styles.infoText}>Winner takes 90% of the pot!</Text>
+            <Text style={styles.infoText}>Longest center time wins 90% of the pot!</Text>
           </View>
         </View>
       </ScrollView>
 
-      {/* Challenge Modal */}
       <Modal
         visible={showChallengeModal}
         transparent
@@ -855,8 +995,8 @@ export default function XMITapDuoScreen() {
               />
 
               {challengeType === 'friend' && (
-                <>
-                  <Text style={styles.inputLabel}>Friend's Referral Code</Text>
+                <React.Fragment>
+                  <Text style={styles.inputLabel}>Friend&apos;s Referral Code</Text>
                   <TextInput
                     style={styles.input}
                     value={referralCode}
@@ -865,7 +1005,7 @@ export default function XMITapDuoScreen() {
                     placeholderTextColor={colors.textSecondary}
                     autoCapitalize="none"
                   />
-                </>
+                </React.Fragment>
               )}
 
               <View style={styles.prizePreview}>
@@ -999,50 +1139,110 @@ const styles = StyleSheet.create({
   startButton: {
     width: '100%',
   },
+  gameCard: {
+    minHeight: 400,
+    marginBottom: 20,
+  },
   timerContainer: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   timerText: {
-    fontSize: 64,
+    fontSize: 36,
     fontWeight: '700',
     color: colors.primary,
   },
-  timerLabel: {
+  centerTimeText: {
     fontSize: 16,
-    color: colors.textSecondary,
+    color: colors.success,
+    marginTop: 4,
+    fontWeight: '600',
   },
-  clicksContainer: {
-    alignItems: 'center',
-    marginBottom: 32,
+  gameArea: {
+    height: GAME_HEIGHT,
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.border,
+    position: 'relative',
+    overflow: 'hidden',
+    marginBottom: 16,
   },
-  clicksText: {
-    fontSize: 48,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  clicksLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  tapButton: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
+  centerZone: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: CENTER_ZONE_HEIGHT,
+    backgroundColor: colors.success + '20',
+    borderTopWidth: 2,
+    borderBottomWidth: 2,
+    borderColor: colors.success,
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  centerZoneText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.success,
+  },
+  ball: {
+    position: 'absolute',
+    width: BALL_SIZE,
+    height: BALL_SIZE,
+    borderRadius: BALL_SIZE / 2,
+    left: (width - 40 - BALL_SIZE) / 2,
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
   },
-  tapButtonText: {
-    fontSize: 24,
+  ballEmoji: {
+    fontSize: 32,
+  },
+  ground: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 40,
+    backgroundColor: colors.error + '40',
+    borderTopWidth: 2,
+    borderColor: colors.error,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  groundText: {
+    fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
-    marginTop: 8,
+    color: colors.error,
+  },
+  blowIndicator: {
+    alignItems: 'center',
+  },
+  blowLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  blowBar: {
+    width: '100%',
+    height: 20,
+    backgroundColor: colors.border,
+    borderRadius: 10,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  blowFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+  },
+  blowHint: {
+    fontSize: 12,
+    color: colors.textSecondary,
   },
   scoreContainer: {
     flexDirection: 'row',
