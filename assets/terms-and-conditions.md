@@ -279,3 +279,32 @@ AL REGISTRARSE EN LA APLICACIÓN, USTED CONFIRMA QUE:
 
 **Fecha de vigencia**: 15 de Enero de 2025
 **Versión**: 1.0
+
+---
+
+## POLÍTICA DE USO DEL TOKEN MXI
+
+El token MXI es un activo digital en etapa de prelanzamiento, sin valor comercial, sin cotización pública y sin reconocimiento como moneda de curso legal en Colombia, España, México ni en ninguna otra jurisdicción. Su uso dentro de la plataforma es exclusivamente funcional, destinado a recompensas internas, participación en actividades gamificadas y acceso a beneficios del ecosistema MXI.
+
+MXI no representa inversiones, derechos de propiedad, rentabilidad garantizada, participación accionaria, instrumentos financieros, valores negociables ni productos similares. Los usuarios aceptan que el uso del token es experimental, sujeto a cambios y dependiente de procesos de validación técnica y regulatoria.
+
+Cualquier futuro valor, convertibilidad o listado del token dependerá de condiciones externas a la compañía, procesos regulatorios y decisiones de mercado que no pueden garantizarse. La plataforma no asegura beneficios económicos, apreciación ni rendimiento alguno asociado al MXI.
+
+## ANEXO LEGAL – JUEGOS Y RECOMPENSAS MXI (Resumen)
+
+Las dinámicas disponibles dentro de la plataforma (incluyendo retos, minijuegos como tap, clicker, "AirBall", desafíos de habilidad y la modalidad "Bonus MXI") se basan exclusivamente en la destreza, rapidez, precisión o participación activa del usuario, y no dependen del azar para determinar resultados.
+
+Ninguna actividad ofrecida debe interpretarse como:
+
+- juego de azar,
+- apuesta,
+- sorteo con fines lucrativos,
+- rifas reguladas,
+- loterías estatales o privadas,
+- ni mecanismos equivalentes regulados en Colombia, España o México.
+
+El acceso a estas dinámicas puede requerir un pago simbólico en MXI, pero dicho pago no constituye una apuesta, ya que el token no posee valor económico real y se utiliza únicamente como mecanismo interno de participación.
+
+La modalidad "Bonus MXI", incluyendo asignación aleatoria de premios, se realiza fuera de la plataforma principal, mediante procesos independientes, transparentes y verificables, cuyo fin es distribuir recompensas promocionales en MXI sin que ello constituya un juego de azar regulado.
+
+Los usuarios aceptan que las recompensas otorgadas son promocionales, digitales y sin valor comercial, y que la participación en cualquier dinámica no garantiza ganancias económicas reales.
