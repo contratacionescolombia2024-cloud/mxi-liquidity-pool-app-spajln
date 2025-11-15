@@ -40,6 +40,8 @@ interface Battle {
   expires_at: string | null;
   challenger_name?: string;
   opponent_name?: string;
+  challenger_referral_code?: string;
+  opponent_referral_code?: string;
 }
 
 interface NotificationData {
@@ -75,6 +77,7 @@ export default function XMITapDuoScreen() {
   const [timeLeft, setTimeLeft] = useState(10);
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const [waitingBattles, setWaitingBattles] = useState<Battle[]>([]);
+  const [availableBalance, setAvailableBalance] = useState(0);
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -83,6 +86,7 @@ export default function XMITapDuoScreen() {
     loadActiveBattle();
     loadWaitingBattles();
     loadNotifications();
+    loadAvailableBalance();
     setupRealtimeSubscription();
 
     return () => {
@@ -91,6 +95,29 @@ export default function XMITapDuoScreen() {
       }
     };
   }, []);
+
+  const loadAvailableBalance = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('mxi_purchased_directly, mxi_from_unified_commissions')
+        .eq('id', user.id)
+        .single();
+      
+      if (error) {
+        console.error('Error loading balance:', error);
+        return;
+      }
+      
+      const available = (parseFloat(data.mxi_purchased_directly?.toString() || '0') + 
+                        parseFloat(data.mxi_from_unified_commissions?.toString() || '0'));
+      setAvailableBalance(available);
+    } catch (error) {
+      console.error('Exception loading balance:', error);
+    }
+  };
 
   const requestNotificationPermissions = async () => {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -107,7 +134,6 @@ export default function XMITapDuoScreen() {
   };
 
   const setupRealtimeSubscription = () => {
-    // Subscribe to battle updates
     const battleChannel = supabase
       .channel('tap_duo_battles_changes')
       .on(
@@ -126,7 +152,6 @@ export default function XMITapDuoScreen() {
       )
       .subscribe();
 
-    // Subscribe to notifications
     const notificationChannel = supabase
       .channel('tap_duo_notifications_changes')
       .on(
@@ -141,7 +166,6 @@ export default function XMITapDuoScreen() {
           console.log('New notification:', payload);
           const notification = payload.new as NotificationData;
           
-          // Show local notification
           await Notifications.scheduleNotificationAsync({
             content: {
               title: notification.title,
@@ -170,8 +194,8 @@ export default function XMITapDuoScreen() {
         .from('tap_duo_battles')
         .select(`
           *,
-          challenger:users!tap_duo_battles_challenger_id_fkey(name),
-          opponent:users!tap_duo_battles_opponent_id_fkey(name)
+          challenger:users!tap_duo_battles_challenger_id_fkey(name, referral_code),
+          opponent:users!tap_duo_battles_opponent_id_fkey(name, referral_code)
         `)
         .or(`challenger_id.eq.${user.id},opponent_id.eq.${user.id}`)
         .in('status', ['waiting', 'matched', 'in_progress'])
@@ -189,6 +213,8 @@ export default function XMITapDuoScreen() {
           ...data,
           challenger_name: data.challenger?.name,
           opponent_name: data.opponent?.name,
+          challenger_referral_code: data.challenger?.referral_code,
+          opponent_referral_code: data.opponent?.referral_code,
         });
       } else {
         setActiveBattle(null);
@@ -206,7 +232,7 @@ export default function XMITapDuoScreen() {
         .from('tap_duo_battles')
         .select(`
           *,
-          challenger:users!tap_duo_battles_challenger_id_fkey(name)
+          challenger:users!tap_duo_battles_challenger_id_fkey(name, referral_code)
         `)
         .eq('status', 'waiting')
         .eq('challenge_type', 'random')
@@ -253,17 +279,20 @@ export default function XMITapDuoScreen() {
 
     const wager = parseFloat(wagerAmount);
     if (isNaN(wager) || wager < 1 || wager > 2000) {
-      Alert.alert('Invalid Amount', 'Please enter a wager between 1 and 2000 MXI.');
+      Alert.alert('❌ Invalid Amount', 'Please enter a wager between 1 and 2000 MXI.');
       return;
     }
 
-    if (user.mxiBalance < wager) {
-      Alert.alert('Insufficient Balance', 'You do not have enough MXI to create this challenge.');
+    if (availableBalance < wager) {
+      Alert.alert(
+        '💰 Insufficient Balance', 
+        `You need ${wager} MXI from USDT purchases or referral commissions to create this challenge.\n\nAvailable: ${availableBalance.toFixed(2)} MXI\n\n⚠️ Vesting rewards cannot be used for challenges until launch date.`
+      );
       return;
     }
 
     if (challengeType === 'friend' && !referralCode.trim()) {
-      Alert.alert('Referral Code Required', 'Please enter your friend\'s referral code.');
+      Alert.alert('⚠️ Referral Code Required', 'Please enter your friend\'s referral code.');
       return;
     }
 
@@ -272,7 +301,6 @@ export default function XMITapDuoScreen() {
     try {
       let opponentId = null;
 
-      // If challenging a friend, find them by referral code
       if (challengeType === 'friend') {
         const { data: opponentData, error: opponentError } = await supabase
           .from('users')
@@ -281,13 +309,13 @@ export default function XMITapDuoScreen() {
           .single();
 
         if (opponentError || !opponentData) {
-          Alert.alert('User Not Found', 'No user found with that referral code.');
+          Alert.alert('❌ User Not Found', 'No user found with that referral code.');
           setLoading(false);
           return;
         }
 
         if (opponentData.id === user.id) {
-          Alert.alert('Invalid Challenge', 'You cannot challenge yourself.');
+          Alert.alert('⚠️ Invalid Challenge', 'You cannot challenge yourself.');
           setLoading(false);
           return;
         }
@@ -295,22 +323,23 @@ export default function XMITapDuoScreen() {
         opponentId = opponentData.id;
       }
 
-      // Deduct wager from user's balance
-      const { error: balanceError } = await supabase
-        .from('users')
-        .update({ mxi_balance: user.mxiBalance - wager })
-        .eq('id', user.id);
+      // Deduct wager using restricted balance function
+      const { data: deductResult, error: deductError } = await supabase
+        .rpc('deduct_challenge_balance', {
+          p_user_id: user.id,
+          p_amount: wager,
+        });
 
-      if (balanceError) {
-        throw balanceError;
+      if (deductError || !deductResult) {
+        Alert.alert('❌ Error', 'Failed to deduct balance. Please try again.');
+        setLoading(false);
+        return;
       }
 
-      // Calculate pot and prize (90% to winner, 10% to admin)
       const totalPot = opponentId ? wager * 2 : wager;
       const prizeAmount = totalPot * 0.90;
       const adminFee = totalPot * 0.10;
 
-      // Create battle
       const { data: battleData, error: battleError } = await supabase
         .from('tap_duo_battles')
         .insert({
@@ -322,7 +351,7 @@ export default function XMITapDuoScreen() {
           admin_fee: adminFee,
           challenge_type: challengeType,
           status: opponentId ? 'matched' : 'waiting',
-          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
+          expires_at: null, // No expiry for duo challenges
         })
         .select()
         .single();
@@ -331,36 +360,35 @@ export default function XMITapDuoScreen() {
         throw battleError;
       }
 
-      // If challenging a friend, create notification
       if (opponentId) {
+        await supabase.rpc('deduct_challenge_balance', {
+          p_user_id: opponentId,
+          p_amount: wager,
+        });
+
         await supabase.from('tap_duo_notifications').insert({
           user_id: opponentId,
           battle_id: battleData.id,
           notification_type: 'challenge_received',
-          title: 'Battle Challenge!',
+          title: '⚔️ Battle Challenge!',
           message: `${user.name} has challenged you to a ${wager} MXI battle!`,
-        });
-
-        // Deduct opponent's wager
-        await supabase.rpc('deduct_user_balance', {
-          p_user_id: opponentId,
-          p_amount: wager,
         });
       }
 
       Alert.alert(
-        'Challenge Created!',
+        '✅ Challenge Created!',
         challengeType === 'friend'
-          ? 'Your friend has been notified!'
-          : 'Waiting for an opponent to accept...'
+          ? '🎯 Your friend has been notified!'
+          : '⏳ Waiting for an opponent to accept...'
       );
 
       setShowChallengeModal(false);
       setReferralCode('');
       loadActiveBattle();
+      loadAvailableBalance();
     } catch (error) {
       console.error('Error creating challenge:', error);
-      Alert.alert('Error', 'Failed to create challenge. Please try again.');
+      Alert.alert('❌ Error', 'Failed to create challenge. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -369,25 +397,29 @@ export default function XMITapDuoScreen() {
   const handleAcceptChallenge = async (battle: Battle) => {
     if (!user) return;
 
-    if (user.mxiBalance < battle.wager_amount) {
-      Alert.alert('Insufficient Balance', 'You do not have enough MXI to accept this challenge.');
+    if (availableBalance < battle.wager_amount) {
+      Alert.alert(
+        '💰 Insufficient Balance', 
+        `You need ${battle.wager_amount} MXI from USDT purchases or referral commissions.\n\nAvailable: ${availableBalance.toFixed(2)} MXI`
+      );
       return;
     }
 
     setLoading(true);
 
     try {
-      // Deduct wager from user's balance
-      const { error: balanceError } = await supabase
-        .from('users')
-        .update({ mxi_balance: user.mxiBalance - battle.wager_amount })
-        .eq('id', user.id);
+      const { data: deductResult, error: deductError } = await supabase
+        .rpc('deduct_challenge_balance', {
+          p_user_id: user.id,
+          p_amount: battle.wager_amount,
+        });
 
-      if (balanceError) {
-        throw balanceError;
+      if (deductError || !deductResult) {
+        Alert.alert('❌ Error', 'Failed to deduct balance. Please try again.');
+        setLoading(false);
+        return;
       }
 
-      // Update battle with opponent
       const totalPot = battle.wager_amount * 2;
       const prizeAmount = totalPot * 0.90;
       const adminFee = totalPot * 0.10;
@@ -407,21 +439,21 @@ export default function XMITapDuoScreen() {
         throw battleError;
       }
 
-      // Notify challenger
       await supabase.from('tap_duo_notifications').insert({
         user_id: battle.challenger_id,
         battle_id: battle.id,
         notification_type: 'battle_matched',
-        title: 'Battle Matched!',
+        title: '✅ Battle Matched!',
         message: `${user.name} has accepted your challenge!`,
       });
 
-      Alert.alert('Challenge Accepted!', 'Get ready to tap!');
+      Alert.alert('✅ Challenge Accepted!', '🎮 Get ready to tap!');
       loadActiveBattle();
       loadWaitingBattles();
+      loadAvailableBalance();
     } catch (error) {
       console.error('Error accepting challenge:', error);
-      Alert.alert('Error', 'Failed to accept challenge. Please try again.');
+      Alert.alert('❌ Error', 'Failed to accept challenge. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -477,7 +509,6 @@ export default function XMITapDuoScreen() {
         throw error;
       }
 
-      // Notify opponent if they haven't finished yet
       const opponentId = isChallenger ? activeBattle.opponent_id : activeBattle.challenger_id;
       const opponentFinished = isChallenger
         ? activeBattle.opponent_finished_at
@@ -488,16 +519,16 @@ export default function XMITapDuoScreen() {
           user_id: opponentId,
           battle_id: activeBattle.id,
           notification_type: 'opponent_finished',
-          title: 'Opponent Finished!',
+          title: '⏱️ Opponent Finished!',
           message: `Your opponent scored ${clicks} clicks! Your turn!`,
         });
       }
 
-      Alert.alert('Time\'s Up!', `You scored ${clicks} clicks!`);
+      Alert.alert('⏰ Time\'s Up!', `You scored ${clicks} clicks! 👆`);
       loadActiveBattle();
     } catch (error) {
       console.error('Error ending game:', error);
-      Alert.alert('Error', 'Failed to save your score. Please try again.');
+      Alert.alert('❌ Error', 'Failed to save your score. Please try again.');
     }
   };
 
@@ -506,7 +537,6 @@ export default function XMITapDuoScreen() {
 
     setClicks((prev) => prev + 1);
 
-    // Animate button
     Animated.sequence([
       Animated.timing(scaleAnim, {
         toValue: 0.9,
@@ -539,12 +569,9 @@ export default function XMITapDuoScreen() {
       return (
         <View style={[commonStyles.card, styles.battleCard]}>
           <View style={styles.battleHeader}>
-            <IconSymbol
-              ios_icon_name={isWinner ? 'trophy.fill' : isTie ? 'equal.circle.fill' : 'xmark.circle.fill'}
-              android_material_icon_name={isWinner ? 'emoji_events' : isTie ? 'compare_arrows' : 'cancel'}
-              size={48}
-              color={isWinner ? colors.warning : isTie ? colors.textSecondary : colors.error}
-            />
+            <Text style={styles.resultEmoji}>
+              {isWinner ? '🏆' : isTie ? '🤝' : '😔'}
+            </Text>
             <Text style={styles.battleTitle}>
               {isWinner ? 'You Won!' : isTie ? 'It\'s a Tie!' : 'You Lost'}
             </Text>
@@ -553,27 +580,30 @@ export default function XMITapDuoScreen() {
           <View style={styles.scoreContainer}>
             <View style={styles.scoreBox}>
               <Text style={styles.scoreName}>{activeBattle.challenger_name}</Text>
+              <Text style={styles.scoreCode}>🎫 {activeBattle.challenger_referral_code}</Text>
               <Text style={styles.scoreValue}>{activeBattle.challenger_clicks}</Text>
-              <Text style={styles.scoreLabel}>clicks</Text>
+              <Text style={styles.scoreLabel}>clicks 👆</Text>
             </View>
             <Text style={styles.vsText}>VS</Text>
             <View style={styles.scoreBox}>
               <Text style={styles.scoreName}>{activeBattle.opponent_name}</Text>
+              <Text style={styles.scoreCode}>🎫 {activeBattle.opponent_referral_code}</Text>
               <Text style={styles.scoreValue}>{activeBattle.opponent_clicks}</Text>
-              <Text style={styles.scoreLabel}>clicks</Text>
+              <Text style={styles.scoreLabel}>clicks 👆</Text>
             </View>
           </View>
 
           {isWinner && (
             <View style={styles.prizeContainer}>
-              <Text style={styles.prizeLabel}>Prize Won (90%)</Text>
+              <Text style={styles.prizeLabel}>💰 Prize Won (90%)</Text>
               <Text style={styles.prizeAmount}>{activeBattle.prize_amount.toFixed(2)} MXI</Text>
+              <Text style={styles.prizeNote}>⚠️ Requires 5 active referrals to withdraw</Text>
             </View>
           )}
 
           {isTie && (
             <View style={styles.prizeContainer}>
-              <Text style={styles.prizeLabel}>Wager Refunded</Text>
+              <Text style={styles.prizeLabel}>💵 Wager Refunded</Text>
               <Text style={styles.prizeAmount}>{activeBattle.wager_amount.toFixed(2)} MXI</Text>
             </View>
           )}
@@ -585,7 +615,7 @@ export default function XMITapDuoScreen() {
               loadWaitingBattles();
             }}
           >
-            <Text style={buttonStyles.primaryText}>Start New Battle</Text>
+            <Text style={buttonStyles.primaryText}>🎮 Start New Battle</Text>
           </TouchableOpacity>
         </View>
       );
@@ -595,16 +625,14 @@ export default function XMITapDuoScreen() {
       return (
         <View style={[commonStyles.card, styles.battleCard]}>
           <View style={styles.battleHeader}>
-            <IconSymbol
-              ios_icon_name="clock.fill"
-              android_material_icon_name="schedule"
-              size={48}
-              color={colors.warning}
-            />
+            <Text style={styles.resultEmoji}>⏳</Text>
             <Text style={styles.battleTitle}>Waiting for Opponent</Text>
           </View>
           <Text style={styles.battleSubtitle}>
-            Wager: {activeBattle.wager_amount} MXI
+            💰 Wager: {activeBattle.wager_amount} MXI
+          </Text>
+          <Text style={styles.infoText}>
+            ♾️ No time limit - challenge stays active until accepted
           </Text>
           <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
         </View>
@@ -615,20 +643,17 @@ export default function XMITapDuoScreen() {
       return (
         <View style={[commonStyles.card, styles.battleCard]}>
           <View style={styles.battleHeader}>
-            <IconSymbol
-              ios_icon_name="checkmark.circle.fill"
-              android_material_icon_name="check_circle"
-              size={48}
-              color={colors.success}
-            />
+            <Text style={styles.resultEmoji}>✅</Text>
             <Text style={styles.battleTitle}>You Finished!</Text>
           </View>
-          <Text style={styles.battleSubtitle}>Your Score: {isChallenger ? activeBattle.challenger_clicks : activeBattle.opponent_clicks} clicks</Text>
+          <Text style={styles.battleSubtitle}>
+            Your Score: {isChallenger ? activeBattle.challenger_clicks : activeBattle.opponent_clicks} clicks 👆
+          </Text>
           {!opponentFinished && (
-            <>
-              <Text style={styles.waitingText}>Waiting for opponent to finish...</Text>
+            <React.Fragment>
+              <Text style={styles.waitingText}>⏳ Waiting for opponent to finish...</Text>
               <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
-            </>
+            </React.Fragment>
           )}
         </View>
       );
@@ -638,13 +663,13 @@ export default function XMITapDuoScreen() {
       return (
         <View style={[commonStyles.card, styles.battleCard]}>
           <View style={styles.timerContainer}>
-            <Text style={styles.timerText}>{timeLeft}</Text>
+            <Text style={styles.timerText}>⏱️ {timeLeft}</Text>
             <Text style={styles.timerLabel}>seconds left</Text>
           </View>
 
           <View style={styles.clicksContainer}>
             <Text style={styles.clicksText}>{clicks}</Text>
-            <Text style={styles.clicksLabel}>clicks</Text>
+            <Text style={styles.clicksLabel}>clicks 👆</Text>
           </View>
 
           <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
@@ -653,12 +678,7 @@ export default function XMITapDuoScreen() {
               onPress={handleClick}
               activeOpacity={0.8}
             >
-              <IconSymbol
-                ios_icon_name="hand.tap.fill"
-                android_material_icon_name="touch_app"
-                size={64}
-                color="#FFFFFF"
-              />
+              <Text style={styles.tapButtonEmoji}>👆</Text>
               <Text style={styles.tapButtonText}>TAP!</Text>
             </TouchableOpacity>
           </Animated.View>
@@ -669,28 +689,23 @@ export default function XMITapDuoScreen() {
     return (
       <View style={[commonStyles.card, styles.battleCard]}>
         <View style={styles.battleHeader}>
-          <IconSymbol
-            ios_icon_name="bolt.fill"
-            android_material_icon_name="flash_on"
-            size={48}
-            color={colors.primary}
-          />
+          <Text style={styles.resultEmoji}>⚡</Text>
           <Text style={styles.battleTitle}>Battle Ready!</Text>
         </View>
         <Text style={styles.battleSubtitle}>
-          Wager: {activeBattle.wager_amount} MXI
+          💰 Wager: {activeBattle.wager_amount} MXI
         </Text>
         <Text style={styles.battleSubtitle}>
-          Prize (90%): {activeBattle.prize_amount.toFixed(2)} MXI
+          🏆 Prize (90%): {activeBattle.prize_amount.toFixed(2)} MXI
         </Text>
         <Text style={styles.battleInfo}>
-          Tap as fast as you can for 10 seconds!
+          👆 Tap as fast as you can for 10 seconds!
         </Text>
         <TouchableOpacity
           style={[buttonStyles.primary, styles.startButton]}
           onPress={startGame}
         >
-          <Text style={buttonStyles.primaryText}>Start Tapping!</Text>
+          <Text style={buttonStyles.primaryText}>🎮 Start Tapping!</Text>
         </TouchableOpacity>
       </View>
     );
@@ -707,7 +722,7 @@ export default function XMITapDuoScreen() {
             color={colors.text}
           />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>XMI Tap Duo</Text>
+        <Text style={styles.headerTitle}>⚔️ XMI Tap Duo</Text>
         <View style={styles.headerRight}>
           {notifications.length > 0 && (
             <View style={styles.notificationBadge}>
@@ -720,18 +735,32 @@ export default function XMITapDuoScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Balance Card */}
         <View style={[commonStyles.card, styles.balanceCard]}>
-          <Text style={styles.balanceLabel}>Your MXI Balance</Text>
-          <Text style={styles.balanceAmount}>{user?.mxiBalance.toFixed(2) || '0.00'} MXI</Text>
+          <Text style={styles.balanceLabel}>💰 Available for Challenges</Text>
+          <Text style={styles.balanceAmount}>{availableBalance.toFixed(2)} MXI</Text>
+          <Text style={styles.balanceNote}>
+            ℹ️ From USDT purchases & referral commissions
+          </Text>
         </View>
 
-        {/* Active Battle */}
+        {/* Active Challenges Notification */}
+        {waitingBattles.length > 0 && !activeBattle && (
+          <View style={[commonStyles.card, styles.activeNotification]}>
+            <Text style={styles.notificationEmoji}>🔔</Text>
+            <Text style={styles.notificationTitle}>
+              {waitingBattles.length} Active Challenge{waitingBattles.length > 1 ? 's' : ''} Available!
+            </Text>
+            <Text style={styles.notificationText}>
+              Scroll down to accept and compete 👇
+            </Text>
+          </View>
+        )}
+
         {activeBattle ? (
           renderActiveBattle()
         ) : (
-          <>
-            {/* Create Challenge Buttons */}
+          <React.Fragment>
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Create Challenge</Text>
+              <Text style={styles.sectionTitle}>🎯 Create Challenge</Text>
               <TouchableOpacity
                 style={[buttonStyles.primary, styles.challengeButton]}
                 onPress={() => {
@@ -739,12 +768,7 @@ export default function XMITapDuoScreen() {
                   setShowChallengeModal(true);
                 }}
               >
-                <IconSymbol
-                  ios_icon_name="person.fill"
-                  android_material_icon_name="person"
-                  size={24}
-                  color="#FFFFFF"
-                />
+                <Text style={styles.buttonEmoji}>👥</Text>
                 <Text style={[buttonStyles.primaryText, { marginLeft: 8 }]}>
                   Challenge a Friend
                 </Text>
@@ -757,31 +781,30 @@ export default function XMITapDuoScreen() {
                   setShowChallengeModal(true);
                 }}
               >
-                <IconSymbol
-                  ios_icon_name="shuffle"
-                  android_material_icon_name="shuffle"
-                  size={24}
-                  color={colors.primary}
-                />
+                <Text style={styles.buttonEmoji}>🎲</Text>
                 <Text style={[buttonStyles.secondaryText, { marginLeft: 8 }]}>
                   Random Opponent
                 </Text>
               </TouchableOpacity>
             </View>
 
-            {/* Waiting Battles */}
             {waitingBattles.length > 0 && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Available Battles</Text>
+                <Text style={styles.sectionTitle}>⚔️ Available Battles</Text>
                 {waitingBattles.map((battle, index) => (
                   <View key={index} style={[commonStyles.card, styles.waitingBattleCard]}>
                     <View style={styles.waitingBattleInfo}>
-                      <Text style={styles.waitingBattleName}>{battle.challenger_name}</Text>
+                      <Text style={styles.waitingBattleName}>
+                        👤 {battle.challenger_name}
+                      </Text>
+                      <Text style={styles.waitingBattleCode}>
+                        🎫 {battle.challenger?.referral_code}
+                      </Text>
                       <Text style={styles.waitingBattleWager}>
-                        Wager: {battle.wager_amount} MXI
+                        💰 Wager: {battle.wager_amount} MXI
                       </Text>
                       <Text style={styles.waitingBattlePrize}>
-                        Prize (90%): {(battle.wager_amount * 2 * 0.90).toFixed(2)} MXI
+                        🏆 Prize (90%): {(battle.wager_amount * 2 * 0.90).toFixed(2)} MXI
                       </Text>
                     </View>
                     <TouchableOpacity
@@ -789,38 +812,44 @@ export default function XMITapDuoScreen() {
                       onPress={() => handleAcceptChallenge(battle)}
                       disabled={loading}
                     >
-                      <Text style={buttonStyles.primaryText}>Accept</Text>
+                      <Text style={buttonStyles.primaryText}>✅ Accept</Text>
                     </TouchableOpacity>
                   </View>
                 ))}
               </View>
             )}
-          </>
+          </React.Fragment>
         )}
 
-        {/* How to Play */}
         <View style={[commonStyles.card, styles.infoCard]}>
-          <Text style={styles.infoTitle}>How to Play</Text>
+          <Text style={styles.infoTitle}>ℹ️ How to Play</Text>
           <View style={styles.infoItem}>
-            <Text style={styles.infoBullet}>1.</Text>
+            <Text style={styles.infoBullet}>1️⃣</Text>
             <Text style={styles.infoText}>Choose your wager (1-2000 MXI)</Text>
           </View>
           <View style={styles.infoItem}>
-            <Text style={styles.infoBullet}>2.</Text>
+            <Text style={styles.infoBullet}>2️⃣</Text>
             <Text style={styles.infoText}>Challenge a friend or find a random opponent</Text>
           </View>
           <View style={styles.infoItem}>
-            <Text style={styles.infoBullet}>3.</Text>
-            <Text style={styles.infoText}>Tap as fast as you can for 10 seconds</Text>
+            <Text style={styles.infoBullet}>3️⃣</Text>
+            <Text style={styles.infoText}>Tap as fast as you can for 10 seconds 👆</Text>
           </View>
           <View style={styles.infoItem}>
-            <Text style={styles.infoBullet}>4.</Text>
-            <Text style={styles.infoText}>Winner takes 90% of the pot!</Text>
+            <Text style={styles.infoBullet}>4️⃣</Text>
+            <Text style={styles.infoText}>Winner takes 90% of the pot! 🏆</Text>
+          </View>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoBullet}>⚠️</Text>
+            <Text style={styles.infoText}>Challenge winnings require 5 active referrals to withdraw</Text>
+          </View>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoBullet}>♾️</Text>
+            <Text style={styles.infoText}>Challenges stay active until accepted (no expiry)</Text>
           </View>
         </View>
       </ScrollView>
 
-      {/* Challenge Modal */}
       <Modal
         visible={showChallengeModal}
         transparent
@@ -831,7 +860,7 @@ export default function XMITapDuoScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
-                {challengeType === 'friend' ? 'Challenge a Friend' : 'Random Battle'}
+                {challengeType === 'friend' ? '👥 Challenge a Friend' : '🎲 Random Battle'}
               </Text>
               <TouchableOpacity onPress={() => setShowChallengeModal(false)}>
                 <IconSymbol
@@ -844,7 +873,7 @@ export default function XMITapDuoScreen() {
             </View>
 
             <View style={styles.modalBody}>
-              <Text style={styles.inputLabel}>Wager Amount (MXI)</Text>
+              <Text style={styles.inputLabel}>💰 Wager Amount (MXI)</Text>
               <TextInput
                 style={styles.input}
                 value={wagerAmount}
@@ -853,10 +882,13 @@ export default function XMITapDuoScreen() {
                 placeholder="Enter amount (1-2000)"
                 placeholderTextColor={colors.textSecondary}
               />
+              <Text style={styles.balanceInfo}>
+                Available: {availableBalance.toFixed(2)} MXI
+              </Text>
 
               {challengeType === 'friend' && (
-                <>
-                  <Text style={styles.inputLabel}>Friend's Referral Code</Text>
+                <React.Fragment>
+                  <Text style={styles.inputLabel}>🎫 Friend&apos;s Referral Code</Text>
                   <TextInput
                     style={styles.input}
                     value={referralCode}
@@ -865,11 +897,11 @@ export default function XMITapDuoScreen() {
                     placeholderTextColor={colors.textSecondary}
                     autoCapitalize="none"
                   />
-                </>
+                </React.Fragment>
               )}
 
               <View style={styles.prizePreview}>
-                <Text style={styles.prizePreviewLabel}>Potential Prize (90%)</Text>
+                <Text style={styles.prizePreviewLabel}>🏆 Potential Prize (90%)</Text>
                 <Text style={styles.prizePreviewAmount}>
                   {(parseFloat(wagerAmount || '0') * 2 * 0.90).toFixed(2)} MXI
                 </Text>
@@ -886,7 +918,7 @@ export default function XMITapDuoScreen() {
                 {loading ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Text style={buttonStyles.primaryText}>Create Challenge</Text>
+                  <Text style={buttonStyles.primaryText}>🎮 Create Challenge</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -954,6 +986,35 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.primary,
   },
+  balanceNote: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  activeNotification: {
+    backgroundColor: colors.primary + '20',
+    borderWidth: 2,
+    borderColor: colors.primary,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  notificationEmoji: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  notificationTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  notificationText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
   section: {
     marginBottom: 24,
   },
@@ -969,6 +1030,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 12,
   },
+  buttonEmoji: {
+    fontSize: 20,
+  },
   battleCard: {
     marginBottom: 20,
     alignItems: 'center',
@@ -978,16 +1042,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  resultEmoji: {
+    fontSize: 64,
+    marginBottom: 12,
+  },
   battleTitle: {
     fontSize: 24,
     fontWeight: '700',
     color: colors.text,
-    marginTop: 12,
   },
   battleSubtitle: {
     fontSize: 16,
     color: colors.textSecondary,
     marginTop: 4,
+    textAlign: 'center',
   },
   battleInfo: {
     fontSize: 14,
@@ -995,6 +1063,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 12,
     marginBottom: 20,
+  },
+  infoText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 8,
   },
   startButton: {
     width: '100%',
@@ -1038,6 +1112,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
   },
+  tapButtonEmoji: {
+    fontSize: 64,
+  },
   tapButtonText: {
     fontSize: 24,
     fontWeight: '700',
@@ -1057,6 +1134,11 @@ const styles = StyleSheet.create({
   scoreName: {
     fontSize: 14,
     color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  scoreCode: {
+    fontSize: 12,
+    color: colors.primary,
     marginBottom: 8,
   },
   scoreValue: {
@@ -1092,6 +1174,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.primary,
   },
+  prizeNote: {
+    fontSize: 12,
+    color: colors.warning,
+    marginTop: 8,
+    textAlign: 'center',
+  },
   newBattleButton: {
     width: '100%',
     marginTop: 20,
@@ -1118,6 +1206,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 4,
   },
+  waitingBattleCode: {
+    fontSize: 12,
+    color: colors.primary,
+    marginBottom: 4,
+  },
   waitingBattleWager: {
     fontSize: 14,
     color: colors.textSecondary,
@@ -1142,11 +1235,10 @@ const styles = StyleSheet.create({
   infoItem: {
     flexDirection: 'row',
     marginBottom: 12,
+    alignItems: 'flex-start',
   },
   infoBullet: {
     fontSize: 16,
-    fontWeight: '600',
-    color: colors.primary,
     marginRight: 12,
     width: 24,
   },
@@ -1154,6 +1246,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     flex: 1,
+    lineHeight: 20,
   },
   modalOverlay: {
     flex: 1,
@@ -1196,6 +1289,11 @@ const styles = StyleSheet.create({
     padding: 16,
     fontSize: 16,
     color: colors.text,
+    marginBottom: 8,
+  },
+  balanceInfo: {
+    fontSize: 12,
+    color: colors.textSecondary,
     marginBottom: 16,
   },
   prizePreview: {
