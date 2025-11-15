@@ -119,129 +119,6 @@ export default function XMITapDuoScreen() {
   }, []);
 
   useEffect(() => {
-    // StartNow let me update the XMI Tap Duo screen to use the proper cancellation function:
-
-<write file="app/(tabs)/(home)/xmi-tap-duo.tsx">
-import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'expo-router';
-import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
-import React, { useState, useEffect, useRef } from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  TextInput,
-  Modal,
-  Animated,
-} from 'react-native';
-import { IconSymbol } from '@/components/IconSymbol';
-import { supabase } from '@/lib/supabase';
-import * as Notifications from 'expo-notifications';
-
-interface Battle {
-  id: string;
-  battle_number: number;
-  challenger_id: string;
-  opponent_id: string | null;
-  wager_amount: number;
-  total_pot: number;
-  prize_amount: number;
-  status: 'waiting' | 'matched' | 'in_progress' | 'completed' | 'cancelled';
-  challenge_type: 'friend' | 'random';
-  challenger_clicks: number;
-  opponent_clicks: number;
-  challenger_finished_at: string | null;
-  opponent_finished_at: string | null;
-  winner_user_id: string | null;
-  completed_at: string | null;
-  created_at: string;
-  expires_at: string | null;
-  challenger_name?: string;
-  opponent_name?: string;
-  challenger_referral_code?: string;
-  opponent_referral_code?: string;
-  cancellation_reason?: string | null;
-}
-
-interface NotificationData {
-  id: string;
-  battle_id: string;
-  notification_type: string;
-  title: string;
-  message: string;
-  is_read: boolean;
-  created_at: string;
-}
-
-interface AvailableBalances {
-  mxiPurchasedDirectly: number;
-  mxiFromUnifiedCommissions: number;
-  mxiFromChallenges: number;
-  total: number;
-}
-
-// Configure notifications
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
-
-export default function XMITapDuoScreen() {
-  const { user } = useAuth();
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [wagerAmount, setWagerAmount] = useState('10');
-  const [referralCode, setReferralCode] = useState('');
-  const [showChallengeModal, setShowChallengeModal] = useState(false);
-  const [challengeType, setChallengeType] = useState<'friend' | 'random'>('random');
-  const [activeBattle, setActiveBattle] = useState<Battle | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [clicks, setClicks] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(10);
-  const [participationTimeLeft, setParticipationTimeLeft] = useState(600); // 10 minutes in seconds
-  const [notifications, setNotifications] = useState<NotificationData[]>([]);
-  const [waitingBattles, setWaitingBattles] = useState<Battle[]>([]);
-  const [availableBalances, setAvailableBalances] = useState<AvailableBalances>({
-    mxiPurchasedDirectly: 0,
-    mxiFromUnifiedCommissions: 0,
-    mxiFromChallenges: 0,
-    total: 0,
-  });
-  const [showPaymentSourceModal, setShowPaymentSourceModal] = useState(false);
-  const [pendingWager, setPendingWager] = useState(0);
-  const [pendingBattle, setPendingBattle] = useState<Battle | null>(null);
-  const [isCreatingChallenge, setIsCreatingChallenge] = useState(false);
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const participationTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    requestNotificationPermissions();
-    loadActiveBattle();
-    loadWaitingBattles();
-    loadNotifications();
-    loadAvailableBalances();
-    setupRealtimeSubscription();
-
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-      if (participationTimerRef.current) {
-        clearInterval(participationTimerRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
     // Start participation timer when battle is matched and user hasn't finished
     if (activeBattle && activeBattle.status === 'matched') {
       const isChallenger = activeBattle.challenger_id === user?.id;
@@ -1306,11 +1183,11 @@ export default function XMITapDuoScreen() {
           </View>
           <View style={styles.infoItem}>
             <Text style={styles.infoBullet}>⚠️</Text>
-            <Text style={styles.infoText}>If you don't start within 10 minutes, your score will be 0 and you'll forfeit</Text>
+            <Text style={styles.infoText}>If you don&apos;t start within 10 minutes, your score will be 0 and you&apos;ll forfeit</Text>
           </View>
           <View style={styles.infoItem}>
             <Text style={styles.infoBullet}>🚫</Text>
-            <Text style={styles.infoText}>You can cancel waiting challenges anytime, or claim win after 10 minutes if opponent doesn't participate</Text>
+            <Text style={styles.infoText}>You can cancel waiting challenges anytime, or claim win after 10 minutes if opponent doesn&apos;t participate</Text>
           </View>
         </View>
       </ScrollView>
