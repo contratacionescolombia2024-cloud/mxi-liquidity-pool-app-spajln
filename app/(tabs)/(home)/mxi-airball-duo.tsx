@@ -202,6 +202,7 @@ export default function MXIAirballDuoScreen() {
 
     // Submit score of 0
     try {
+      console.log('⏰ Participation timeout - submitting score of 0');
       const updateData: any = {
         status: 'in_progress',
       };
@@ -240,6 +241,7 @@ export default function MXIAirballDuoScreen() {
     if (!user) return;
 
     try {
+      console.log('Loading available balances...');
       const { data, error } = await supabase
         .from('users')
         .select('mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges')
@@ -255,6 +257,8 @@ export default function MXIAirballDuoScreen() {
       const commissions = parseFloat(data?.mxi_from_unified_commissions?.toString() || '0');
       const challenges = parseFloat(data?.mxi_from_challenges?.toString() || '0');
 
+      console.log('Loaded balances:', { purchased, commissions, challenges });
+
       setAvailableBalances({
         mxiPurchasedDirectly: purchased,
         mxiFromUnifiedCommissions: commissions,
@@ -268,6 +272,7 @@ export default function MXIAirballDuoScreen() {
 
   const requestPermissions = async () => {
     try {
+      console.log('Requesting permissions...');
       const audioPermission = await Audio.requestPermissionsAsync();
       if (audioPermission.status !== 'granted') {
         Alert.alert('⚠️ Permission Required', 'Microphone access is required to play this game.');
@@ -277,7 +282,7 @@ export default function MXIAirballDuoScreen() {
 
       const notificationPermission = await Notifications.requestPermissionsAsync();
       if (notificationPermission.status !== 'granted') {
-        Alert.alert('⚠️ Permission Required', 'Notification access is recommended for game updates.');
+        console.log('Notification permission not granted');
       }
 
       setHasPermission(true);
@@ -288,6 +293,7 @@ export default function MXIAirballDuoScreen() {
   };
 
   const setupRealtimeSubscription = () => {
+    console.log('Setting up realtime subscriptions...');
     const battleChannel = supabase
       .channel('airball_duo_battles_changes')
       .on(
@@ -344,6 +350,7 @@ export default function MXIAirballDuoScreen() {
     if (!user) return;
 
     try {
+      console.log('Loading active battle...');
       const { data, error } = await supabase
         .from('airball_duo_battles')
         .select(`
@@ -363,6 +370,7 @@ export default function MXIAirballDuoScreen() {
       }
 
       if (data) {
+        console.log('Found active battle:', data.id, 'Status:', data.status);
         setActiveBattle({
           ...data,
           challenger_name: data.challenger?.name,
@@ -371,6 +379,7 @@ export default function MXIAirballDuoScreen() {
           opponent_referral_code: data.opponent?.referral_code,
         });
       } else {
+        console.log('No active battle found');
         setActiveBattle(null);
       }
     } catch (error) {
@@ -382,6 +391,7 @@ export default function MXIAirballDuoScreen() {
     if (!user) return;
 
     try {
+      console.log('Loading waiting battles...');
       const { data, error } = await supabase
         .from('airball_duo_battles')
         .select(`
@@ -399,6 +409,7 @@ export default function MXIAirballDuoScreen() {
         return;
       }
 
+      console.log('Found waiting battles:', data?.length || 0);
       setWaitingBattles(data || []);
     } catch (error) {
       console.error('Error loading waiting battles:', error);
@@ -431,6 +442,8 @@ export default function MXIAirballDuoScreen() {
   const handleCancelChallenge = async () => {
     if (!activeBattle || !user) return;
 
+    console.log('🚫 Cancel challenge requested. Status:', activeBattle.status);
+
     const isChallenger = activeBattle.challenger_id === user.id;
 
     // Only allow cancellation if waiting or if 10 minutes passed
@@ -445,13 +458,19 @@ export default function MXIAirballDuoScreen() {
             style: 'destructive',
             onPress: async () => {
               try {
+                console.log('Cancelling waiting challenge...');
                 const { data, error } = await supabase.rpc('cancel_airball_duo_battle', {
                   p_battle_id: activeBattle.id,
                   p_user_id: user.id,
                   p_reason: 'User cancelled while waiting for opponent',
                 });
 
-                if (error) throw error;
+                if (error) {
+                  console.error('Cancel error:', error);
+                  throw error;
+                }
+
+                console.log('Cancel result:', data);
 
                 if (data.success) {
                   Alert.alert('✅ Challenge Cancelled', `Your wager of ${activeBattle.wager_amount} MXI has been refunded.`);
@@ -473,6 +492,8 @@ export default function MXIAirballDuoScreen() {
       const now = Date.now();
       const elapsed = Math.floor((now - matchedAt) / 1000);
 
+      console.log('Matched/In-progress battle. Elapsed:', elapsed, 'seconds');
+
       if (elapsed < 600) {
         Alert.alert(
           '⏰ Cannot Cancel Yet',
@@ -491,13 +512,19 @@ export default function MXIAirballDuoScreen() {
             style: 'destructive',
             onPress: async () => {
               try {
+                console.log('Cancelling due to opponent timeout...');
                 const { data, error } = await supabase.rpc('cancel_airball_duo_battle', {
                   p_battle_id: activeBattle.id,
                   p_user_id: user.id,
                   p_reason: 'Opponent did not participate within 10 minutes',
                 });
 
-                if (error) throw error;
+                if (error) {
+                  console.error('Cancel error:', error);
+                  throw error;
+                }
+
+                console.log('Cancel result:', data);
 
                 if (data.success) {
                   if (data.winner_id) {
@@ -561,6 +588,7 @@ export default function MXIAirballDuoScreen() {
     setShowPaymentSourceModal(false);
 
     try {
+      console.log('Creating challenge with source:', source);
       let opponentId = null;
 
       if (challengeType === 'friend') {
@@ -586,6 +614,7 @@ export default function MXIAirballDuoScreen() {
       }
 
       // Deduct wager using payment source
+      console.log('Deducting wager:', wager, 'from source:', source);
       const { data: deductResult, error: deductError } = await supabase
         .rpc('deduct_challenge_balance', {
           p_user_id: user.id,
@@ -594,10 +623,13 @@ export default function MXIAirballDuoScreen() {
         });
 
       if (deductError || !deductResult) {
+        console.error('Deduct error:', deductError);
         Alert.alert('❌ Error', 'Failed to deduct balance. Please try again.');
         setLoading(false);
         return;
       }
+
+      console.log('Balance deducted successfully');
 
       // Calculate pot and prize (90% to winner, 10% to admin)
       const totalPot = opponentId ? wager * 2 : wager;
@@ -605,6 +637,7 @@ export default function MXIAirballDuoScreen() {
       const adminFee = totalPot * 0.10;
 
       // Create battle
+      console.log('Creating battle...');
       const { data: battleData, error: battleError } = await supabase
         .from('airball_duo_battles')
         .insert({
@@ -622,11 +655,15 @@ export default function MXIAirballDuoScreen() {
         .single();
 
       if (battleError) {
+        console.error('Battle creation error:', battleError);
         throw battleError;
       }
 
+      console.log('Battle created:', battleData.id);
+
       if (opponentId) {
         // Deduct opponent's wager
+        console.log('Deducting opponent wager...');
         await supabase.rpc('deduct_challenge_balance', {
           p_user_id: opponentId,
           p_amount: wager,
@@ -664,6 +701,8 @@ export default function MXIAirballDuoScreen() {
   const handleAcceptChallenge = async (battle: Battle) => {
     if (!user) return;
 
+    console.log('Accepting challenge:', battle.id);
+
     if (availableBalances.total < battle.wager_amount) {
       Alert.alert(
         '💰 Insufficient Balance',
@@ -689,6 +728,7 @@ export default function MXIAirballDuoScreen() {
     setShowPaymentSourceModal(false);
 
     try {
+      console.log('Accepting challenge with source:', source);
       // Deduct wager from user's balance
       const { data: deductResult, error: deductError } = await supabase
         .rpc('deduct_challenge_balance', {
@@ -698,16 +738,20 @@ export default function MXIAirballDuoScreen() {
         });
 
       if (deductError || !deductResult) {
+        console.error('Deduct error:', deductError);
         Alert.alert('❌ Error', 'Failed to deduct balance. Please try again.');
         setLoading(false);
         return;
       }
+
+      console.log('Balance deducted successfully');
 
       // Update battle
       const totalPot = activeBattle.wager_amount * 2;
       const prizeAmount = totalPot * 0.90;
       const adminFee = totalPot * 0.10;
 
+      console.log('Updating battle...');
       const { error: battleError } = await supabase
         .from('airball_duo_battles')
         .update({
@@ -720,8 +764,11 @@ export default function MXIAirballDuoScreen() {
         .eq('id', activeBattle.id);
 
       if (battleError) {
+        console.error('Battle update error:', battleError);
         throw battleError;
       }
+
+      console.log('Battle updated successfully');
 
       // Notify challenger
       await supabase.from('airball_duo_notifications').insert({
@@ -751,6 +798,7 @@ export default function MXIAirballDuoScreen() {
     }
 
     try {
+      console.log('Starting game...');
       // Mark that user has started
       if (activeBattle && user) {
         const isChallenger = activeBattle.challenger_id === user.id;
@@ -869,6 +917,7 @@ export default function MXIAirballDuoScreen() {
   };
 
   const endGame = async (ballFell: boolean) => {
+    console.log('Game ended. Ball fell:', ballFell, 'Center time:', centerTime);
     await stopGame();
 
     if (!activeBattle || !user) return;
@@ -893,14 +942,18 @@ export default function MXIAirballDuoScreen() {
         updateData.opponent_finished_at = new Date().toISOString();
       }
 
+      console.log('Submitting score:', centerTime);
       const { error } = await supabase
         .from('airball_duo_battles')
         .update(updateData)
         .eq('id', activeBattle.id);
 
       if (error) {
+        console.error('Score submission error:', error);
         throw error;
       }
+
+      console.log('Score submitted successfully');
 
       // Check if both players finished
       const { data: updatedBattle } = await supabase
@@ -911,11 +964,14 @@ export default function MXIAirballDuoScreen() {
 
       if (updatedBattle && updatedBattle.challenger_finished_at && updatedBattle.opponent_finished_at) {
         // Both finished, complete the battle
+        console.log('Both players finished, completing battle...');
         const { data: result, error: completeError } = await supabase
           .rpc('complete_airball_duo_battle', { p_battle_id: activeBattle.id });
 
         if (completeError) {
           console.error('Error completing battle:', completeError);
+        } else {
+          console.log('Battle completed:', result);
         }
       } else {
         // Notify opponent
