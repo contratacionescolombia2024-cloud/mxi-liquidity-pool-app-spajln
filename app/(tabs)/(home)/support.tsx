@@ -114,11 +114,11 @@ export default function SupportScreen() {
 
   const getCategoryIcon = (cat: string) => {
     switch (cat) {
-      case 'kyc': return 'person.badge.shield.checkmark';
-      case 'withdrawal': return 'arrow.down.circle';
-      case 'transaction': return 'dollarsign.circle';
-      case 'technical': return 'wrench.and.screwdriver';
-      default: return 'envelope';
+      case 'kyc': return { ios: 'person.badge.shield.checkmark', android: 'verified_user' };
+      case 'withdrawal': return { ios: 'arrow.down.circle', android: 'arrow_circle_down' };
+      case 'transaction': return { ios: 'dollarsign.circle', android: 'monetization_on' };
+      case 'technical': return { ios: 'wrench.and.screwdriver', android: 'build' };
+      default: return { ios: 'envelope', android: 'mail' };
     }
   };
 
@@ -145,7 +145,7 @@ export default function SupportScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <IconSymbol name="chevron.left" size={24} color={colors.primary} />
+          <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.text} />
         </TouchableOpacity>
         <View style={styles.headerText}>
           <Text style={styles.title}>Support & Help</Text>
@@ -178,7 +178,15 @@ export default function SupportScreen() {
                     onPress={() => setCategory(cat.value)}
                   >
                     <IconSymbol
-                      name={cat.icon as any}
+                      ios_icon_name={cat.icon as any}
+                      android_material_icon_name={
+                        cat.value === 'general' ? 'mail' :
+                        cat.value === 'kyc' ? 'verified_user' :
+                        cat.value === 'withdrawal' ? 'arrow_circle_down' :
+                        cat.value === 'transaction' ? 'monetization_on' :
+                        cat.value === 'technical' ? 'build' :
+                        'help_outline'
+                      }
                       size={20}
                       color={category === cat.value ? '#fff' : colors.text}
                     />
@@ -236,10 +244,10 @@ export default function SupportScreen() {
                 {submitting ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <>
-                    <IconSymbol name="paperplane.fill" size={20} color="#fff" />
+                  <React.Fragment>
+                    <IconSymbol ios_icon_name="paperplane.fill" android_material_icon_name="send" size={20} color="#fff" />
                     <Text style={styles.buttonText}>Send Message</Text>
-                  </>
+                  </React.Fragment>
                 )}
               </TouchableOpacity>
             </View>
@@ -251,7 +259,7 @@ export default function SupportScreen() {
             style={[commonStyles.card, styles.newMessageButton]}
             onPress={() => setShowNewMessage(true)}
           >
-            <IconSymbol name="plus.circle.fill" size={24} color={colors.primary} />
+            <IconSymbol ios_icon_name="plus.circle.fill" android_material_icon_name="add_circle" size={24} color={colors.primary} />
             <Text style={styles.newMessageText}>New Support Request</Text>
           </TouchableOpacity>
 
@@ -261,7 +269,7 @@ export default function SupportScreen() {
             </View>
           ) : messages.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <IconSymbol name="envelope.open" size={64} color={colors.textSecondary} />
+              <IconSymbol ios_icon_name="envelope.open" android_material_icon_name="drafts" size={64} color={colors.textSecondary} />
               <Text style={styles.emptyText}>No messages yet</Text>
               <Text style={styles.emptySubtext}>
                 Create a support request to get help from our team
@@ -280,7 +288,8 @@ export default function SupportScreen() {
                 >
                   <View style={styles.messageHeader}>
                     <IconSymbol
-                      name={getCategoryIcon(msg.category)}
+                      ios_icon_name={getCategoryIcon(msg.category).ios}
+                      android_material_icon_name={getCategoryIcon(msg.category).android}
                       size={24}
                       color={getStatusColor(msg.status)}
                     />
@@ -304,7 +313,7 @@ export default function SupportScreen() {
                     </Text>
                     {msg.reply_count > 0 && (
                       <View style={styles.replyBadge}>
-                        <IconSymbol name="bubble.left.fill" size={12} color={colors.primary} />
+                        <IconSymbol ios_icon_name="bubble.left.fill" android_material_icon_name="chat_bubble" size={12} color={colors.primary} />
                         <Text style={styles.replyCount}>{msg.reply_count} replies</Text>
                       </View>
                     )}

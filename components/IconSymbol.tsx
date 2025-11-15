@@ -30,16 +30,22 @@ const MAPPING = {
   "arrow.clockwise": "refresh",
   "arrow.counterclockwise": "refresh",
   "arrow.up.circle.fill": "arrow-circle-up",
+  "arrow.down.circle.fill": "arrow-circle-down",
+  "arrow.up.circle": "arrow-circle-up",
+  "arrow.down.circle": "arrow-circle-down",
 
   // Communication & Social
   "paperplane.fill": "send",
   "paperplane": "send-outlined",
   "envelope.fill": "mail",
   "envelope": "mail-outline",
+  "envelope.open": "drafts",
   "phone.fill": "phone",
   "phone": "phone-outlined",
   "message.fill": "chat",
   "message": "chat-bubble-outline",
+  "bubble.left.fill": "chat-bubble",
+  "bubble.left": "chat-bubble-outline",
   "bell.fill": "notifications",
   "bell": "notifications-none",
   "heart.fill": "favorite",
@@ -48,29 +54,39 @@ const MAPPING = {
   // Actions & Controls
   "plus": "add",
   "plus.circle.fill": "add-circle",
+  "plus.circle": "add-circle-outline",
   "minus": "remove",
+  "minus.circle.fill": "remove-circle",
   "xmark": "close",
   "xmark.circle.fill": "cancel",
+  "xmark.circle": "cancel-outlined",
   "checkmark": "check",
   "checkmark.circle.fill": "check-circle",
   "checkmark.circle": "check-circle-outline",
   "checkmark.square.fill": "check-box",
   "checkmark.square": "check-box-outline-blank",
   "checkmark.seal.fill": "verified-user",
+  "checkmark.shield.fill": "verified-user",
+  "checkmark.shield": "verified-user",
   "multiply": "clear",
   "trash.fill": "delete",
   "trash": "delete-outline",
 
   // Editing & Creation
   "pencil": "edit",
+  "pencil.fill": "edit",
   "pencil.and.list.clipboard": "edit-note",
   "square.and.pencil": "edit",
   "doc.text.fill": "description",
   "doc.text": "description",
+  "doc.on.doc": "content-copy",
+  "doc.on.doc.fill": "content-copy",
   "folder.fill": "folder",
   "folder": "folder-open",
   "doc.fill": "insert-drive-file",
   "doc": "insert-drive-file",
+  "tray.fill": "inbox",
+  "tray": "inbox",
 
   // Media & Content
   "photo.fill": "image",
@@ -85,6 +101,9 @@ const MAPPING = {
   "play.fill": "play-arrow",
   "pause.fill": "pause",
   "stop.fill": "stop",
+  "mic.fill": "mic",
+  "mic": "mic",
+  "mic.slash.fill": "mic-off",
 
   // System & Settings
   "gear": "settings",
@@ -94,6 +113,8 @@ const MAPPING = {
   "info.circle": "info-outlined",
   "exclamationmark.triangle.fill": "warning",
   "exclamationmark.triangle": "warning-amber",
+  "exclamationmark.circle.fill": "error",
+  "exclamationmark.circle": "error-outline",
   "questionmark.circle.fill": "help",
   "questionmark.circle": "help-outline",
 
@@ -101,22 +122,28 @@ const MAPPING = {
   "square": "square",
   "square.grid.3x3": "apps",
   "circle": "circle",
+  "circle.fill": "circle",
   "triangle.fill": "change-history",
   "star.fill": "star",
   "star": "star-border",
   "bookmark.fill": "bookmark",
   "bookmark": "bookmark-border",
   "gift.fill": "card-giftcard",
+  "equal.circle.fill": "drag-handle",
+  "equal.circle": "drag-handle",
 
   // Technology & Code
   "chevron.left.forwardslash.chevron.right": "code",
   "qrcode.viewfinder": "qr-code",
+  "qrcode": "qr-code",
   "wifi": "wifi",
   "antenna.radiowaves.left.and.right": "signal-cellular-alt",
   "battery.100": "battery-full",
   "battery.25": "battery-2-bar",
   "lock.fill": "lock",
+  "lock": "lock",
   "lock.open.fill": "lock-open",
+  "lock.open": "lock-open",
 
   // Shopping & Commerce
   "cart.fill": "shopping-cart",
@@ -124,6 +151,9 @@ const MAPPING = {
   "creditcard.fill": "credit-card",
   "creditcard": "credit-card",
   "dollarsign.circle.fill": "monetization-on",
+  "dollarsign.circle": "monetization-on",
+  "banknote.fill": "payments",
+  "banknote": "payments",
   "bag.fill": "shopping-bag",
   "bag": "shopping-bag",
 
@@ -138,18 +168,21 @@ const MAPPING = {
   "clock.fill": "access-time",
   "clock": "access-time",
   "calendar": "event",
+  "calendar.fill": "event",
   "timer": "timer",
 
   // User & Profile
   "person": "person",
   "person.fill": "person",
-  "person.2.fill": "group",
-  "person.2": "group",
-  "person.3.fill": "groups",
+  "person.2.fill": "people",
+  "person.2": "people",
+  "person.3.fill": "group",
+  "person.3": "group",
   "person.circle.fill": "account-circle",
   "person.circle": "account-circle",
   "person.crop.circle.fill": "account-circle",
   "person.crop.circle": "account-circle",
+  "person.badge.shield.checkmark": "verified-user",
 
   // Sharing & Export
   "square.and.arrow.up": "share",
@@ -168,6 +201,7 @@ const MAPPING = {
   "eye.slash": "visibility-off",
   "eye.slash.fill": "visibility-off",
   "lightbulb.fill": "lightbulb",
+  "lightbulb": "lightbulb-outline",
   "moon.fill": "dark-mode",
   "sun.max.fill": "light-mode",
 
@@ -177,9 +211,41 @@ const MAPPING = {
 
   // Charts & Analytics
   "chart.line.uptrend.xyaxis": "trending-up",
+  "chart.bar.fill": "bar-chart",
+  "chart.bar": "bar-chart",
 
-  // Gestures
+  // Gestures & Interaction
   "hand.tap.fill": "touch-app",
+  "hand.tap": "touch-app",
+
+  // Games & Entertainment
+  "gamecontroller.fill": "sports-esports",
+  "gamecontroller": "sports-esports",
+  "trophy.fill": "emoji-events",
+  "trophy": "emoji-events",
+  "ticket.fill": "confirmation-number",
+  "ticket": "confirmation-number",
+  "flag.fill": "flag",
+  "flag": "flag",
+
+  // Security & Authentication
+  "shield.fill": "admin-panel-settings",
+  "shield": "admin-panel-settings",
+  "shield.checkmark.fill": "verified-user",
+  "shield.checkmark": "verified-user",
+
+  // Actions & Utilities
+  "arrow.triangle.merge": "merge-type",
+  "arrow.triangle.swap": "swap-vert",
+  "rectangle.portrait.and.arrow.right": "logout",
+  "rectangle.portrait.and.arrow.left": "login",
+  "wrench.and.screwdriver": "build",
+  "wrench.and.screwdriver.fill": "build",
+
+  // Numbers & Badges
+  "number.circle.fill": "badge",
+  "number.circle": "badge",
+  "number": "tag",
 } as Partial<
   Record<
     import("expo-symbols").SymbolViewProps["name"],
@@ -216,7 +282,15 @@ export function IconSymbol({
 
   if (!materialIconName) {
     console.warn(`IconSymbol: No mapping found for icon "${iconName}"`);
-    return null;
+    // Return a fallback icon instead of null to avoid question marks
+    return (
+      <MaterialIcons
+        color={color}
+        size={size}
+        name="help-outline"
+        style={style as StyleProp<TextStyle>}
+      />
+    );
   }
 
   return (
