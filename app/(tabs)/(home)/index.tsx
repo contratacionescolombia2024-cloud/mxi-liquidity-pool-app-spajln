@@ -78,15 +78,19 @@ export default function HomeScreen() {
   const loadData = async () => {
     if (!user) return;
     
+    console.log('Loading home screen data...');
     setCurrentYield(getCurrentYield());
     
     // Load metrics data
-    const { data: metricsData } = await supabase
+    const { data: metricsData, error: metricsError } = await supabase
       .from('metrics')
       .select('*')
       .single();
     
-    if (metricsData) {
+    if (metricsError) {
+      console.error('Error loading metrics:', metricsError);
+    } else if (metricsData) {
+      console.log('Metrics loaded:', metricsData);
       setPoolMembers(metricsData.total_members);
       setPhaseData({
         totalTokensSold: parseFloat(metricsData.total_tokens_sold || '0'),
@@ -102,6 +106,7 @@ export default function HomeScreen() {
   const checkAdmin = async () => {
     const adminStatus = await checkAdminStatus();
     setIsAdmin(adminStatus);
+    console.log('Admin status:', adminStatus);
   };
 
   const onRefresh = async () => {
@@ -176,11 +181,23 @@ export default function HomeScreen() {
     );
   }
 
-  // Calculate MXI breakdown
+  // Calculate MXI breakdown - these fields come from the users table
   const mxiPurchased = user.mxiPurchasedDirectly || 0;
   const mxiFromCommissions = user.mxiFromUnifiedCommissions || 0;
   const mxiFromChallenges = (user as any).mxi_from_challenges || 0;
   const mxiVestingLocked = (user as any).mxi_vesting_locked || 0;
+
+  // Total MXI balance should be the sum of all components
+  const totalMxiBalance = mxiPurchased + mxiFromCommissions + mxiFromChallenges + mxiVestingLocked;
+
+  console.log('MXI Balance Breakdown:', {
+    total: totalMxiBalance,
+    purchased: mxiPurchased,
+    commissions: mxiFromCommissions,
+    challenges: mxiFromChallenges,
+    vesting: mxiVestingLocked,
+    userBalance: user.mxiBalance
+  });
 
   return (
     <SafeAreaView style={styles.container}>

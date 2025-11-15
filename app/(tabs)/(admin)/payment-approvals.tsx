@@ -52,6 +52,8 @@ export default function PaymentApprovalsScreen() {
   const loadPayments = async () => {
     try {
       setLoading(true);
+      console.log('=== LOADING PAYMENTS ===');
+      console.log('Filter:', filter);
 
       let query = supabase
         .from('okx_payments')
@@ -111,6 +113,9 @@ export default function PaymentApprovalsScreen() {
               setProcessing(true);
               console.log('=== APPROVE PAYMENT START ===');
               console.log('Payment ID:', payment.payment_id);
+              console.log('User ID:', payment.user_id);
+              console.log('USDT Amount:', payment.usdt_amount);
+              console.log('MXI Amount:', payment.mxi_amount);
 
               // Get current session
               const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -121,9 +126,10 @@ export default function PaymentApprovalsScreen() {
               }
 
               console.log('Session obtained successfully');
-              console.log('Access token present:', !!session.access_token);
+              console.log('User authenticated:', session.user.id);
 
-              // Get Supabase URL - use the correct URL
+              // Get project details to construct the correct URL
+              const { data: { project } } = await supabase.auth.getSession();
               const supabaseUrl = 'https://aeyfnjuatbtcauiumbhn.supabase.co';
               const functionUrl = `${supabaseUrl}/functions/v1/okx-payment-verification`;
               
@@ -146,7 +152,17 @@ export default function PaymentApprovalsScreen() {
               console.log('Response status:', response.status);
               console.log('Response ok:', response.ok);
 
-              const result = await response.json();
+              const responseText = await response.text();
+              console.log('Response text:', responseText);
+
+              let result;
+              try {
+                result = JSON.parse(responseText);
+              } catch (parseError) {
+                console.error('Failed to parse response:', parseError);
+                throw new Error(`Invalid response from server: ${responseText}`);
+              }
+
               console.log('Response data:', result);
 
               if (!response.ok) {
@@ -163,6 +179,8 @@ export default function PaymentApprovalsScreen() {
             } catch (error: any) {
               console.error('=== APPROVE PAYMENT ERROR ===');
               console.error('Error details:', error);
+              console.error('Error message:', error.message);
+              console.error('Error stack:', error.stack);
               Alert.alert('Error', error.message || 'Failed to approve payment');
             } finally {
               setProcessing(false);
@@ -200,7 +218,7 @@ export default function PaymentApprovalsScreen() {
 
               console.log('Session obtained successfully');
 
-              // Get Supabase URL - use the correct URL
+              // Get Supabase URL
               const supabaseUrl = 'https://aeyfnjuatbtcauiumbhn.supabase.co';
               const functionUrl = `${supabaseUrl}/functions/v1/okx-payment-verification`;
               
@@ -222,7 +240,17 @@ export default function PaymentApprovalsScreen() {
 
               console.log('Response status:', response.status);
 
-              const result = await response.json();
+              const responseText = await response.text();
+              console.log('Response text:', responseText);
+
+              let result;
+              try {
+                result = JSON.parse(responseText);
+              } catch (parseError) {
+                console.error('Failed to parse response:', parseError);
+                throw new Error(`Invalid response from server: ${responseText}`);
+              }
+
               console.log('Response data:', result);
 
               if (!response.ok) {
