@@ -43,6 +43,8 @@ interface Battle {
   challenger_referral_code?: string;
   opponent_referral_code?: string;
   cancellation_reason?: string | null;
+  challenger_payment_source?: string | null;
+  opponent_payment_source?: string | null;
 }
 
 interface NotificationData {
@@ -96,6 +98,7 @@ export default function XMITapDuoScreen() {
   const [pendingWager, setPendingWager] = useState(0);
   const [pendingBattle, setPendingBattle] = useState<Battle | null>(null);
   const [isCreatingChallenge, setIsCreatingChallenge] = useState(false);
+  const [cancellingBattle, setCancellingBattle] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const participationTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -360,14 +363,30 @@ export default function XMITapDuoScreen() {
   };
 
   const handleCancelChallenge = async () => {
-    if (!activeBattle || !user) return;
+    if (!activeBattle || !user || cancellingBattle) return;
 
-    console.log('🚫 Cancel challenge requested. Status:', activeBattle.status);
+    console.log('🚫 ========== CANCEL CHALLENGE START ==========');
+    console.log('Battle ID:', activeBattle.id);
+    console.log('Battle Status:', activeBattle.status);
+    console.log('User ID:', user.id);
+    console.log('Challenger ID:', activeBattle.challenger_id);
+    console.log('Opponent ID:', activeBattle.opponent_id);
+    console.log('Wager Amount:', activeBattle.wager_amount);
+    console.log('Challenger Payment Source:', activeBattle.challenger_payment_source);
+    console.log('Opponent Payment Source:', activeBattle.opponent_payment_source);
 
     const isChallenger = activeBattle.challenger_id === user.id;
+    console.log('Is Challenger:', isChallenger);
 
-    // Only allow cancellation if waiting or if 10 minutes passed
+    // Calculate elapsed time
+    const matchedAt = new Date(activeBattle.created_at).getTime();
+    const now = Date.now();
+    const elapsed = Math.floor((now - matchedAt) / 1000);
+    console.log('Elapsed seconds since creation:', elapsed);
+
+    // Determine cancellation type
     if (activeBattle.status === 'waiting') {
+      console.log('Cancellation type: WAITING');
       Alert.alert(
         'Cancel Challenge?',
         'Are you sure you want to cancel this challenge? Your wager will be refunded.',
@@ -376,49 +395,15 @@ export default function XMITapDuoScreen() {
           {
             text: 'Yes, Cancel',
             style: 'destructive',
-            onPress: async () => {
-              try {
-                setLoading(true);
-                console.log('Cancelling waiting challenge...');
-                
-                const { data, error } = await supabase.rpc('cancel_tap_duo_battle', {
-                  p_battle_id: activeBattle.id,
-                  p_user_id: user.id,
-                  p_reason: 'User cancelled while waiting for opponent',
-                });
-
-                if (error) {
-                  console.error('Cancel error:', error);
-                  throw error;
-                }
-
-                console.log('Cancel result:', data);
-
-                if (data.success) {
-                  Alert.alert('✅ Challenge Cancelled', `Your wager of ${activeBattle.wager_amount} MXI has been refunded.`);
-                  loadActiveBattle();
-                  loadAvailableBalances();
-                } else {
-                  Alert.alert('❌ Error', data.error || 'Failed to cancel challenge');
-                }
-              } catch (error: any) {
-                console.error('Error cancelling challenge:', error);
-                Alert.alert('❌ Error', error.message || 'Failed to cancel challenge');
-              } finally {
-                setLoading(false);
-              }
-            },
+            onPress: () => executeCancellation('User cancelled while waiting for opponent'),
           },
         ]
       );
     } else if (activeBattle.status === 'matched' || activeBattle.status === 'in_progress') {
-      const matchedAt = new Date(activeBattle.created_at).getTime();
-      const now = Date.now();
-      const elapsed = Math.floor((now - matchedAt) / 1000);
-
-      console.log('Matched/In-progress battle. Elapsed:', elapsed, 'seconds');
-
+      console.log('Cancellation type: MATCHED/IN_PROGRESS');
+      
       if (elapsed < 600) {
+        console.log('Cannot cancel yet - less than 10 minutes elapsed');
         Alert.alert(
           '⏰ Cannot Cancel Yet',
           `You can cancel this challenge after 10 minutes if your opponent doesn't participate.\n\nTime remaining: ${formatParticipationTime(600 - elapsed)}`
@@ -426,6 +411,7 @@ export default function XMITapDuoScreen() {
         return;
       }
 
+      console.log('Can cancel - 10 minutes elapsed');
       Alert.alert(
         'Cancel Challenge?',
         'Your opponent has not participated within 10 minutes. Do you want to cancel and claim the pot?',
@@ -434,45 +420,91 @@ export default function XMITapDuoScreen() {
           {
             text: 'Yes, Cancel',
             style: 'destructive',
-            onPress: async () => {
-              try {
-                setLoading(true);
-                console.log('Cancelling due to opponent timeout...');
-                
-                const { data, error } = await supabase.rpc('cancel_tap_duo_battle', {
-                  p_battle_id: activeBattle.id,
-                  p_user_id: user.id,
-                  p_reason: 'Opponent did not participate within 10 minutes',
-                });
-
-                if (error) {
-                  console.error('Cancel error:', error);
-                  throw error;
-                }
-
-                console.log('Cancel result:', data);
-
-                if (data.success) {
-                  if (data.winner_id) {
-                    Alert.alert('🏆 You Win!', `Your opponent didn't participate. You won ${data.prize} MXI!`);
-                  } else if (data.pot_to_admin) {
-                    Alert.alert('⚠️ Challenge Cancelled', 'Neither player participated. The pot goes to admin.');
-                  }
-                  loadActiveBattle();
-                  loadAvailableBalances();
-                } else {
-                  Alert.alert('❌ Error', data.error || 'Failed to cancel challenge');
-                }
-              } catch (error: any) {
-                console.error('Error cancelling challenge:', error);
-                Alert.alert('❌ Error', error.message || 'Failed to cancel challenge');
-              } finally {
-                setLoading(false);
-              }
-            },
+            onPress: () => executeCancellation('Opponent did not participate within 10 minutes'),
           },
         ]
       );
+    } else {
+      console.log('Cannot cancel - invalid status:', activeBattle.status);
+      Alert.alert('⚠️ Cannot Cancel', 'This challenge cannot be cancelled at this time.');
+    }
+  };
+
+  const executeCancellation = async (reason: string) => {
+    if (!activeBattle || !user) return;
+
+    setCancellingBattle(true);
+    console.log('🚀 Executing cancellation with reason:', reason);
+
+    try {
+      // Call the database function
+      console.log('Calling cancel_tap_duo_battle RPC...');
+      const { data, error } = await supabase.rpc('cancel_tap_duo_battle', {
+        p_battle_id: activeBattle.id,
+        p_user_id: user.id,
+        p_reason: reason,
+      });
+
+      console.log('RPC Response:', { data, error });
+
+      if (error) {
+        console.error('❌ RPC Error:', error);
+        throw new Error(error.message || 'Failed to cancel challenge');
+      }
+
+      if (!data) {
+        console.error('❌ No data returned from RPC');
+        throw new Error('No response from cancellation function');
+      }
+
+      console.log('✅ Cancellation result:', data);
+
+      // Handle different outcomes
+      if (data.success) {
+        if (data.winner_id) {
+          console.log('🏆 Winner declared:', data.winner_id);
+          Alert.alert(
+            '🏆 You Win!',
+            `Your opponent didn't participate. You won ${data.prize} MXI!`
+          );
+        } else if (data.refunded_both) {
+          console.log('💰 Both players refunded');
+          Alert.alert(
+            '✅ Challenge Cancelled',
+            'Neither player participated. Both wagers have been refunded.'
+          );
+        } else if (data.refund_amount) {
+          console.log('💰 Refund amount:', data.refund_amount);
+          Alert.alert(
+            '✅ Challenge Cancelled',
+            `Your wager of ${data.refund_amount} MXI has been refunded.`
+          );
+        } else {
+          console.log('✅ Generic success');
+          Alert.alert('✅ Challenge Cancelled', 'The challenge has been cancelled successfully.');
+        }
+
+        // Reload data
+        console.log('Reloading battle and balance data...');
+        await Promise.all([
+          loadActiveBattle(),
+          loadAvailableBalances(),
+          loadWaitingBattles(),
+        ]);
+        console.log('Data reloaded successfully');
+      } else {
+        console.error('❌ Cancellation failed:', data.error);
+        Alert.alert('❌ Error', data.error || 'Failed to cancel challenge');
+      }
+    } catch (error: any) {
+      console.error('❌ Exception during cancellation:', error);
+      Alert.alert(
+        '❌ Error',
+        error.message || 'An unexpected error occurred while cancelling the challenge.'
+      );
+    } finally {
+      setCancellingBattle(false);
+      console.log('🚫 ========== CANCEL CHALLENGE END ==========');
     }
   };
 
@@ -531,6 +563,7 @@ export default function XMITapDuoScreen() {
     setLoading(true);
 
     try {
+      console.log('🎮 Creating challenge with source:', source);
       let opponentId = null;
 
       if (challengeType === 'friend') {
@@ -556,6 +589,7 @@ export default function XMITapDuoScreen() {
       }
 
       // Deduct wager using restricted balance function
+      console.log('💰 Deducting wager:', pendingWager, 'from source:', source);
       const { data: deductResult, error: deductError } = await supabase
         .rpc('deduct_challenge_balance', {
           p_user_id: user.id,
@@ -564,15 +598,19 @@ export default function XMITapDuoScreen() {
         });
 
       if (deductError || !deductResult) {
+        console.error('Deduct error:', deductError);
         Alert.alert('❌ Error', 'Failed to deduct balance. Please try again.');
         setLoading(false);
         return;
       }
 
+      console.log('✅ Balance deducted successfully');
+
       const totalPot = opponentId ? pendingWager * 2 : pendingWager;
       const prizeAmount = totalPot * 0.90;
       const adminFee = totalPot * 0.10;
 
+      console.log('📝 Creating battle record...');
       const { data: battleData, error: battleError } = await supabase
         .from('tap_duo_battles')
         .insert({
@@ -585,21 +623,34 @@ export default function XMITapDuoScreen() {
           challenge_type: challengeType,
           status: opponentId ? 'matched' : 'waiting',
           expires_at: null,
+          challenger_payment_source: source, // CRITICAL: Store payment source
         })
         .select()
         .single();
 
       if (battleError) {
+        console.error('Battle creation error:', battleError);
         throw battleError;
       }
 
+      console.log('✅ Battle created:', battleData.id);
+
       if (opponentId) {
+        // Deduct opponent's wager
+        console.log('💰 Deducting opponent wager...');
         await supabase.rpc('deduct_challenge_balance', {
           p_user_id: opponentId,
           p_amount: pendingWager,
           p_source: source,
         });
 
+        // Update opponent payment source
+        await supabase
+          .from('tap_duo_battles')
+          .update({ opponent_payment_source: source })
+          .eq('id', battleData.id);
+
+        // Create notification for opponent
         await supabase.from('tap_duo_notifications').insert({
           user_id: opponentId,
           battle_id: battleData.id,
@@ -672,6 +723,8 @@ export default function XMITapDuoScreen() {
     setLoading(true);
 
     try {
+      console.log('🎮 Accepting challenge with source:', source);
+      
       const { data: deductResult, error: deductError } = await supabase
         .rpc('deduct_challenge_balance', {
           p_user_id: user.id,
@@ -680,15 +733,19 @@ export default function XMITapDuoScreen() {
         });
 
       if (deductError || !deductResult) {
+        console.error('Deduct error:', deductError);
         Alert.alert('❌ Error', 'Failed to deduct balance. Please try again.');
         setLoading(false);
         return;
       }
 
+      console.log('✅ Balance deducted successfully');
+
       const totalPot = pendingBattle.wager_amount * 2;
       const prizeAmount = totalPot * 0.90;
       const adminFee = totalPot * 0.10;
 
+      console.log('📝 Updating battle...');
       const { error: battleError } = await supabase
         .from('tap_duo_battles')
         .update({
@@ -697,12 +754,16 @@ export default function XMITapDuoScreen() {
           prize_amount: prizeAmount,
           admin_fee: adminFee,
           status: 'matched',
+          opponent_payment_source: source, // CRITICAL: Store payment source
         })
         .eq('id', pendingBattle.id);
 
       if (battleError) {
+        console.error('Battle update error:', battleError);
         throw battleError;
       }
+
+      console.log('✅ Battle updated successfully');
 
       await supabase.from('tap_duo_notifications').insert({
         user_id: pendingBattle.challenger_id,
@@ -916,9 +977,9 @@ export default function XMITapDuoScreen() {
             <TouchableOpacity
               style={[buttonStyles.outline, styles.cancelButton]}
               onPress={handleCancelChallenge}
-              disabled={loading}
+              disabled={cancellingBattle}
             >
-              {loading ? (
+              {cancellingBattle ? (
                 <ActivityIndicator color={colors.primary} />
               ) : (
                 <Text style={buttonStyles.outlineText}>Cancel Challenge</Text>
@@ -951,9 +1012,9 @@ export default function XMITapDuoScreen() {
                 <TouchableOpacity
                   style={[buttonStyles.outline, { marginTop: 20 }]}
                   onPress={handleCancelChallenge}
-                  disabled={loading}
+                  disabled={cancellingBattle}
                 >
-                  {loading ? (
+                  {cancellingBattle ? (
                     <ActivityIndicator color={colors.primary} />
                   ) : (
                     <Text style={buttonStyles.outlineText}>Claim Win (Opponent Timeout)</Text>
@@ -1032,9 +1093,9 @@ export default function XMITapDuoScreen() {
           <TouchableOpacity
             style={[buttonStyles.outline, { marginTop: 12 }]}
             onPress={handleCancelChallenge}
-            disabled={loading}
+            disabled={cancellingBattle}
           >
-            {loading ? (
+            {cancellingBattle ? (
               <ActivityIndicator color={colors.primary} />
             ) : (
               <Text style={buttonStyles.outlineText}>Cancel (Timeout)</Text>
