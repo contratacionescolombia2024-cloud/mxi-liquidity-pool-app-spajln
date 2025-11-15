@@ -82,6 +82,8 @@ type ActionType =
   | 'add_commission'
   | 'edit_commission'
   | 'delete_referral'
+  | 'set_mxi_purchased'
+  | 'set_mxi_from_commissions'
   | null;
 
 export default function UserManagementScreen() {
@@ -315,6 +317,12 @@ export default function UserManagementScreen() {
           break;
         case 'edit_commission':
           await handleEditCommission();
+          break;
+        case 'set_mxi_purchased':
+          await handleSetMxiPurchased(parseFloat(inputValue));
+          break;
+        case 'set_mxi_from_commissions':
+          await handleSetMxiFromCommissions(parseFloat(inputValue));
           break;
       }
       closeInputModal();
@@ -608,6 +616,56 @@ export default function UserManagementScreen() {
     );
   };
 
+  const handleSetMxiPurchased = async (amount: number) => {
+    if (!selectedUser || isNaN(amount) || amount < 0) {
+      Alert.alert('Error', 'Please enter a valid number');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ mxi_purchased_directly: amount })
+        .eq('id', selectedUser.id);
+
+      if (error) throw error;
+
+      Alert.alert('✅ Success', `MXI Purchased set to ${amount}`);
+      await loadUsers();
+      
+      const updatedUser = users.find(u => u.id === selectedUser.id);
+      if (updatedUser) setSelectedUser(updatedUser);
+    } catch (error) {
+      console.error('Error setting MXI purchased:', error);
+      Alert.alert('❌ Error', 'Failed to set MXI purchased');
+    }
+  };
+
+  const handleSetMxiFromCommissions = async (amount: number) => {
+    if (!selectedUser || isNaN(amount) || amount < 0) {
+      Alert.alert('Error', 'Please enter a valid number');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ mxi_from_unified_commissions: amount })
+        .eq('id', selectedUser.id);
+
+      if (error) throw error;
+
+      Alert.alert('✅ Success', `MXI from Commissions set to ${amount}`);
+      await loadUsers();
+      
+      const updatedUser = users.find(u => u.id === selectedUser.id);
+      if (updatedUser) setSelectedUser(updatedUser);
+    } catch (error) {
+      console.error('Error setting MXI from commissions:', error);
+      Alert.alert('❌ Error', 'Failed to set MXI from commissions');
+    }
+  };
+
   const handleToggleActiveStatus = async (userId: string, currentStatus: boolean) => {
     try {
       const { error } = await supabase
@@ -657,6 +715,8 @@ export default function UserManagementScreen() {
       case 'set_accumulated_yield': return '💰 Set Accumulated Yield';
       case 'add_commission': return '💸 Add Commission';
       case 'edit_commission': return '✏️ Edit Commission';
+      case 'set_mxi_purchased': return '🛒 Set MXI Purchased';
+      case 'set_mxi_from_commissions': return '💰 Set MXI from Commissions';
       default: return 'Enter Value';
     }
   };
@@ -1188,6 +1248,22 @@ export default function UserManagementScreen() {
 
                   <TouchableOpacity
                     style={[buttonStyles.secondary, styles.actionButtonFull]}
+                    onPress={() => openInputModal('set_mxi_purchased')}
+                  >
+                    <Text style={styles.actionButtonEmoji}>🛒</Text>
+                    <Text style={buttonStyles.secondaryText}>Set MXI Purchased</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[buttonStyles.secondary, styles.actionButtonFull]}
+                    onPress={() => openInputModal('set_mxi_from_commissions')}
+                  >
+                    <Text style={styles.actionButtonEmoji}>💰</Text>
+                    <Text style={buttonStyles.secondaryText}>Set MXI from Commissions</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[buttonStyles.secondary, styles.actionButtonFull]}
                     onPress={() => {
                       Alert.alert(
                         selectedUser.is_active_contributor ? '⏸️ Deactivate User' : '▶️ Activate User',
@@ -1289,6 +1365,10 @@ export default function UserManagementScreen() {
                       ? 'Enter yield rate (MXI/minute)'
                       : currentAction === 'set_active_referrals'
                       ? 'Enter number of active referrals'
+                      : currentAction === 'set_mxi_purchased'
+                      ? 'Enter MXI purchased amount'
+                      : currentAction === 'set_mxi_from_commissions'
+                      ? 'Enter MXI from commissions amount'
                       : 'Enter amount'
                   }
                   placeholderTextColor={colors.textSecondary}
@@ -1304,6 +1384,8 @@ export default function UserManagementScreen() {
                     {currentAction === 'set_accumulated_yield' && 'Default: 0 MXI'}
                     {currentAction === 'set_mxi_balance' && 'Default: 0 MXI'}
                     {currentAction === 'set_usdt_balance' && 'Default: $0 USDT'}
+                    {currentAction === 'set_mxi_purchased' && 'Default: 0 MXI (MXI bought with USDT)'}
+                    {currentAction === 'set_mxi_from_commissions' && 'Default: 0 MXI (MXI from unified commissions)'}
                   </Text>
                 )}
               </>
