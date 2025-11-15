@@ -170,6 +170,7 @@ export default function ClickersScreen() {
       .on('broadcast', { event: 'UPDATE' }, () => {
         console.log('Clicker competition updated');
         loadCompetitionData();
+        loadParticipants();
       })
       .subscribe();
 
@@ -240,7 +241,8 @@ export default function ClickersScreen() {
           users!inner(name)
         `)
         .eq('competition_id', currentCompetition.id)
-        .order('clicks', { ascending: false });
+        .order('clicks', { ascending: false })
+        .order('played_at', { ascending: true });
 
       if (error) {
         console.error('Error loading participants:', error);
@@ -689,23 +691,66 @@ export default function ClickersScreen() {
         {participants.length > 0 && (
           <View style={commonStyles.card}>
             <Text style={styles.sectionTitle}>Leaderboard</Text>
+            <Text style={styles.leaderboardSubtitle}>
+              Scores are ranked from highest to lowest. The player with the most clicks wins!
+            </Text>
             <View style={styles.leaderboardList}>
-              {participants.map((participant, index) => (
-                <View key={participant.id} style={styles.leaderboardItem}>
-                  <View style={styles.leaderboardRank}>
-                    <Text style={styles.leaderboardRankText}>#{index + 1}</Text>
+              {participants.map((participant, index) => {
+                const isCurrentUser = participant.user_id === user?.id;
+                const isWinner = index === 0 && participant.has_played && participants.filter(p => p.has_played).length === currentCompetition.participants_count;
+                
+                return (
+                  <View 
+                    key={participant.id} 
+                    style={[
+                      styles.leaderboardItem,
+                      isCurrentUser && styles.leaderboardItemHighlight,
+                      isWinner && styles.leaderboardItemWinner
+                    ]}
+                  >
+                    <View style={[
+                      styles.leaderboardRank,
+                      isWinner && styles.leaderboardRankWinner
+                    ]}>
+                      {isWinner ? (
+                        <Text style={styles.leaderboardRankEmoji}>🏆</Text>
+                      ) : (
+                        <Text style={[
+                          styles.leaderboardRankText,
+                          isWinner && styles.leaderboardRankTextWinner
+                        ]}>
+                          #{index + 1}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={styles.leaderboardInfo}>
+                      <Text style={[
+                        styles.leaderboardName,
+                        isCurrentUser && styles.leaderboardNameHighlight
+                      ]}>
+                        {participant.user_name}
+                        {isCurrentUser && ' (You)'}
+                      </Text>
+                      <Text style={[
+                        styles.leaderboardClicks,
+                        isWinner && styles.leaderboardClicksWinner
+                      ]}>
+                        {participant.has_played ? `${participant.clicks} clicks` : 'Not played yet'}
+                      </Text>
+                    </View>
+                    {participant.has_played && (
+                      <View style={styles.leaderboardBadge}>
+                        <IconSymbol
+                          ios_icon_name="checkmark.circle.fill"
+                          android_material_icon_name="check_circle"
+                          size={20}
+                          color={colors.success}
+                        />
+                      </View>
+                    )}
                   </View>
-                  <View style={styles.leaderboardInfo}>
-                    <Text style={styles.leaderboardName}>
-                      {participant.user_name}
-                      {participant.user_id === user?.id && ' (You)'}
-                    </Text>
-                    <Text style={styles.leaderboardClicks}>
-                      {participant.has_played ? `${participant.clicks} clicks` : 'Not played'}
-                    </Text>
-                  </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           </View>
         )}
@@ -732,22 +777,30 @@ export default function ClickersScreen() {
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>5.</Text>
-              <Text style={styles.infoText}>Leaderboard updates in real-time</Text>
+              <Text style={styles.infoText}>Tap the button as fast as you can for 15 seconds</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>6.</Text>
-              <Text style={styles.infoText}>Highest score wins 90% of the pool</Text>
+              <Text style={styles.infoText}>Your score is automatically submitted when time runs out</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>7.</Text>
-              <Text style={styles.infoText}>Ties trigger automatic tiebreaker rounds</Text>
+              <Text style={styles.infoText}>Leaderboard updates in real-time showing all scores</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>8.</Text>
-              <Text style={styles.infoText}>Tiebreaker: 10 min to play or score becomes 0</Text>
+              <Text style={styles.infoText}>Highest score wins 90% of the pool</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>9.</Text>
+              <Text style={styles.infoText}>Ties trigger automatic tiebreaker rounds</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoBullet}>10.</Text>
+              <Text style={styles.infoText}>Tiebreaker: 10 min to play or score becomes 0</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoBullet}>11.</Text>
               <Text style={styles.infoText}>All results stored for 10 days in your history</Text>
             </View>
           </View>
@@ -1115,6 +1168,12 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 16,
   },
+  leaderboardSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 16,
+    lineHeight: 20,
+  },
   scoreContainer: {
     alignItems: 'center',
     paddingVertical: 24,
@@ -1229,6 +1288,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  leaderboardItemHighlight: {
+    backgroundColor: colors.primary + '10',
+    borderColor: colors.primary,
+    borderWidth: 2,
+  },
+  leaderboardItemWinner: {
+    backgroundColor: colors.warning + '10',
+    borderColor: colors.warning,
+    borderWidth: 2,
+  },
   leaderboardRank: {
     width: 40,
     height: 40,
@@ -1238,10 +1307,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
+  leaderboardRankWinner: {
+    backgroundColor: colors.warning + '20',
+  },
   leaderboardRankText: {
     fontSize: 14,
     fontWeight: '700',
     color: colors.primary,
+  },
+  leaderboardRankTextWinner: {
+    color: colors.warning,
+  },
+  leaderboardRankEmoji: {
+    fontSize: 24,
   },
   leaderboardInfo: {
     flex: 1,
@@ -1251,10 +1329,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
+  leaderboardNameHighlight: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
   leaderboardClicks: {
     fontSize: 12,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+  leaderboardClicksWinner: {
+    color: colors.warning,
+    fontWeight: '600',
+  },
+  leaderboardBadge: {
+    marginLeft: 8,
   },
   infoList: {
     gap: 12,
