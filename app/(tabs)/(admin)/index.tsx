@@ -48,7 +48,7 @@ interface PhaseMetrics {
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const { user, checkAdminStatus } = useAuth();
+  const { user, checkAdminStatus, logout } = useAuth();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -182,6 +182,34 @@ export default function AdminDashboard() {
     loadStats();
   }, [loadStats]);
 
+  const handleLogout = () => {
+    Alert.alert(
+      'Cerrar Sesión',
+      '¿Estás seguro de que quieres cerrar sesión?',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Cerrar Sesión',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              console.log('Logging out from admin panel...');
+              await logout();
+              console.log('Logout successful, navigating to login...');
+              router.replace('/(auth)/login');
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Error', 'Failed to logout. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat('en-US', {
       minimumFractionDigits: 0,
@@ -217,29 +245,35 @@ export default function AdminDashboard() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <IconSymbol 
-            ios_icon_name="chevron.left" 
-            android_material_icon_name="arrow_back" 
-            size={24} 
-            color={colors.text} 
-          />
-        </TouchableOpacity>
         <View style={styles.headerContent}>
           <Text style={styles.title}>Admin Dashboard</Text>
           <Text style={styles.subtitle}>MXI Pool Management</Text>
         </View>
-        <TouchableOpacity onPress={onRefresh} disabled={refreshing}>
-          <IconSymbol 
-            ios_icon_name="arrow.clockwise" 
-            android_material_icon_name="refresh" 
-            size={24} 
-            color={colors.primary} 
-          />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity 
+            onPress={onRefresh} 
+            disabled={refreshing}
+            style={styles.headerButton}
+          >
+            <IconSymbol 
+              ios_icon_name="arrow.clockwise" 
+              android_material_icon_name="refresh" 
+              size={24} 
+              color={colors.primary} 
+            />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            onPress={handleLogout}
+            style={styles.headerButton}
+          >
+            <IconSymbol 
+              ios_icon_name="rectangle.portrait.and.arrow.right" 
+              android_material_icon_name="logout" 
+              size={24} 
+              color={colors.error} 
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView 
@@ -510,14 +544,17 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingBottom: 16,
   },
-  backButton: {
+  headerContent: {
+    flex: 1,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  headerButton: {
     padding: 8,
     borderRadius: 8,
     backgroundColor: colors.card,
-  },
-  headerContent: {
-    flex: 1,
-    marginLeft: 16,
   },
   title: {
     fontSize: 28,
