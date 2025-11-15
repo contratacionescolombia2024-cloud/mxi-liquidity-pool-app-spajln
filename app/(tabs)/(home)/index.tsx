@@ -227,6 +227,31 @@ export default function HomeScreen() {
           </View>
         </View>
 
+        {/* MXI Balance - Moved directly below Lanzamiento MXI */}
+        <View style={[commonStyles.card, styles.balanceCard]}>
+          <View style={styles.balanceHeader}>
+            <Text style={styles.balanceLabel}>MXI Balance</Text>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/(home)/vesting')}>
+              <IconSymbol ios_icon_name="info.circle" android_material_icon_name="info" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.balanceAmount}>{user.mxiBalance.toFixed(2)}</Text>
+          <Text style={styles.balanceCurrency}>MXI</Text>
+          
+          <View style={styles.balanceDivider} />
+          
+          <View style={styles.balanceRow}>
+            <View style={styles.balanceItem}>
+              <Text style={styles.balanceItemLabel}>USDT Contributed</Text>
+              <Text style={styles.balanceItemValue}>${user.usdtContributed.toFixed(2)}</Text>
+            </View>
+            <View style={styles.balanceItem}>
+              <Text style={styles.balanceItemLabel}>Commissions</Text>
+              <Text style={styles.balanceItemValue}>${user.commissions.available.toFixed(2)}</Text>
+            </View>
+          </View>
+        </View>
+
         {/* MXI Sales Status */}
         {phaseData && (
           <View style={[commonStyles.card, styles.salesCard]}>
@@ -376,30 +401,6 @@ export default function HomeScreen() {
             </View>
           </View>
         )}
-
-        <View style={[commonStyles.card, styles.balanceCard]}>
-          <View style={styles.balanceHeader}>
-            <Text style={styles.balanceLabel}>MXI Balance</Text>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/(home)/vesting')}>
-              <IconSymbol ios_icon_name="info.circle" android_material_icon_name="info" size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.balanceAmount}>{user.mxiBalance.toFixed(2)}</Text>
-          <Text style={styles.balanceCurrency}>MXI</Text>
-          
-          <View style={styles.balanceDivider} />
-          
-          <View style={styles.balanceRow}>
-            <View style={styles.balanceItem}>
-              <Text style={styles.balanceItemLabel}>USDT Contributed</Text>
-              <Text style={styles.balanceItemValue}>${user.usdtContributed.toFixed(2)}</Text>
-            </View>
-            <View style={styles.balanceItem}>
-              <Text style={styles.balanceItemLabel}>Commissions</Text>
-              <Text style={styles.balanceItemValue}>${user.commissions.available.toFixed(2)}</Text>
-            </View>
-          </View>
-        </View>
 
         {user.yieldRatePerMinute > 0 && (
           <YieldDisplay
@@ -655,6 +656,56 @@ const styles = StyleSheet.create({
     color: colors.primary,
     marginBottom: 20,
   },
+  balanceCard: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  balanceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  balanceLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  balanceAmount: {
+    fontSize: 48,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  balanceCurrency: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  balanceDivider: {
+    width: '100%',
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: 16,
+  },
+  balanceRow: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: 16,
+  },
+  balanceItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  balanceItemLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  balanceItemValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
   salesCard: {
     marginBottom: 16,
     backgroundColor: `${colors.success}15`,
@@ -810,56 +861,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
     textAlign: 'right',
-  },
-  balanceCard: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  balanceHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  balanceLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  balanceAmount: {
-    fontSize: 48,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  balanceCurrency: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  balanceDivider: {
-    width: '100%',
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: 16,
-  },
-  balanceRow: {
-    flexDirection: 'row',
-    width: '100%',
-    gap: 16,
-  },
-  balanceItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  balanceItemLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  balanceItemValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
   },
   quickActions: {
     marginBottom: 24,
