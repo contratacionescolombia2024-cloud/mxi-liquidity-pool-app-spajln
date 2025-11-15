@@ -1,5 +1,12 @@
 
+import VestingCounter from '@/components/VestingCounter';
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
+import { IconSymbol } from '@/components/IconSymbol';
+import YieldDisplay from '@/components/YieldDisplay';
 import {
   View,
   Text,
@@ -9,14 +16,7 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, commonStyles } from '@/styles/commonStyles';
-import { useAuth } from '@/contexts/AuthContext';
-import { IconSymbol } from '@/components/IconSymbol';
-import { supabase } from '@/lib/supabase';
-import YieldDisplay from '@/components/YieldDisplay';
-import VestingCounter from '@/components/VestingCounter';
 
 interface PhaseData {
   totalTokensSold: number;
@@ -193,9 +193,9 @@ export default function HomeScreen() {
   const mxiFromChallenges = (user as any).mxi_from_challenges || 0;
   const mxiVestingLocked = (user as any).mxi_vesting_locked || 0;
 
-  // Total MXI balance is the sum of purchased, commissions, and challenges
-  // This is what the user requested: sumatoria de mxi comprados, ganados por referidos y mxi ganados por retos
-  const totalMxiBalance = mxiPurchased + mxiFromCommissions + mxiFromChallenges;
+  // Total MXI balance NOW INCLUDES VESTING as requested:
+  // "sumatoria de mxi comprados, mxi por referidos, mxi por retos, mxi vesting"
+  const totalMxiBalance = mxiPurchased + mxiFromCommissions + mxiFromChallenges + mxiVestingLocked;
 
   console.log('MXI Balance Breakdown:', {
     total: totalMxiBalance,
@@ -322,23 +322,21 @@ export default function HomeScreen() {
               <Text style={styles.breakdownValue}>{mxiFromChallenges.toFixed(2)}</Text>
             </View>
 
-            {mxiVestingLocked > 0 && (
-              <View style={styles.breakdownRow}>
-                <View style={styles.breakdownItem}>
-                  <IconSymbol 
-                    ios_icon_name="lock.fill" 
-                    android_material_icon_name="lock" 
-                    size={20} 
-                    color={colors.accent} 
-                  />
-                  <View style={styles.breakdownText}>
-                    <Text style={styles.breakdownLabel}>MXI Vesting</Text>
-                    <Text style={styles.breakdownSubtext}>Bloqueado hasta lanzamiento</Text>
-                  </View>
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownItem}>
+                <IconSymbol 
+                  ios_icon_name="lock.fill" 
+                  android_material_icon_name="lock" 
+                  size={20} 
+                  color={colors.accent} 
+                />
+                <View style={styles.breakdownText}>
+                  <Text style={styles.breakdownLabel}>MXI Vesting</Text>
+                  <Text style={styles.breakdownSubtext}>Bloqueado hasta lanzamiento</Text>
                 </View>
-                <Text style={styles.breakdownValue}>{mxiVestingLocked.toFixed(2)}</Text>
               </View>
-            )}
+              <Text style={styles.breakdownValue}>{mxiVestingLocked.toFixed(2)}</Text>
+            </View>
           </View>
 
           <View style={styles.balanceDivider} />
