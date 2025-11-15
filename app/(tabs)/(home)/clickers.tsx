@@ -47,6 +47,13 @@ interface Participant {
   is_tiebreaker_participant: boolean;
 }
 
+interface AvailableBalances {
+  mxiPurchasedDirectly: number;
+  mxiFromUnifiedCommissions: number;
+  mxiFromChallenges: number;
+  total: number;
+}
+
 export default function ClickersScreen() {
   const { user } = useAuth();
   const router = useRouter();
@@ -61,7 +68,12 @@ export default function ClickersScreen() {
   const [tiebreakerTimeLeft, setTiebreakerTimeLeft] = useState<number | null>(null);
   const [showStartPrompt, setShowStartPrompt] = useState(false);
   const [showPaymentSourceModal, setShowPaymentSourceModal] = useState(false);
-  const [availableBalances, setAvailableBalances] = useState({ purchased: 0, commissions: 0 });
+  const [availableBalances, setAvailableBalances] = useState<AvailableBalances>({
+    mxiPurchasedDirectly: 0,
+    mxiFromUnifiedCommissions: 0,
+    mxiFromChallenges: 0,
+    total: 0,
+  });
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const tiebreakerTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -91,7 +103,7 @@ export default function ClickersScreen() {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('mxi_purchased_directly, mxi_from_unified_commissions')
+        .select('mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges')
         .eq('id', user.id)
         .single();
       
@@ -100,9 +112,15 @@ export default function ClickersScreen() {
         return;
       }
       
+      const purchased = data?.mxi_purchased_directly || 0;
+      const commissions = data?.mxi_from_unified_commissions || 0;
+      const challenges = data?.mxi_from_challenges || 0;
+
       setAvailableBalances({
-        purchased: parseFloat(data.mxi_purchased_directly?.toString() || '0'),
-        commissions: parseFloat(data.mxi_from_unified_commissions?.toString() || '0'),
+        mxiPurchasedDirectly: purchased,
+        mxiFromUnifiedCommissions: commissions,
+        mxiFromChallenges: challenges,
+        total: purchased + commissions + challenges,
       });
     } catch (error) {
       console.error('Exception loading balances:', error);
@@ -245,20 +263,15 @@ export default function ClickersScreen() {
 
     // Tiebreakers have no entry fee
     if (currentCompetition.is_tiebreaker) {
-      proceedWithJoin();
+      proceedWithJoin('purchased');
       return;
     }
 
     // Check available balance
-    const totalAvailable = availableBalances.purchased + availableBalances.commissions;
-    if (totalAvailable < currentCompetition.entry_fee) {
+    if (availableBalances.total < currentCompetition.entry_fee) {
       Alert.alert(
-        '💰 Saldo Insuficiente',
-        `Necesitas ${currentCompetition.entry_fee} MXI para unirte.\n\n` +
-        `💎 MXI Comprados: ${availableBalances.purchased.toFixed(2)}\n` +
-        `👥 MXI por Referidos: ${availableBalances.commissions.toFixed(2)}\n` +
-        `📊 Total Disponible: ${totalAvailable.toFixed(2)} MXI\n\n` +
-        `⚠️ Solo puedes usar MXI comprados con USDT o de comisiones unificadas para retos.`
+        'Insufficient Balance',
+        `You need ${currentCompetition.entry_fee} MXI to join.\n\nYour available balance for challenges is ${availableBalances.total.toFixed(2)} MXI.\n\nAvailable MXI includes:\n- MXI purchased directly\n- MXI from unified commissions\n- MXI from challenge winnings`
       );
       return;
     }
@@ -267,13 +280,56 @@ export default function ClickersScreen() {
     setShowPaymentSourceModal(true);
   };
 
-  const proceedWithJoin = async () => {
+  const proceedWithJoin = async (source: 'purchased' | 'commissions' | 'challenges') => {
     if (!user || !currentCompetition) return;
+
+    // Validate source has enough balance (skip for tiebreakers)
+    if (!currentCompetition.is_tiebreaker) {
+      let sourceBalance = 0;
+      let sourceName = '';
+
+      switch (source) {
+        case 'purchased':
+          sourceBalance = availableBalances.mxiPurchasedDirectly;
+          sourceName = 'MXI Purchased';
+          break;
+        case 'commissions':
+          sourceBalance = availableBalances.mxiFromUnifiedCommissions;
+          sourceName = 'MXI from Commissions';
+          break;
+        case 'challenges':
+          sourceBalance = availableBalances.mxiFromChallenges;
+          sourceName = 'MXI from Challenges';
+          break;
+      }
+
+      if (sourceBalance < currentCompetition.entry_fee) {
+        Alert.alert(
+          'Insufficient Balance',
+          `Your ${sourceName} balance (${sourceBalance.toFixed(2)} MXI) is not enough to cover the entry fee (${currentCompetition.entry_fee.toFixed(2)} MXI).`
+        );
+        return;
+      }
+    }
 
     setShowPaymentSourceModal(false);
     
     try {
       setJoining(true);
+
+      // Deduct entry fee (skip for tiebreakers)
+      if (!currentCompetition.is_tiebreaker) {
+        const { error: deductError } = await supabase.rpc('deduct_challenge_balance', {
+          p_user_id: user.id,
+          p_amount: currentCompetition.entry_fee,
+        });
+
+        if (deductError) {
+          console.error('Deduct error:', deductError);
+          Alert.alert('Error', 'Failed to deduct balance');
+          return;
+        }
+      }
 
       const { data, error } = await supabase.rpc('join_clicker_competition', {
         p_user_id: user.id,
@@ -281,12 +337,12 @@ export default function ClickersScreen() {
 
       if (error) {
         console.error('Join error:', error);
-        Alert.alert('❌ Error', error.message || 'No se pudo unir a la competencia');
+        Alert.alert('Error', error.message || 'Failed to join competition');
         return;
       }
 
       if (!data.success) {
-        Alert.alert('❌ Error', data.error || 'No se pudo unir a la competencia');
+        Alert.alert('Error', data.error || 'Failed to join competition');
         return;
       }
 
@@ -295,16 +351,16 @@ export default function ClickersScreen() {
       setShowStartPrompt(true);
       
       Alert.alert(
-        '✅ ¡Éxito!', 
-        '¡Te has unido a la competencia! ¿Listo para jugar?',
+        'Success!', 
+        'You have joined the competition! Ready to play?',
         [
           { 
-            text: 'Todavía no', 
+            text: 'Not Yet', 
             style: 'cancel',
             onPress: () => setShowStartPrompt(true)
           },
           {
-            text: '¡Empezar Ahora!',
+            text: 'Start Now!',
             onPress: () => {
               setShowStartPrompt(false);
               startGame();
@@ -314,7 +370,7 @@ export default function ClickersScreen() {
       );
     } catch (error: any) {
       console.error('Join exception:', error);
-      Alert.alert('❌ Error', error.message || 'No se pudo unir a la competencia');
+      Alert.alert('Error', error.message || 'Failed to join competition');
     } finally {
       setJoining(false);
     }
@@ -351,31 +407,31 @@ export default function ClickersScreen() {
 
       if (error) {
         console.error('Submit score error:', error);
-        Alert.alert('❌ Error', 'No se pudo enviar la puntuación');
+        Alert.alert('Error', 'Failed to submit score');
         return;
       }
 
       if (!data.success) {
-        Alert.alert('❌ Error', data.error || 'No se pudo enviar la puntuación');
+        Alert.alert('Error', data.error || 'Failed to submit score');
         return;
       }
 
       if (data.tie) {
         Alert.alert(
-          '🤝 ¡Empate!',
-          `¡Empataste con ${data.tied_count - 1} jugador(es) más! Se ha creado una ronda de desempate. Tienes 10 minutos para completarla.`
+          'Tie!',
+          `You tied with ${data.tied_count - 1} other player(s)! A tiebreaker round has been created. You have 10 minutes to complete it.`
         );
       } else if (data.winner_id === user?.id) {
-        Alert.alert('🏆 ¡Ganaste!', `¡Felicidades! Ganaste ${data.prize_amount.toFixed(2)} MXI!`);
+        Alert.alert('You Won!', `Congratulations! You won ${data.prize_amount.toFixed(2)} MXI!`);
       } else {
-        Alert.alert('✅ Puntuación Enviada', `¡Hiciste ${clicks} clics!`);
+        Alert.alert('Score Submitted', `You scored ${clicks} clicks!`);
       }
 
       await loadCompetitionData();
       await loadParticipants();
     } catch (error: any) {
       console.error('Submit score exception:', error);
-      Alert.alert('❌ Error', error.message || 'No se pudo enviar la puntuación');
+      Alert.alert('Error', error.message || 'Failed to submit score');
     }
   };
 
@@ -415,7 +471,7 @@ export default function ClickersScreen() {
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Cargando competencia...</Text>
+          <Text style={styles.loadingText}>Loading competition...</Text>
         </View>
       </SafeAreaView>
     );
@@ -432,13 +488,11 @@ export default function ClickersScreen() {
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No hay competencia activa</Text>
+          <Text style={styles.emptyText}>No active competition</Text>
         </View>
       </SafeAreaView>
     );
   }
-
-  const totalAvailable = availableBalances.purchased + availableBalances.commissions;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -460,16 +514,20 @@ export default function ClickersScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Available Balance Card */}
         <View style={[commonStyles.card, styles.balanceCard]}>
-          <Text style={styles.balanceTitle}>💰 Saldo Disponible para Retos</Text>
-          <Text style={styles.balanceAmount}>{totalAvailable.toFixed(2)} MXI</Text>
+          <Text style={styles.balanceTitle}>Available Balance for Challenges</Text>
+          <Text style={styles.balanceAmount}>{availableBalances.total.toFixed(2)} MXI</Text>
           <View style={styles.balanceBreakdown}>
             <View style={styles.balanceItem}>
-              <Text style={styles.balanceLabel}>💎 MXI Comprados</Text>
-              <Text style={styles.balanceValue}>{availableBalances.purchased.toFixed(2)}</Text>
+              <Text style={styles.balanceLabel}>MXI Purchased</Text>
+              <Text style={styles.balanceValue}>{availableBalances.mxiPurchasedDirectly.toFixed(2)}</Text>
             </View>
             <View style={styles.balanceItem}>
-              <Text style={styles.balanceLabel}>👥 MXI por Referidos</Text>
-              <Text style={styles.balanceValue}>{availableBalances.commissions.toFixed(2)}</Text>
+              <Text style={styles.balanceLabel}>MXI from Commissions</Text>
+              <Text style={styles.balanceValue}>{availableBalances.mxiFromUnifiedCommissions.toFixed(2)}</Text>
+            </View>
+            <View style={styles.balanceItem}>
+              <Text style={styles.balanceLabel}>MXI from Challenges</Text>
+              <Text style={styles.balanceValue}>{availableBalances.mxiFromChallenges.toFixed(2)}</Text>
             </View>
           </View>
         </View>
@@ -479,14 +537,14 @@ export default function ClickersScreen() {
           <View style={[commonStyles.card, styles.tiebreakerWarning]}>
             <View style={styles.warningHeader}>
               <Text style={styles.warningEmoji}>⚠️</Text>
-              <Text style={styles.warningTitle}>RONDA DE DESEMPATE</Text>
+              <Text style={styles.warningTitle}>TIEBREAKER ROUND</Text>
             </View>
             <Text style={styles.warningText}>
-              Esta es una ronda de desempate. Debes completarla dentro de:
+              This is a tiebreaker round. You must complete it within:
             </Text>
             <Text style={styles.tiebreakerTimer}>{formatTiebreakerTime(tiebreakerTimeLeft)}</Text>
             <Text style={styles.warningSubtext}>
-              Si no juegas dentro de este tiempo, tu puntuación será 0 y perderás.
+              If you don&apos;t play within this time, your score will be set to 0 and you&apos;ll forfeit.
             </Text>
           </View>
         )}
@@ -501,23 +559,23 @@ export default function ClickersScreen() {
             </View>
             <View style={styles.competitionHeaderText}>
               <Text style={styles.competitionTitle}>
-                {currentCompetition.is_tiebreaker ? 'Desempate' : `Competencia #${currentCompetition.competition_number}`}
+                {currentCompetition.is_tiebreaker ? 'Tiebreaker' : `Competition #${currentCompetition.competition_number}`}
               </Text>
               <Text style={styles.competitionStatus}>
-                {currentCompetition.status === 'open' ? '🟢 Abierta' : '🔒 Cerrada'}
+                {currentCompetition.status === 'open' ? '🟢 Open' : '🔒 Locked'}
               </Text>
             </View>
           </View>
 
           <View style={styles.prizeContainer}>
-            <Text style={styles.prizeLabel}>Premio (90%)</Text>
+            <Text style={styles.prizeLabel}>Prize (90%)</Text>
             <Text style={styles.prizeAmount}>{currentCompetition.prize_amount.toFixed(2)} MXI</Text>
-            <Text style={styles.totalPool}>Pozo Total: {currentCompetition.total_pool.toFixed(2)} MXI</Text>
+            <Text style={styles.totalPool}>Total Pool: {currentCompetition.total_pool.toFixed(2)} MXI</Text>
           </View>
 
           <View style={styles.progressSection}>
             <View style={styles.progressHeader}>
-              <Text style={styles.progressLabel}>Participantes</Text>
+              <Text style={styles.progressLabel}>Participants</Text>
               <Text style={styles.progressValue}>
                 {currentCompetition.participants_count} / {currentCompetition.max_participants}
               </Text>
@@ -529,15 +587,15 @@ export default function ClickersScreen() {
 
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Entrada</Text>
+              <Text style={styles.statLabel}>Entry Fee</Text>
               <Text style={styles.statValue}>
-                {currentCompetition.is_tiebreaker ? 'GRATIS' : `${currentCompetition.entry_fee} MXI`}
+                {currentCompetition.is_tiebreaker ? 'FREE' : `${currentCompetition.entry_fee} MXI`}
               </Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Tu Saldo</Text>
-              <Text style={styles.statValue}>{totalAvailable.toFixed(2)} MXI</Text>
+              <Text style={styles.statLabel}>Available MXI</Text>
+              <Text style={styles.statValue}>{availableBalances.total.toFixed(2)}</Text>
             </View>
           </View>
         </View>
@@ -546,18 +604,18 @@ export default function ClickersScreen() {
         {userParticipant ? (
           userParticipant.has_played ? (
             <View style={commonStyles.card}>
-              <Text style={styles.sectionTitle}>Tu Puntuación</Text>
+              <Text style={styles.sectionTitle}>Your Score</Text>
               <View style={styles.scoreContainer}>
                 <Text style={styles.scoreValue}>{userParticipant.clicks}</Text>
-                <Text style={styles.scoreLabel}>clics</Text>
+                <Text style={styles.scoreLabel}>clicks</Text>
               </View>
               <Text style={styles.waitingText}>
-                Esperando a que todos los participantes completen...
+                Waiting for all participants to complete...
               </Text>
             </View>
           ) : (
             <View style={commonStyles.card}>
-              <Text style={styles.sectionTitle}>Desafío de Clics</Text>
+              <Text style={styles.sectionTitle}>Click Challenge</Text>
               {isPlaying ? (
                 <React.Fragment>
                   <View style={styles.timerContainer}>
@@ -569,12 +627,12 @@ export default function ClickersScreen() {
                       onPress={handleClick}
                       activeOpacity={0.8}
                     >
-                      <Text style={styles.clickButtonText}>¡TOCA!</Text>
+                      <Text style={styles.clickButtonText}>TAP!</Text>
                     </TouchableOpacity>
                   </Animated.View>
                   <View style={styles.clicksContainer}>
                     <Text style={styles.clicksValue}>{clicks}</Text>
-                    <Text style={styles.clicksLabel}>clics</Text>
+                    <Text style={styles.clicksLabel}>clicks</Text>
                   </View>
                 </React.Fragment>
               ) : (
@@ -582,20 +640,20 @@ export default function ClickersScreen() {
                   {showStartPrompt && (
                     <View style={styles.startPromptContainer}>
                       <Text style={styles.startPromptEmoji}>🎮</Text>
-                      <Text style={styles.startPromptTitle}>¡Listo para Jugar!</Text>
+                      <Text style={styles.startPromptTitle}>Ready to Play!</Text>
                       <Text style={styles.startPromptText}>
-                        Te has unido exitosamente a la competencia. ¡Inicia el desafío cuando estés listo!
+                        You&apos;ve successfully joined the competition. Start the challenge when you&apos;re ready!
                       </Text>
                     </View>
                   )}
                   <Text style={styles.instructionText}>
-                    ¡Haz clic en el botón tantas veces como puedas en 15 segundos!
+                    Click the button as many times as you can in 15 seconds!
                   </Text>
                   <TouchableOpacity
                     style={[buttonStyles.primary, styles.startButton]}
                     onPress={startGame}
                   >
-                    <Text style={buttonStyles.primaryText}>Iniciar Desafío</Text>
+                    <Text style={buttonStyles.primaryText}>Start Challenge</Text>
                   </TouchableOpacity>
                 </React.Fragment>
               )}
@@ -605,12 +663,12 @@ export default function ClickersScreen() {
           currentCompetition.status === 'open' && (
             <View style={commonStyles.card}>
               <Text style={styles.sectionTitle}>
-                {currentCompetition.is_tiebreaker ? 'Unirse al Desempate' : 'Unirse a la Competencia'}
+                {currentCompetition.is_tiebreaker ? 'Join Tiebreaker' : 'Join Competition'}
               </Text>
               <Text style={styles.joinText}>
                 {currentCompetition.is_tiebreaker
-                  ? '¡Únete a esta ronda de desempate y compite por el premio! No se requiere entrada.'
-                  : `¡Únete a esta competencia por ${currentCompetition.entry_fee} MXI y compite por el premio!`}
+                  ? 'Join this tiebreaker round and compete for the prize! No entry fee required.'
+                  : `Join this competition for ${currentCompetition.entry_fee} MXI and compete for the prize!`}
               </Text>
               <TouchableOpacity
                 style={[buttonStyles.primary, styles.joinButton]}
@@ -620,7 +678,7 @@ export default function ClickersScreen() {
                 {joining ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={buttonStyles.primaryText}>Unirse Ahora</Text>
+                  <Text style={buttonStyles.primaryText}>Join Now</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -630,7 +688,7 @@ export default function ClickersScreen() {
         {/* Leaderboard */}
         {participants.length > 0 && (
           <View style={commonStyles.card}>
-            <Text style={styles.sectionTitle}>Tabla de Posiciones</Text>
+            <Text style={styles.sectionTitle}>Leaderboard</Text>
             <View style={styles.leaderboardList}>
               {participants.map((participant, index) => (
                 <View key={participant.id} style={styles.leaderboardItem}>
@@ -640,10 +698,10 @@ export default function ClickersScreen() {
                   <View style={styles.leaderboardInfo}>
                     <Text style={styles.leaderboardName}>
                       {participant.user_name}
-                      {participant.user_id === user?.id && ' (Tú)'}
+                      {participant.user_id === user?.id && ' (You)'}
                     </Text>
                     <Text style={styles.leaderboardClicks}>
-                      {participant.has_played ? `${participant.clicks} clics` : 'No ha jugado'}
+                      {participant.has_played ? `${participant.clicks} clicks` : 'Not played'}
                     </Text>
                   </View>
                 </View>
@@ -654,43 +712,43 @@ export default function ClickersScreen() {
 
         {/* How It Works */}
         <View style={commonStyles.card}>
-          <Text style={styles.sectionTitle}>Cómo Funciona</Text>
+          <Text style={styles.sectionTitle}>How It Works</Text>
           <View style={styles.infoList}>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>1.</Text>
-              <Text style={styles.infoText}>La entrada es de 10 MXI por competencia</Text>
+              <Text style={styles.infoText}>Entry fee is 10 MXI per competition</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>2.</Text>
-              <Text style={styles.infoText}>Solo puedes usar MXI comprados o de comisiones unificadas</Text>
+              <Text style={styles.infoText}>Choose which MXI balance to use for payment</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>3.</Text>
-              <Text style={styles.infoText}>Haz clic en "Unirse Ahora" para entrar a la competencia</Text>
+              <Text style={styles.infoText}>Click &quot;Join Now&quot; to enter the competition</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>4.</Text>
-              <Text style={styles.infoText}>Inicia el juego cuando estés listo para jugar</Text>
+              <Text style={styles.infoText}>Start the game when you&apos;re ready to play</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>5.</Text>
-              <Text style={styles.infoText}>La tabla de posiciones se actualiza en tiempo real</Text>
+              <Text style={styles.infoText}>Leaderboard updates in real-time</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>6.</Text>
-              <Text style={styles.infoText}>La puntuación más alta gana el 90% del pozo</Text>
+              <Text style={styles.infoText}>Highest score wins 90% of the pool</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>7.</Text>
-              <Text style={styles.infoText}>Los empates activan rondas de desempate automáticas</Text>
+              <Text style={styles.infoText}>Ties trigger automatic tiebreaker rounds</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>8.</Text>
-              <Text style={styles.infoText}>Desempate: 10 min para jugar o la puntuación se vuelve 0</Text>
+              <Text style={styles.infoText}>Tiebreaker: 10 min to play or score becomes 0</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>9.</Text>
-              <Text style={styles.infoText}>Todos los resultados se almacenan por 10 días en tu historial</Text>
+              <Text style={styles.infoText}>All results stored for 10 days in your history</Text>
             </View>
           </View>
         </View>
@@ -705,64 +763,112 @@ export default function ClickersScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>💰 Seleccionar Fuente de Pago</Text>
-              <TouchableOpacity onPress={() => setShowPaymentSourceModal(false)}>
-                <IconSymbol ios_icon_name="xmark.circle.fill" android_material_icon_name="cancel" size={28} color={colors.textSecondary} />
+            <Text style={styles.modalTitle}>Select Payment Source</Text>
+            <Text style={styles.modalSubtitle}>
+              Choose which MXI balance to use for this competition
+            </Text>
+
+            <View style={styles.paymentSourcesList}>
+              {/* MXI Purchased */}
+              <TouchableOpacity
+                style={[
+                  styles.paymentSourceItem,
+                  availableBalances.mxiPurchasedDirectly < currentCompetition.entry_fee && styles.paymentSourceItemDisabled
+                ]}
+                onPress={() => proceedWithJoin('purchased')}
+                disabled={availableBalances.mxiPurchasedDirectly < currentCompetition.entry_fee || joining}
+              >
+                <View style={styles.paymentSourceHeader}>
+                  <IconSymbol 
+                    ios_icon_name="dollarsign.circle.fill" 
+                    android_material_icon_name="monetization_on" 
+                    size={24} 
+                    color={colors.primary} 
+                  />
+                  <View style={styles.paymentSourceInfo}>
+                    <Text style={styles.paymentSourceTitle}>MXI Purchased</Text>
+                    <Text style={styles.paymentSourceBalance}>
+                      {availableBalances.mxiPurchasedDirectly.toFixed(2)} MXI
+                    </Text>
+                  </View>
+                  <IconSymbol 
+                    ios_icon_name="chevron.right" 
+                    android_material_icon_name="chevron_right" 
+                    size={20} 
+                    color={colors.textSecondary} 
+                  />
+                </View>
+              </TouchableOpacity>
+
+              {/* MXI from Commissions */}
+              <TouchableOpacity
+                style={[
+                  styles.paymentSourceItem,
+                  availableBalances.mxiFromUnifiedCommissions < currentCompetition.entry_fee && styles.paymentSourceItemDisabled
+                ]}
+                onPress={() => proceedWithJoin('commissions')}
+                disabled={availableBalances.mxiFromUnifiedCommissions < currentCompetition.entry_fee || joining}
+              >
+                <View style={styles.paymentSourceHeader}>
+                  <IconSymbol 
+                    ios_icon_name="arrow.triangle.merge" 
+                    android_material_icon_name="merge_type" 
+                    size={24} 
+                    color={colors.success} 
+                  />
+                  <View style={styles.paymentSourceInfo}>
+                    <Text style={styles.paymentSourceTitle}>MXI from Commissions</Text>
+                    <Text style={styles.paymentSourceBalance}>
+                      {availableBalances.mxiFromUnifiedCommissions.toFixed(2)} MXI
+                    </Text>
+                  </View>
+                  <IconSymbol 
+                    ios_icon_name="chevron.right" 
+                    android_material_icon_name="chevron_right" 
+                    size={20} 
+                    color={colors.textSecondary} 
+                  />
+                </View>
+              </TouchableOpacity>
+
+              {/* MXI from Challenges */}
+              <TouchableOpacity
+                style={[
+                  styles.paymentSourceItem,
+                  availableBalances.mxiFromChallenges < currentCompetition.entry_fee && styles.paymentSourceItemDisabled
+                ]}
+                onPress={() => proceedWithJoin('challenges')}
+                disabled={availableBalances.mxiFromChallenges < currentCompetition.entry_fee || joining}
+              >
+                <View style={styles.paymentSourceHeader}>
+                  <IconSymbol 
+                    ios_icon_name="trophy.fill" 
+                    android_material_icon_name="emoji_events" 
+                    size={24} 
+                    color={colors.warning} 
+                  />
+                  <View style={styles.paymentSourceInfo}>
+                    <Text style={styles.paymentSourceTitle}>MXI from Challenges</Text>
+                    <Text style={styles.paymentSourceBalance}>
+                      {availableBalances.mxiFromChallenges.toFixed(2)} MXI
+                    </Text>
+                  </View>
+                  <IconSymbol 
+                    ios_icon_name="chevron.right" 
+                    android_material_icon_name="chevron_right" 
+                    size={20} 
+                    color={colors.textSecondary} 
+                  />
+                </View>
               </TouchableOpacity>
             </View>
 
-            <View style={styles.modalBody}>
-              <Text style={styles.modalSubtitle}>
-                Entrada requerida: {currentCompetition.entry_fee} MXI
-              </Text>
-
-              <Text style={styles.modalInfo}>
-                ℹ️ El pago se descontará automáticamente de tus saldos disponibles en el siguiente orden:
-              </Text>
-
-              <View style={styles.paymentSourceCard}>
-                <View style={styles.paymentSourceHeader}>
-                  <IconSymbol ios_icon_name="cart.fill" android_material_icon_name="shopping_cart" size={24} color={colors.primary} />
-                  <Text style={styles.paymentSourceTitle}>1. MXI Comprados</Text>
-                </View>
-                <Text style={styles.paymentSourceAmount}>{availableBalances.purchased.toFixed(2)} MXI</Text>
-                <Text style={styles.paymentSourceNote}>Primero se usará este saldo</Text>
-              </View>
-
-              <View style={styles.paymentSourceCard}>
-                <View style={styles.paymentSourceHeader}>
-                  <IconSymbol ios_icon_name="person.3.fill" android_material_icon_name="group" size={24} color={colors.success} />
-                  <Text style={styles.paymentSourceTitle}>2. MXI por Referidos</Text>
-                </View>
-                <Text style={styles.paymentSourceAmount}>{availableBalances.commissions.toFixed(2)} MXI</Text>
-                <Text style={styles.paymentSourceNote}>Se usará si el saldo comprado no es suficiente</Text>
-              </View>
-
-              <View style={styles.totalAvailableCard}>
-                <Text style={styles.totalAvailableLabel}>Total Disponible</Text>
-                <Text style={styles.totalAvailableAmount}>{totalAvailable.toFixed(2)} MXI</Text>
-              </View>
-
-              <TouchableOpacity
-                style={[buttonStyles.primary, styles.confirmButton]}
-                onPress={proceedWithJoin}
-                disabled={joining}
-              >
-                {joining ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={buttonStyles.primaryText}>✅ Confirmar y Unirse</Text>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[buttonStyles.outline, styles.cancelButton]}
-                onPress={() => setShowPaymentSourceModal(false)}
-              >
-                <Text style={buttonStyles.outlineText}>Cancelar</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={[buttonStyles.outline, { marginTop: 16 }]}
+              onPress={() => setShowPaymentSourceModal(false)}
+            >
+              <Text style={buttonStyles.outlineText}>Cancel</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -1172,96 +1278,62 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   modalContent: {
-    backgroundColor: colors.background,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: 16,
     padding: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    width: '100%',
+    maxWidth: 400,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '700',
     color: colors.text,
-  },
-  modalBody: {
-    padding: 24,
-  },
-  modalSubtitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 16,
+    marginBottom: 8,
     textAlign: 'center',
   },
-  modalInfo: {
+  modalSubtitle: {
     fontSize: 14,
     color: colors.textSecondary,
+    textAlign: 'center',
     marginBottom: 20,
-    lineHeight: 20,
   },
-  paymentSourceCard: {
-    backgroundColor: colors.card,
+  paymentSourcesList: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  paymentSourceItem: {
+    backgroundColor: colors.background,
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  paymentSourceItemDisabled: {
+    opacity: 0.5,
   },
   paymentSourceHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    padding: 16,
     gap: 12,
+  },
+  paymentSourceInfo: {
+    flex: 1,
   },
   paymentSourceTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
-  },
-  paymentSourceAmount: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.primary,
     marginBottom: 4,
   },
-  paymentSourceNote: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-  },
-  totalAvailableCard: {
-    backgroundColor: colors.primary + '20',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 8,
-    marginBottom: 24,
-    alignItems: 'center',
-  },
-  totalAvailableLabel: {
+  paymentSourceBalance: {
     fontSize: 14,
     color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  totalAvailableAmount: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  confirmButton: {
-    marginBottom: 12,
-  },
-  cancelButton: {
-    marginBottom: 8,
   },
 });
