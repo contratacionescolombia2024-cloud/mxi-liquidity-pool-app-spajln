@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
+import { useRouter } from 'expo-router';
 
 interface User {
   id: string;
@@ -552,6 +553,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAuthenticated(false);
       
       console.log('=== LOGOUT COMPLETE ===');
+      
+      // Note: Navigation will be handled by the auth state change listener
+      // which will automatically redirect to login when session becomes null
     } catch (error) {
       console.error('=== LOGOUT EXCEPTION ===');
       console.error('Logout error:', error);

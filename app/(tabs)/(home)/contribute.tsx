@@ -230,7 +230,8 @@ export default function ContributeScreen() {
     try {
       const mxi = amount / phaseInfo.currentPriceUsdt;
       const paymentId = `MXI-${Date.now()}-${user.id.substring(0, 8)}`;
-      const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+      // Changed from 30 minutes to 8 hours (8 * 60 * 60 * 1000 milliseconds)
+      const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
 
       const { error } = await supabase.from('okx_payments').insert({
         user_id: user.id,
@@ -481,7 +482,7 @@ export default function ContributeScreen() {
               • 💰 Maximum contribution: 100,000 USDT{'\n'}
               • 💎 MXI price varies by phase{'\n'}
               • ⏱️ Higher contributions earn more yield{'\n'}
-              • 🔒 Payments expire after 30 minutes{'\n'}
+              • 🔒 Payments expire after 8 hours{'\n'}
               • ✅ Verification may take a few minutes
             </Text>
           </View>
