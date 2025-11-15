@@ -87,6 +87,7 @@ export default function MXIAirBallScreen() {
   const [userParticipant, setUserParticipant] = useState<Participant | null>(null);
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const [tiebreakerTimeLeft, setTiebreakerTimeLeft] = useState<number | null>(null);
+  const [showStartPrompt, setShowStartPrompt] = useState(false);
   
   // Game state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -386,8 +387,29 @@ export default function MXIAirBallScreen() {
               return;
             }
 
-            Alert.alert('Success!', 'You have joined the competition! Get ready to play.');
+            // Successfully joined - reload data and show start prompt
             await loadCompetitionData();
+            setShowStartPrompt(true);
+            
+            // Show success alert with option to start immediately
+            Alert.alert(
+              'Success!', 
+              'You have joined the competition! Ready to play?',
+              [
+                { 
+                  text: 'Not Yet', 
+                  style: 'cancel',
+                  onPress: () => setShowStartPrompt(true)
+                },
+                {
+                  text: 'Start Now!',
+                  onPress: () => {
+                    setShowStartPrompt(false);
+                    startGame();
+                  }
+                }
+              ]
+            );
           } catch (error: any) {
             console.error('Join exception:', error);
             Alert.alert('Error', error.message || 'Failed to join competition');
@@ -404,6 +426,8 @@ export default function MXIAirBallScreen() {
       Alert.alert('Permission Required', 'Please grant microphone permission to play this game.');
       return;
     }
+
+    setShowStartPrompt(false);
 
     try {
       // Configure audio mode
@@ -770,6 +794,15 @@ export default function MXIAirBallScreen() {
                 </React.Fragment>
               ) : (
                 <React.Fragment>
+                  {showStartPrompt && (
+                    <View style={styles.startPromptContainer}>
+                      <Text style={styles.startPromptEmoji}>🎮</Text>
+                      <Text style={styles.startPromptTitle}>Ready to Play!</Text>
+                      <Text style={styles.startPromptText}>
+                        You&apos;ve successfully joined the competition. Start the challenge when you&apos;re ready!
+                      </Text>
+                    </View>
+                  )}
                   <Text style={styles.instructionText}>
                     Blow into your microphone to keep the ball floating in the center zone. 
                     The longer you keep it centered, the higher your score!
@@ -863,30 +896,34 @@ export default function MXIAirBallScreen() {
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>2.</Text>
-              <Text style={styles.infoText}>Users join and play at their own pace</Text>
+              <Text style={styles.infoText}>Click &quot;Join Now&quot; to enter the competition</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>3.</Text>
-              <Text style={styles.infoText}>Leaderboard updates in real-time as users complete</Text>
+              <Text style={styles.infoText}>Start the game when you&apos;re ready to play</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>4.</Text>
-              <Text style={styles.infoText}>Player with longest center time wins 90% of pool</Text>
+              <Text style={styles.infoText}>Leaderboard updates in real-time as users complete</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>5.</Text>
-              <Text style={styles.infoText}>Ties trigger automatic tiebreaker rounds</Text>
+              <Text style={styles.infoText}>Player with longest center time wins 90% of pool</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>6.</Text>
-              <Text style={styles.infoText}>Tiebreaker: 10 min to play or score becomes 0</Text>
+              <Text style={styles.infoText}>Ties trigger automatic tiebreaker rounds</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>7.</Text>
-              <Text style={styles.infoText}>If no one plays tiebreaker in 1 hour, prize goes to admin</Text>
+              <Text style={styles.infoText}>Tiebreaker: 10 min to play or score becomes 0</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>8.</Text>
+              <Text style={styles.infoText}>If no one plays tiebreaker in 1 hour, prize goes to admin</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoBullet}>9.</Text>
               <Text style={styles.infoText}>All results stored for 10 days in your history</Text>
             </View>
           </View>
@@ -1138,6 +1175,31 @@ const styles = StyleSheet.create({
   },
   gameCard: {
     minHeight: 400,
+  },
+  startPromptContainer: {
+    alignItems: 'center',
+    backgroundColor: colors.success + '20',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: colors.success,
+  },
+  startPromptEmoji: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  startPromptTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.success,
+    marginBottom: 8,
+  },
+  startPromptText: {
+    fontSize: 14,
+    color: colors.text,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   timerContainer: {
     alignItems: 'center',

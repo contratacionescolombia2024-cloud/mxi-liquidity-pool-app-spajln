@@ -58,6 +58,7 @@ export default function ClickersScreen() {
   const [clicks, setClicks] = useState(0);
   const [timeLeft, setTimeLeft] = useState(15);
   const [tiebreakerTimeLeft, setTiebreakerTimeLeft] = useState<number | null>(null);
+  const [showStartPrompt, setShowStartPrompt] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const tiebreakerTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -227,7 +228,7 @@ export default function ClickersScreen() {
 
     const message = currentCompetition.is_tiebreaker
       ? 'Join this tiebreaker round? No entry fee required.'
-      : `Join this clicker competition for ${currentCompetition.entry_fee} MXI?`;
+      : `Join this competition for ${currentCompetition.entry_fee} MXI?`;
 
     Alert.alert('Join Competition', message, [
       { text: 'Cancel', style: 'cancel' },
@@ -252,8 +253,29 @@ export default function ClickersScreen() {
               return;
             }
 
-            Alert.alert('Success!', 'You have joined the competition! You can now play.');
+            // Successfully joined - reload data and show start prompt
             await loadCompetitionData();
+            setShowStartPrompt(true);
+            
+            // Show success alert with option to start immediately
+            Alert.alert(
+              'Success!', 
+              'You have joined the competition! Ready to play?',
+              [
+                { 
+                  text: 'Not Yet', 
+                  style: 'cancel',
+                  onPress: () => setShowStartPrompt(true)
+                },
+                {
+                  text: 'Start Now!',
+                  onPress: () => {
+                    setShowStartPrompt(false);
+                    startGame();
+                  }
+                }
+              ]
+            );
           } catch (error: any) {
             console.error('Join exception:', error);
             Alert.alert('Error', error.message || 'Failed to join competition');
@@ -266,6 +288,7 @@ export default function ClickersScreen() {
   };
 
   const startGame = () => {
+    setShowStartPrompt(false);
     setIsPlaying(true);
     setClicks(0);
     setTimeLeft(15);
@@ -505,6 +528,15 @@ export default function ClickersScreen() {
                 </React.Fragment>
               ) : (
                 <React.Fragment>
+                  {showStartPrompt && (
+                    <View style={styles.startPromptContainer}>
+                      <Text style={styles.startPromptEmoji}>🎮</Text>
+                      <Text style={styles.startPromptTitle}>Ready to Play!</Text>
+                      <Text style={styles.startPromptText}>
+                        You&apos;ve successfully joined the competition. Start the challenge when you&apos;re ready!
+                      </Text>
+                    </View>
+                  )}
                   <Text style={styles.instructionText}>
                     Click the button as many times as you can in 15 seconds!
                   </Text>
@@ -579,30 +611,34 @@ export default function ClickersScreen() {
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>2.</Text>
-              <Text style={styles.infoText}>Users join and play at their own pace</Text>
+              <Text style={styles.infoText}>Click &quot;Join Now&quot; to enter the competition</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>3.</Text>
-              <Text style={styles.infoText}>Leaderboard updates in real-time</Text>
+              <Text style={styles.infoText}>Start the game when you&apos;re ready to play</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>4.</Text>
-              <Text style={styles.infoText}>Highest score wins 90% of the prize pool</Text>
+              <Text style={styles.infoText}>Leaderboard updates in real-time</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>5.</Text>
-              <Text style={styles.infoText}>Ties trigger automatic tiebreaker rounds</Text>
+              <Text style={styles.infoText}>Highest score wins 90% of the prize pool</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>6.</Text>
-              <Text style={styles.infoText}>Tiebreaker: 10 min to play or score becomes 0</Text>
+              <Text style={styles.infoText}>Ties trigger automatic tiebreaker rounds</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>7.</Text>
-              <Text style={styles.infoText}>If no one plays tiebreaker in 1 hour, prize goes to admin</Text>
+              <Text style={styles.infoText}>Tiebreaker: 10 min to play or score becomes 0</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>8.</Text>
+              <Text style={styles.infoText}>If no one plays tiebreaker in 1 hour, prize goes to admin</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoBullet}>9.</Text>
               <Text style={styles.infoText}>All results stored for 10 days in your history</Text>
             </View>
           </View>
@@ -830,6 +866,31 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     marginTop: 16,
+  },
+  startPromptContainer: {
+    alignItems: 'center',
+    backgroundColor: colors.success + '20',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: colors.success,
+  },
+  startPromptEmoji: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  startPromptTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.success,
+    marginBottom: 8,
+  },
+  startPromptText: {
+    fontSize: 14,
+    color: colors.text,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   timerContainer: {
     alignItems: 'center',

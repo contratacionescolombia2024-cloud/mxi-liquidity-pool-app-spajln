@@ -755,6 +755,9 @@ const styles = StyleSheet.create({
   balanceCard: {
     alignItems: 'center',
     marginBottom: 16,
+    backgroundColor: `${colors.accent}15`,
+    borderWidth: 2,
+    borderColor: colors.accent,
   },
   balanceHeader: {
     flexDirection: 'row',
@@ -769,13 +772,13 @@ const styles = StyleSheet.create({
   balanceAmount: {
     fontSize: 48,
     fontWeight: '700',
-    color: colors.text,
+    color: colors.accent,
     marginBottom: 4,
   },
   balanceCurrency: {
     fontSize: 20,
     fontWeight: '600',
-    color: colors.textSecondary,
+    color: colors.accent,
   },
   balanceDivider: {
     width: '100%',
