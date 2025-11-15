@@ -127,6 +127,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Auth state changed:', _event, session);
       setSession(session);
       
+      if (_event === 'SIGNED_OUT') {
+        console.log('User signed out, clearing state');
+        setUser(null);
+        setIsAuthenticated(false);
+        setLoading(false);
+        return;
+      }
+      
       if (_event === 'SIGNED_IN' && session) {
         const { data: existingUser } = await supabase
           .from('users')
@@ -535,37 +543,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       console.log('=== LOGOUT START ===');
-      console.log('Signing out user...');
+      console.log('Current session:', session?.user?.id);
+      console.log('Current user:', user?.id);
       
-      // Sign out from Supabase
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) {
-        console.error('Logout error:', error);
-        throw error;
-      }
-      
-      console.log('Supabase signOut successful');
-      
-      // Clear local state immediately
+      // Clear local state FIRST to trigger navigation immediately
       setUser(null);
       setSession(null);
       setIsAuthenticated(false);
       
-      console.log('=== LOGOUT COMPLETE ===');
+      console.log('Local state cleared');
       
-      // Note: Navigation will be handled by the auth state change listener
-      // which will automatically redirect to login when session becomes null
+      // Then sign out from Supabase
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      
+      if (error) {
+        console.error('Supabase signOut error:', error);
+        // Don't throw - we already cleared local state
+      } else {
+        console.log('Supabase signOut successful');
+      }
+      
+      console.log('=== LOGOUT COMPLETE ===');
     } catch (error) {
       console.error('=== LOGOUT EXCEPTION ===');
       console.error('Logout error:', error);
       
-      // Even if there's an error, clear local state
+      // Ensure state is cleared even on error
       setUser(null);
       setSession(null);
       setIsAuthenticated(false);
-      
-      throw error;
     }
   };
 

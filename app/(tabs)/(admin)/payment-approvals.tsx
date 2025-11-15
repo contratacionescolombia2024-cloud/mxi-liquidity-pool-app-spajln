@@ -73,7 +73,7 @@ const isRetryableError = (error: any): boolean => {
 
 export default function PaymentApprovalsScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [payments, setPayments] = useState<OKXPayment[]>([]);
@@ -148,7 +148,7 @@ export default function PaymentApprovalsScreen() {
       try {
         console.log(`[Attempt ${attempt + 1}/${retries}] Calling payment API - Action: ${action}, Payment: ${paymentId}`);
 
-        // Get current session
+        // Get fresh session
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
@@ -158,11 +158,11 @@ export default function PaymentApprovalsScreen() {
 
         if (!sessionData?.session) {
           console.error('No session found');
-          throw new Error('No active session. Please log in again.');
+          throw new Error('No active session. Please log out and log back in.');
         }
 
-        const session = sessionData.session;
-        console.log('Session obtained successfully');
+        const currentSession = sessionData.session;
+        console.log('Session obtained successfully, user:', currentSession.user.id);
 
         // Construct Edge Function URL
         const supabaseUrl = 'https://aeyfnjuatbtcauiumbhn.supabase.co';
@@ -177,6 +177,7 @@ export default function PaymentApprovalsScreen() {
 
         console.log('Calling Edge Function:', functionUrl);
         console.log('Payload:', requestPayload);
+        console.log('Using access token from user:', currentSession.user.email);
 
         // Make the API call with timeout
         const controller = new AbortController();
@@ -188,8 +189,8 @@ export default function PaymentApprovalsScreen() {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session.access_token}`,
-              'apikey': session.access_token,
+              'Authorization': `Bearer ${currentSession.access_token}`,
+              'apikey': currentSession.access_token,
             },
             body: JSON.stringify(requestPayload),
             signal: controller.signal,
@@ -322,8 +323,8 @@ export default function PaymentApprovalsScreen() {
               let errorMessage = error.message || 'Unknown error occurred';
               
               // Add helpful context based on error type
-              if (error.message?.includes('session')) {
-                errorMessage += '\n\nPlease log out and log back in.';
+              if (error.message?.includes('session') || error.message?.includes('log')) {
+                errorMessage = 'Your session has expired. Please log out and log back in to continue.';
               } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
                 errorMessage += '\n\nPlease check your internet connection and try again.';
               } else if (error.message?.includes('timeout')) {
@@ -381,8 +382,8 @@ export default function PaymentApprovalsScreen() {
               
               let errorMessage = error.message || 'Unknown error occurred';
               
-              if (error.message?.includes('session')) {
-                errorMessage += '\n\nPlease log out and log back in.';
+              if (error.message?.includes('session') || error.message?.includes('log')) {
+                errorMessage = 'Your session has expired. Please log out and log back in to continue.';
               } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
                 errorMessage += '\n\nPlease check your internet connection and try again.';
               } else if (error.message?.includes('timeout')) {
