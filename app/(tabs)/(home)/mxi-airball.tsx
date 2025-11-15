@@ -226,7 +226,7 @@ export default function MXIAirBallScreen() {
   };
 
   const initializeScreen = async () => {
-    console.log('Initializing MXI AirBall screen...');
+    console.log('🎈 Initializing MXI AirBall screen...');
     try {
       await requestPermissions();
       await loadAvailableBalances();
@@ -234,19 +234,19 @@ export default function MXIAirBallScreen() {
       setupRealtimeSubscription();
       await loadNotifications();
     } catch (error) {
-      console.error('Error initializing screen:', error);
+      console.error('❌ Error initializing screen:', error);
       Alert.alert('Error', 'Failed to load competition data. Please try again.');
     }
   };
 
   const loadAvailableBalances = async () => {
     if (!user) {
-      console.log('No user found, skipping balance load');
+      console.log('⚠️ No user found, skipping balance load');
       return;
     }
 
     try {
-      console.log('Loading available balances for user:', user.id);
+      console.log('💰 Loading available balances for user:', user.id);
       const { data, error } = await supabase
         .from('users')
         .select('mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges')
@@ -254,7 +254,7 @@ export default function MXIAirBallScreen() {
         .single();
 
       if (error) {
-        console.error('Error loading balances:', error);
+        console.error('❌ Error loading balances:', error);
         return;
       }
 
@@ -262,7 +262,7 @@ export default function MXIAirBallScreen() {
       const commissions = parseFloat(data.mxi_from_unified_commissions?.toString() || '0');
       const challenges = parseFloat(data.mxi_from_challenges?.toString() || '0');
 
-      console.log('Loaded balances:', { purchased, commissions, challenges });
+      console.log('✅ Loaded balances:', { purchased, commissions, challenges });
 
       setAvailableBalances({
         mxiPurchasedDirectly: purchased,
@@ -271,7 +271,7 @@ export default function MXIAirBallScreen() {
         total: purchased + commissions + challenges,
       });
     } catch (error) {
-      console.error('Exception loading balances:', error);
+      console.error('❌ Exception loading balances:', error);
     }
   };
 
@@ -308,11 +308,11 @@ export default function MXIAirBallScreen() {
 
   const requestPermissions = async () => {
     try {
-      console.log('Requesting permissions...');
+      console.log('🎤 Requesting permissions...');
       // Request microphone permission
       const audioPermission = await Audio.requestPermissionsAsync();
       if (audioPermission.status !== 'granted') {
-        console.log('Microphone permission denied');
+        console.log('❌ Microphone permission denied');
         Alert.alert('Permission Required', 'Microphone access is required to play this game.');
         setHasPermission(false);
         return;
@@ -321,20 +321,20 @@ export default function MXIAirBallScreen() {
       // Request notification permission
       const notificationPermission = await Notifications.requestPermissionsAsync();
       if (notificationPermission.status !== 'granted') {
-        console.log('Notification permission denied');
+        console.log('⚠️ Notification permission denied');
         Alert.alert('Permission Required', 'Notification access is recommended for game updates.');
       }
 
-      console.log('Permissions granted');
+      console.log('✅ Permissions granted');
       setHasPermission(true);
     } catch (error) {
-      console.error('Error requesting permissions:', error);
+      console.error('❌ Error requesting permissions:', error);
       setHasPermission(false);
     }
   };
 
   const setupRealtimeSubscription = () => {
-    console.log('Setting up realtime subscriptions...');
+    console.log('🔄 Setting up realtime subscriptions...');
     // Subscribe to competition updates
     const competitionChannel = supabase
       .channel('airball_competitions_changes')
@@ -346,7 +346,7 @@ export default function MXIAirBallScreen() {
           table: 'airball_competitions',
         },
         (payload) => {
-          console.log('Competition update:', payload);
+          console.log('📡 Competition update:', payload);
           loadCompetitionData();
         }
       )
@@ -364,7 +364,7 @@ export default function MXIAirBallScreen() {
           filter: `user_id=eq.${user?.id}`,
         },
         async (payload) => {
-          console.log('New notification:', payload);
+          console.log('🔔 New notification:', payload);
           const notification = payload.new as NotificationData;
           
           // Show local notification
@@ -390,7 +390,7 @@ export default function MXIAirBallScreen() {
 
   const loadCompetitionData = async () => {
     try {
-      console.log('Loading competition data...');
+      console.log('📊 Loading competition data...');
       setLoading(true);
 
       // First, try to get existing competition
@@ -403,12 +403,12 @@ export default function MXIAirBallScreen() {
         .maybeSingle();
 
       if (compError && compError.code !== 'PGRST116') {
-        console.error('Error loading competition:', compError);
+        console.error('❌ Error loading competition:', compError);
         throw compError;
       }
 
       if (compData) {
-        console.log('Found existing competition:', compData.id);
+        console.log('✅ Found existing competition:', compData.id);
         setCurrentCompetition(compData);
 
         if (user) {
@@ -420,32 +420,32 @@ export default function MXIAirBallScreen() {
             .maybeSingle();
 
           if (partError && partError.code !== 'PGRST116') {
-            console.error('Error loading participant:', partError);
+            console.error('❌ Error loading participant:', partError);
           }
 
-          console.log('User participant status:', partData ? 'Joined' : 'Not joined');
+          console.log('👤 User participant status:', partData ? 'Joined' : 'Not joined');
           setUserParticipant(partData);
         }
       } else {
         // No competition found, create one using RPC
-        console.log('No competition found, creating new one...');
+        console.log('🆕 No competition found, creating new one...');
         const { data: newCompId, error: createError } = await supabase
           .rpc('get_current_airball_competition');
 
         if (createError) {
-          console.error('Error creating competition:', createError);
+          console.error('❌ Error creating competition:', createError);
           throw createError;
         }
 
         if (newCompId) {
-          console.log('Created new competition:', newCompId);
+          console.log('✅ Created new competition:', newCompId);
           // Reload data to get the new competition
           setTimeout(() => loadCompetitionData(), 500);
           return;
         }
       }
     } catch (error) {
-      console.error('Exception loading competition data:', error);
+      console.error('❌ Exception loading competition data:', error);
       Alert.alert('Error', 'Failed to load competition. Please try again.');
     } finally {
       setLoading(false);
@@ -456,7 +456,7 @@ export default function MXIAirBallScreen() {
     if (!currentCompetition) return;
 
     try {
-      console.log('Loading participants for competition:', currentCompetition.id);
+      console.log('👥 Loading participants for competition:', currentCompetition.id);
       const { data, error } = await supabase
         .from('airball_participants')
         .select(`
@@ -467,7 +467,7 @@ export default function MXIAirBallScreen() {
         .order('center_time', { ascending: false });
 
       if (error) {
-        console.error('Error loading participants:', error);
+        console.error('❌ Error loading participants:', error);
         return;
       }
 
@@ -476,10 +476,10 @@ export default function MXIAirBallScreen() {
         user_name: p.users?.name || 'Unknown',
       }));
 
-      console.log('Loaded participants:', participantsWithNames.length);
+      console.log('✅ Loaded participants:', participantsWithNames.length);
       setParticipants(participantsWithNames);
     } catch (error) {
-      console.error('Exception loading participants:', error);
+      console.error('❌ Exception loading participants:', error);
     }
   };
 
@@ -496,27 +496,54 @@ export default function MXIAirBallScreen() {
         .limit(5);
 
       if (error) {
-        console.error('Error loading notifications:', error);
+        console.error('❌ Error loading notifications:', error);
         return;
       }
 
       setNotifications(data || []);
     } catch (error) {
-      console.error('Exception loading notifications:', error);
+      console.error('❌ Exception loading notifications:', error);
     }
   };
 
   const handleJoinCompetition = async () => {
-    if (!user || !currentCompetition) return;
+    if (!user || !currentCompetition) {
+      console.log('⚠️ Missing user or competition');
+      return;
+    }
+
+    // Check permissions first
+    if (!hasPermission) {
+      console.log('⚠️ Missing microphone permission');
+      Alert.alert(
+        'Permission Required', 
+        'Please grant microphone permission to play this game.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Grant Permission', 
+            onPress: async () => {
+              await requestPermissions();
+              if (hasPermission) {
+                handleJoinCompetition();
+              }
+            }
+          }
+        ]
+      );
+      return;
+    }
 
     // Tiebreakers have no entry fee
     if (currentCompetition.is_tiebreaker) {
+      console.log('🎯 Joining tiebreaker (no fee)');
       proceedWithJoin('purchased');
       return;
     }
 
     // Check if user has sufficient balance
     if (availableBalances.total < currentCompetition.entry_fee) {
+      console.log('❌ Insufficient balance:', availableBalances.total, '<', currentCompetition.entry_fee);
       Alert.alert(
         'Insufficient Balance',
         `You need ${currentCompetition.entry_fee} MXI to join. Your available balance is ${availableBalances.total.toFixed(2)} MXI.`
@@ -524,18 +551,16 @@ export default function MXIAirBallScreen() {
       return;
     }
 
-    if (!hasPermission) {
-      Alert.alert('Permission Required', 'Please grant microphone permission to play this game.');
-      await requestPermissions();
-      return;
-    }
-
     // Show payment source selection modal
+    console.log('💳 Opening payment source modal');
     setShowPaymentSourceModal(true);
   };
 
   const proceedWithJoin = async (source: 'purchased' | 'commissions' | 'challenges') => {
-    if (!user || !currentCompetition) return;
+    if (!user || !currentCompetition) {
+      console.log('⚠️ Missing user or competition');
+      return;
+    }
 
     setShowPaymentSourceModal(false);
 
@@ -546,6 +571,7 @@ export default function MXIAirBallScreen() {
       availableBalances.mxiFromChallenges;
 
     if (!currentCompetition.is_tiebreaker && sourceBalance < currentCompetition.entry_fee) {
+      console.log('❌ Insufficient balance in source:', source, sourceBalance);
       Alert.alert(
         'Insufficient Balance',
         `You need ${currentCompetition.entry_fee} MXI from ${
@@ -559,7 +585,11 @@ export default function MXIAirBallScreen() {
 
     const message = currentCompetition.is_tiebreaker
       ? 'Join this tiebreaker round? No entry fee required.'
-      : `Join this AirBall competition for ${currentCompetition.entry_fee} MXI?`;
+      : `Join this AirBall competition for ${currentCompetition.entry_fee} MXI from ${
+          source === 'purchased' ? 'purchased MXI' :
+          source === 'commissions' ? 'unified commissions' :
+          'challenge winnings'
+        }?`;
 
     Alert.alert('Join Competition', message, [
       { text: 'Cancel', style: 'cancel' },
@@ -567,10 +597,12 @@ export default function MXIAirBallScreen() {
         text: 'Join',
         onPress: async () => {
           try {
+            console.log('🎮 Starting join process...');
             setJoining(true);
 
             // Deduct entry fee if not a tiebreaker
             if (!currentCompetition.is_tiebreaker) {
+              console.log('💸 Deducting entry fee from:', source);
               const { data: deductResult, error: deductError } = await supabase
                 .rpc('deduct_challenge_balance', {
                   p_user_id: user.id,
@@ -578,28 +610,66 @@ export default function MXIAirBallScreen() {
                   p_source: source,
                 });
 
-              if (deductError || !deductResult) {
-                console.error('Deduct error:', deductError);
+              if (deductError) {
+                console.error('❌ Deduct error:', deductError);
                 Alert.alert('Error', 'Failed to deduct entry fee. Please try again.');
                 setJoining(false);
                 return;
               }
+
+              if (!deductResult) {
+                console.error('❌ Deduct failed - insufficient balance');
+                Alert.alert('Error', 'Insufficient balance in selected source.');
+                setJoining(false);
+                return;
+              }
+
+              console.log('✅ Entry fee deducted successfully');
             }
 
+            // Join the competition
+            console.log('🎯 Calling join_airball_competition...');
             const { data, error } = await supabase.rpc('join_airball_competition', {
               p_user_id: user.id,
             });
 
             if (error) {
-              console.error('Join error:', error);
+              console.error('❌ Join error:', error);
+              
+              // Refund the entry fee if join failed
+              if (!currentCompetition.is_tiebreaker) {
+                console.log('💰 Refunding entry fee...');
+                await supabase.rpc('refund_to_source', {
+                  p_user_id: user.id,
+                  p_amount: currentCompetition.entry_fee,
+                  p_source: source,
+                });
+              }
+              
               Alert.alert('Error', error.message || 'Failed to join competition');
+              setJoining(false);
               return;
             }
 
             if (!data.success) {
+              console.error('❌ Join failed:', data.error);
+              
+              // Refund the entry fee if join failed
+              if (!currentCompetition.is_tiebreaker) {
+                console.log('💰 Refunding entry fee...');
+                await supabase.rpc('refund_to_source', {
+                  p_user_id: user.id,
+                  p_amount: currentCompetition.entry_fee,
+                  p_source: source,
+                });
+              }
+              
               Alert.alert('Error', data.error || 'Failed to join competition');
+              setJoining(false);
               return;
             }
+
+            console.log('✅ Successfully joined competition!');
 
             // Successfully joined - reload data and show start prompt
             await loadCompetitionData();
@@ -626,7 +696,7 @@ export default function MXIAirBallScreen() {
               ]
             );
           } catch (error: any) {
-            console.error('Join exception:', error);
+            console.error('❌ Join exception:', error);
             Alert.alert('Error', error.message || 'Failed to join competition');
           } finally {
             setJoining(false);
@@ -638,22 +708,27 @@ export default function MXIAirBallScreen() {
 
   const startGame = async () => {
     if (!hasPermission) {
+      console.log('❌ Missing microphone permission');
       Alert.alert('Permission Required', 'Please grant microphone permission to play this game.');
+      return;
+    }
+
+    if (!userParticipant) {
+      console.log('❌ No user participant found');
+      Alert.alert('Error', 'You must join the competition first.');
       return;
     }
 
     setShowStartPrompt(false);
 
     try {
-      console.log('Starting game...');
+      console.log('🎮 Starting game...');
       
       // Mark game as started
-      if (userParticipant) {
-        await supabase
-          .from('airball_participants')
-          .update({ game_started_at: new Date().toISOString() })
-          .eq('id', userParticipant.id);
-      }
+      await supabase
+        .from('airball_participants')
+        .update({ game_started_at: new Date().toISOString() })
+        .eq('id', userParticipant.id);
 
       // Configure audio mode
       await Audio.setAudioModeAsync({
@@ -662,10 +737,12 @@ export default function MXIAirBallScreen() {
       });
 
       // Start recording
+      console.log('🎤 Starting audio recording...');
       const { recording: newRecording } = await Audio.Recording.createAsync(
         Audio.RecordingOptionsPresets.HIGH_QUALITY
       );
       recording.current = newRecording;
+      console.log('✅ Recording started');
 
       // Start metering
       meteringRef.current = setInterval(async () => {
@@ -733,20 +810,26 @@ export default function MXIAirBallScreen() {
           return prev - 1;
         });
       }, 1000);
+
+      console.log('✅ Game started successfully');
     } catch (error) {
-      console.error('Error starting game:', error);
+      console.error('❌ Error starting game:', error);
       Alert.alert('Error', 'Failed to start game. Please try again.');
+      stopGame();
     }
   };
 
   const stopGame = async () => {
+    console.log('🛑 Stopping game...');
+    
     // Stop recording
     if (recording.current) {
       try {
         await recording.current.stopAndUnloadAsync();
         recording.current = null;
+        console.log('✅ Recording stopped');
       } catch (error) {
-        console.error('Error stopping recording:', error);
+        console.error('❌ Error stopping recording:', error);
       }
     }
 
@@ -769,11 +852,11 @@ export default function MXIAirBallScreen() {
   };
 
   const endGame = async (ballFell: boolean) => {
-    console.log('Game ended. Ball fell:', ballFell, 'Center time:', centerTime);
+    console.log('🏁 Game ended. Ball fell:', ballFell, 'Center time:', centerTime);
     await stopGame();
 
     if (!userParticipant || !currentCompetition) {
-      console.error('No user participant or competition found');
+      console.error('❌ No user participant or competition found');
       return;
     }
 
@@ -784,19 +867,19 @@ export default function MXIAirBallScreen() {
     }
 
     try {
-      console.log('Submitting score:', centerTime);
+      console.log('📤 Submitting score:', centerTime);
       const { data, error } = await supabase.rpc('submit_airball_score', {
         p_participant_id: userParticipant.id,
         p_center_time: centerTime,
       });
 
       if (error) {
-        console.error('Submit score error:', error);
+        console.error('❌ Submit score error:', error);
         Alert.alert('Error', 'Failed to submit score');
         return;
       }
 
-      console.log('Score submission result:', data);
+      console.log('✅ Score submission result:', data);
 
       if (!data.success) {
         Alert.alert('Error', data.error || 'Failed to submit score');
@@ -815,7 +898,7 @@ export default function MXIAirBallScreen() {
       await loadCompetitionData();
       await loadParticipants();
     } catch (error: any) {
-      console.error('Submit score exception:', error);
+      console.error('❌ Submit score exception:', error);
       Alert.alert('Error', error.message || 'Failed to submit score');
     }
   };
