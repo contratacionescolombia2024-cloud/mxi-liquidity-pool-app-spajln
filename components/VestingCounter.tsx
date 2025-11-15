@@ -4,8 +4,10 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'expo-router';
 
 export default function VestingCounter() {
+  const router = useRouter();
   const { user, getCurrentYield, claimYield } = useAuth();
   const [currentYield, setCurrentYield] = useState(0);
   const [unifying, setUnifying] = useState(false);
@@ -20,7 +22,7 @@ export default function VestingCounter() {
     const interval = setInterval(() => {
       const yield_amount = getCurrentYield();
       setCurrentYield(yield_amount);
-    }, 1000);
+    }, 1000); // Update every second as requested
 
     return () => clearInterval(interval);
   }, [user, getCurrentYield]);
@@ -78,6 +80,10 @@ export default function VestingCounter() {
     );
   };
 
+  const handleViewDetails = () => {
+    router.push('/(tabs)/(home)/vesting');
+  };
+
   if (!user || !user.isActiveContributor || user.yieldRatePerMinute === 0) {
     return null;
   }
@@ -97,18 +103,26 @@ export default function VestingCounter() {
           <Text style={styles.iconEmoji}>⛏️</Text>
         </View>
         <View style={styles.headerText}>
-          <Text style={styles.title}>Vesting</Text>
+          <Text style={styles.title}>Vesting Activo</Text>
           <Text style={styles.subtitle}>
             ⚡ {yieldPerSecond.toFixed(8)} MXI por segundo
           </Text>
         </View>
+        <TouchableOpacity onPress={handleViewDetails} style={styles.detailsButton}>
+          <IconSymbol 
+            ios_icon_name="info.circle.fill" 
+            android_material_icon_name="info" 
+            size={24} 
+            color={colors.accent} 
+          />
+        </TouchableOpacity>
       </View>
 
       {/* Vesting Balance Display */}
       <View style={styles.vestingBalanceSection}>
         <View style={styles.vestingBalanceCard}>
           <Text style={styles.vestingBalanceLabel}>💎 MXI en Vesting</Text>
-          <Text style={styles.vestingBalanceValue}>{mxiInVesting.toFixed(8)}</Text>
+          <Text style={styles.vestingBalanceValue}>{mxiInVesting.toFixed(2)}</Text>
           <Text style={styles.vestingBalanceUnit}>MXI</Text>
           <View style={styles.vestingPercentageContainer}>
             <Text style={styles.vestingPercentageText}>
@@ -118,31 +132,13 @@ export default function VestingCounter() {
         </View>
       </View>
 
-      {/* Vesting Breakdown */}
-      <View style={styles.breakdownSection}>
-        <Text style={styles.breakdownTitle}>📊 Composición del Vesting</Text>
-        <View style={styles.breakdownRow}>
-          <Text style={styles.breakdownLabel}>🛒 MXI Comprado Directamente</Text>
-          <Text style={styles.breakdownValue}>{(user.mxiPurchasedDirectly || 0).toFixed(8)}</Text>
-        </View>
-        <View style={styles.breakdownDivider} />
-        <View style={styles.breakdownRow}>
-          <Text style={styles.breakdownLabel}>💰 MXI de Comisiones Unificadas</Text>
-          <Text style={styles.breakdownValue}>{(user.mxiFromUnifiedCommissions || 0).toFixed(8)}</Text>
-        </View>
-        <View style={styles.breakdownDivider} />
-        <View style={styles.breakdownRow}>
-          <Text style={styles.breakdownLabel}>📈 Total en Vesting</Text>
-          <Text style={[styles.breakdownValue, styles.breakdownTotal]}>{mxiInVesting.toFixed(8)}</Text>
-        </View>
-      </View>
-
-      {/* Real-time Counter Display */}
+      {/* Real-time Counter Display - Updates every second */}
       <View style={styles.counterSection}>
         <View style={styles.counterCard}>
-          <Text style={styles.counterLabel}>🔥 Rendimiento Acumulado</Text>
+          <Text style={styles.counterLabel}>🔥 Rendimiento Acumulado (Tiempo Real)</Text>
           <Text style={styles.counterValue}>{totalYield.toFixed(8)}</Text>
           <Text style={styles.counterUnit}>MXI</Text>
+          <Text style={styles.counterSubtext}>Actualizado cada segundo</Text>
         </View>
       </View>
 
@@ -216,7 +212,7 @@ export default function VestingCounter() {
         <Text style={styles.infoText}>
           {canUnify
             ? '¡Felicidades! Has alcanzado 10 referidos activos. Puedes unificar tu saldo de vesting a tu balance principal en cualquier momento.'
-            : `Necesitas ${10 - user.activeReferrals} referidos activos más para poder unificar tu saldo de vesting. El vesting genera 0.005% por hora de tu inversión total en MXI que cuenta para vesting (${mxiInVesting.toFixed(2)} MXI).`}
+            : `Necesitas ${10 - user.activeReferrals} referidos activos más para poder unificar tu saldo de vesting. El vesting genera 0.005% por hora de tu inversión total en MXI (${mxiInVesting.toFixed(2)} MXI).`}
         </Text>
       </View>
 
@@ -226,7 +222,7 @@ export default function VestingCounter() {
         <Text style={styles.explanationText}>
           • El vesting genera rendimientos del 0.005% por hora{'\n'}
           • Solo cuenta el MXI comprado directamente y de comisiones unificadas{'\n'}
-          • El MXI unificado desde el vesting NO aumenta el porcentaje{'\n'}
+          • El rendimiento se actualiza cada segundo en tiempo real{'\n'}
           • Actualmente tienes {mxiInVesting.toFixed(2)} MXI generando rendimientos{'\n'}
           • Balance total: {user.mxiBalance.toFixed(2)} MXI ({vestingPercentage.toFixed(1)}% en vesting)
         </Text>
@@ -282,6 +278,9 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontWeight: '600',
   },
+  detailsButton: {
+    padding: 8,
+  },
   vestingBalanceSection: {
     marginBottom: 16,
   },
@@ -323,19 +322,49 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
   },
-  breakdownSection: {
+  counterSection: {
+    marginBottom: 16,
+  },
+  counterCard: {
+    backgroundColor: `${colors.accent}20`,
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.accent,
+  },
+  counterLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  counterValue: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: colors.accent,
+    fontFamily: 'monospace',
+    marginBottom: 4,
+  },
+  counterUnit: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  counterSubtext: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+  },
+  yieldBreakdownSection: {
     backgroundColor: colors.background,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: colors.border,
-  },
-  breakdownTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 12,
   },
   breakdownRow: {
     flexDirection: 'row',
@@ -358,48 +387,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
     fontFamily: 'monospace',
-  },
-  breakdownTotal: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  counterSection: {
-    marginBottom: 16,
-  },
-  counterCard: {
-    backgroundColor: `${colors.accent}20`,
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: colors.accent,
-  },
-  counterLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  counterValue: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: colors.accent,
-    fontFamily: 'monospace',
-    marginBottom: 4,
-  },
-  counterUnit: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  yieldBreakdownSection: {
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   rateSection: {
     flexDirection: 'row',
