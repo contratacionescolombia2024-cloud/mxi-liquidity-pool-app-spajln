@@ -18,7 +18,6 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { WidgetProvider } from "@/contexts/WidgetContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/lib/supabase";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -27,25 +26,51 @@ export const unstable_settings = {
 };
 
 function RootLayoutNav() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   const segments = useSegments();
   const colorScheme = useColorScheme();
 
   useEffect(() => {
-    const inAuthGroup = segments[0] === "(auth)";
-    const inEmailConfirmed = segments[0] === "email-confirmed";
-
-    // Don't redirect if on email confirmation screen
-    if (inEmailConfirmed) {
+    // Don't do anything while loading
+    if (loading) {
+      console.log('Auth still loading, waiting...');
       return;
     }
 
-    if (!isAuthenticated && !inAuthGroup) {
-      router.replace("/(auth)/login");
-    } else if (isAuthenticated && inAuthGroup) {
-      router.replace("/(tabs)/(home)/");
+    const inAuthGroup = segments[0] === "(auth)";
+    const inEmailConfirmed = segments[0] === "email-confirmed";
+
+    console.log('Navigation check:', {
+      isAuthenticated,
+      loading,
+      segments,
+      inAuthGroup,
+      inEmailConfirmed
+    });
+
+    // Don't redirect if on email confirmation screen
+    if (inEmailConfirmed) {
+      console.log('On email confirmation screen, skipping redirect');
+      return;
     }
-  }, [isAuthenticated, segments]);
+
+    // Redirect logic
+    if (!isAuthenticated && !inAuthGroup) {
+      console.log('Not authenticated and not in auth group, redirecting to login');
+      try {
+        router.replace("/(auth)/login");
+      } catch (error) {
+        console.error('Navigation error to login:', error);
+      }
+    } else if (isAuthenticated && inAuthGroup) {
+      console.log('Authenticated and in auth group, redirecting to home');
+      try {
+        router.replace("/(tabs)/(home)/");
+      } catch (error) {
+        console.error('Navigation error to home:', error);
+      }
+    }
+  }, [isAuthenticated, segments, loading]);
 
   // Handle deep linking for email confirmation
   useEffect(() => {
@@ -54,7 +79,11 @@ function RootLayoutNav() {
       
       if (event.url.includes('email-confirmed') || event.url.includes('access_token')) {
         console.log('Email confirmation link detected');
-        router.push('/email-confirmed');
+        try {
+          router.push('/email-confirmed');
+        } catch (error) {
+          console.error('Navigation error to email-confirmed:', error);
+        }
       }
     };
 
@@ -67,9 +96,15 @@ function RootLayoutNav() {
         console.log('Initial URL:', url);
         if (url.includes('email-confirmed') || url.includes('access_token')) {
           console.log('Email confirmation link detected on launch');
-          router.push('/email-confirmed');
+          try {
+            router.push('/email-confirmed');
+          } catch (error) {
+            console.error('Navigation error to email-confirmed on launch:', error);
+          }
         }
       }
+    }).catch((error) => {
+      console.error('Error getting initial URL:', error);
     });
 
     return () => {
@@ -118,13 +153,22 @@ function RootLayoutNav() {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const networkState = useNetworkState();
-  const [loaded] = useFonts({
+  const [loaded, error] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
   useEffect(() => {
+    if (error) {
+      console.error('Font loading error:', error);
+    }
+  }, [error]);
+
+  useEffect(() => {
     if (loaded) {
-      SplashScreen.hideAsync();
+      console.log('Fonts loaded, hiding splash screen');
+      SplashScreen.hideAsync().catch((error) => {
+        console.error('Error hiding splash screen:', error);
+      });
     }
   }, [loaded]);
 

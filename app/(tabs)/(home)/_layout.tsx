@@ -7,9 +7,6 @@ export default function HomeLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="referrals" />
-      <Stack.Screen name="withdrawals" />
-      <Stack.Screen name="withdraw-mxi" />
-      <Stack.Screen name="withdrawal" />
       <Stack.Screen name="contrataciones" />
       <Stack.Screen name="lottery" />
       <Stack.Screen name="vesting" />

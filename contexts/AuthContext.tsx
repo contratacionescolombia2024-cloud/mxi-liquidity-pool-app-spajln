@@ -107,10 +107,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
-  const segments = useSegments();
 
   useEffect(() => {
+    console.log('=== AUTH PROVIDER INITIALIZING ===');
+    
     // Initialize session
     initializeAuth();
 
@@ -120,40 +120,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Event:', event);
       console.log('Session:', session?.user?.id);
       
-      if (event === 'SIGNED_OUT') {
-        console.log('User signed out - clearing all state');
-        clearAuthState();
-        // Force navigation to login screen
-        try {
-          router.replace('/(auth)/login');
-        } catch (error) {
-          console.error('Navigation error after logout:', error);
+      try {
+        if (event === 'SIGNED_OUT') {
+          console.log('User signed out - clearing all state');
+          clearAuthState();
+          return;
         }
-        return;
-      }
-      
-      if (event === 'SIGNED_IN' && session) {
-        console.log('User signed in - loading user data');
-        const { data: existingUser } = await supabase
-          .from('users')
-          .select('id')
-          .eq('id', session.user.id)
-          .single();
         
-        if (!existingUser && session.user.email) {
-          await supabase
+        if (event === 'SIGNED_IN' && session) {
+          console.log('User signed in - loading user data');
+          const { data: existingUser } = await supabase
             .from('users')
-            .update({ email_verified: true })
-            .eq('email', session.user.email);
+            .select('id')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (!existingUser && session.user.email) {
+            await supabase
+              .from('users')
+              .update({ email_verified: true })
+              .eq('email', session.user.email);
+          }
+          
+          await loadUserData(session.user.id);
+        } else if (event === 'TOKEN_REFRESHED' && session) {
+          console.log('Token refreshed - updating session');
+          setSession(session);
+        } else if (session) {
+          await loadUserData(session.user.id);
+        } else {
+          clearAuthState();
         }
-        
-        await loadUserData(session.user.id);
-      } else if (event === 'TOKEN_REFRESHED' && session) {
-        console.log('Token refreshed - updating session');
-        setSession(session);
-      } else if (session) {
-        await loadUserData(session.user.id);
-      } else {
+      } catch (error) {
+        console.error('Error in auth state change handler:', error);
         clearAuthState();
       }
     });
@@ -163,23 +162,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       subscription.unsubscribe();
     };
   }, []);
-
-  // Protected route navigation
-  useEffect(() => {
-    if (loading) return;
-
-    const inAuthGroup = segments[0] === '(auth)';
-
-    if (!isAuthenticated && !inAuthGroup) {
-      // User is not authenticated and trying to access protected route
-      console.log('Redirecting to login - user not authenticated');
-      router.replace('/(auth)/login');
-    } else if (isAuthenticated && inAuthGroup) {
-      // User is authenticated and on auth screen
-      console.log('Redirecting to home - user already authenticated');
-      router.replace('/(tabs)/(home)');
-    }
-  }, [isAuthenticated, segments, loading]);
 
   const initializeAuth = async () => {
     try {
@@ -273,14 +255,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         address: userData.address,
         email: userData.email,
         emailVerified: userData.email_verified,
-        mxiBalance: parseFloat(userData.mxi_balance.toString()),
-        usdtContributed: parseFloat(userData.usdt_contributed.toString()),
+        mxiBalance: parseFloat(userData.mxi_balance?.toString() || '0'),
+        usdtContributed: parseFloat(userData.usdt_contributed?.toString() || '0'),
         referralCode: userData.referral_code,
         referredBy: userData.referred_by,
         referrals,
         commissions,
-        activeReferrals: userData.active_referrals,
-        canWithdraw: userData.can_withdraw,
+        activeReferrals: userData.active_referrals || 0,
+        canWithdraw: userData.can_withdraw || false,
         lastWithdrawalDate: userData.last_withdrawal_date,
         joinedDate: userData.joined_date,
         isActiveContributor: userData.is_active_contributor || false,
@@ -601,9 +583,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Step 1: Clear local state IMMEDIATELY
       console.log('Step 1: Clearing local auth state...');
-      setUser(null);
-      setSession(null);
-      setIsAuthenticated(false);
+      clearAuthState();
       
       // Step 2: Sign out from Supabase with global scope
       console.log('Step 2: Signing out from Supabase...');
@@ -616,52 +596,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('Supabase signOut successful');
       }
       
-      // Step 3: Force immediate navigation to login
-      console.log('Step 3: Navigating to login screen...');
-      
-      // Use setTimeout to ensure state updates have propagated
-      setTimeout(() => {
-        try {
-          // Try replace first
-          router.replace('/(auth)/login');
-          console.log('Navigation via replace successful');
-        } catch (navError) {
-          console.error('Replace navigation failed, trying push:', navError);
-          try {
-            // Fallback to push
-            router.push('/(auth)/login');
-            console.log('Navigation via push successful');
-          } catch (pushError) {
-            console.error('Push navigation also failed:', pushError);
-            // Last resort - try direct navigation
-            try {
-              (router as any).navigate('/(auth)/login');
-              console.log('Navigation via navigate successful');
-            } catch (finalError) {
-              console.error('All navigation methods failed:', finalError);
-            }
-          }
-        }
-      }, 100);
-      
       console.log('=== LOGOUT COMPLETE ===');
     } catch (error) {
       console.error('=== LOGOUT EXCEPTION ===');
       console.error('Logout error:', error);
       
       // Ensure state is cleared even on error
-      setUser(null);
-      setSession(null);
-      setIsAuthenticated(false);
-      
-      // Try to navigate anyway
-      setTimeout(() => {
-        try {
-          router.replace('/(auth)/login');
-        } catch (navError) {
-          console.error('Emergency navigation failed:', navError);
-        }
-      }, 100);
+      clearAuthState();
     }
   };
 
