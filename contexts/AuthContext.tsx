@@ -109,29 +109,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session:', session);
-      setSession(session);
-      if (session) {
-        loadUserData(session.user.id);
-      } else {
-        setLoading(false);
-      }
-    });
+    // Initialize session
+    initializeAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      console.log('Auth state changed:', _event, session);
-      setSession(session);
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('=== AUTH STATE CHANGE ===');
+      console.log('Event:', event);
+      console.log('Session:', session?.user?.id);
       
-      if (_event === 'SIGNED_OUT') {
-        console.log('User signed out, clearing state');
-        setUser(null);
-        setIsAuthenticated(false);
-        setLoading(false);
+      if (event === 'SIGNED_OUT') {
+        console.log('User signed out - clearing all state');
+        clearAuthState();
         return;
       }
       
-      if (_event === 'SIGNED_IN' && session) {
+      if (event === 'SIGNED_IN' && session) {
+        console.log('User signed in - loading user data');
         const { data: existingUser } = await supabase
           .from('users')
           .select('id')
@@ -145,22 +139,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .eq('email', session.user.email);
         }
         
-        loadUserData(session.user.id);
+        await loadUserData(session.user.id);
+      } else if (event === 'TOKEN_REFRESHED' && session) {
+        console.log('Token refreshed - updating session');
+        setSession(session);
       } else if (session) {
-        loadUserData(session.user.id);
+        await loadUserData(session.user.id);
       } else {
-        setUser(null);
-        setIsAuthenticated(false);
-        setLoading(false);
+        clearAuthState();
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      console.log('Cleaning up auth subscription');
+      subscription.unsubscribe();
+    };
   }, []);
+
+  const initializeAuth = async () => {
+    try {
+      console.log('=== INITIALIZING AUTH ===');
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('Error getting session:', error);
+        clearAuthState();
+        return;
+      }
+
+      if (session) {
+        console.log('Session found:', session.user.id);
+        setSession(session);
+        await loadUserData(session.user.id);
+      } else {
+        console.log('No session found');
+        clearAuthState();
+      }
+    } catch (error) {
+      console.error('Error initializing auth:', error);
+      clearAuthState();
+    }
+  };
+
+  const clearAuthState = () => {
+    console.log('=== CLEARING AUTH STATE ===');
+    setUser(null);
+    setSession(null);
+    setIsAuthenticated(false);
+    setLoading(false);
+  };
 
   const loadUserData = async (userId: string) => {
     try {
-      console.log('Loading user data for:', userId);
+      console.log('=== LOADING USER DATA ===');
+      console.log('User ID:', userId);
       
       const { data: userData, error: userError } = await supabase
         .from('users')
@@ -239,17 +271,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         mxiVestingLocked: parseFloat(userData.mxi_vesting_locked?.toString() || '0'),
       };
 
-      console.log('User data loaded:', {
-        id: mappedUser.id,
-        name: mappedUser.name,
-        mxiBalance: mappedUser.mxiBalance,
-        mxiPurchasedDirectly: mappedUser.mxiPurchasedDirectly,
-        mxiFromUnifiedCommissions: mappedUser.mxiFromUnifiedCommissions,
-        mxiFromChallenges: mappedUser.mxiFromChallenges,
-        mxiVestingLocked: mappedUser.mxiVestingLocked,
-        accumulatedYield: mappedUser.accumulatedYield,
-        yieldRatePerMinute: mappedUser.yieldRatePerMinute,
-      });
+      console.log('User data loaded successfully');
       
       setUser(mappedUser);
       setIsAuthenticated(true);
@@ -262,7 +284,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      console.log('Attempting login for:', email);
+      console.log('=== LOGIN ATTEMPT ===');
+      console.log('Email:', email);
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -301,7 +324,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('=== REGISTRATION START ===');
       console.log('Attempting registration for:', userData.email);
-      console.log('User data:', { name: userData.name, idNumber: userData.idNumber, address: userData.address });
 
       // Check for existing email
       const { data: existingUser, error: emailCheckError } = await supabase
@@ -552,31 +574,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Current session:', session?.user?.id);
       console.log('Current user:', user?.id);
       
-      // Sign out from Supabase FIRST
-      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      // Clear local state FIRST to prevent any race conditions
+      clearAuthState();
+      
+      // Then sign out from Supabase
+      const { error } = await supabase.auth.signOut({ scope: 'global' });
       
       if (error) {
         console.error('Supabase signOut error:', error);
-        // Continue anyway to clear local state
+        // State is already cleared, so this is just logging
       } else {
         console.log('Supabase signOut successful');
       }
       
-      // Then clear local state - this will trigger the navigation in _layout.tsx
-      setUser(null);
-      setSession(null);
-      setIsAuthenticated(false);
-      
-      console.log('Local state cleared');
       console.log('=== LOGOUT COMPLETE ===');
     } catch (error) {
       console.error('=== LOGOUT EXCEPTION ===');
       console.error('Logout error:', error);
       
       // Ensure state is cleared even on error
-      setUser(null);
-      setSession(null);
-      setIsAuthenticated(false);
+      clearAuthState();
     }
   };
 
@@ -801,16 +818,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const currentYield = getCurrentYield();
 
     const total = mxiPurchased + mxiFromCommissions + mxiFromChallenges + mxiVestingLocked + accumulatedYield + currentYield;
-
-    console.log('Total MXI Balance Calculation:', {
-      mxiPurchased,
-      mxiFromCommissions,
-      mxiFromChallenges,
-      mxiVestingLocked,
-      accumulatedYield,
-      currentYield,
-      total,
-    });
 
     return total;
   };

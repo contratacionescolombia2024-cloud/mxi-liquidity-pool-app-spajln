@@ -15,12 +15,8 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
-  TextInput,
-  Modal,
-  ActivityIndicator,
 } from 'react-native';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
-import * as Clipboard from 'expo-clipboard';
 
 interface PhaseData {
   totalTokensSold: number;
@@ -38,17 +34,6 @@ interface CountdownTime {
   seconds: number;
 }
 
-interface OKXPayment {
-  paymentId: string;
-  usdtAmount: number;
-  mxiAmount: number;
-  paymentAddress: string;
-  status: string;
-  expiresAt: string;
-}
-
-const OKX_WALLET_ADDRESS = 'TYDzsYUEpvnYmQk4zGP9sWWcTEd2MiAtW6';
-
 export default function HomeScreen() {
   const router = useRouter();
   const { user, getCurrentYield, getTotalMxiBalance, claimYield, checkAdminStatus } = useAuth();
@@ -60,19 +45,10 @@ export default function HomeScreen() {
   const [phaseData, setPhaseData] = useState<PhaseData | null>(null);
   const [countdown, setCountdown] = useState<CountdownTime>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [launchDate] = useState(new Date('2026-02-15T12:00:00Z'));
-  
-  // Sales panel states
-  const [showSalesModal, setShowSalesModal] = useState(false);
-  const [usdtAmount, setUsdtAmount] = useState('');
-  const [mxiAmount, setMxiAmount] = useState('0');
-  const [loading, setLoading] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [currentPayment, setCurrentPayment] = useState<OKXPayment | null>(null);
 
   useEffect(() => {
     loadData();
     checkAdmin();
-    checkExistingPayment();
     
     // Update every second for real-time balance display
     const interval = setInterval(() => {
@@ -137,43 +113,9 @@ export default function HomeScreen() {
     console.log('Admin status:', adminStatus);
   };
 
-  const checkExistingPayment = async () => {
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from('okx_payments')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      console.error('Error checking existing payment:', error);
-      return;
-    }
-
-    if (data) {
-      const expiresAt = new Date(data.expires_at);
-      if (expiresAt > new Date()) {
-        setCurrentPayment({
-          paymentId: data.payment_id,
-          usdtAmount: parseFloat(data.usdt_amount.toString()),
-          mxiAmount: parseFloat(data.mxi_amount.toString()),
-          paymentAddress: data.payment_address || OKX_WALLET_ADDRESS,
-          status: data.status,
-          expiresAt: data.expires_at,
-        });
-        console.log('Existing payment found:', data.payment_id);
-      }
-    }
-  };
-
   const onRefresh = async () => {
     setRefreshing(true);
     await loadData();
-    await checkExistingPayment();
     setRefreshing(false);
   };
 
@@ -199,106 +141,6 @@ export default function HomeScreen() {
             } else {
               Alert.alert('Error', result.error || 'Failed to claim yield');
             }
-          },
-        },
-      ]
-    );
-  };
-
-  const calculateMxi = (usdt: string) => {
-    const amount = parseFloat(usdt);
-    if (isNaN(amount) || amount <= 0 || !phaseData) {
-      setMxiAmount('0');
-      return;
-    }
-
-    const mxi = amount / phaseData.currentPriceUsdt;
-    setMxiAmount(mxi.toFixed(4));
-  };
-
-  const handleOpenSalesPanel = () => {
-    if (currentPayment) {
-      setShowPaymentModal(true);
-    } else {
-      setShowSalesModal(true);
-    }
-  };
-
-  const handleCreatePayment = async () => {
-    if (!user || !phaseData) return;
-
-    const amount = parseFloat(usdtAmount);
-
-    if (isNaN(amount) || amount < 50) {
-      Alert.alert('Invalid Amount', 'Minimum contribution is 50 USDT');
-      return;
-    }
-
-    if (amount > 100000) {
-      Alert.alert('Invalid Amount', 'Maximum contribution is 100,000 USDT');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const mxi = amount / phaseData.currentPriceUsdt;
-      const paymentId = `MXI-${Date.now()}-${user.id.substring(0, 8)}`;
-      const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
-
-      const { error } = await supabase.from('okx_payments').insert({
-        user_id: user.id,
-        payment_id: paymentId,
-        usdt_amount: amount,
-        mxi_amount: mxi,
-        payment_address: OKX_WALLET_ADDRESS,
-        status: 'pending',
-        expires_at: expiresAt,
-      });
-
-      if (error) {
-        console.error('Payment creation error:', error);
-        Alert.alert('Error', 'Failed to create payment request');
-        setLoading(false);
-        return;
-      }
-
-      setCurrentPayment({
-        paymentId,
-        usdtAmount: amount,
-        mxiAmount: mxi,
-        paymentAddress: OKX_WALLET_ADDRESS,
-        status: 'pending',
-        expiresAt,
-      });
-
-      setShowSalesModal(false);
-      setShowPaymentModal(true);
-      setLoading(false);
-      console.log('Payment created:', paymentId);
-    } catch (error) {
-      console.error('Payment creation exception:', error);
-      Alert.alert('Error', 'Failed to create payment');
-      setLoading(false);
-    }
-  };
-
-  const handleCopyAddress = async () => {
-    await Clipboard.setStringAsync(OKX_WALLET_ADDRESS);
-    Alert.alert('Copied', 'Wallet address copied to clipboard');
-  };
-
-  const handleVerifyPayment = async () => {
-    if (!currentPayment) return;
-
-    Alert.alert(
-      'Verify Payment',
-      'Payment verification is handled by administrators. You will be notified once your payment is confirmed.',
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            setShowPaymentModal(false);
           },
         },
       ]
@@ -357,22 +199,10 @@ export default function HomeScreen() {
   const mxiVestingLocked = user.mxiVestingLocked || 0;
   const accumulatedYield = user.accumulatedYield || 0;
 
-  console.log('MXI Balance Breakdown (Home Screen):', {
-    totalMxiBalance,
-    mxiPurchased,
-    mxiFromCommissions,
-    mxiFromChallenges,
-    mxiVestingLocked,
-    accumulatedYield,
-    currentYield,
-    userMxiBalance: user.mxiBalance
-  });
-
-  // Calculate vesting data
+  // Calculate vesting data - UNIFIED DISPLAY
   const mxiInVesting = mxiPurchased + mxiFromCommissions;
   const yieldPerSecond = user.yieldRatePerMinute / 60;
   const totalYield = accumulatedYield + currentYield;
-  const canUnify = user.activeReferrals >= 10;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -425,10 +255,10 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* MXI Balance with Breakdown - NOW INCLUDES VESTING AND REAL-TIME YIELD */}
+        {/* MXI Balance with Breakdown - UNIFIED VESTING DISPLAY */}
         <View style={[commonStyles.card, styles.balanceCard]}>
           <View style={styles.balanceHeader}>
-            <Text style={styles.balanceLabel}>💎 MXI Balance Total (Tiempo Real)</Text>
+            <Text style={styles.balanceLabel}>💎 Balance General MXI (Tiempo Real)</Text>
             <TouchableOpacity onPress={() => router.push('/(tabs)/(home)/vesting')}>
               <IconSymbol ios_icon_name="info.circle" android_material_icon_name="info" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
@@ -439,7 +269,7 @@ export default function HomeScreen() {
           
           <View style={styles.balanceDivider} />
           
-          {/* MXI Breakdown Table */}
+          {/* MXI Breakdown Table - UNIFIED */}
           <View style={styles.breakdownContainer}>
             <Text style={styles.breakdownTitle}>📊 Desglose Completo de Balance</Text>
             
@@ -491,6 +321,10 @@ export default function HomeScreen() {
               <Text style={styles.breakdownValue}>{mxiFromChallenges.toFixed(6)}</Text>
             </View>
 
+            {/* UNIFIED VESTING SECTION */}
+            <View style={styles.vestingSectionDivider} />
+            <Text style={styles.vestingSectionTitle}>⛏️ Vesting MXI - Bloqueado hasta Lanzamiento</Text>
+            
             <View style={styles.breakdownRow}>
               <View style={styles.breakdownItem}>
                 <IconSymbol 
@@ -500,11 +334,11 @@ export default function HomeScreen() {
                   color={colors.accent} 
                 />
                 <View style={styles.breakdownText}>
-                  <Text style={styles.breakdownLabel}>MXI Vesting Bloqueado</Text>
-                  <Text style={styles.breakdownSubtext}>Bloqueado hasta lanzamiento</Text>
+                  <Text style={styles.breakdownLabel}>Balance en Vesting</Text>
+                  <Text style={styles.breakdownSubtext}>Generando rendimientos</Text>
                 </View>
               </View>
-              <Text style={styles.breakdownValue}>{mxiVestingLocked.toFixed(6)}</Text>
+              <Text style={styles.breakdownValue}>{mxiInVesting.toFixed(6)}</Text>
             </View>
 
             <View style={styles.breakdownRow}>
@@ -532,11 +366,27 @@ export default function HomeScreen() {
                   color="#FF6B6B" 
                 />
                 <View style={styles.breakdownText}>
-                  <Text style={styles.breakdownLabel}>Rendimiento Actual (Tiempo Real)</Text>
+                  <Text style={styles.breakdownLabel}>Rendimiento Actual</Text>
                   <Text style={styles.breakdownSubtext}>⚡ {yieldPerSecond.toFixed(8)} MXI/segundo</Text>
                 </View>
               </View>
               <Text style={styles.breakdownValue}>{currentYield.toFixed(8)}</Text>
+            </View>
+
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownItem}>
+                <IconSymbol 
+                  ios_icon_name="lock.shield.fill" 
+                  android_material_icon_name="lock" 
+                  size={20} 
+                  color={colors.error} 
+                />
+                <View style={styles.breakdownText}>
+                  <Text style={styles.breakdownLabel}>MXI Vesting Bloqueado</Text>
+                  <Text style={styles.breakdownSubtext}>Bloqueado hasta lanzamiento</Text>
+                </View>
+              </View>
+              <Text style={styles.breakdownValue}>{mxiVestingLocked.toFixed(6)}</Text>
             </View>
           </View>
 
@@ -780,13 +630,13 @@ export default function HomeScreen() {
               </View>
               <View style={styles.vestingPanelFeature}>
                 <IconSymbol 
-                  ios_icon_name={canUnify ? "checkmark.circle.fill" : "lock.fill"}
-                  android_material_icon_name={canUnify ? "check_circle" : "lock"}
+                  ios_icon_name="lock.fill"
+                  android_material_icon_name="lock"
                   size={18} 
                   color="#fff" 
                 />
                 <Text style={styles.vestingPanelFeatureText}>
-                  {canUnify ? 'Listo para unificar' : `Requiere ${10 - user.activeReferrals} referidos más`}
+                  Bloqueado hasta lanzamiento
                 </Text>
               </View>
             </View>
@@ -806,13 +656,13 @@ export default function HomeScreen() {
 
             <TouchableOpacity
               style={styles.actionCard}
-              onPress={() => router.push('/(tabs)/(home)/kyc-verification')}
+              onPress={() => router.push('/(tabs)/(home)/support')}
             >
               <View style={styles.actionIconContainer}>
-                <IconSymbol ios_icon_name="checkmark.shield.fill" android_material_icon_name="verified_user" size={32} color={colors.warning} />
+                <IconSymbol ios_icon_name="questionmark.circle.fill" android_material_icon_name="help" size={32} color={colors.warning} />
               </View>
-              <Text style={styles.actionTitle}>KYC</Text>
-              <Text style={styles.actionSubtitle}>Verificar</Text>
+              <Text style={styles.actionTitle}>Soporte</Text>
+              <Text style={styles.actionSubtitle}>Ayuda</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -877,152 +727,6 @@ export default function HomeScreen() {
           </TouchableOpacity>
         )}
       </ScrollView>
-
-      {/* Sales Modal */}
-      <Modal
-        visible={showSalesModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowSalesModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>💎 Comprar MXI</Text>
-              <TouchableOpacity onPress={() => setShowSalesModal(false)}>
-                <IconSymbol ios_icon_name="xmark.circle.fill" android_material_icon_name="cancel" size={28} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalScroll}>
-              {phaseData && (
-                <React.Fragment>
-                  <View style={styles.modalPhaseInfo}>
-                    <Text style={styles.modalPhaseLabel}>Fase Actual</Text>
-                    <Text style={styles.modalPhaseValue}>
-                      Fase {phaseData.currentPhase} - ${phaseData.currentPriceUsdt.toFixed(2)} por MXI
-                    </Text>
-                  </View>
-
-                  <View style={styles.modalInputContainer}>
-                    <Text style={styles.modalInputLabel}>💵 Cantidad en USDT</Text>
-                    <TextInput
-                      style={styles.modalInput}
-                      placeholder="Mínimo: 50 USDT"
-                      placeholderTextColor={colors.textSecondary}
-                      value={usdtAmount}
-                      onChangeText={(text) => {
-                        setUsdtAmount(text);
-                        calculateMxi(text);
-                      }}
-                      keyboardType="decimal-pad"
-                    />
-                  </View>
-
-                  <View style={styles.modalConversionCard}>
-                    <View style={styles.modalConversionRow}>
-                      <Text style={styles.modalConversionLabel}>💎 Recibirás:</Text>
-                      <Text style={styles.modalConversionValue}>{mxiAmount} MXI</Text>
-                    </View>
-                  </View>
-
-                  <TouchableOpacity
-                    style={[buttonStyles.primary, styles.modalButton]}
-                    onPress={handleCreatePayment}
-                    disabled={loading || !usdtAmount || parseFloat(usdtAmount) < 50}
-                  >
-                    {loading ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <React.Fragment>
-                        <IconSymbol ios_icon_name="cart.fill" android_material_icon_name="shopping_cart" size={20} color="#fff" />
-                        <Text style={styles.buttonText}>Crear Orden de Pago</Text>
-                      </React.Fragment>
-                    )}
-                  </TouchableOpacity>
-
-                  <View style={styles.modalInfoCard}>
-                    <IconSymbol ios_icon_name="info.circle.fill" android_material_icon_name="info" size={20} color={colors.primary} />
-                    <View style={styles.modalInfoContent}>
-                      <Text style={styles.modalInfoText}>
-                        • Mínimo: 50 USDT{'\n'}
-                        • Máximo: 100,000 USDT{'\n'}
-                        • Pago expira en 8 horas{'\n'}
-                        • Verificación por administrador
-                      </Text>
-                    </View>
-                  </View>
-                </React.Fragment>
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Payment Instructions Modal */}
-      <Modal
-        visible={showPaymentModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowPaymentModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>💰 Instrucciones de Pago</Text>
-              <TouchableOpacity onPress={() => setShowPaymentModal(false)}>
-                <IconSymbol ios_icon_name="xmark.circle.fill" android_material_icon_name="cancel" size={28} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalScroll}>
-              {currentPayment && (
-                <React.Fragment>
-                  <View style={styles.paymentInfo}>
-                    <Text style={styles.paymentLabel}>💵 Cantidad:</Text>
-                    <Text style={styles.paymentValue}>{currentPayment.usdtAmount} USDT</Text>
-                  </View>
-
-                  <View style={styles.paymentInfo}>
-                    <Text style={styles.paymentLabel}>💎 Recibirás:</Text>
-                    <Text style={styles.paymentValue}>{currentPayment.mxiAmount.toFixed(4)} MXI</Text>
-                  </View>
-
-                  <View style={styles.paymentInfo}>
-                    <Text style={styles.paymentLabel}>🆔 ID de Pago:</Text>
-                    <Text style={styles.paymentValue}>{currentPayment.paymentId}</Text>
-                  </View>
-
-                  <View style={styles.addressCard}>
-                    <Text style={styles.addressLabel}>🏦 Enviar USDT (TRC20) a:</Text>
-                    <View style={styles.addressContainer}>
-                      <Text style={styles.addressText}>{currentPayment.paymentAddress}</Text>
-                      <TouchableOpacity onPress={handleCopyAddress}>
-                        <IconSymbol ios_icon_name="doc.on.doc.fill" android_material_icon_name="content_copy" size={20} color={colors.primary} />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  <TouchableOpacity
-                    style={[buttonStyles.primary, styles.modalButton]}
-                    onPress={handleVerifyPayment}
-                  >
-                    <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={20} color="#fff" />
-                    <Text style={styles.buttonText}>Entendido</Text>
-                  </TouchableOpacity>
-
-                  <View style={styles.warningCard}>
-                    <IconSymbol ios_icon_name="exclamationmark.triangle.fill" android_material_icon_name="warning" size={20} color={colors.warning} />
-                    <Text style={styles.warningText}>
-                      ⚠️ Solo enviar USDT (TRC20) a esta dirección. El pago será verificado por un administrador.
-                    </Text>
-                  </View>
-                </React.Fragment>
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -1165,6 +869,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
     marginBottom: 8,
+  },
+  vestingSectionDivider: {
+    width: '100%',
+    height: 2,
+    backgroundColor: colors.accent,
+    marginVertical: 12,
+  },
+  vestingSectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.accent,
+    marginBottom: 8,
+    textAlign: 'center',
   },
   breakdownRow: {
     flexDirection: 'row',
@@ -1581,179 +1298,5 @@ const styles = StyleSheet.create({
   adminSubtitle: {
     fontSize: 14,
     color: colors.textSecondary,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: colors.background,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '90%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  modalScroll: {
-    padding: 24,
-  },
-  modalPhaseInfo: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
-  },
-  modalPhaseLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  modalPhaseValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  modalInputContainer: {
-    marginBottom: 16,
-  },
-  modalInputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  modalInput: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    color: colors.text,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  modalConversionCard: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  modalConversionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  modalConversionLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  modalConversionValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  modalButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 16,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  modalInfoCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    backgroundColor: colors.card,
-    padding: 16,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
-  },
-  modalInfoContent: {
-    flex: 1,
-  },
-  modalInfoText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    lineHeight: 20,
-  },
-  paymentInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  paymentLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  paymentValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  addressCard: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    marginVertical: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  addressLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  addressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: colors.background,
-    padding: 12,
-    borderRadius: 8,
-  },
-  addressText: {
-    flex: 1,
-    fontSize: 13,
-    color: colors.text,
-    fontFamily: 'monospace',
-  },
-  warningCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    backgroundColor: colors.warning + '20',
-    padding: 16,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.warning,
-  },
-  warningText: {
-    flex: 1,
-    fontSize: 13,
-    color: colors.text,
-    lineHeight: 20,
   },
 });
