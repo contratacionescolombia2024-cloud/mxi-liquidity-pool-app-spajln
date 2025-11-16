@@ -199,7 +199,8 @@ export default function UserManagementScreen() {
       return;
     }
 
-    let filtered = [...users];
+    // Filter out any null or undefined entries
+    let filtered = users.filter(u => u != null);
 
     if (filterStatus === 'active') {
       filtered = filtered.filter(u => u?.is_active_contributor && !u?.is_blocked);
@@ -1015,90 +1016,100 @@ export default function UserManagementScreen() {
             <Text style={styles.emptySubtext}>Try adjusting your search or filters</Text>
           </View>
         ) : (
-          filteredUsers.map((userData, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[
-                commonStyles.card, 
-                styles.userCard,
-                userData.is_blocked && styles.blockedUserCard
-              ]}
-              onPress={() => handleUserPress(userData)}
-            >
-              <View style={styles.userCardHeader}>
-                <View style={styles.userInfo}>
-                  <View style={[
-                    styles.userAvatar,
-                    userData.is_blocked && styles.blockedUserAvatar
-                  ]}>
+          <React.Fragment>
+            {filteredUsers.map((userData, index) => {
+              // Additional safety check for each user
+              if (!userData || !userData.id) {
+                console.warn('Invalid user data at index:', index);
+                return null;
+              }
+
+              return (
+                <TouchableOpacity
+                  key={userData.id}
+                  style={[
+                    commonStyles.card, 
+                    styles.userCard,
+                    userData.is_blocked && styles.blockedUserCard
+                  ]}
+                  onPress={() => handleUserPress(userData)}
+                >
+                  <View style={styles.userCardHeader}>
+                    <View style={styles.userInfo}>
+                      <View style={[
+                        styles.userAvatar,
+                        userData.is_blocked && styles.blockedUserAvatar
+                      ]}>
+                        <IconSymbol 
+                          ios_icon_name={userData.is_blocked ? "person.slash" : userData.is_active_contributor ? "person.fill" : "person"} 
+                          android_material_icon_name={userData.is_blocked ? "person_off" : userData.is_active_contributor ? "person" : "person_outline"}
+                          size={24} 
+                          color={userData.is_blocked ? colors.error : userData.is_active_contributor ? colors.primary : colors.textSecondary} 
+                        />
+                      </View>
+                      <View style={styles.userDetails}>
+                        <Text style={styles.userName}>{userData.name || 'Unknown'}</Text>
+                        <Text style={styles.userEmail}>{userData.email || 'No email'}</Text>
+                        <Text style={styles.userCode}>Code: {userData.referral_code || 'N/A'}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.userBadges}>
+                      {userData.is_blocked && (
+                        <View style={[styles.statusBadge, { backgroundColor: colors.error + '20' }]}>
+                          <Text style={[styles.statusBadgeText, { color: colors.error }]}>BLOCKED</Text>
+                        </View>
+                      )}
+                      {!userData.is_blocked && userData.is_active_contributor && (
+                        <View style={[styles.statusBadge, { backgroundColor: colors.success + '20' }]}>
+                          <Text style={[styles.statusBadgeText, { color: colors.success }]}>Active</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+
+                  <View style={styles.userStats}>
+                    <View style={styles.userStat}>
+                      <IconSymbol 
+                        ios_icon_name="bitcoinsign.circle" 
+                        android_material_icon_name="currency_bitcoin" 
+                        size={16} 
+                        color={colors.primary} 
+                      />
+                      <Text style={styles.userStatValue}>{parseFloat((userData.mxi_balance || 0).toString()).toFixed(2)} MXI</Text>
+                    </View>
+                    <View style={styles.userStat}>
+                      <IconSymbol 
+                        ios_icon_name="dollarsign.circle" 
+                        android_material_icon_name="attach_money" 
+                        size={16} 
+                        color={colors.success} 
+                      />
+                      <Text style={styles.userStatValue}>${parseFloat((userData.usdt_contributed || 0).toString()).toFixed(2)}</Text>
+                    </View>
+                    <View style={styles.userStat}>
+                      <IconSymbol 
+                        ios_icon_name="person.2" 
+                        android_material_icon_name="group" 
+                        size={16} 
+                        color={colors.warning} 
+                      />
+                      <Text style={styles.userStatValue}>{userData.active_referrals || 0} refs</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.userFooter}>
+                    <Text style={styles.userJoinDate}>Joined {formatDate(userData.joined_date)}</Text>
                     <IconSymbol 
-                      ios_icon_name={userData.is_blocked ? "person.slash" : userData.is_active_contributor ? "person.fill" : "person"} 
-                      android_material_icon_name={userData.is_blocked ? "person_off" : userData.is_active_contributor ? "person" : "person_outline"}
-                      size={24} 
-                      color={userData.is_blocked ? colors.error : userData.is_active_contributor ? colors.primary : colors.textSecondary} 
+                      ios_icon_name="chevron.right" 
+                      android_material_icon_name="chevron_right" 
+                      size={16} 
+                      color={colors.textSecondary} 
                     />
                   </View>
-                  <View style={styles.userDetails}>
-                    <Text style={styles.userName}>{userData.name}</Text>
-                    <Text style={styles.userEmail}>{userData.email}</Text>
-                    <Text style={styles.userCode}>Code: {userData.referral_code}</Text>
-                  </View>
-                </View>
-                <View style={styles.userBadges}>
-                  {userData.is_blocked && (
-                    <View style={[styles.statusBadge, { backgroundColor: colors.error + '20' }]}>
-                      <Text style={[styles.statusBadgeText, { color: colors.error }]}>BLOCKED</Text>
-                    </View>
-                  )}
-                  {!userData.is_blocked && userData.is_active_contributor && (
-                    <View style={[styles.statusBadge, { backgroundColor: colors.success + '20' }]}>
-                      <Text style={[styles.statusBadgeText, { color: colors.success }]}>Active</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-
-              <View style={styles.userStats}>
-                <View style={styles.userStat}>
-                  <IconSymbol 
-                    ios_icon_name="bitcoinsign.circle" 
-                    android_material_icon_name="currency_bitcoin" 
-                    size={16} 
-                    color={colors.primary} 
-                  />
-                  <Text style={styles.userStatValue}>{parseFloat(userData.mxi_balance.toString()).toFixed(2)} MXI</Text>
-                </View>
-                <View style={styles.userStat}>
-                  <IconSymbol 
-                    ios_icon_name="dollarsign.circle" 
-                    android_material_icon_name="attach_money" 
-                    size={16} 
-                    color={colors.success} 
-                  />
-                  <Text style={styles.userStatValue}>${parseFloat(userData.usdt_contributed.toString()).toFixed(2)}</Text>
-                </View>
-                <View style={styles.userStat}>
-                  <IconSymbol 
-                    ios_icon_name="person.2" 
-                    android_material_icon_name="group" 
-                    size={16} 
-                    color={colors.warning} 
-                  />
-                  <Text style={styles.userStatValue}>{userData.active_referrals} refs</Text>
-                </View>
-              </View>
-
-              <View style={styles.userFooter}>
-                <Text style={styles.userJoinDate}>Joined {formatDate(userData.joined_date)}</Text>
-                <IconSymbol 
-                  ios_icon_name="chevron.right" 
-                  android_material_icon_name="chevron_right" 
-                  size={16} 
-                  color={colors.textSecondary} 
-                />
-              </View>
-            </TouchableOpacity>
-          ))
+                </TouchableOpacity>
+              );
+            })}
+          </React.Fragment>
         )}
       </ScrollView>
 
