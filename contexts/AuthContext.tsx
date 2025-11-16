@@ -243,7 +243,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         mxiFromUnifiedCommissions: parseFloat(userData.mxi_from_unified_commissions?.toString() || '0'),
       };
 
-      console.log('User data loaded:', mappedUser);
+      console.log('User data loaded successfully');
       setUser(mappedUser);
       setIsAuthenticated(true);
       setLoading(false);
@@ -255,38 +255,79 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
+      console.log('=== LOGIN FUNCTION START ===');
       console.log('Attempting login for:', email);
       
+      // First, try to sign in
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim().toLowerCase(),
         password,
       });
 
       if (error) {
-        console.error('Login error:', error);
+        console.error('Supabase auth error:', error);
+        console.error('Error code:', error.status);
+        console.error('Error message:', error.message);
+        
+        // Check if it's an invalid credentials error
+        if (error.message.toLowerCase().includes('invalid') || error.status === 400) {
+          // Check if user exists but email is not verified
+          const { data: userData, error: userCheckError } = await supabase
+            .from('users')
+            .select('email_verified')
+            .eq('email', email.trim().toLowerCase())
+            .maybeSingle();
+          
+          if (userCheckError) {
+            console.error('Error checking user:', userCheckError);
+          }
+          
+          if (userData && !userData.email_verified) {
+            console.log('User exists but email not verified');
+            return { 
+              success: false, 
+              error: 'Por favor verifica tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada para el enlace de verificación.' 
+            };
+          }
+        }
+        
         return { success: false, error: error.message };
       }
 
       if (!data.session) {
-        return { success: false, error: 'No session created' };
+        console.error('No session created after login');
+        return { success: false, error: 'No se pudo crear la sesión' };
       }
 
-      const { data: userData } = await supabase
+      console.log('Auth login successful, checking email verification...');
+
+      // Double-check email verification status in our users table
+      const { data: userData, error: userError } = await supabase
         .from('users')
         .select('email_verified')
         .eq('id', data.user.id)
         .single();
 
+      if (userError) {
+        console.error('Error fetching user data:', userError);
+      }
+
       if (userData && !userData.email_verified) {
+        console.log('Email not verified, signing out user');
         await supabase.auth.signOut();
-        return { success: false, error: 'Por favor verifica tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada para el enlace de verificación.' };
+        return { 
+          success: false, 
+          error: 'Por favor verifica tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada para el enlace de verificación.' 
+        };
       }
 
       console.log('Login successful');
+      console.log('=== LOGIN FUNCTION END ===');
       return { success: true };
     } catch (error: any) {
+      console.error('=== LOGIN EXCEPTION ===');
       console.error('Login exception:', error);
-      return { success: false, error: error.message || 'Login failed' };
+      return { success: false, error: error.message || 'Error al iniciar sesión' };
     }
   };
 
@@ -903,7 +944,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const resendVerificationEmail = async (): Promise<{ success: boolean; error?: string }> => {
     if (!session?.user?.email) {
-      return { success: false, error: 'No email found' };
+      return { success: false, error: 'No se encontró el correo electrónico' };
     }
 
     try {
@@ -921,7 +962,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return { success: true };
     } catch (error: any) {
-      return { success: false, error: error.message || 'Failed to resend email' };
+      return { success: false, error: error.message || 'Error al reenviar el email' };
     }
   };
 

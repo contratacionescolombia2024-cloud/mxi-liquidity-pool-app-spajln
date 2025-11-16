@@ -28,43 +28,61 @@ export default function LoginScreen() {
   const [needsVerification, setNeedsVerification] = useState(false);
 
   const handleLogin = async () => {
+    console.log('=== LOGIN ATTEMPT START ===');
+    console.log('Email:', email);
+    
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
 
     setLoading(true);
+    console.log('Calling login function...');
     const result = await login(email, password);
+    console.log('Login result:', result);
     setLoading(false);
 
     if (result.success) {
+      console.log('Login successful, navigating to home');
       router.replace('/(tabs)/(home)/');
     } else {
-      if (result.error?.includes('verify your email')) {
+      console.log('Login failed with error:', result.error);
+      
+      // Check if error is related to email verification
+      const errorMessage = result.error?.toLowerCase() || '';
+      if (errorMessage.includes('verif') || errorMessage.includes('email')) {
         setNeedsVerification(true);
         Alert.alert(
-          'Email Verification Required',
-          'Please verify your email address before logging in. Check your inbox for the verification link.',
+          'Verificación de Email Requerida',
+          'Por favor verifica tu dirección de correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada para el enlace de verificación.',
           [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Resend Email', onPress: handleResendVerification },
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Reenviar Email', onPress: handleResendVerification },
           ]
         );
+      } else if (errorMessage.includes('invalid') || errorMessage.includes('credentials')) {
+        Alert.alert(
+          'Error de Inicio de Sesión',
+          'Correo electrónico o contraseña incorrectos. Por favor verifica tus credenciales e intenta nuevamente.'
+        );
       } else {
-        Alert.alert('Error', result.error || 'Invalid email or password');
+        Alert.alert('Error', result.error || 'Error al iniciar sesión. Por favor intenta nuevamente.');
       }
     }
+    
+    console.log('=== LOGIN ATTEMPT END ===');
   };
 
   const handleResendVerification = async () => {
+    console.log('Resending verification email...');
     setLoading(true);
     const result = await resendVerificationEmail();
     setLoading(false);
 
     if (result.success) {
-      Alert.alert('Success', 'Verification email sent! Please check your inbox.');
+      Alert.alert('Éxito', 'Email de verificación enviado. Por favor revisa tu bandeja de entrada.');
     } else {
-      Alert.alert('Error', result.error || 'Failed to resend verification email');
+      Alert.alert('Error', result.error || 'Error al reenviar el email de verificación');
     }
   };
 
@@ -80,42 +98,46 @@ export default function LoginScreen() {
             />
           </View>
           <Text style={styles.title}>MXI Strategic PreSale</Text>
-          <Text style={styles.subtitle}>Secure Your Position in the Future</Text>
+          <Text style={styles.subtitle}>Asegura Tu Posición en el Futuro</Text>
         </View>
 
         <View style={styles.form}>
           <View style={styles.inputContainer}>
-            <Text style={commonStyles.label}>Email</Text>
+            <Text style={commonStyles.label}>Correo Electrónico</Text>
             <TextInput
               style={commonStyles.input}
-              placeholder="your@email.com"
+              placeholder="tu@email.com"
               placeholderTextColor={colors.textSecondary}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
               autoComplete="email"
+              editable={!loading}
             />
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={commonStyles.label}>Password</Text>
+            <Text style={commonStyles.label}>Contraseña</Text>
             <View style={styles.passwordContainer}>
               <TextInput
                 style={[commonStyles.input, styles.passwordInput]}
-                placeholder="Enter your password"
+                placeholder="Ingresa tu contraseña"
                 placeholderTextColor={colors.textSecondary}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
+                editable={!loading}
               />
               <TouchableOpacity
                 style={styles.eyeIcon}
                 onPress={() => setShowPassword(!showPassword)}
+                disabled={loading}
               >
                 <IconSymbol
-                  name={showPassword ? 'eye.slash.fill' : 'eye.fill'}
+                  ios_icon_name={showPassword ? 'eye.slash.fill' : 'eye.fill'}
+                  android_material_icon_name={showPassword ? 'visibility-off' : 'visibility'}
                   size={20}
                   color={colors.textSecondary}
                 />
@@ -125,45 +147,51 @@ export default function LoginScreen() {
 
           {needsVerification && (
             <View style={styles.verificationBox}>
-              <IconSymbol name="exclamationmark.triangle.fill" size={20} color={colors.warning} />
+              <IconSymbol 
+                ios_icon_name="exclamationmark.triangle.fill" 
+                android_material_icon_name="warning"
+                size={20} 
+                color={colors.warning} 
+              />
               <Text style={styles.verificationText}>
-                Please verify your email before logging in.
+                Por favor verifica tu email antes de iniciar sesión.
               </Text>
-              <TouchableOpacity onPress={handleResendVerification}>
-                <Text style={styles.resendLink}>Resend Email</Text>
+              <TouchableOpacity onPress={handleResendVerification} disabled={loading}>
+                <Text style={styles.resendLink}>Reenviar Email</Text>
               </TouchableOpacity>
             </View>
           )}
 
           <TouchableOpacity
-            style={[buttonStyles.primary, styles.loginButton]}
+            style={[buttonStyles.primary, styles.loginButton, loading && styles.buttonDisabled]}
             onPress={handleLogin}
             disabled={loading}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.buttonText}>Login</Text>
+              <Text style={styles.buttonText}>Iniciar Sesión</Text>
             )}
           </TouchableOpacity>
 
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
+            <Text style={styles.dividerText}>o</Text>
             <View style={styles.dividerLine} />
           </View>
 
           <TouchableOpacity
             style={[buttonStyles.outline, styles.registerButton]}
             onPress={() => router.push('/(auth)/register')}
+            disabled={loading}
           >
-            <Text style={styles.registerButtonText}>Create Account</Text>
+            <Text style={styles.registerButtonText}>Crear Cuenta</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            Pre-Sale closes on January 15, 2025 at 12:00 UTC
+            La Pre-Venta cierra el 15 de enero de 2025 a las 12:00 UTC
           </Text>
         </View>
 
@@ -257,6 +285,9 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   divider: {
     flexDirection: 'row',
