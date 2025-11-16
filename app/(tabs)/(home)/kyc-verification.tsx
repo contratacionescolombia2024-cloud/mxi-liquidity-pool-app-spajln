@@ -47,7 +47,46 @@ export default function KYCVerificationScreen() {
   useEffect(() => {
     loadKYCData();
     requestPermissions();
-  }, []);
+    
+    // Set up real-time subscription for KYC status updates
+    const channel = supabase
+      .channel('kyc-status-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'kyc_verifications',
+          filter: `user_id=eq.${user?.id}`,
+        },
+        (payload) => {
+          console.log('KYC status updated:', payload);
+          loadKYCData();
+          
+          // Update user context
+          if (payload.new.status === 'approved') {
+            updateUser({ kycStatus: 'approved', kycVerifiedAt: payload.new.reviewed_at });
+            Alert.alert(
+              '✅ KYC Approved!',
+              'Your KYC verification has been approved! You can now proceed with withdrawals once you meet all requirements.',
+              [{ text: 'OK' }]
+            );
+          } else if (payload.new.status === 'rejected') {
+            updateUser({ kycStatus: 'rejected' });
+            Alert.alert(
+              '❌ KYC Rejected',
+              `Your KYC verification was rejected. Reason: ${payload.new.rejection_reason || 'Please check the details and resubmit.'}`,
+              [{ text: 'OK' }]
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
 
   const requestPermissions = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -149,7 +188,7 @@ export default function KYCVerificationScreen() {
         setDocumentBackUrl(urlData.publicUrl);
       }
 
-      Alert.alert('Success', `Document ${side} uploaded successfully!`);
+      Alert.alert('✅ Upload Successful', `Document ${side} uploaded successfully!`);
     } catch (error: any) {
       console.error('Upload error:', error);
       Alert.alert('Upload Error', error.message || 'Failed to upload document. Please try again.');
@@ -216,18 +255,30 @@ export default function KYCVerificationScreen() {
               await updateUser({ kycStatus: 'pending' });
 
               Alert.alert(
-                'KYC Submitted Successfully',
-                'Your KYC verification has been submitted and is under review. You will be notified once it has been processed (typically within 24-48 hours).',
+                '✅ KYC Submitted Successfully!',
+                'Your KYC verification documents have been successfully submitted to our admin team.\n\n' +
+                '📋 What happens next:\n' +
+                '- Your documents are now in the review queue\n' +
+                '- Admin will review within 24-48 hours\n' +
+                '- You will receive a notification once reviewed\n' +
+                '- Check back here to see your verification status\n\n' +
+                'Thank you for completing your KYC verification!',
                 [
                   {
                     text: 'OK',
-                    onPress: () => router.back(),
+                    onPress: () => {
+                      loadKYCData();
+                      router.back();
+                    },
                   },
                 ]
               );
             } catch (error: any) {
               console.error('KYC submission error:', error);
-              Alert.alert('Error', error.message || 'Failed to submit KYC verification');
+              Alert.alert(
+                '❌ Submission Failed',
+                error.message || 'Failed to submit KYC verification. Please try again or contact support if the problem persists.'
+              );
             }
             setSubmitting(false);
           },
@@ -316,7 +367,10 @@ export default function KYCVerificationScreen() {
                 <View style={styles.pendingNotice}>
                   <IconSymbol name="info.circle" size={18} color={colors.warning} />
                   <Text style={styles.pendingText}>
-                    Your KYC verification is being reviewed. This typically takes 24-48 hours.
+                    ✅ Your KYC documents have been successfully submitted!{'\n'}
+                    📋 Status: Under admin review{'\n'}
+                    ⏱️ Review time: Typically 24-48 hours{'\n'}
+                    🔔 You will be notified when reviewed
                   </Text>
                 </View>
               )}

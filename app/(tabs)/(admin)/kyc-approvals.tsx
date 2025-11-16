@@ -32,6 +32,8 @@ interface KYCVerification {
   submitted_at: string;
   user_email: string;
   user_name: string;
+  rejection_reason?: string;
+  admin_notes?: string;
 }
 
 export default function KYCApprovalsScreen() {
@@ -43,9 +45,43 @@ export default function KYCApprovalsScreen() {
   const [adminNotes, setAdminNotes] = useState('');
   const [processing, setProcessing] = useState(false);
   const [filter, setFilter] = useState<'pending' | 'all'>('pending');
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
 
   useEffect(() => {
     loadVerifications();
+    
+    // Set up real-time subscription for new KYC submissions
+    const channel = supabase
+      .channel('kyc-submissions')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'kyc_verifications',
+        },
+        (payload) => {
+          console.log('New KYC submission:', payload);
+          loadVerifications();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'kyc_verifications',
+        },
+        (payload) => {
+          console.log('KYC updated:', payload);
+          loadVerifications();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [filter]);
 
   const loadVerifications = async () => {
@@ -126,7 +162,10 @@ export default function KYCApprovalsScreen() {
 
               if (userError) throw userError;
 
-              Alert.alert('Success', 'KYC verification approved successfully');
+              Alert.alert(
+                '✅ KYC Approved',
+                'KYC verification approved successfully. The user will be notified immediately.'
+              );
               setSelectedKYC(null);
               setAdminNotes('');
               loadVerifications();
@@ -191,7 +230,10 @@ export default function KYCApprovalsScreen() {
 
               if (userError) throw userError;
 
-              Alert.alert('Success', 'KYC verification rejected');
+              Alert.alert(
+                '❌ KYC Rejected',
+                'KYC verification rejected. The user will be notified with the rejection reason.'
+              );
               setSelectedKYC(null);
               setAdminNotes('');
               loadVerifications();
@@ -253,7 +295,10 @@ export default function KYCApprovalsScreen() {
             <TouchableOpacity
               key={kyc.id}
               style={[commonStyles.card, styles.kycCard]}
-              onPress={() => setSelectedKYC(kyc)}
+              onPress={() => {
+                setSelectedKYC(kyc);
+                setAdminNotes(kyc.admin_notes || '');
+              }}
             >
               <View style={styles.kycHeader}>
                 <View style={styles.kycInfo}>
@@ -272,13 +317,14 @@ export default function KYCApprovalsScreen() {
               </Text>
               <View style={styles.kycActions}>
                 <IconSymbol name="chevron.right" size={20} color={colors.primary} />
-                <Text style={styles.reviewText}>Tap to review</Text>
+                <Text style={styles.reviewText}>Tap to review documents</Text>
               </View>
             </TouchableOpacity>
           ))}
         </ScrollView>
       )}
 
+      {/* KYC Review Modal */}
       <Modal
         visible={selectedKYC !== null}
         animationType="slide"
@@ -318,15 +364,67 @@ export default function KYCApprovalsScreen() {
                   </View>
 
                   <View style={styles.detailSection}>
-                    <Text style={styles.detailLabel}>Admin Notes</Text>
+                    <Text style={styles.detailLabel}>Status</Text>
+                    <View style={[styles.statusBadge, styles[`status${selectedKYC.status}`]]}>
+                      <Text style={styles.statusText}>{selectedKYC.status.toUpperCase()}</Text>
+                    </View>
+                  </View>
+
+                  {/* Document Images */}
+                  <View style={styles.detailSection}>
+                    <Text style={styles.detailLabel}>Document Images</Text>
+                    <View style={styles.imagesContainer}>
+                      {selectedKYC.document_front_url && (
+                        <TouchableOpacity
+                          style={styles.imagePreview}
+                          onPress={() => setViewingImage(selectedKYC.document_front_url)}
+                        >
+                          <Image
+                            source={{ uri: selectedKYC.document_front_url }}
+                            style={styles.previewImage}
+                          />
+                          <Text style={styles.imageLabel}>Front</Text>
+                        </TouchableOpacity>
+                      )}
+                      {selectedKYC.document_back_url && (
+                        <TouchableOpacity
+                          style={styles.imagePreview}
+                          onPress={() => setViewingImage(selectedKYC.document_back_url)}
+                        >
+                          <Image
+                            source={{ uri: selectedKYC.document_back_url }}
+                            style={styles.previewImage}
+                          />
+                          <Text style={styles.imageLabel}>Back</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+
+                  {selectedKYC.rejection_reason && (
+                    <View style={styles.detailSection}>
+                      <Text style={styles.detailLabel}>Previous Rejection Reason</Text>
+                      <Text style={styles.rejectionReasonText}>{selectedKYC.rejection_reason}</Text>
+                    </View>
+                  )}
+
+                  <View style={styles.detailSection}>
+                    <Text style={styles.detailLabel}>
+                      {selectedKYC.status === 'pending' ? 'Admin Notes / Rejection Reason' : 'Admin Notes'}
+                    </Text>
                     <TextInput
                       style={styles.notesInput}
-                      placeholder="Add notes or rejection reason..."
+                      placeholder={
+                        selectedKYC.status === 'pending'
+                          ? 'Add notes or rejection reason...'
+                          : 'View admin notes...'
+                      }
                       placeholderTextColor={colors.textSecondary}
                       value={adminNotes}
                       onChangeText={setAdminNotes}
                       multiline
                       numberOfLines={4}
+                      editable={selectedKYC.status === 'pending'}
                     />
                   </View>
 
@@ -367,6 +465,30 @@ export default function KYCApprovalsScreen() {
               )}
             </ScrollView>
           </View>
+        </View>
+      </Modal>
+
+      {/* Full Image Viewer Modal */}
+      <Modal
+        visible={viewingImage !== null}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setViewingImage(null)}
+      >
+        <View style={styles.imageViewerOverlay}>
+          <TouchableOpacity
+            style={styles.imageViewerClose}
+            onPress={() => setViewingImage(null)}
+          >
+            <IconSymbol name="xmark.circle.fill" size={36} color="#fff" />
+          </TouchableOpacity>
+          {viewingImage && (
+            <Image
+              source={{ uri: viewingImage }}
+              style={styles.fullImage}
+              resizeMode="contain"
+            />
+          )}
         </View>
       </Modal>
     </SafeAreaView>
@@ -542,6 +664,43 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.text,
   },
+  imagesContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  imagePreview: {
+    flex: 1,
+    aspectRatio: 1.5,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: colors.card,
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  imageLabel: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    color: '#fff',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  rejectionReasonText: {
+    fontSize: 14,
+    color: colors.error,
+    backgroundColor: colors.error + '10',
+    padding: 12,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.error,
+  },
   notesInput: {
     backgroundColor: colors.card,
     borderRadius: 12,
@@ -576,5 +735,21 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  imageViewerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageViewerClose: {
+    position: 'absolute',
+    top: 60,
+    right: 24,
+    zIndex: 10,
+  },
+  fullImage: {
+    width: '100%',
+    height: '100%',
   },
 });
