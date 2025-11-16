@@ -53,8 +53,29 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 100,
   },
-  header: {
+  headerContainer: {
     marginBottom: 24,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignSelf: 'flex-start',
+  },
+  backButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  header: {
+    marginBottom: 0,
   },
   welcomeText: {
     fontSize: 28,
@@ -402,10 +423,25 @@ export default function AdminDashboard() {
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.welcomeText}>Panel de Administración</Text>
-          <Text style={styles.subtitleText}>Bienvenido, {user?.name}</Text>
+        {/* Header with Back Button */}
+        <View style={styles.headerContainer}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => router.push('/(tabs)/(home)')}
+          >
+            <IconSymbol 
+              ios_icon_name="chevron.left" 
+              android_material_icon_name="arrow_back" 
+              size={20} 
+              color={colors.primary} 
+            />
+            <Text style={styles.backButtonText}>Volver al Inicio</Text>
+          </TouchableOpacity>
+
+          <View style={styles.header}>
+            <Text style={styles.welcomeText}>Panel de Administración</Text>
+            <Text style={styles.subtitleText}>Bienvenido, {user?.name}</Text>
+          </View>
         </View>
 
         {/* Universal MXI Counter */}
