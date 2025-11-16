@@ -8,24 +8,28 @@ import { useRouter } from 'expo-router';
 
 export default function VestingCounter() {
   const router = useRouter();
-  const { user, getCurrentYield, claimYield } = useAuth();
+  const { user, getCurrentYield, getTotalMxiBalance, claimYield } = useAuth();
   const [currentYield, setCurrentYield] = useState(0);
+  const [totalBalance, setTotalBalance] = useState(0);
   const [unifying, setUnifying] = useState(false);
 
   useEffect(() => {
     if (!user || user.yieldRatePerMinute === 0) {
       setCurrentYield(0);
+      setTotalBalance(0);
       return;
     }
 
     // Update yield display every second for real-time counter
     const interval = setInterval(() => {
       const yield_amount = getCurrentYield();
+      const total = getTotalMxiBalance();
       setCurrentYield(yield_amount);
+      setTotalBalance(total);
     }, 1000); // Update every second as requested
 
     return () => clearInterval(interval);
-  }, [user, getCurrentYield]);
+  }, [user, getCurrentYield, getTotalMxiBalance]);
 
   const handleUnifyBalance = async () => {
     if (!user) return;
@@ -71,6 +75,7 @@ export default function VestingCounter() {
                 [{ text: 'Excelente' }]
               );
               setCurrentYield(0);
+              setTotalBalance(getTotalMxiBalance());
             } else {
               Alert.alert('Error', result.error || 'No se pudo unificar el saldo');
             }
@@ -94,7 +99,7 @@ export default function VestingCounter() {
 
   // Calculate vesting amounts
   const mxiInVesting = (user.mxiPurchasedDirectly || 0) + (user.mxiFromUnifiedCommissions || 0);
-  const vestingPercentage = user.mxiBalance > 0 ? (mxiInVesting / user.mxiBalance) * 100 : 0;
+  const vestingPercentage = totalBalance > 0 ? (mxiInVesting / totalBalance) * 100 : 0;
 
   return (
     <View style={styles.container}>
@@ -138,7 +143,7 @@ export default function VestingCounter() {
           <Text style={styles.counterLabel}>🔥 Rendimiento Acumulado (Tiempo Real)</Text>
           <Text style={styles.counterValue}>{totalYield.toFixed(8)}</Text>
           <Text style={styles.counterUnit}>MXI</Text>
-          <Text style={styles.counterSubtext}>Actualizado cada segundo</Text>
+          <Text style={styles.counterSubtext}>⚡ Actualizado cada segundo</Text>
         </View>
       </View>
 
@@ -224,7 +229,7 @@ export default function VestingCounter() {
           • Solo cuenta el MXI comprado directamente y de comisiones unificadas{'\n'}
           • El rendimiento se actualiza cada segundo en tiempo real{'\n'}
           • Actualmente tienes {mxiInVesting.toFixed(2)} MXI generando rendimientos{'\n'}
-          • Balance total: {user.mxiBalance.toFixed(2)} MXI ({vestingPercentage.toFixed(1)}% en vesting)
+          • Balance total: {totalBalance.toFixed(6)} MXI ({vestingPercentage.toFixed(1)}% en vesting)
         </Text>
       </View>
     </View>

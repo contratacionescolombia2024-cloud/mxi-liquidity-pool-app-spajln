@@ -51,9 +51,10 @@ const OKX_WALLET_ADDRESS = 'TYDzsYUEpvnYmQk4zGP9sWWcTEd2MiAtW6';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, getCurrentYield, claimYield, checkAdminStatus } = useAuth();
+  const { user, getCurrentYield, getTotalMxiBalance, claimYield, checkAdminStatus } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [currentYield, setCurrentYield] = useState(0);
+  const [totalMxiBalance, setTotalMxiBalance] = useState(0);
   const [isAdmin, setIsAdmin] = useState(false);
   const [poolMembers, setPoolMembers] = useState(56527);
   const [phaseData, setPhaseData] = useState<PhaseData | null>(null);
@@ -73,9 +74,11 @@ export default function HomeScreen() {
     checkAdmin();
     checkExistingPayment();
     
+    // Update every second for real-time balance display
     const interval = setInterval(() => {
       if (user) {
         setCurrentYield(getCurrentYield());
+        setTotalMxiBalance(getTotalMxiBalance());
       }
       updateCountdown();
     }, 1000);
@@ -104,6 +107,7 @@ export default function HomeScreen() {
     
     console.log('Loading home screen data...');
     setCurrentYield(getCurrentYield());
+    setTotalMxiBalance(getTotalMxiBalance());
     
     // Load metrics data
     const { data: metricsData, error: metricsError } = await supabase
@@ -191,6 +195,7 @@ export default function HomeScreen() {
             if (result.success) {
               Alert.alert('Success', `Claimed ${result.yieldEarned?.toFixed(6)} MXI!`);
               setCurrentYield(0);
+              setTotalMxiBalance(getTotalMxiBalance());
             } else {
               Alert.alert('Error', result.error || 'Failed to claim yield');
             }
@@ -348,26 +353,25 @@ export default function HomeScreen() {
   // Calculate MXI breakdown - these fields come from the users table
   const mxiPurchased = user.mxiPurchasedDirectly || 0;
   const mxiFromCommissions = user.mxiFromUnifiedCommissions || 0;
-  const mxiFromChallenges = (user as any).mxi_from_challenges || 0;
-  const mxiVestingLocked = (user as any).mxi_vesting_locked || 0;
+  const mxiFromChallenges = user.mxiFromChallenges || 0;
+  const mxiVestingLocked = user.mxiVestingLocked || 0;
+  const accumulatedYield = user.accumulatedYield || 0;
 
-  // Total MXI balance NOW INCLUDES VESTING as requested:
-  // "sumatoria de mxi comprados, mxi por referidos, mxi por retos, mxi vesting"
-  const totalMxiBalance = mxiPurchased + mxiFromCommissions + mxiFromChallenges + mxiVestingLocked;
-
-  console.log('MXI Balance Breakdown:', {
-    total: totalMxiBalance,
-    purchased: mxiPurchased,
-    commissions: mxiFromCommissions,
-    challenges: mxiFromChallenges,
-    vesting: mxiVestingLocked,
-    userBalance: user.mxiBalance
+  console.log('MXI Balance Breakdown (Home Screen):', {
+    totalMxiBalance,
+    mxiPurchased,
+    mxiFromCommissions,
+    mxiFromChallenges,
+    mxiVestingLocked,
+    accumulatedYield,
+    currentYield,
+    userMxiBalance: user.mxiBalance
   });
 
   // Calculate vesting data
   const mxiInVesting = mxiPurchased + mxiFromCommissions;
   const yieldPerSecond = user.yieldRatePerMinute / 60;
-  const totalYield = user.accumulatedYield + currentYield;
+  const totalYield = accumulatedYield + currentYield;
   const canUnify = user.activeReferrals >= 10;
 
   return (
@@ -421,22 +425,23 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* MXI Balance with Breakdown */}
+        {/* MXI Balance with Breakdown - NOW INCLUDES VESTING AND REAL-TIME YIELD */}
         <View style={[commonStyles.card, styles.balanceCard]}>
           <View style={styles.balanceHeader}>
-            <Text style={styles.balanceLabel}>MXI Balance Total</Text>
+            <Text style={styles.balanceLabel}>💎 MXI Balance Total (Tiempo Real)</Text>
             <TouchableOpacity onPress={() => router.push('/(tabs)/(home)/vesting')}>
               <IconSymbol ios_icon_name="info.circle" android_material_icon_name="info" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
-          <Text style={styles.balanceAmount}>{totalMxiBalance.toFixed(2)}</Text>
+          <Text style={styles.balanceAmount}>{totalMxiBalance.toFixed(6)}</Text>
           <Text style={styles.balanceCurrency}>MXI</Text>
+          <Text style={styles.balanceUpdateText}>⚡ Actualizado cada segundo</Text>
           
           <View style={styles.balanceDivider} />
           
           {/* MXI Breakdown Table */}
           <View style={styles.breakdownContainer}>
-            <Text style={styles.breakdownTitle}>Desglose de Balance</Text>
+            <Text style={styles.breakdownTitle}>📊 Desglose Completo de Balance</Text>
             
             <View style={styles.breakdownRow}>
               <View style={styles.breakdownItem}>
@@ -451,7 +456,7 @@ export default function HomeScreen() {
                   <Text style={styles.breakdownSubtext}>Disponible para retos</Text>
                 </View>
               </View>
-              <Text style={styles.breakdownValue}>{mxiPurchased.toFixed(2)}</Text>
+              <Text style={styles.breakdownValue}>{mxiPurchased.toFixed(6)}</Text>
             </View>
 
             <View style={styles.breakdownRow}>
@@ -467,7 +472,7 @@ export default function HomeScreen() {
                   <Text style={styles.breakdownSubtext}>De comisiones unificadas</Text>
                 </View>
               </View>
-              <Text style={styles.breakdownValue}>{mxiFromCommissions.toFixed(2)}</Text>
+              <Text style={styles.breakdownValue}>{mxiFromCommissions.toFixed(6)}</Text>
             </View>
 
             <View style={styles.breakdownRow}>
@@ -483,7 +488,7 @@ export default function HomeScreen() {
                   <Text style={styles.breakdownSubtext}>Ganados en competencias</Text>
                 </View>
               </View>
-              <Text style={styles.breakdownValue}>{mxiFromChallenges.toFixed(2)}</Text>
+              <Text style={styles.breakdownValue}>{mxiFromChallenges.toFixed(6)}</Text>
             </View>
 
             <View style={styles.breakdownRow}>
@@ -495,11 +500,43 @@ export default function HomeScreen() {
                   color={colors.accent} 
                 />
                 <View style={styles.breakdownText}>
-                  <Text style={styles.breakdownLabel}>MXI Vesting</Text>
+                  <Text style={styles.breakdownLabel}>MXI Vesting Bloqueado</Text>
                   <Text style={styles.breakdownSubtext}>Bloqueado hasta lanzamiento</Text>
                 </View>
               </View>
-              <Text style={styles.breakdownValue}>{mxiVestingLocked.toFixed(2)}</Text>
+              <Text style={styles.breakdownValue}>{mxiVestingLocked.toFixed(6)}</Text>
+            </View>
+
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownItem}>
+                <IconSymbol 
+                  ios_icon_name="chart.line.uptrend.xyaxis" 
+                  android_material_icon_name="trending_up" 
+                  size={20} 
+                  color="#FFD700" 
+                />
+                <View style={styles.breakdownText}>
+                  <Text style={styles.breakdownLabel}>Rendimiento Acumulado</Text>
+                  <Text style={styles.breakdownSubtext}>De sesiones anteriores</Text>
+                </View>
+              </View>
+              <Text style={styles.breakdownValue}>{accumulatedYield.toFixed(8)}</Text>
+            </View>
+
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownItem}>
+                <IconSymbol 
+                  ios_icon_name="bolt.fill" 
+                  android_material_icon_name="flash_on" 
+                  size={20} 
+                  color="#FF6B6B" 
+                />
+                <View style={styles.breakdownText}>
+                  <Text style={styles.breakdownLabel}>Rendimiento Actual (Tiempo Real)</Text>
+                  <Text style={styles.breakdownSubtext}>⚡ {yieldPerSecond.toFixed(8)} MXI/segundo</Text>
+                </View>
+              </View>
+              <Text style={styles.breakdownValue}>{currentYield.toFixed(8)}</Text>
             </View>
           </View>
 
@@ -507,13 +544,13 @@ export default function HomeScreen() {
           
           <View style={styles.balanceRow}>
             <View style={styles.balanceItem}>
-              <Text style={styles.balanceItemLabel}>MXI Total</Text>
-              <Text style={styles.balanceItemValue}>{totalMxiBalance.toFixed(2)} MXI</Text>
+              <Text style={styles.balanceItemLabel}>💎 MXI Total</Text>
+              <Text style={styles.balanceItemValue}>{totalMxiBalance.toFixed(6)} MXI</Text>
               <Text style={styles.balanceItemSubtext}>≈ ${getMxiExchangeValue(totalMxiBalance).toFixed(2)} USDT</Text>
               <Text style={styles.balanceItemNote}>(Fase 1: $0.40/MXI)</Text>
             </View>
             <View style={styles.balanceItem}>
-              <Text style={styles.balanceItemLabel}>Referidos Activos</Text>
+              <Text style={styles.balanceItemLabel}>👥 Referidos Activos</Text>
               <Text style={styles.balanceItemValue}>{user.activeReferrals}</Text>
             </View>
           </View>
@@ -717,7 +754,7 @@ export default function HomeScreen() {
               </View>
               <View style={styles.vestingPanelDivider} />
               <View style={styles.vestingPanelStat}>
-                <Text style={styles.vestingPanelStatLabel}>Rendimiento Acumulado</Text>
+                <Text style={styles.vestingPanelStatLabel}>Rendimiento Total</Text>
                 <Text style={styles.vestingPanelStatValue}>{totalYield.toFixed(6)} MXI</Text>
               </View>
             </View>
@@ -1093,17 +1130,25 @@ const styles = StyleSheet.create({
   balanceLabel: {
     fontSize: 14,
     color: colors.textSecondary,
+    fontWeight: '700',
   },
   balanceAmount: {
     fontSize: 48,
     fontWeight: '700',
     color: colors.accent,
     marginBottom: 4,
+    fontFamily: 'monospace',
   },
   balanceCurrency: {
     fontSize: 20,
     fontWeight: '600',
     color: colors.accent,
+  },
+  balanceUpdateText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+    marginTop: 4,
   },
   balanceDivider: {
     width: '100%',
@@ -1147,9 +1192,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   breakdownValue: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
     color: colors.text,
+    fontFamily: 'monospace',
   },
   balanceRow: {
     flexDirection: 'row',

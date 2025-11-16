@@ -40,6 +40,8 @@ interface User {
   releasePercentage?: number;
   mxiPurchasedDirectly?: number;
   mxiFromUnifiedCommissions?: number;
+  mxiFromChallenges?: number;
+  mxiVestingLocked?: number;
 }
 
 interface PoolStatus {
@@ -77,6 +79,7 @@ interface AuthContextType {
   resendVerificationEmail: () => Promise<{ success: boolean; error?: string }>;
   claimYield: () => Promise<{ success: boolean; yieldEarned?: number; error?: string }>;
   getCurrentYield: () => number;
+  getTotalMxiBalance: () => number;
   getPoolStatus: () => Promise<PoolStatus | null>;
   checkAdminStatus: () => Promise<boolean>;
   getPhaseInfo: () => Promise<PhaseInfo | null>;
@@ -236,9 +239,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         releasePercentage: scheduleData ? parseFloat(scheduleData.release_percentage?.toString() || '10') : 10,
         mxiPurchasedDirectly: parseFloat(userData.mxi_purchased_directly?.toString() || '0'),
         mxiFromUnifiedCommissions: parseFloat(userData.mxi_from_unified_commissions?.toString() || '0'),
+        mxiFromChallenges: parseFloat(userData.mxi_from_challenges?.toString() || '0'),
+        mxiVestingLocked: parseFloat(userData.mxi_vesting_locked?.toString() || '0'),
       };
 
-      console.log('User data loaded:', mappedUser);
+      console.log('User data loaded:', {
+        id: mappedUser.id,
+        name: mappedUser.name,
+        mxiBalance: mappedUser.mxiBalance,
+        mxiPurchasedDirectly: mappedUser.mxiPurchasedDirectly,
+        mxiFromUnifiedCommissions: mappedUser.mxiFromUnifiedCommissions,
+        mxiFromChallenges: mappedUser.mxiFromChallenges,
+        mxiVestingLocked: mappedUser.mxiVestingLocked,
+        accumulatedYield: mappedUser.accumulatedYield,
+        yieldRatePerMinute: mappedUser.yieldRatePerMinute,
+      });
+      
       setUser(mappedUser);
       setIsAuthenticated(true);
       setLoading(false);
@@ -773,6 +789,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return user.yieldRatePerMinute * minutesElapsed;
   };
 
+  const getTotalMxiBalance = (): number => {
+    if (!user) return 0;
+
+    // Calculate total MXI balance including ALL sources:
+    // 1. MXI purchased directly
+    // 2. MXI from unified commissions
+    // 3. MXI from challenges
+    // 4. MXI vesting locked
+    // 5. Accumulated yield
+    // 6. Current real-time yield
+    const mxiPurchased = user.mxiPurchasedDirectly || 0;
+    const mxiFromCommissions = user.mxiFromUnifiedCommissions || 0;
+    const mxiFromChallenges = user.mxiFromChallenges || 0;
+    const mxiVestingLocked = user.mxiVestingLocked || 0;
+    const accumulatedYield = user.accumulatedYield || 0;
+    const currentYield = getCurrentYield();
+
+    const total = mxiPurchased + mxiFromCommissions + mxiFromChallenges + mxiVestingLocked + accumulatedYield + currentYield;
+
+    console.log('Total MXI Balance Calculation:', {
+      mxiPurchased,
+      mxiFromCommissions,
+      mxiFromChallenges,
+      mxiVestingLocked,
+      accumulatedYield,
+      currentYield,
+      total,
+    });
+
+    return total;
+  };
+
   const getPoolStatus = async (): Promise<PoolStatus | null> => {
     try {
       const { data, error } = await supabase.rpc('get_pool_status');
@@ -859,6 +907,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         resendVerificationEmail,
         claimYield,
         getCurrentYield,
+        getTotalMxiBalance,
         getPoolStatus,
         checkAdminStatus,
         getPhaseInfo,
