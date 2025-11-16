@@ -16,6 +16,7 @@ import { colors, commonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import UniversalMXICounter from '@/components/UniversalMXICounter';
 
 interface AdminStats {
   pendingKYC: number;
@@ -293,6 +294,11 @@ export default function AdminDashboard() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
+        {/* Universal MXI Counter */}
+        <View style={styles.section}>
+          <UniversalMXICounter isAdmin={true} />
+        </View>
+
         {/* Phase Progress */}
         {phaseMetrics && (
           <View style={[commonStyles.card, styles.phaseCard]}>
@@ -590,6 +596,9 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingBottom: 100,
   },
+  section: {
+    marginBottom: 24,
+  },
   phaseCard: {
     marginBottom: 24,
   },
@@ -645,9 +654,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.text,
-  },
-  section: {
-    marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 18,
