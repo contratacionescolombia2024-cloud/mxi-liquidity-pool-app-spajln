@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter, useSegments } from 'expo-router';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
@@ -107,10 +107,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const initializationTimeout = useRef<NodeJS.Timeout | null>(null);
+  const isInitializing = useRef(false);
 
   useEffect(() => {
     console.log('=== AUTH PROVIDER INITIALIZING ===');
     
+    // Set a maximum initialization time of 5 seconds
+    initializationTimeout.current = setTimeout(() => {
+      if (loading) {
+        console.warn('Auth initialization timeout - continuing without session');
+        setLoading(false);
+      }
+    }, 5000);
+
     // Initialize session
     initializeAuth();
 
@@ -159,20 +169,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       console.log('Cleaning up auth subscription');
+      if (initializationTimeout.current) {
+        clearTimeout(initializationTimeout.current);
+      }
       subscription.unsubscribe();
     };
   }, []);
 
   const initializeAuth = async () => {
+    // Prevent multiple simultaneous initializations
+    if (isInitializing.current) {
+      console.log('Auth initialization already in progress');
+      return;
+    }
+
+    isInitializing.current = true;
+
     try {
       console.log('=== INITIALIZING AUTH ===');
-      const { data: { session }, error } = await supabase.auth.getSession();
       
-      if (error) {
-        console.error('Error getting session:', error);
+      // Use a timeout for the session check
+      const sessionPromise = supabase.auth.getSession();
+      const timeoutPromise = new Promise<{ data: { session: null }, error: Error }>((_, reject) => {
+        setTimeout(() => reject(new Error('Session check timeout')), 3000);
+      });
+
+      const result = await Promise.race([sessionPromise, timeoutPromise]);
+      
+      if ('error' in result && result.error) {
+        console.error('Error getting session:', result.error);
         clearAuthState();
         return;
       }
+
+      const { data: { session } } = result as { data: { session: Session | null } };
 
       if (session) {
         console.log('Session found:', session.user.id);
@@ -185,6 +215,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Error initializing auth:', error);
       clearAuthState();
+    } finally {
+      isInitializing.current = false;
     }
   };
 
@@ -201,17 +233,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('=== LOADING USER DATA ===');
       console.log('User ID:', userId);
       
-      const { data: userData, error: userError } = await supabase
+      // Use timeout for user data loading
+      const userDataPromise = supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .single();
 
-      if (userError) {
-        console.error('Error loading user data:', userError);
+      const timeoutPromise = new Promise<{ data: null, error: Error }>((_, reject) => {
+        setTimeout(() => reject(new Error('User data loading timeout')), 3000);
+      });
+
+      const result = await Promise.race([userDataPromise, timeoutPromise]);
+
+      if ('error' in result && result.error) {
+        console.error('Error loading user data:', result.error);
         setLoading(false);
         return;
       }
+
+      const { data: userData } = result as { data: any };
 
       if (!userData) {
         console.log('No user data found');
@@ -219,34 +260,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      const { data: referralData } = await supabase
-        .from('referrals')
-        .select('level')
-        .eq('referrer_id', userId);
+      // Load additional data in parallel with timeout
+      const [referralResult, commissionResult, scheduleResult] = await Promise.allSettled([
+        Promise.race([
+          supabase.from('referrals').select('level').eq('referrer_id', userId),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
+        ]),
+        Promise.race([
+          supabase.from('commissions').select('amount, status').eq('user_id', userId),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
+        ]),
+        Promise.race([
+          supabase.from('mxi_withdrawal_schedule').select('*').eq('user_id', userId).single(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
+        ])
+      ]);
+
+      const referralData = referralResult.status === 'fulfilled' && 'data' in referralResult.value 
+        ? referralResult.value.data 
+        : [];
+      const commissionData = commissionResult.status === 'fulfilled' && 'data' in commissionResult.value 
+        ? commissionResult.value.data 
+        : [];
+      const scheduleData = scheduleResult.status === 'fulfilled' && 'data' in scheduleResult.value 
+        ? scheduleResult.value.data 
+        : null;
 
       const referrals = {
-        level1: referralData?.filter(r => r.level === 1).length || 0,
-        level2: referralData?.filter(r => r.level === 2).length || 0,
-        level3: referralData?.filter(r => r.level === 3).length || 0,
+        level1: Array.isArray(referralData) ? referralData.filter((r: any) => r.level === 1).length : 0,
+        level2: Array.isArray(referralData) ? referralData.filter((r: any) => r.level === 2).length : 0,
+        level3: Array.isArray(referralData) ? referralData.filter((r: any) => r.level === 3).length : 0,
       };
-
-      const { data: commissionData } = await supabase
-        .from('commissions')
-        .select('amount, status')
-        .eq('user_id', userId);
 
       const commissions = {
-        total: commissionData?.reduce((sum, c) => sum + parseFloat(c.amount.toString()), 0) || 0,
-        available: commissionData?.filter(c => c.status === 'available').reduce((sum, c) => sum + parseFloat(c.amount.toString()), 0) || 0,
-        withdrawn: commissionData?.filter(c => c.status === 'withdrawn').reduce((sum, c) => sum + parseFloat(c.amount.toString()), 0) || 0,
+        total: Array.isArray(commissionData) ? commissionData.reduce((sum: number, c: any) => sum + parseFloat(c.amount?.toString() || '0'), 0) : 0,
+        available: Array.isArray(commissionData) ? commissionData.filter((c: any) => c.status === 'available').reduce((sum: number, c: any) => sum + parseFloat(c.amount?.toString() || '0'), 0) : 0,
+        withdrawn: Array.isArray(commissionData) ? commissionData.filter((c: any) => c.status === 'withdrawn').reduce((sum: number, c: any) => sum + parseFloat(c.amount?.toString() || '0'), 0) : 0,
       };
-
-      // Get MXI withdrawal schedule
-      const { data: scheduleData } = await supabase
-        .from('mxi_withdrawal_schedule')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
 
       const mappedUser: User = {
         id: userData.id,
