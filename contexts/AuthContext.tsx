@@ -109,26 +109,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const initializationTimeout = useRef<NodeJS.Timeout | null>(null);
   const isInitializing = useRef(false);
+  const authSubscription = useRef<any>(null);
 
   useEffect(() => {
     console.log('=== AUTH PROVIDER INITIALIZING ===');
     
-    // Set a maximum initialization time of 5 seconds
+    // Set a maximum initialization time of 4 seconds
     initializationTimeout.current = setTimeout(() => {
       if (loading) {
         console.warn('Auth initialization timeout - continuing without session');
         setLoading(false);
       }
-    }, 5000);
+    }, 4000);
 
     // Initialize session
     initializeAuth();
 
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('=== AUTH STATE CHANGE ===');
-      console.log('Event:', event);
-      console.log('Session:', session?.user?.id);
+      console.log('=== AUTH STATE CHANGE ===', event);
       
       try {
         if (event === 'SIGNED_OUT') {
@@ -167,12 +166,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
+    authSubscription.current = subscription;
+
     return () => {
       console.log('Cleaning up auth subscription');
       if (initializationTimeout.current) {
         clearTimeout(initializationTimeout.current);
       }
-      subscription.unsubscribe();
+      if (authSubscription.current) {
+        authSubscription.current.unsubscribe();
+      }
     };
   }, []);
 
@@ -191,7 +194,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Use a timeout for the session check
       const sessionPromise = supabase.auth.getSession();
       const timeoutPromise = new Promise<{ data: { session: null }, error: Error }>((_, reject) => {
-        setTimeout(() => reject(new Error('Session check timeout')), 3000);
+        setTimeout(() => reject(new Error('Session check timeout')), 2500);
       });
 
       const result = await Promise.race([sessionPromise, timeoutPromise]);
@@ -230,8 +233,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loadUserData = async (userId: string) => {
     try {
-      console.log('=== LOADING USER DATA ===');
-      console.log('User ID:', userId);
+      console.log('=== LOADING USER DATA ===', userId);
       
       // Use timeout for user data loading
       const userDataPromise = supabase
@@ -241,7 +243,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       const timeoutPromise = new Promise<{ data: null, error: Error }>((_, reject) => {
-        setTimeout(() => reject(new Error('User data loading timeout')), 3000);
+        setTimeout(() => reject(new Error('User data loading timeout')), 2500);
       });
 
       const result = await Promise.race([userDataPromise, timeoutPromise]);
@@ -264,15 +266,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const [referralResult, commissionResult, scheduleResult] = await Promise.allSettled([
         Promise.race([
           supabase.from('referrals').select('level').eq('referrer_id', userId),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 1500))
         ]),
         Promise.race([
           supabase.from('commissions').select('amount, status').eq('user_id', userId),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 1500))
         ]),
         Promise.race([
           supabase.from('mxi_withdrawal_schedule').select('*').eq('user_id', userId).single(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 1500))
         ])
       ]);
 
@@ -341,8 +343,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      console.log('=== LOGIN ATTEMPT ===');
-      console.log('Email:', email);
+      console.log('=== LOGIN ATTEMPT ===', email);
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -379,8 +380,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = async (userData: RegisterData): Promise<{ success: boolean; error?: string }> => {
     try {
-      console.log('=== REGISTRATION START ===');
-      console.log('Attempting registration for:', userData.email);
+      console.log('=== REGISTRATION START ===', userData.email);
 
       // Check for existing email
       const { data: existingUser, error: emailCheckError } = await supabase
@@ -571,12 +571,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'El usuario fue creado pero hubo un problema al verificar. Por favor contacta soporte.' };
       }
 
-      console.log('=== REGISTRATION SUCCESSFUL ===');
-      console.log('User profile verified:', finalCheck);
+      console.log('=== REGISTRATION SUCCESSFUL ===', finalCheck);
       return { success: true };
     } catch (error: any) {
-      console.error('=== REGISTRATION EXCEPTION ===');
-      console.error('Registration exception:', error);
+      console.error('=== REGISTRATION EXCEPTION ===', error);
       return { success: false, error: error.message || 'Error en el registro' };
     }
   };
@@ -628,8 +626,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       console.log('=== LOGOUT START ===');
-      console.log('Current session:', session?.user?.id);
-      console.log('Current user:', user?.id);
       
       // Step 1: Clear local state IMMEDIATELY
       console.log('Step 1: Clearing local auth state...');
@@ -648,8 +644,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       console.log('=== LOGOUT COMPLETE ===');
     } catch (error) {
-      console.error('=== LOGOUT EXCEPTION ===');
-      console.error('Logout error:', error);
+      console.error('=== LOGOUT EXCEPTION ===', error);
       
       // Ensure state is cleared even on error
       clearAuthState();

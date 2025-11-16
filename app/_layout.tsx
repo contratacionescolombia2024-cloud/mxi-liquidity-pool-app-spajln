@@ -39,11 +39,16 @@ class ErrorBoundary extends React.Component<
   }
 
   static getDerivedStateFromError(error: Error) {
+    console.error('ErrorBoundary caught error:', error);
     return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Error Boundary caught error:', error, errorInfo);
+    console.error('Error Boundary details:', {
+      error: error.message,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack
+    });
   }
 
   render() {
@@ -70,20 +75,21 @@ function RootLayoutNav() {
   const segments = useSegments();
   const colorScheme = useColorScheme();
   const [navigationReady, setNavigationReady] = useState(false);
+  const [initialNavigationDone, setInitialNavigationDone] = useState(false);
 
+  // Mark navigation as ready after auth is loaded
   useEffect(() => {
-    // Mark navigation as ready after a short delay
-    const timer = setTimeout(() => {
-      setNavigationReady(true);
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, []);
+    if (!loading) {
+      const timer = setTimeout(() => {
+        setNavigationReady(true);
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [loading]);
 
   useEffect(() => {
     // Don't do anything while loading or navigation not ready
-    if (loading || !navigationReady) {
-      console.log('Waiting for auth or navigation...', { loading, navigationReady });
+    if (loading || !navigationReady || initialNavigationDone) {
       return;
     }
 
@@ -92,7 +98,6 @@ function RootLayoutNav() {
 
     console.log('Navigation check:', {
       isAuthenticated,
-      loading,
       segments,
       inAuthGroup,
       inEmailConfirmed
@@ -101,17 +106,23 @@ function RootLayoutNav() {
     // Don't redirect if on email confirmation screen
     if (inEmailConfirmed) {
       console.log('On email confirmation screen, skipping redirect');
+      setInitialNavigationDone(true);
       return;
     }
 
     // Redirect logic with error handling
     try {
       if (!isAuthenticated && !inAuthGroup) {
-        console.log('Not authenticated and not in auth group, redirecting to login');
+        console.log('Not authenticated, redirecting to login');
         router.replace("/(auth)/login");
+        setInitialNavigationDone(true);
       } else if (isAuthenticated && inAuthGroup) {
-        console.log('Authenticated and in auth group, redirecting to home');
+        console.log('Authenticated, redirecting to home');
         router.replace("/(tabs)/(home)/");
+        setInitialNavigationDone(true);
+      } else {
+        // Already in correct location
+        setInitialNavigationDone(true);
       }
     } catch (error) {
       console.error('Navigation error:', error);
@@ -123,8 +134,9 @@ function RootLayoutNav() {
       } catch (fallbackError) {
         console.error('Fallback navigation also failed:', fallbackError);
       }
+      setInitialNavigationDone(true);
     }
-  }, [isAuthenticated, segments, loading, navigationReady]);
+  }, [isAuthenticated, segments, loading, navigationReady, initialNavigationDone]);
 
   // Handle deep linking for email confirmation
   useEffect(() => {
@@ -241,7 +253,7 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
-  // Timeout fallback - if fonts don't load within 3 seconds, continue anyway
+  // Timeout fallback - if fonts don't load within 2 seconds, continue anyway
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (!loaded && !error) {
@@ -249,7 +261,7 @@ export default function RootLayout() {
         setFontLoadTimeout(true);
         setAppReady(true);
       }
-    }, 3000);
+    }, 2000);
 
     return () => clearTimeout(timeout);
   }, [loaded, error]);
