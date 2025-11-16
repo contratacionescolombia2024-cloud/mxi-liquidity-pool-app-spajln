@@ -111,6 +111,10 @@ export default function KYCVerificationScreen() {
         .limit(1)
         .single();
 
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error loading KYC data:', error);
+      }
+
       if (data) {
         setKycData(data);
         setFullName(data.full_name || '');
@@ -120,7 +124,7 @@ export default function KYCVerificationScreen() {
         setDocumentBackUrl(data.document_back_url);
       }
     } catch (error) {
-      console.log('No existing KYC data found');
+      console.log('No existing KYC data found or error:', error);
     }
     setLoading(false);
   };
@@ -165,6 +169,8 @@ export default function KYCVerificationScreen() {
       const response = await fetch(uri);
       const blob = await response.blob();
 
+      console.log(`Uploading ${side} image to storage...`);
+
       // Upload to Supabase Storage
       const { data, error } = await supabase.storage
         .from('kyc-documents')
@@ -174,8 +180,11 @@ export default function KYCVerificationScreen() {
         });
 
       if (error) {
+        console.error('Storage upload error:', error);
         throw error;
       }
+
+      console.log(`${side} image uploaded successfully:`, data);
 
       // Get public URL
       const { data: urlData } = supabase.storage
@@ -198,8 +207,12 @@ export default function KYCVerificationScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!user) return;
+    if (!user) {
+      Alert.alert('Error', 'User not authenticated. Please log in again.');
+      return;
+    }
 
+    // Validation
     if (!fullName.trim()) {
       Alert.alert('Error', 'Please enter your full name');
       return;
@@ -230,7 +243,24 @@ export default function KYCVerificationScreen() {
           onPress: async () => {
             setSubmitting(true);
             try {
-              const { error } = await supabase
+              console.log('Starting KYC submission...');
+              console.log('User ID:', user.id);
+              console.log('Full Name:', fullName.trim());
+              console.log('Document Type:', documentType);
+              console.log('Document Number:', documentNumber.trim());
+              console.log('Document Front URL:', documentFrontUrl);
+              console.log('Document Back URL:', documentBackUrl);
+
+              // Check if user is authenticated
+              const { data: { session } } = await supabase.auth.getSession();
+              if (!session) {
+                throw new Error('No active session. Please log in again.');
+              }
+
+              console.log('Session verified, inserting KYC data...');
+
+              // Insert KYC verification
+              const { data: insertedData, error: insertError } = await supabase
                 .from('kyc_verifications')
                 .insert({
                   user_id: user.id,
@@ -241,18 +271,33 @@ export default function KYCVerificationScreen() {
                   document_back_url: documentBackUrl,
                   status: 'pending',
                   submitted_at: new Date().toISOString(),
-                });
+                })
+                .select()
+                .single();
 
-              if (error) {
-                throw error;
+              if (insertError) {
+                console.error('Insert error:', insertError);
+                throw insertError;
               }
 
-              await supabase
+              console.log('KYC data inserted successfully:', insertedData);
+
+              // Update user KYC status
+              console.log('Updating user KYC status...');
+              const { error: userUpdateError } = await supabase
                 .from('users')
                 .update({ kyc_status: 'pending' })
                 .eq('id', user.id);
 
+              if (userUpdateError) {
+                console.error('User update error:', userUpdateError);
+                // Don't throw here, KYC was already submitted
+              }
+
+              // Update local user context
               await updateUser({ kycStatus: 'pending' });
+
+              console.log('KYC submission completed successfully!');
 
               Alert.alert(
                 '✅ KYC Submitted Successfully!',
@@ -275,12 +320,21 @@ export default function KYCVerificationScreen() {
               );
             } catch (error: any) {
               console.error('KYC submission error:', error);
-              Alert.alert(
-                '❌ Submission Failed',
-                error.message || 'Failed to submit KYC verification. Please try again or contact support if the problem persists.'
-              );
+              
+              let errorMessage = 'Failed to submit KYC verification. ';
+              
+              if (error.message) {
+                errorMessage += error.message;
+              } else if (error.code) {
+                errorMessage += `Error code: ${error.code}`;
+              } else {
+                errorMessage += 'Please try again or contact support if the problem persists.';
+              }
+
+              Alert.alert('❌ Submission Failed', errorMessage);
+            } finally {
+              setSubmitting(false);
             }
-            setSubmitting(false);
           },
         },
       ]
