@@ -932,7 +932,7 @@ export default function UserManagementScreen() {
         </TouchableOpacity>
         <View style={styles.headerContent}>
           <Text style={styles.title}>👥 User Management</Text>
-          <Text style={styles.subtitle}>{filteredUsers.length} users</Text>
+          <Text style={styles.subtitle}>{Array.isArray(filteredUsers) ? filteredUsers.length : 0} users</Text>
         </View>
       </View>
 
@@ -1003,7 +1003,7 @@ export default function UserManagementScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {filteredUsers.length === 0 ? (
+        {!Array.isArray(filteredUsers) || filteredUsers.length === 0 ? (
           <View style={styles.emptyContainer}>
             <IconSymbol 
               ios_icon_name="person.slash" 
