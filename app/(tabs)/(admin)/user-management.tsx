@@ -179,16 +179,20 @@ export default function UserManagementScreen() {
       if (error) throw error;
 
       console.log('Loaded users:', data?.length || 0);
-      setUsers(data || []);
+      // Ensure we always set an array, even if data is null
+      setUsers(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error loading users:', error);
       Alert.alert('Error', 'Failed to load users');
+      // Set empty array on error
+      setUsers([]);
     } finally {
       setLoading(false);
     }
   };
 
   const filterUsers = () => {
+    // Ensure users is always an array before filtering
     if (!Array.isArray(users)) {
       console.error('Users is not an array:', users);
       setFilteredUsers([]);
@@ -198,20 +202,20 @@ export default function UserManagementScreen() {
     let filtered = [...users];
 
     if (filterStatus === 'active') {
-      filtered = filtered.filter(u => u.is_active_contributor && !u.is_blocked);
+      filtered = filtered.filter(u => u?.is_active_contributor && !u?.is_blocked);
     } else if (filterStatus === 'inactive') {
-      filtered = filtered.filter(u => !u.is_active_contributor && !u.is_blocked);
+      filtered = filtered.filter(u => !u?.is_active_contributor && !u?.is_blocked);
     } else if (filterStatus === 'blocked') {
-      filtered = filtered.filter(u => u.is_blocked);
+      filtered = filtered.filter(u => u?.is_blocked);
     }
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(u => 
-        u.name?.toLowerCase().includes(query) ||
-        u.email?.toLowerCase().includes(query) ||
-        u.id_number?.toLowerCase().includes(query) ||
-        u.referral_code?.toLowerCase().includes(query)
+        u?.name?.toLowerCase().includes(query) ||
+        u?.email?.toLowerCase().includes(query) ||
+        u?.id_number?.toLowerCase().includes(query) ||
+        u?.referral_code?.toLowerCase().includes(query)
       );
     }
 
