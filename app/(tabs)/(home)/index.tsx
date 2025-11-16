@@ -44,7 +44,6 @@ export default function HomeScreen() {
   const [poolMembers, setPoolMembers] = useState(56527);
   const [phaseData, setPhaseData] = useState<PhaseData | null>(null);
   const [countdown, setCountdown] = useState<CountdownTime>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-  // FIXED: Corrected launch date to February 15, 2026
   const [launchDate] = useState(new Date('2026-02-15T12:00:00Z'));
 
   useEffect(() => {
@@ -159,8 +158,7 @@ export default function HomeScreen() {
   const getPhaseProgress = (phase: number): number => {
     if (!phaseData) return 0;
     
-    // FIXED: Corrected phase limit to 8.33M tokens per phase (25M total / 3 phases)
-    const phaseLimit = 8333333; // 8.33M tokens per phase
+    const phaseLimit = 8333333;
     let tokensSold = 0;
     
     if (phase === 1) tokensSold = phaseData.phase1TokensSold;
@@ -171,7 +169,6 @@ export default function HomeScreen() {
   };
 
   const getPhasePrice = (phase: number): string => {
-    // FIXED: Using correct pricing from database
     if (phase === 1) return '$0.40';
     if (phase === 2) return '$0.60';
     if (phase === 3) return '$0.80';
@@ -187,7 +184,6 @@ export default function HomeScreen() {
     return num.toFixed(0);
   };
 
-  // FIXED: Calculate MXI exchange value using current phase price
   const getMxiExchangeValue = (mxiAmount: number): number => {
     const currentPrice = phaseData?.currentPriceUsdt || 0.40;
     return mxiAmount * currentPrice;
@@ -203,17 +199,17 @@ export default function HomeScreen() {
     );
   }
 
-  // Calculate MXI breakdown - these fields come from the users table
+  // Calculate MXI breakdown - UNIFIED VESTING DISPLAY
   const mxiPurchased = user.mxiPurchasedDirectly || 0;
   const mxiFromCommissions = user.mxiFromUnifiedCommissions || 0;
   const mxiFromChallenges = user.mxiFromChallenges || 0;
   const mxiVestingLocked = user.mxiVestingLocked || 0;
   const accumulatedYield = user.accumulatedYield || 0;
 
-  // Calculate vesting data - UNIFIED DISPLAY
-  const mxiInVesting = mxiPurchased + mxiFromCommissions;
+  // UNIFIED VESTING CALCULATION
+  // All vesting-related MXI in one value
+  const totalVestingMXI = mxiPurchased + mxiFromCommissions + accumulatedYield + currentYield;
   const yieldPerSecond = user.yieldRatePerMinute / 60;
-  const totalYield = accumulatedYield + currentYield;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -266,7 +262,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* MXI Balance with Breakdown - UNIFIED VESTING DISPLAY */}
+        {/* MXI Balance with UNIFIED VESTING DISPLAY */}
         <View style={[commonStyles.card, styles.balanceCard]}>
           <View style={styles.balanceHeader}>
             <Text style={styles.balanceLabel}>💎 Balance General MXI (Tiempo Real)</Text>
@@ -280,42 +276,71 @@ export default function HomeScreen() {
           
           <View style={styles.balanceDivider} />
           
-          {/* MXI Breakdown Table - UNIFIED */}
+          {/* SIMPLIFIED BREAKDOWN - UNIFIED VESTING */}
           <View style={styles.breakdownContainer}>
-            <Text style={styles.breakdownTitle}>📊 Desglose Completo de Balance</Text>
+            <Text style={styles.breakdownTitle}>📊 Desglose de Balance</Text>
             
-            <View style={styles.breakdownRow}>
-              <View style={styles.breakdownItem}>
-                <IconSymbol 
-                  ios_icon_name="cart.fill" 
-                  android_material_icon_name="shopping_cart" 
-                  size={20} 
-                  color={colors.primary} 
-                />
-                <View style={styles.breakdownText}>
-                  <Text style={styles.breakdownLabel}>MXI Comprados</Text>
-                  <Text style={styles.breakdownSubtext}>Disponible para retos</Text>
+            {/* UNIFIED VESTING SECTION - All vesting and yield in one */}
+            <View style={styles.unifiedVestingCard}>
+              <View style={styles.unifiedVestingHeader}>
+                <View style={styles.unifiedVestingIconContainer}>
+                  <IconSymbol 
+                    ios_icon_name="chart.line.uptrend.xyaxis" 
+                    android_material_icon_name="trending_up" 
+                    size={32} 
+                    color="#fff" 
+                  />
+                </View>
+                <View style={styles.unifiedVestingInfo}>
+                  <Text style={styles.unifiedVestingTitle}>⛏️ Vesting & Rendimiento Total</Text>
+                  <Text style={styles.unifiedVestingSubtitle}>
+                    Bloqueado hasta lanzamiento • Generando rendimientos
+                  </Text>
                 </View>
               </View>
-              <Text style={styles.breakdownValue}>{mxiPurchased.toFixed(6)}</Text>
-            </View>
+              
+              <View style={styles.unifiedVestingAmount}>
+                <Text style={styles.unifiedVestingValue}>{totalVestingMXI.toFixed(6)}</Text>
+                <Text style={styles.unifiedVestingUnit}>MXI</Text>
+              </View>
 
-            <View style={styles.breakdownRow}>
-              <View style={styles.breakdownItem}>
-                <IconSymbol 
-                  ios_icon_name="person.3.fill" 
-                  android_material_icon_name="group" 
-                  size={20} 
-                  color={colors.success} 
-                />
-                <View style={styles.breakdownText}>
-                  <Text style={styles.breakdownLabel}>MXI por Referidos</Text>
-                  <Text style={styles.breakdownSubtext}>De comisiones unificadas</Text>
+              <View style={styles.unifiedVestingStats}>
+                <View style={styles.unifiedVestingStat}>
+                  <Text style={styles.unifiedVestingStatLabel}>💎 MXI Comprados</Text>
+                  <Text style={styles.unifiedVestingStatValue}>{mxiPurchased.toFixed(2)}</Text>
+                </View>
+                <View style={styles.unifiedVestingStatDivider} />
+                <View style={styles.unifiedVestingStat}>
+                  <Text style={styles.unifiedVestingStatLabel}>👥 De Referidos</Text>
+                  <Text style={styles.unifiedVestingStatValue}>{mxiFromCommissions.toFixed(2)}</Text>
                 </View>
               </View>
-              <Text style={styles.breakdownValue}>{mxiFromCommissions.toFixed(6)}</Text>
+
+              <View style={styles.unifiedVestingYield}>
+                <View style={styles.unifiedVestingYieldRow}>
+                  <Text style={styles.unifiedVestingYieldLabel}>📊 Rendimiento Acumulado</Text>
+                  <Text style={styles.unifiedVestingYieldValue}>{accumulatedYield.toFixed(8)}</Text>
+                </View>
+                <View style={styles.unifiedVestingYieldRow}>
+                  <Text style={styles.unifiedVestingYieldLabel}>⚡ Rendimiento Actual</Text>
+                  <Text style={styles.unifiedVestingYieldValue}>{currentYield.toFixed(8)}</Text>
+                </View>
+              </View>
+
+              <View style={styles.unifiedVestingRate}>
+                <IconSymbol 
+                  ios_icon_name="bolt.fill" 
+                  android_material_icon_name="flash_on" 
+                  size={16} 
+                  color="#FFD700" 
+                />
+                <Text style={styles.unifiedVestingRateText}>
+                  {yieldPerSecond.toFixed(8)} MXI/segundo • 0.005% por hora
+                </Text>
+              </View>
             </View>
 
+            {/* MXI from Challenges - Separate as it's not part of vesting */}
             <View style={styles.breakdownRow}>
               <View style={styles.breakdownItem}>
                 <IconSymbol 
@@ -332,73 +357,23 @@ export default function HomeScreen() {
               <Text style={styles.breakdownValue}>{mxiFromChallenges.toFixed(6)}</Text>
             </View>
 
-            {/* UNIFIED VESTING SECTION */}
-            <View style={styles.vestingSectionDivider} />
-            <Text style={styles.vestingSectionTitle}>⛏️ Vesting MXI - Bloqueado hasta Lanzamiento</Text>
-            
-            <View style={styles.breakdownRow}>
-              <View style={styles.breakdownItem}>
-                <IconSymbol 
-                  ios_icon_name="lock.fill" 
-                  android_material_icon_name="lock" 
-                  size={20} 
-                  color={colors.accent} 
-                />
-                <View style={styles.breakdownText}>
-                  <Text style={styles.breakdownLabel}>Balance en Vesting</Text>
-                  <Text style={styles.breakdownSubtext}>Generando rendimientos</Text>
+            {mxiVestingLocked > 0 && (
+              <View style={styles.breakdownRow}>
+                <View style={styles.breakdownItem}>
+                  <IconSymbol 
+                    ios_icon_name="lock.shield.fill" 
+                    android_material_icon_name="lock" 
+                    size={20} 
+                    color={colors.error} 
+                  />
+                  <View style={styles.breakdownText}>
+                    <Text style={styles.breakdownLabel}>MXI Vesting Bloqueado</Text>
+                    <Text style={styles.breakdownSubtext}>Bloqueado hasta lanzamiento</Text>
+                  </View>
                 </View>
+                <Text style={styles.breakdownValue}>{mxiVestingLocked.toFixed(6)}</Text>
               </View>
-              <Text style={styles.breakdownValue}>{mxiInVesting.toFixed(6)}</Text>
-            </View>
-
-            <View style={styles.breakdownRow}>
-              <View style={styles.breakdownItem}>
-                <IconSymbol 
-                  ios_icon_name="chart.line.uptrend.xyaxis" 
-                  android_material_icon_name="trending_up" 
-                  size={20} 
-                  color="#FFD700" 
-                />
-                <View style={styles.breakdownText}>
-                  <Text style={styles.breakdownLabel}>Rendimiento Acumulado</Text>
-                  <Text style={styles.breakdownSubtext}>De sesiones anteriores</Text>
-                </View>
-              </View>
-              <Text style={styles.breakdownValue}>{accumulatedYield.toFixed(8)}</Text>
-            </View>
-
-            <View style={styles.breakdownRow}>
-              <View style={styles.breakdownItem}>
-                <IconSymbol 
-                  ios_icon_name="bolt.fill" 
-                  android_material_icon_name="flash_on" 
-                  size={20} 
-                  color="#FF6B6B" 
-                />
-                <View style={styles.breakdownText}>
-                  <Text style={styles.breakdownLabel}>Rendimiento Actual</Text>
-                  <Text style={styles.breakdownSubtext}>⚡ {yieldPerSecond.toFixed(8)} MXI/segundo</Text>
-                </View>
-              </View>
-              <Text style={styles.breakdownValue}>{currentYield.toFixed(8)}</Text>
-            </View>
-
-            <View style={styles.breakdownRow}>
-              <View style={styles.breakdownItem}>
-                <IconSymbol 
-                  ios_icon_name="lock.shield.fill" 
-                  android_material_icon_name="lock" 
-                  size={20} 
-                  color={colors.error} 
-                />
-                <View style={styles.breakdownText}>
-                  <Text style={styles.breakdownLabel}>MXI Vesting Bloqueado</Text>
-                  <Text style={styles.breakdownSubtext}>Bloqueado hasta lanzamiento</Text>
-                </View>
-              </View>
-              <Text style={styles.breakdownValue}>{mxiVestingLocked.toFixed(6)}</Text>
-            </View>
+            )}
           </View>
 
           <View style={styles.balanceDivider} />
@@ -611,12 +586,12 @@ export default function HomeScreen() {
             <View style={styles.vestingPanelStats}>
               <View style={styles.vestingPanelStat}>
                 <Text style={styles.vestingPanelStatLabel}>Balance en Vesting</Text>
-                <Text style={styles.vestingPanelStatValue}>{mxiInVesting.toFixed(2)} MXI</Text>
+                <Text style={styles.vestingPanelStatValue}>{totalVestingMXI.toFixed(2)} MXI</Text>
               </View>
               <View style={styles.vestingPanelDivider} />
               <View style={styles.vestingPanelStat}>
                 <Text style={styles.vestingPanelStatLabel}>Rendimiento Total</Text>
-                <Text style={styles.vestingPanelStatValue}>{totalYield.toFixed(6)} MXI</Text>
+                <Text style={styles.vestingPanelStatValue}>{(accumulatedYield + currentYield).toFixed(6)} MXI</Text>
               </View>
             </View>
             
@@ -881,18 +856,119 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 8,
   },
-  vestingSectionDivider: {
-    width: '100%',
-    height: 2,
+  unifiedVestingCard: {
     backgroundColor: colors.accent,
-    marginVertical: 12,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 12,
   },
-  vestingSectionTitle: {
-    fontSize: 15,
+  unifiedVestingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  unifiedVestingIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  unifiedVestingInfo: {
+    flex: 1,
+  },
+  unifiedVestingTitle: {
+    fontSize: 18,
     fontWeight: '700',
-    color: colors.accent,
-    marginBottom: 8,
-    textAlign: 'center',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  unifiedVestingSubtitle: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.9)',
+  },
+  unifiedVestingAmount: {
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 12,
+  },
+  unifiedVestingValue: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: '#fff',
+    fontFamily: 'monospace',
+  },
+  unifiedVestingUnit: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginTop: 4,
+  },
+  unifiedVestingStats: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  unifiedVestingStat: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  unifiedVestingStatLabel: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 4,
+  },
+  unifiedVestingStatValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+    fontFamily: 'monospace',
+  },
+  unifiedVestingStatDivider: {
+    width: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    marginHorizontal: 12,
+  },
+  unifiedVestingYield: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    gap: 8,
+  },
+  unifiedVestingYieldRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  unifiedVestingYieldLabel: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontWeight: '600',
+  },
+  unifiedVestingYieldValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#fff',
+    fontFamily: 'monospace',
+  },
+  unifiedVestingRate: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 8,
+  },
+  unifiedVestingRateText: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontWeight: '600',
   },
   breakdownRow: {
     flexDirection: 'row',
