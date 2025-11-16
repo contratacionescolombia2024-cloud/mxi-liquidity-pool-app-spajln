@@ -1,12 +1,12 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 
-export default function VestingCounter() {
+function VestingCounter() {
   const router = useRouter();
   const { user, getCurrentYield, getTotalMxiBalance, claimYield } = useAuth();
   const [currentYield, setCurrentYield] = useState(0);
@@ -20,12 +20,31 @@ export default function VestingCounter() {
       return;
     }
 
+    // Initial update
+    const yield_amount = getCurrentYield();
+    const total = getTotalMxiBalance();
+    setCurrentYield(yield_amount);
+    setTotalBalance(total);
+
     // Update yield display every second for real-time counter
     const interval = setInterval(() => {
-      const yield_amount = getCurrentYield();
-      const total = getTotalMxiBalance();
-      setCurrentYield(yield_amount);
-      setTotalBalance(total);
+      try {
+        const newYield = getCurrentYield();
+        const newTotal = getTotalMxiBalance();
+        
+        // Only update if values have changed (avoid unnecessary re-renders)
+        setCurrentYield(prev => {
+          const diff = Math.abs(newYield - prev);
+          return diff > 0.00000001 ? newYield : prev;
+        });
+        
+        setTotalBalance(prev => {
+          const diff = Math.abs(newTotal - prev);
+          return diff > 0.00000001 ? newTotal : prev;
+        });
+      } catch (error) {
+        console.error('Error updating vesting counter:', error);
+      }
     }, 1000); // Update every second as requested
 
     return () => clearInterval(interval);
@@ -517,3 +536,5 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 });
+
+export default memo(VestingCounter);

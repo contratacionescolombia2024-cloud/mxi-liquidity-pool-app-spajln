@@ -1,6 +1,6 @@
 
 import VestingCounter from '@/components/VestingCounter';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Component, ErrorInfo, ReactNode } from 'react';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,8 +15,52 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
+
+// Error Boundary Component
+class ErrorBoundary extends Component<
+  { children: ReactNode; fallback?: ReactNode },
+  { hasError: boolean; error?: Error }
+> {
+  constructor(props: { children: ReactNode; fallback?: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    console.error('ErrorBoundary caught error:', error);
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('ErrorBoundary details:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback || (
+        <SafeAreaView style={styles.container}>
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorTitle}>⚠️ Error</Text>
+            <Text style={styles.errorText}>
+              Algo salió mal. Por favor, intenta refrescar la pantalla.
+            </Text>
+            <TouchableOpacity
+              style={styles.errorButton}
+              onPress={() => this.setState({ hasError: false })}
+            >
+              <Text style={styles.errorButtonText}>Reintentar</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 interface PhaseData {
   totalTokensSold: number;
@@ -34,7 +78,7 @@ interface CountdownTime {
   seconds: number;
 }
 
-export default function HomeScreen() {
+function HomeScreenContent() {
   const router = useRouter();
   const { user, getCurrentYield, getTotalMxiBalance, claimYield, checkAdminStatus } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
@@ -45,18 +89,42 @@ export default function HomeScreen() {
   const [phaseData, setPhaseData] = useState<PhaseData | null>(null);
   const [countdown, setCountdown] = useState<CountdownTime>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [launchDate] = useState(new Date('2026-02-15T12:00:00Z'));
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   useEffect(() => {
     loadData();
     checkAdmin();
     
+    // Initial update
+    if (user) {
+      setCurrentYield(getCurrentYield());
+      setTotalMxiBalance(getTotalMxiBalance());
+    }
+    updateCountdown();
+    
     // Update every second for real-time balance display
+    // Use a more efficient update mechanism
     const interval = setInterval(() => {
-      if (user) {
-        setCurrentYield(getCurrentYield());
-        setTotalMxiBalance(getTotalMxiBalance());
+      try {
+        if (user) {
+          const newYield = getCurrentYield();
+          const newBalance = getTotalMxiBalance();
+          
+          // Only update if values have changed significantly (avoid unnecessary re-renders)
+          setCurrentYield(prev => {
+            const diff = Math.abs(newYield - prev);
+            return diff > 0.00000001 ? newYield : prev;
+          });
+          
+          setTotalMxiBalance(prev => {
+            const diff = Math.abs(newBalance - prev);
+            return diff > 0.00000001 ? newBalance : prev;
+          });
+        }
+        updateCountdown();
+      } catch (error) {
+        console.error('Error in real-time update:', error);
       }
-      updateCountdown();
     }, 1000);
 
     return () => clearInterval(interval);
@@ -78,29 +146,42 @@ export default function HomeScreen() {
     }
   };
 
-  const loadData = async () => {
-    if (!user) return;
+  const loadData = useCallback(async () => {
+    if (!user) {
+      setIsInitialLoading(false);
+      return;
+    }
     
     console.log('Loading home screen data...');
-    setCurrentYield(getCurrentYield());
-    setTotalMxiBalance(getTotalMxiBalance());
     
-    // Load metrics data
     try {
-      const { data: metricsData, error: metricsError } = await supabase
+      setCurrentYield(getCurrentYield());
+      setTotalMxiBalance(getTotalMxiBalance());
+      
+      // Load metrics data with timeout
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Metrics load timeout')), 5000)
+      );
+      
+      const metricsPromise = supabase
         .from('metrics')
         .select('*')
         .single();
+      
+      const { data: metricsData, error: metricsError } = await Promise.race([
+        metricsPromise,
+        timeoutPromise
+      ]) as any;
       
       if (metricsError) {
         console.error('Error loading metrics:', metricsError);
       } else if (metricsData) {
         console.log('Metrics loaded:', metricsData);
-        setPoolMembers(metricsData.total_members);
+        setPoolMembers(metricsData.total_members || 56527);
         setPhaseData({
           totalTokensSold: parseFloat(metricsData.total_tokens_sold || '0'),
           currentPhase: metricsData.current_phase || 1,
-          currentPriceUsdt: parseFloat(metricsData.current_price_usdt || '0'),
+          currentPriceUsdt: parseFloat(metricsData.current_price_usdt || '0.40'),
           phase1TokensSold: parseFloat(metricsData.phase_1_tokens_sold || '0'),
           phase2TokensSold: parseFloat(metricsData.phase_2_tokens_sold || '0'),
           phase3TokensSold: parseFloat(metricsData.phase_3_tokens_sold || '0'),
@@ -108,18 +189,30 @@ export default function HomeScreen() {
       }
     } catch (error) {
       console.error('Exception loading metrics:', error);
+      // Set default values on error
+      setPhaseData({
+        totalTokensSold: 0,
+        currentPhase: 1,
+        currentPriceUsdt: 0.40,
+        phase1TokensSold: 0,
+        phase2TokensSold: 0,
+        phase3TokensSold: 0,
+      });
+    } finally {
+      setIsInitialLoading(false);
     }
-  };
+  }, [user, getCurrentYield, getTotalMxiBalance]);
 
-  const checkAdmin = async () => {
+  const checkAdmin = useCallback(async () => {
     try {
       const adminStatus = await checkAdminStatus();
       setIsAdmin(adminStatus);
       console.log('Admin status:', adminStatus);
     } catch (error) {
       console.error('Error checking admin status:', error);
+      setIsAdmin(false);
     }
-  };
+  }, [checkAdminStatus]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -189,27 +282,59 @@ export default function HomeScreen() {
     return mxiAmount * currentPrice;
   };
 
-  if (!user) {
+  if (!user || isInitialLoading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading...</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Cargando...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   // Calculate MXI breakdown - UNIFIED VESTING DISPLAY
-  const mxiPurchased = user.mxiPurchasedDirectly || 0;
-  const mxiFromCommissions = user.mxiFromUnifiedCommissions || 0;
-  const mxiFromChallenges = user.mxiFromChallenges || 0;
-  const mxiVestingLocked = user.mxiVestingLocked || 0;
-  const accumulatedYield = user.accumulatedYield || 0;
+  // Memoize expensive calculations
+  const mxiBreakdown = useMemo(() => {
+    const mxiPurchased = user.mxiPurchasedDirectly || 0;
+    const mxiFromCommissions = user.mxiFromUnifiedCommissions || 0;
+    const mxiFromChallenges = user.mxiFromChallenges || 0;
+    const mxiVestingLocked = user.mxiVestingLocked || 0;
+    const accumulatedYield = user.accumulatedYield || 0;
+    const yieldPerSecond = user.yieldRatePerMinute / 60;
+    
+    return {
+      mxiPurchased,
+      mxiFromCommissions,
+      mxiFromChallenges,
+      mxiVestingLocked,
+      accumulatedYield,
+      yieldPerSecond,
+    };
+  }, [
+    user.mxiPurchasedDirectly,
+    user.mxiFromUnifiedCommissions,
+    user.mxiFromChallenges,
+    user.mxiVestingLocked,
+    user.accumulatedYield,
+    user.yieldRatePerMinute,
+  ]);
+
+  const { 
+    mxiPurchased, 
+    mxiFromCommissions, 
+    mxiFromChallenges, 
+    mxiVestingLocked, 
+    accumulatedYield, 
+    yieldPerSecond 
+  } = mxiBreakdown;
 
   // UNIFIED VESTING CALCULATION
   // All vesting-related MXI in one value
-  const totalVestingMXI = mxiPurchased + mxiFromCommissions + accumulatedYield + currentYield;
-  const yieldPerSecond = user.yieldRatePerMinute / 60;
+  const totalVestingMXI = useMemo(() => 
+    mxiPurchased + mxiFromCommissions + accumulatedYield + currentYield,
+    [mxiPurchased, mxiFromCommissions, accumulatedYield, currentYield]
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -1386,4 +1511,41 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
   },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.error,
+    marginBottom: 16,
+  },
+  errorText: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  errorButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  errorButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
 });
+
+export default function HomeScreen() {
+  return (
+    <ErrorBoundary>
+      <HomeScreenContent />
+    </ErrorBoundary>
+  );
+}

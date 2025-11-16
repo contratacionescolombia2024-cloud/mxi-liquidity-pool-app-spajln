@@ -160,15 +160,32 @@ export default function RootLayout() {
   useEffect(() => {
     if (error) {
       console.error('Font loading error:', error);
+      // Even if fonts fail to load, hide splash screen after a timeout
+      const timeout = setTimeout(() => {
+        console.log('Font loading timeout, hiding splash screen anyway');
+        SplashScreen.hideAsync().catch((err) => {
+          console.error('Error hiding splash screen:', err);
+        });
+      }, 3000);
+      return () => clearTimeout(timeout);
     }
   }, [error]);
 
   useEffect(() => {
     if (loaded) {
-      console.log('Fonts loaded, hiding splash screen');
+      console.log('Fonts loaded successfully, hiding splash screen');
       SplashScreen.hideAsync().catch((error) => {
         console.error('Error hiding splash screen:', error);
       });
+    } else {
+      // Fallback: hide splash screen after 5 seconds even if fonts aren't loaded
+      const fallbackTimeout = setTimeout(() => {
+        console.log('Fallback: hiding splash screen after timeout');
+        SplashScreen.hideAsync().catch((error) => {
+          console.error('Error hiding splash screen:', error);
+        });
+      }, 5000);
+      return () => clearTimeout(fallbackTimeout);
     }
   }, [loaded]);
 
@@ -184,7 +201,8 @@ export default function RootLayout() {
     }
   }, [networkState.isConnected, networkState.isInternetReachable]);
 
-  if (!loaded) {
+  // Don't block rendering if fonts fail to load
+  if (!loaded && !error) {
     return null;
   }
 

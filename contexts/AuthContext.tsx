@@ -800,35 +800,81 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const getCurrentYield = (): number => {
-    if (!user || user.yieldRatePerMinute === 0) return 0;
+    try {
+      if (!user || user.yieldRatePerMinute === 0) return 0;
 
-    const lastUpdate = new Date(user.lastYieldUpdate);
-    const now = new Date();
-    const minutesElapsed = (now.getTime() - lastUpdate.getTime()) / (1000 * 60);
-    
-    return user.yieldRatePerMinute * minutesElapsed;
+      const lastUpdate = new Date(user.lastYieldUpdate);
+      const now = new Date();
+      
+      // Validate dates
+      if (isNaN(lastUpdate.getTime()) || isNaN(now.getTime())) {
+        console.error('Invalid date in getCurrentYield');
+        return 0;
+      }
+      
+      const minutesElapsed = (now.getTime() - lastUpdate.getTime()) / (1000 * 60);
+      
+      // Prevent negative or unreasonably large values
+      if (minutesElapsed < 0 || minutesElapsed > 10000) {
+        console.error('Invalid minutes elapsed:', minutesElapsed);
+        return 0;
+      }
+      
+      const yield_amount = user.yieldRatePerMinute * minutesElapsed;
+      
+      // Validate result
+      if (isNaN(yield_amount) || !isFinite(yield_amount)) {
+        console.error('Invalid yield calculation result');
+        return 0;
+      }
+      
+      return yield_amount;
+    } catch (error) {
+      console.error('Error in getCurrentYield:', error);
+      return 0;
+    }
   };
 
   const getTotalMxiBalance = (): number => {
-    if (!user) return 0;
+    try {
+      if (!user) return 0;
 
-    // Calculate total MXI balance including ALL sources:
-    // 1. MXI purchased directly
-    // 2. MXI from unified commissions
-    // 3. MXI from challenges
-    // 4. MXI vesting locked
-    // 5. Accumulated yield
-    // 6. Current real-time yield
-    const mxiPurchased = user.mxiPurchasedDirectly || 0;
-    const mxiFromCommissions = user.mxiFromUnifiedCommissions || 0;
-    const mxiFromChallenges = user.mxiFromChallenges || 0;
-    const mxiVestingLocked = user.mxiVestingLocked || 0;
-    const accumulatedYield = user.accumulatedYield || 0;
-    const currentYield = getCurrentYield();
+      // Calculate total MXI balance including ALL sources:
+      // 1. MXI purchased directly
+      // 2. MXI from unified commissions
+      // 3. MXI from challenges
+      // 4. MXI vesting locked
+      // 5. Accumulated yield
+      // 6. Current real-time yield
+      const mxiPurchased = parseFloat((user.mxiPurchasedDirectly || 0).toString());
+      const mxiFromCommissions = parseFloat((user.mxiFromUnifiedCommissions || 0).toString());
+      const mxiFromChallenges = parseFloat((user.mxiFromChallenges || 0).toString());
+      const mxiVestingLocked = parseFloat((user.mxiVestingLocked || 0).toString());
+      const accumulatedYield = parseFloat((user.accumulatedYield || 0).toString());
+      const currentYield = getCurrentYield();
 
-    const total = mxiPurchased + mxiFromCommissions + mxiFromChallenges + mxiVestingLocked + accumulatedYield + currentYield;
+      // Validate all values
+      const values = [mxiPurchased, mxiFromCommissions, mxiFromChallenges, mxiVestingLocked, accumulatedYield, currentYield];
+      for (const value of values) {
+        if (isNaN(value) || !isFinite(value)) {
+          console.error('Invalid value in getTotalMxiBalance:', value);
+          return 0;
+        }
+      }
 
-    return total;
+      const total = mxiPurchased + mxiFromCommissions + mxiFromChallenges + mxiVestingLocked + accumulatedYield + currentYield;
+
+      // Validate result
+      if (isNaN(total) || !isFinite(total) || total < 0) {
+        console.error('Invalid total MXI balance:', total);
+        return 0;
+      }
+
+      return total;
+    } catch (error) {
+      console.error('Error in getTotalMxiBalance:', error);
+      return 0;
+    }
   };
 
   const getPoolStatus = async (): Promise<PoolStatus | null> => {
