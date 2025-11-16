@@ -34,6 +34,7 @@ interface VestingUserDetail {
   last_yield_update: string;
   active_referrals: number;
   can_unify: boolean;
+  is_active_contributor: boolean;
 }
 
 interface VestingAnalyticsProps {
@@ -127,6 +128,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
   },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
   expandButton: {
     padding: 8,
   },
@@ -182,6 +193,27 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 16,
   },
+  liveIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.success + '20',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.success,
+  },
+  liveText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.success,
+  },
 });
 
 export default function VestingAnalytics({ isAdmin = false }: VestingAnalyticsProps) {
@@ -194,6 +226,13 @@ export default function VestingAnalytics({ isAdmin = false }: VestingAnalyticsPr
 
   useEffect(() => {
     loadVestingData();
+    
+    // Set up real-time updates every 5 seconds
+    const interval = setInterval(() => {
+      loadVestingData(true);
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const loadVestingData = async (silent = false) => {
@@ -284,8 +323,7 @@ export default function VestingAnalytics({ isAdmin = false }: VestingAnalyticsPr
       if (isAdmin) {
         const { data: usersData, error: usersError } = await supabase
           .from('users')
-          .select('id, name, email, mxi_purchased_directly, mxi_from_unified_commissions, accumulated_yield, yield_rate_per_minute, last_yield_update, active_referrals')
-          .eq('is_active_contributor', true)
+          .select('id, name, email, mxi_purchased_directly, mxi_from_unified_commissions, accumulated_yield, yield_rate_per_minute, last_yield_update, active_referrals, is_active_contributor')
           .gt('yield_rate_per_minute', 0)
           .order('yield_rate_per_minute', { ascending: false });
 
@@ -322,6 +360,7 @@ export default function VestingAnalytics({ isAdmin = false }: VestingAnalyticsPr
             last_yield_update: user.last_yield_update,
             active_referrals: user.active_referrals || 0,
             can_unify: user.active_referrals >= 5,
+            is_active_contributor: user.is_active_contributor || false,
           };
         });
 
@@ -372,10 +411,6 @@ export default function VestingAnalytics({ isAdmin = false }: VestingAnalyticsPr
     return 'analytics';
   };
 
-  const getMetricDisplayName = (metricName: string): string => {
-    return metricName;
-  };
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -412,6 +447,12 @@ export default function VestingAnalytics({ isAdmin = false }: VestingAnalyticsPr
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
       }
     >
+      {/* Live Indicator */}
+      <View style={styles.liveIndicator}>
+        <View style={styles.liveDot} />
+        <Text style={styles.liveText}>ACTUALIZANDO EN TIEMPO REAL</Text>
+      </View>
+
       {/* Global Metrics */}
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>
@@ -427,7 +468,7 @@ export default function VestingAnalytics({ isAdmin = false }: VestingAnalyticsPr
                   size={20}
                   color={colors.primary}
                 />
-                <Text style={styles.metricName}>{getMetricDisplayName(metric.metric_name)}</Text>
+                <Text style={styles.metricName}>{metric.metric_name}</Text>
               </View>
               <Text style={styles.metricValue}>
                 {formatNumber(metric.metric_value, metric.metric_unit.includes('MXI') ? 4 : 0)}
@@ -453,7 +494,16 @@ export default function VestingAnalytics({ isAdmin = false }: VestingAnalyticsPr
                   onPress={() => toggleUserExpanded(user.user_id)}
                 >
                   <View style={styles.userInfo}>
-                    <Text style={styles.userName}>{user.user_name}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Text style={styles.userName}>{user.user_name}</Text>
+                      {!user.is_active_contributor && (
+                        <View style={[styles.statusBadge, { backgroundColor: colors.warning + '20' }]}>
+                          <Text style={[styles.statusText, { color: colors.warning }]}>
+                            Inactivo
+                          </Text>
+                        </View>
+                      )}
+                    </View>
                     <Text style={styles.userEmail}>{user.user_email}</Text>
                   </View>
                   <View style={styles.expandButton}>
@@ -504,6 +554,12 @@ export default function VestingAnalytics({ isAdmin = false }: VestingAnalyticsPr
                       <Text style={styles.detailLabel}>Puede Unificar:</Text>
                       <Text style={[styles.detailValue, { color: user.can_unify ? colors.success : colors.error }]}>
                         {user.can_unify ? 'Sí' : 'No'}
+                      </Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Estado Contribuidor:</Text>
+                      <Text style={[styles.detailValue, { color: user.is_active_contributor ? colors.success : colors.warning }]}>
+                        {user.is_active_contributor ? 'Activo' : 'Inactivo'}
                       </Text>
                     </View>
                   </View>

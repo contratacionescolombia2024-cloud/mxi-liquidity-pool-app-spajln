@@ -37,6 +37,10 @@ interface MXIDistribution {
   yieldPerMinute: number;
   yieldPerHour: number;
   yieldPerDay: number;
+  // Referral data
+  totalReferrals: number;
+  totalActiveReferrals: number;
+  usersWithReferrals: number;
 }
 
 interface UniversalMXICounterProps {
@@ -53,10 +57,10 @@ export default function UniversalMXICounter({ isAdmin = false }: UniversalMXICou
   useEffect(() => {
     loadDistribution();
     
-    // Set up real-time updates every second for vesting counter
+    // Set up real-time updates every 5 seconds
     const interval = setInterval(() => {
       loadDistribution(true); // Silent refresh
-    }, 1000);
+    }, 5000);
 
     // Set up real-time subscription for database changes
     const subscription = supabase
@@ -84,97 +88,50 @@ export default function UniversalMXICounter({ isAdmin = false }: UniversalMXICou
         setLoading(true);
       }
 
-      // Get user MXI distribution
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges, mxi_vesting_locked, mxi_balance');
-
-      if (userError) throw userError;
-
-      // Get metrics data
-      const { data: metricsData, error: metricsError } = await supabase
-        .from('metrics')
+      // Use the new global_metrics view for comprehensive data
+      const { data: globalMetrics, error: metricsError } = await supabase
+        .from('global_metrics')
         .select('*')
         .single();
 
-      if (metricsError) throw metricsError;
-
-      // Get presale allocation
-      const { data: allocationData, error: allocationError } = await supabase
-        .from('presale_allocation')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (allocationError && allocationError.code !== 'PGRST116') {
-        console.error('Error loading allocation:', allocationError);
+      if (metricsError) {
+        console.error('Error loading global metrics:', metricsError);
+        throw metricsError;
       }
 
-      // Get real-time vesting analytics
-      const { data: vestingData, error: vestingError } = await supabase
-        .from('vesting_analytics')
-        .select('*')
-        .single();
+      console.log('Global metrics loaded:', globalMetrics);
 
-      if (vestingError && vestingError.code !== 'PGRST116') {
-        console.error('Error loading vesting analytics:', vestingError);
-      }
-
-      // Calculate totals
-      const totalPurchased = userData?.reduce((sum, u) => sum + parseFloat(u.mxi_purchased_directly || '0'), 0) || 0;
-      const totalFromCommissions = userData?.reduce((sum, u) => sum + parseFloat(u.mxi_from_unified_commissions || '0'), 0) || 0;
-      const totalFromChallenges = userData?.reduce((sum, u) => sum + parseFloat(u.mxi_from_challenges || '0'), 0) || 0;
-      const totalVesting = userData?.reduce((sum, u) => sum + parseFloat(u.mxi_vesting_locked || '0'), 0) || 0;
-      const totalDelivered = userData?.reduce((sum, u) => sum + parseFloat(u.mxi_balance || '0'), 0) || 0;
-
-      // Get phase data
-      const phase1Sold = parseFloat(metricsData?.phase_1_tokens_sold || '0');
-      const phase2Sold = parseFloat(metricsData?.phase_2_tokens_sold || '0');
-      const phase3Sold = parseFloat(metricsData?.phase_3_tokens_sold || '0');
-
-      // Get allocation data
-      const totalPresaleAllocation = parseFloat(allocationData?.total_presale_allocation || '25000000');
-      const phase1Allocation = parseFloat(allocationData?.phase_1_allocation || '8333333');
-      const phase2Allocation = parseFloat(allocationData?.phase_2_allocation || '8333333');
-      const phase3Allocation = parseFloat(allocationData?.phase_3_allocation || '8333334');
-
-      // Calculate remaining
-      const phase1Remaining = Math.max(0, phase1Allocation - phase1Sold);
-      const phase2Remaining = Math.max(0, phase2Allocation - phase2Sold);
-      const phase3Remaining = Math.max(0, phase3Allocation - phase3Sold);
+      // Calculate remaining tokens
+      const phase1Remaining = Math.max(0, parseFloat(globalMetrics.phase_1_allocation) - parseFloat(globalMetrics.phase_1_sold));
+      const phase2Remaining = Math.max(0, parseFloat(globalMetrics.phase_2_allocation) - parseFloat(globalMetrics.phase_2_sold));
+      const phase3Remaining = Math.max(0, parseFloat(globalMetrics.phase_3_allocation) - parseFloat(globalMetrics.phase_3_sold));
       const totalRemaining = phase1Remaining + phase2Remaining + phase3Remaining;
 
-      // Get vesting data
-      const totalVestingUsers = parseInt(vestingData?.total_vesting_users || '0');
-      const currentSessionYield = parseFloat(vestingData?.current_session_yield || '0');
-      const totalYieldAllTime = parseFloat(vestingData?.total_yield_all_time || '0');
-      const yieldPerMinute = parseFloat(vestingData?.total_yield_rate_per_minute || '0');
-      const yieldPerHour = parseFloat(vestingData?.total_yield_rate_per_hour || '0');
-      const yieldPerDay = parseFloat(vestingData?.total_yield_rate_per_day || '0');
-
       setDistribution({
-        totalDelivered,
-        vestingProduced: totalVesting,
-        fromCommissions: totalFromCommissions,
-        fromChallenges: totalFromChallenges,
-        totalPresaleAllocation,
-        phase1Allocation,
-        phase2Allocation,
-        phase3Allocation,
-        phase1Sold,
-        phase2Sold,
-        phase3Sold,
+        totalDelivered: parseFloat(globalMetrics.total_mxi_delivered || '0'),
+        vestingProduced: parseFloat(globalMetrics.total_accumulated_yield || '0'),
+        fromCommissions: parseFloat(globalMetrics.total_mxi_from_commissions || '0'),
+        fromChallenges: parseFloat(globalMetrics.total_mxi_from_challenges || '0'),
+        totalPresaleAllocation: parseFloat(globalMetrics.total_presale_allocation || '25000000'),
+        phase1Allocation: parseFloat(globalMetrics.phase_1_allocation || '8333333'),
+        phase2Allocation: parseFloat(globalMetrics.phase_2_allocation || '8333333'),
+        phase3Allocation: parseFloat(globalMetrics.phase_3_allocation || '8333334'),
+        phase1Sold: parseFloat(globalMetrics.phase_1_sold || '0'),
+        phase2Sold: parseFloat(globalMetrics.phase_2_sold || '0'),
+        phase3Sold: parseFloat(globalMetrics.phase_3_sold || '0'),
         phase1Remaining,
         phase2Remaining,
         phase3Remaining,
         totalRemaining,
-        totalVestingUsers,
-        currentSessionYield,
-        totalYieldAllTime,
-        yieldPerMinute,
-        yieldPerHour,
-        yieldPerDay,
+        totalVestingUsers: parseInt(globalMetrics.vesting_users_count || '0'),
+        currentSessionYield: parseFloat(globalMetrics.vesting_current_session || '0'),
+        totalYieldAllTime: parseFloat(globalMetrics.vesting_total_all_time || '0'),
+        yieldPerMinute: parseFloat(globalMetrics.vesting_rate_per_minute || '0'),
+        yieldPerHour: parseFloat(globalMetrics.vesting_rate_per_hour || '0'),
+        yieldPerDay: parseFloat(globalMetrics.vesting_rate_per_day || '0'),
+        totalReferrals: parseInt(globalMetrics.total_referrals_recorded || '0'),
+        totalActiveReferrals: parseInt(globalMetrics.total_active_referrals_count || '0'),
+        usersWithReferrals: parseInt(globalMetrics.users_with_referrals || '0'),
       });
     } catch (error) {
       console.error('Error loading MXI distribution:', error);
@@ -511,6 +468,43 @@ export default function UniversalMXICounter({ isAdmin = false }: UniversalMXICou
             <Text style={styles.distributionLabel}>Por Retos</Text>
             <Text style={[styles.distributionValue, { color: colors.error }]}>
               {formatNumber(distribution.fromChallenges)}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Referral Metrics */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>📊 Métricas de Referidos</Text>
+        
+        <View style={styles.distributionGrid}>
+          <View style={[styles.card, styles.distributionCard]}>
+            <View style={[styles.iconContainer, { backgroundColor: colors.accent + '20' }]}>
+              <IconSymbol
+                ios_icon_name="person.2.fill"
+                android_material_icon_name="group"
+                size={28}
+                color={colors.accent}
+              />
+            </View>
+            <Text style={styles.distributionLabel}>Total Referidos Activos</Text>
+            <Text style={[styles.distributionValue, { color: colors.accent }]}>
+              {distribution.totalActiveReferrals}
+            </Text>
+          </View>
+
+          <View style={[styles.card, styles.distributionCard]}>
+            <View style={[styles.iconContainer, { backgroundColor: colors.primary + '20' }]}>
+              <IconSymbol
+                ios_icon_name="person.badge.plus.fill"
+                android_material_icon_name="person_add"
+                size={28}
+                color={colors.primary}
+              />
+            </View>
+            <Text style={styles.distributionLabel}>Usuarios con Referidos</Text>
+            <Text style={[styles.distributionValue, { color: colors.primary }]}>
+              {distribution.usersWithReferrals}
             </Text>
           </View>
         </View>
