@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
-import { useRouter } from 'expo-router';
+import { useRouter, useSegments } from 'expo-router';
 
 interface User {
   id: string;
@@ -107,6 +107,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const segments = useSegments();
 
   useEffect(() => {
     // Initialize session
@@ -121,6 +123,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (event === 'SIGNED_OUT') {
         console.log('User signed out - clearing all state');
         clearAuthState();
+        // Force navigation to login screen
+        try {
+          router.replace('/(auth)/login');
+        } catch (error) {
+          console.error('Navigation error after logout:', error);
+        }
         return;
       }
       
@@ -155,6 +163,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       subscription.unsubscribe();
     };
   }, []);
+
+  // Protected route navigation
+  useEffect(() => {
+    if (loading) return;
+
+    const inAuthGroup = segments[0] === '(auth)';
+
+    if (!isAuthenticated && !inAuthGroup) {
+      // User is not authenticated and trying to access protected route
+      console.log('Redirecting to login - user not authenticated');
+      router.replace('/(auth)/login');
+    } else if (isAuthenticated && inAuthGroup) {
+      // User is authenticated and on auth screen
+      console.log('Redirecting to home - user already authenticated');
+      router.replace('/(tabs)/(home)');
+    }
+  }, [isAuthenticated, segments, loading]);
 
   const initializeAuth = async () => {
     try {
@@ -575,9 +600,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Current user:', user?.id);
       
       // Clear local state FIRST to prevent any race conditions
+      console.log('Clearing local auth state...');
       clearAuthState();
       
-      // Then sign out from Supabase
+      // Then sign out from Supabase with global scope to clear all sessions
+      console.log('Signing out from Supabase...');
       const { error } = await supabase.auth.signOut({ scope: 'global' });
       
       if (error) {
@@ -587,6 +614,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('Supabase signOut successful');
       }
       
+      // Force navigation to login screen
+      console.log('Navigating to login screen...');
+      try {
+        router.replace('/(auth)/login');
+      } catch (navError) {
+        console.error('Navigation error:', navError);
+        // Try alternative navigation method
+        router.push('/(auth)/login');
+      }
+      
       console.log('=== LOGOUT COMPLETE ===');
     } catch (error) {
       console.error('=== LOGOUT EXCEPTION ===');
@@ -594,6 +631,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Ensure state is cleared even on error
       clearAuthState();
+      
+      // Try to navigate anyway
+      try {
+        router.replace('/(auth)/login');
+      } catch (navError) {
+        console.error('Navigation error after exception:', navError);
+      }
     }
   };
 

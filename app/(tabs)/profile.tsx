@@ -22,17 +22,39 @@ export default function ProfileScreen() {
 
   const handleLogout = () => {
     Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
+      'Cerrar Sesión',
+      '¿Estás seguro de que deseas cerrar sesión?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Cancelar', 
+          style: 'cancel' 
+        },
         {
-          text: 'Logout',
+          text: 'Cerrar Sesión',
           style: 'destructive',
           onPress: async () => {
-            setLoggingOut(true);
-            await logout();
-            setLoggingOut(false);
+            try {
+              console.log('User confirmed logout');
+              setLoggingOut(true);
+              
+              // Call logout function
+              await logout();
+              
+              console.log('Logout completed successfully');
+              
+              // The navigation is now handled in AuthContext
+              // But we can add a small delay to ensure state is cleared
+              setTimeout(() => {
+                setLoggingOut(false);
+              }, 500);
+            } catch (error) {
+              console.error('Error during logout:', error);
+              setLoggingOut(false);
+              Alert.alert(
+                'Error',
+                'Hubo un problema al cerrar sesión. Por favor intenta de nuevo.'
+              );
+            }
           },
         },
       ]
@@ -44,6 +66,7 @@ export default function ProfileScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Cargando perfil...</Text>
         </View>
       </SafeAreaView>
     );
@@ -52,8 +75,8 @@ export default function ProfileScreen() {
   const menuItems = [
     {
       id: 'edit-profile',
-      title: 'Edit Profile',
-      subtitle: 'Update your information',
+      title: 'Editar Perfil',
+      subtitle: 'Actualiza tu información',
       icon: 'person.fill',
       androidIcon: 'person',
       route: '/(tabs)/(home)/edit-profile',
@@ -61,31 +84,31 @@ export default function ProfileScreen() {
     {
       id: 'vesting',
       title: 'Vesting & Rendimiento',
-      subtitle: 'View yield generation',
+      subtitle: 'Ver generación de rendimiento',
       icon: 'chart.line.uptrend.xyaxis',
       androidIcon: 'trending_up',
       route: '/(tabs)/(home)/vesting',
     },
     {
       id: 'referrals',
-      title: 'Referrals',
-      subtitle: `${user.activeReferrals} active referrals`,
+      title: 'Referidos',
+      subtitle: `${user.activeReferrals} referidos activos`,
       icon: 'person.3.fill',
       androidIcon: 'group',
       route: '/(tabs)/(home)/referrals',
     },
     {
       id: 'challenge-history',
-      title: 'Challenge History',
-      subtitle: 'View game records',
+      title: 'Historial de Desafíos',
+      subtitle: 'Ver registros de juegos',
       icon: 'clock.fill',
       androidIcon: 'history',
       route: '/(tabs)/(home)/challenge-history',
     },
     {
       id: 'support',
-      title: 'Support',
-      subtitle: 'Get help',
+      title: 'Soporte',
+      subtitle: 'Obtener ayuda',
       icon: 'questionmark.circle.fill',
       androidIcon: 'help',
       route: '/(tabs)/(home)/support',
@@ -106,45 +129,70 @@ export default function ProfileScreen() {
             color={colors.text} 
           />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Profile</Text>
+        <Text style={styles.headerTitle}>Perfil</Text>
         <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <View style={styles.avatarContainer}>
-            <IconSymbol ios_icon_name="person.circle.fill" android_material_icon_name="account_circle" size={80} color={colors.primary} />
+            <IconSymbol 
+              ios_icon_name="person.circle.fill" 
+              android_material_icon_name="account_circle" 
+              size={80} 
+              color={colors.primary} 
+            />
           </View>
           <Text style={styles.userName}>{user.name}</Text>
           <Text style={styles.userEmail}>{user.email}</Text>
           <View style={styles.referralCodeContainer}>
-            <Text style={styles.referralCodeLabel}>Referral Code:</Text>
+            <Text style={styles.referralCodeLabel}>Código de Referido:</Text>
             <Text style={styles.referralCode}>{user.referralCode}</Text>
           </View>
         </View>
 
         <View style={[commonStyles.card, styles.statsCard]}>
-          <Text style={styles.statsTitle}>Account Statistics</Text>
+          <Text style={styles.statsTitle}>Estadísticas de Cuenta</Text>
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
-              <IconSymbol ios_icon_name="dollarsign.circle.fill" android_material_icon_name="account_balance_wallet" size={32} color={colors.primary} />
+              <IconSymbol 
+                ios_icon_name="dollarsign.circle.fill" 
+                android_material_icon_name="account_balance_wallet" 
+                size={32} 
+                color={colors.primary} 
+              />
               <Text style={styles.statValue}>{user.mxiBalance.toFixed(2)}</Text>
-              <Text style={styles.statLabel}>MXI Balance</Text>
+              <Text style={styles.statLabel}>Balance MXI</Text>
             </View>
             <View style={styles.statItem}>
-              <IconSymbol ios_icon_name="banknote.fill" android_material_icon_name="payments" size={32} color={colors.success} />
+              <IconSymbol 
+                ios_icon_name="banknote.fill" 
+                android_material_icon_name="payments" 
+                size={32} 
+                color={colors.success} 
+              />
               <Text style={styles.statValue}>${user.usdtContributed.toFixed(2)}</Text>
-              <Text style={styles.statLabel}>Contributed</Text>
+              <Text style={styles.statLabel}>Contribuido</Text>
             </View>
             <View style={styles.statItem}>
-              <IconSymbol ios_icon_name="person.3.fill" android_material_icon_name="group" size={32} color={colors.accent} />
+              <IconSymbol 
+                ios_icon_name="person.3.fill" 
+                android_material_icon_name="group" 
+                size={32} 
+                color={colors.accent} 
+              />
               <Text style={styles.statValue}>{user.activeReferrals}</Text>
-              <Text style={styles.statLabel}>Referrals</Text>
+              <Text style={styles.statLabel}>Referidos</Text>
             </View>
             <View style={styles.statItem}>
-              <IconSymbol ios_icon_name="chart.line.uptrend.xyaxis" android_material_icon_name="trending_up" size={32} color={colors.warning} />
+              <IconSymbol 
+                ios_icon_name="chart.line.uptrend.xyaxis" 
+                android_material_icon_name="trending_up" 
+                size={32} 
+                color={colors.warning} 
+              />
               <Text style={styles.statValue}>${user.commissions.total.toFixed(2)}</Text>
-              <Text style={styles.statLabel}>Commissions</Text>
+              <Text style={styles.statLabel}>Comisiones</Text>
             </View>
           </View>
         </View>
@@ -158,14 +206,24 @@ export default function ProfileScreen() {
               >
                 <View style={styles.menuItemLeft}>
                   <View style={styles.menuIconContainer}>
-                    <IconSymbol ios_icon_name={item.icon} android_material_icon_name={item.androidIcon} size={24} color={colors.primary} />
+                    <IconSymbol 
+                      ios_icon_name={item.icon} 
+                      android_material_icon_name={item.androidIcon} 
+                      size={24} 
+                      color={colors.primary} 
+                    />
                   </View>
                   <View style={styles.menuItemText}>
                     <Text style={styles.menuItemTitle}>{item.title}</Text>
                     <Text style={styles.menuItemSubtitle}>{item.subtitle}</Text>
                   </View>
                 </View>
-                <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={20} color={colors.textSecondary} />
+                <IconSymbol 
+                  ios_icon_name="chevron.right" 
+                  android_material_icon_name="chevron_right" 
+                  size={20} 
+                  color={colors.textSecondary} 
+                />
               </TouchableOpacity>
               {index < menuItems.length - 1 && <View style={styles.menuDivider} />}
             </React.Fragment>
@@ -173,23 +231,31 @@ export default function ProfileScreen() {
         </View>
 
         <TouchableOpacity
-          style={styles.logoutButton}
+          style={[styles.logoutButton, loggingOut && styles.logoutButtonDisabled]}
           onPress={handleLogout}
           disabled={loggingOut}
         >
           {loggingOut ? (
-            <ActivityIndicator color={colors.error} />
+            <React.Fragment>
+              <ActivityIndicator color={colors.error} size="small" />
+              <Text style={styles.logoutButtonText}>Cerrando sesión...</Text>
+            </React.Fragment>
           ) : (
             <React.Fragment>
-              <IconSymbol ios_icon_name="rectangle.portrait.and.arrow.right" android_material_icon_name="logout" size={20} color={colors.error} />
-              <Text style={styles.logoutButtonText}>Logout</Text>
+              <IconSymbol 
+                ios_icon_name="rectangle.portrait.and.arrow.right" 
+                android_material_icon_name="logout" 
+                size={20} 
+                color={colors.error} 
+              />
+              <Text style={styles.logoutButtonText}>Cerrar Sesión</Text>
             </React.Fragment>
           )}
         </TouchableOpacity>
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            Member since {new Date(user.joinedDate).toLocaleDateString()}
+            Miembro desde {new Date(user.joinedDate).toLocaleDateString('es-ES')}
           </Text>
           <Text style={styles.footerText}>
             ID: {user.idNumber}
@@ -209,6 +275,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: colors.textSecondary,
   },
   headerBar: {
     flexDirection: 'row',
@@ -355,13 +426,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 12,
     backgroundColor: colors.card,
     paddingVertical: 16,
     borderRadius: 12,
     marginBottom: 24,
     borderWidth: 2,
     borderColor: colors.error,
+  },
+  logoutButtonDisabled: {
+    opacity: 0.6,
   },
   logoutButtonText: {
     fontSize: 16,
