@@ -1,8 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { useRouter, useSegments } from 'expo-router';
+import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 
 interface User {
   id: string;
@@ -599,30 +599,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Current session:', session?.user?.id);
       console.log('Current user:', user?.id);
       
-      // Clear local state FIRST to prevent any race conditions
-      console.log('Clearing local auth state...');
-      clearAuthState();
+      // Step 1: Clear local state IMMEDIATELY
+      console.log('Step 1: Clearing local auth state...');
+      setUser(null);
+      setSession(null);
+      setIsAuthenticated(false);
       
-      // Then sign out from Supabase with global scope to clear all sessions
-      console.log('Signing out from Supabase...');
+      // Step 2: Sign out from Supabase with global scope
+      console.log('Step 2: Signing out from Supabase...');
       const { error } = await supabase.auth.signOut({ scope: 'global' });
       
       if (error) {
         console.error('Supabase signOut error:', error);
-        // State is already cleared, so this is just logging
+        // Continue anyway since local state is already cleared
       } else {
         console.log('Supabase signOut successful');
       }
       
-      // Force navigation to login screen
-      console.log('Navigating to login screen...');
-      try {
-        router.replace('/(auth)/login');
-      } catch (navError) {
-        console.error('Navigation error:', navError);
-        // Try alternative navigation method
-        router.push('/(auth)/login');
-      }
+      // Step 3: Force immediate navigation to login
+      console.log('Step 3: Navigating to login screen...');
+      
+      // Use setTimeout to ensure state updates have propagated
+      setTimeout(() => {
+        try {
+          // Try replace first
+          router.replace('/(auth)/login');
+          console.log('Navigation via replace successful');
+        } catch (navError) {
+          console.error('Replace navigation failed, trying push:', navError);
+          try {
+            // Fallback to push
+            router.push('/(auth)/login');
+            console.log('Navigation via push successful');
+          } catch (pushError) {
+            console.error('Push navigation also failed:', pushError);
+            // Last resort - try direct navigation
+            try {
+              (router as any).navigate('/(auth)/login');
+              console.log('Navigation via navigate successful');
+            } catch (finalError) {
+              console.error('All navigation methods failed:', finalError);
+            }
+          }
+        }
+      }, 100);
       
       console.log('=== LOGOUT COMPLETE ===');
     } catch (error) {
@@ -630,14 +650,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Logout error:', error);
       
       // Ensure state is cleared even on error
-      clearAuthState();
+      setUser(null);
+      setSession(null);
+      setIsAuthenticated(false);
       
       // Try to navigate anyway
-      try {
-        router.replace('/(auth)/login');
-      } catch (navError) {
-        console.error('Navigation error after exception:', navError);
-      }
+      setTimeout(() => {
+        try {
+          router.replace('/(auth)/login');
+        } catch (navError) {
+          console.error('Emergency navigation failed:', navError);
+        }
+      }, 100);
     }
   };
 

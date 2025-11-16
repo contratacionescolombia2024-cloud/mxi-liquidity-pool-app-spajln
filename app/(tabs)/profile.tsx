@@ -17,8 +17,16 @@ import { IconSymbol } from '@/components/IconSymbol';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, isAuthenticated } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated && !loggingOut) {
+      console.log('User not authenticated, redirecting to login');
+      router.replace('/(auth)/login');
+    }
+  }, [isAuthenticated, loggingOut]);
 
   const handleLogout = () => {
     Alert.alert(
@@ -43,10 +51,11 @@ export default function ProfileScreen() {
               
               console.log('Logout function completed');
               
-              // Small delay to ensure state is cleared
+              // The logout function will handle navigation
+              // Keep loading state for a moment to prevent UI flicker
               setTimeout(() => {
                 setLoggingOut(false);
-              }, 1000);
+              }, 500);
             } catch (error) {
               console.error('=== LOGOUT ERROR IN PROFILE ===');
               console.error('Error during logout:', error);
@@ -62,12 +71,14 @@ export default function ProfileScreen() {
     );
   };
 
-  if (!user) {
+  if (!user || loggingOut) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Cargando perfil...</Text>
+          <Text style={styles.loadingText}>
+            {loggingOut ? 'Cerrando sesión...' : 'Cargando perfil...'}
+          </Text>
         </View>
       </SafeAreaView>
     );
