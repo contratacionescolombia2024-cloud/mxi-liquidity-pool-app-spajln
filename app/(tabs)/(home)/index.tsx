@@ -758,13 +758,13 @@ export default function HomeScreen() {
           <View style={styles.actionsGrid}>
             <TouchableOpacity
               style={styles.actionCard}
-              onPress={() => router.push('/(tabs)/(home)/contribute')}
+              onPress={() => Alert.alert('Sistema de Pagos', 'El sistema de pagos ha sido deshabilitado temporalmente. Por favor, contacta al soporte para más información.')}
             >
               <View style={styles.actionIconContainer}>
-                <IconSymbol ios_icon_name="plus.circle.fill" android_material_icon_name="add_circle" size={32} color={colors.primary} />
+                <IconSymbol ios_icon_name="plus.circle.fill" android_material_icon_name="add_circle" size={32} color={colors.textSecondary} />
               </View>
               <Text style={styles.actionTitle}>Depositar</Text>
-              <Text style={styles.actionSubtitle}>Ver historial</Text>
+              <Text style={styles.actionSubtitle}>No disponible</Text>
             </TouchableOpacity>
 
             <TouchableOpacity

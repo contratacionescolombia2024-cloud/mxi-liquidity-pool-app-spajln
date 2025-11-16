@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { colors, commonStyles } from '@/styles/commonStyles';
 import VestingAnalytics from '@/components/VestingAnalytics';
+import { supabase } from '@/lib/supabase';
 
 const styles = StyleSheet.create({
   container: {
@@ -87,13 +88,34 @@ export default function VestingAnalyticsScreen() {
   const checkAdminAccess = async () => {
     try {
       setLoading(true);
-      const { checkAdminStatus } = useAuth();
-      const adminStatus = await checkAdminStatus();
-      setIsAdmin(adminStatus);
       
-      if (!adminStatus) {
+      if (!user) {
+        console.log('No user found, redirecting to home');
         router.replace('/(tabs)/(home)');
+        return;
       }
+
+      // Check if user is admin
+      const { data: adminData, error: adminError } = await supabase
+        .from('admin_users')
+        .select('id, role')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (adminError) {
+        console.error('Error checking admin status:', adminError);
+        router.replace('/(tabs)/(home)');
+        return;
+      }
+
+      if (!adminData) {
+        console.log('User is not an admin, redirecting to home');
+        router.replace('/(tabs)/(home)');
+        return;
+      }
+
+      console.log('User is admin:', adminData.role);
+      setIsAdmin(true);
     } catch (error) {
       console.error('Error checking admin access:', error);
       router.replace('/(tabs)/(home)');
@@ -102,10 +124,10 @@ export default function VestingAnalyticsScreen() {
     }
   };
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    checkAdminAccess();
-    setTimeout(() => setRefreshing(false), 1000);
+    await checkAdminAccess();
+    setRefreshing(false);
   };
 
   if (loading) {

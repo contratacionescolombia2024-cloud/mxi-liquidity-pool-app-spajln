@@ -6,7 +6,6 @@ export default function HomeLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
-      <Stack.Screen name="contribute" />
       <Stack.Screen name="referrals" />
       <Stack.Screen name="withdrawals" />
       <Stack.Screen name="withdraw-mxi" />
@@ -17,7 +16,6 @@ export default function HomeLayout() {
       <Stack.Screen name="kyc-verification" />
       <Stack.Screen name="edit-profile" />
       <Stack.Screen name="support" />
-      <Stack.Screen name="okx-payments" />
       <Stack.Screen name="challenge-history" />
     </Stack>
   );

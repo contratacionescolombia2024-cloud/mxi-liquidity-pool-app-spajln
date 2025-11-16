@@ -30,9 +30,6 @@ interface AdminStats {
   activeContributors: number;
   totalMXI: number;
   totalUSDT: number;
-  confirmedPayments: number;
-  pendingPayments: number;
-  confirmingPayments: number;
   totalCommissions: number;
   totalYieldGenerated: number;
 }
@@ -291,11 +288,6 @@ export default function AdminDashboard() {
         .from('users')
         .select('mxi_balance, usdt_contributed, is_active_contributor, accumulated_yield');
 
-      // Load payment stats
-      const { data: paymentData } = await supabase
-        .from('okx_payments')
-        .select('status');
-
       // Load commission stats
       const { data: commissionData } = await supabase
         .from('commissions')
@@ -324,10 +316,6 @@ export default function AdminDashboard() {
       const totalUSDT = userData?.reduce((sum, u) => sum + parseFloat(u.usdt_contributed || '0'), 0) || 0;
       const totalYieldGenerated = userData?.reduce((sum, u) => sum + parseFloat(u.accumulated_yield || '0'), 0) || 0;
 
-      const confirmedPayments = paymentData?.filter((p) => p.status === 'confirmed').length || 0;
-      const pendingPayments = paymentData?.filter((p) => p.status === 'pending').length || 0;
-      const confirmingPayments = paymentData?.filter((p) => p.status === 'confirming').length || 0;
-
       const totalCommissions = commissionData?.reduce((sum, c) => sum + parseFloat(c.amount || '0'), 0) || 0;
 
       setStats({
@@ -342,9 +330,6 @@ export default function AdminDashboard() {
         activeContributors,
         totalMXI,
         totalUSDT,
-        confirmedPayments,
-        pendingPayments,
-        confirmingPayments,
         totalCommissions,
         totalYieldGenerated,
       });
@@ -512,21 +497,6 @@ export default function AdminDashboard() {
                 <IconSymbol ios_icon_name="person.badge.shield.checkmark.fill" android_material_icon_name="verified_user" size={24} color={colors.primary} />
               </View>
               <Text style={styles.actionLabel}>Aprobar KYC</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => router.push('/(tabs)/(admin)/payment-approvals')}
-            >
-              {stats && (stats.pendingPayments + stats.confirmingPayments) > 0 && (
-                <View style={styles.actionBadge}>
-                  <Text style={styles.actionBadgeText}>{stats.pendingPayments + stats.confirmingPayments}</Text>
-                </View>
-              )}
-              <View style={[styles.actionIcon, { backgroundColor: colors.success + '20' }]}>
-                <IconSymbol ios_icon_name="creditcard.fill" android_material_icon_name="payment" size={24} color={colors.success} />
-              </View>
-              <Text style={styles.actionLabel}>Pagos</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
