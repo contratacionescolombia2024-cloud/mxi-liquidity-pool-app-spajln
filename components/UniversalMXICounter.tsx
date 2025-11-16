@@ -30,6 +30,13 @@ interface MXIDistribution {
   phase2Remaining: number;
   phase3Remaining: number;
   totalRemaining: number;
+  // Real-time vesting data
+  totalVestingUsers: number;
+  currentSessionYield: number;
+  totalYieldAllTime: number;
+  yieldPerMinute: number;
+  yieldPerHour: number;
+  yieldPerDay: number;
 }
 
 interface UniversalMXICounterProps {
@@ -46,28 +53,36 @@ export default function UniversalMXICounter({ isAdmin = false }: UniversalMXICou
   useEffect(() => {
     loadDistribution();
     
-    // Set up real-time subscription for updates
+    // Set up real-time updates every second for vesting counter
+    const interval = setInterval(() => {
+      loadDistribution(true); // Silent refresh
+    }, 1000);
+
+    // Set up real-time subscription for database changes
     const subscription = supabase
       .channel('mxi_distribution_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
-        loadDistribution();
+        loadDistribution(true);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'metrics' }, () => {
-        loadDistribution();
+        loadDistribution(true);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'presale_allocation' }, () => {
-        loadDistribution();
+        loadDistribution(true);
       })
       .subscribe();
 
     return () => {
+      clearInterval(interval);
       subscription.unsubscribe();
     };
   }, []);
 
-  const loadDistribution = async () => {
+  const loadDistribution = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
 
       // Get user MXI distribution
       const { data: userData, error: userError } = await supabase
@@ -96,6 +111,16 @@ export default function UniversalMXICounter({ isAdmin = false }: UniversalMXICou
         console.error('Error loading allocation:', allocationError);
       }
 
+      // Get real-time vesting analytics
+      const { data: vestingData, error: vestingError } = await supabase
+        .from('vesting_analytics')
+        .select('*')
+        .single();
+
+      if (vestingError && vestingError.code !== 'PGRST116') {
+        console.error('Error loading vesting analytics:', vestingError);
+      }
+
       // Calculate totals
       const totalPurchased = userData?.reduce((sum, u) => sum + parseFloat(u.mxi_purchased_directly || '0'), 0) || 0;
       const totalFromCommissions = userData?.reduce((sum, u) => sum + parseFloat(u.mxi_from_unified_commissions || '0'), 0) || 0;
@@ -120,6 +145,14 @@ export default function UniversalMXICounter({ isAdmin = false }: UniversalMXICou
       const phase3Remaining = Math.max(0, phase3Allocation - phase3Sold);
       const totalRemaining = phase1Remaining + phase2Remaining + phase3Remaining;
 
+      // Get vesting data
+      const totalVestingUsers = parseInt(vestingData?.total_vesting_users || '0');
+      const currentSessionYield = parseFloat(vestingData?.current_session_yield || '0');
+      const totalYieldAllTime = parseFloat(vestingData?.total_yield_all_time || '0');
+      const yieldPerMinute = parseFloat(vestingData?.total_yield_rate_per_minute || '0');
+      const yieldPerHour = parseFloat(vestingData?.total_yield_rate_per_hour || '0');
+      const yieldPerDay = parseFloat(vestingData?.total_yield_rate_per_day || '0');
+
       setDistribution({
         totalDelivered,
         vestingProduced: totalVesting,
@@ -136,11 +169,19 @@ export default function UniversalMXICounter({ isAdmin = false }: UniversalMXICou
         phase2Remaining,
         phase3Remaining,
         totalRemaining,
+        totalVestingUsers,
+        currentSessionYield,
+        totalYieldAllTime,
+        yieldPerMinute,
+        yieldPerHour,
+        yieldPerDay,
       });
     } catch (error) {
       console.error('Error loading MXI distribution:', error);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
@@ -419,8 +460,8 @@ export default function UniversalMXICounter({ isAdmin = false }: UniversalMXICou
             </Text>
           </View>
 
-          {/* Vesting Produced */}
-          <View style={[styles.card, styles.distributionCard]}>
+          {/* Vesting Produced - Real-time */}
+          <View style={[styles.card, styles.distributionCard, styles.liveCard]}>
             <View style={[styles.iconContainer, { backgroundColor: colors.success + '20' }]}>
               <IconSymbol
                 ios_icon_name="clock.fill"
@@ -431,9 +472,14 @@ export default function UniversalMXICounter({ isAdmin = false }: UniversalMXICou
             </View>
             <Text style={styles.distributionLabel}>Producidos en Vesting</Text>
             <Text style={[styles.distributionValue, { color: colors.success }]}>
-              {formatNumber(distribution.vestingProduced)}
+              {formatNumber(distribution.totalYieldAllTime)}
             </Text>
-            <Text style={styles.distributionSubtext}>Tiempo real</Text>
+            <View style={styles.liveBadge}>
+              <Text style={styles.liveBadgeText}>⚡ LIVE</Text>
+            </View>
+            <Text style={styles.distributionSubtext}>
+              {distribution.totalVestingUsers} usuarios activos
+            </Text>
           </View>
 
           {/* From Commissions */}
@@ -469,6 +515,55 @@ export default function UniversalMXICounter({ isAdmin = false }: UniversalMXICou
           </View>
         </View>
       </View>
+
+      {/* Real-time Vesting Performance */}
+      {distribution.totalVestingUsers > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>⛏️ Rendimiento de Vesting en Tiempo Real</Text>
+          
+          <View style={[styles.card, styles.vestingCard]}>
+            <View style={styles.vestingHeader}>
+              <IconSymbol
+                ios_icon_name="chart.line.uptrend.xyaxis"
+                android_material_icon_name="trending_up"
+                size={24}
+                color={colors.accent}
+              />
+              <Text style={styles.vestingHeaderText}>Tasas de Producción</Text>
+            </View>
+
+            <View style={styles.vestingRates}>
+              <View style={styles.vestingRateItem}>
+                <Text style={styles.vestingRateLabel}>Por Minuto</Text>
+                <Text style={styles.vestingRateValue}>
+                  {formatNumber(distribution.yieldPerMinute)} MXI
+                </Text>
+              </View>
+              <View style={styles.vestingRateDivider} />
+              <View style={styles.vestingRateItem}>
+                <Text style={styles.vestingRateLabel}>Por Hora</Text>
+                <Text style={styles.vestingRateValue}>
+                  {formatNumber(distribution.yieldPerHour)} MXI
+                </Text>
+              </View>
+              <View style={styles.vestingRateDivider} />
+              <View style={styles.vestingRateItem}>
+                <Text style={styles.vestingRateLabel}>Por Día</Text>
+                <Text style={styles.vestingRateValue}>
+                  {formatNumber(distribution.yieldPerDay)} MXI
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.vestingSession}>
+              <Text style={styles.vestingSessionLabel}>🔥 Sesión Actual</Text>
+              <Text style={styles.vestingSessionValue}>
+                {formatNumber(distribution.currentSessionYield)} MXI
+              </Text>
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* Edit Modal */}
       <Modal
@@ -683,6 +778,16 @@ const styles = StyleSheet.create({
     width: '48%',
     alignItems: 'center',
     padding: 16,
+    position: 'relative',
+  },
+  liveCard: {
+    borderWidth: 2,
+    borderColor: colors.success,
+    shadowColor: colors.success,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   iconContainer: {
     width: 56,
@@ -707,6 +812,87 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.textSecondary,
     marginTop: 4,
+    textAlign: 'center',
+  },
+  liveBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: colors.success,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  liveBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  vestingCard: {
+    borderWidth: 2,
+    borderColor: colors.accent,
+  },
+  vestingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  vestingHeaderText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  vestingRates: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    backgroundColor: colors.background,
+    borderRadius: 12,
+  },
+  vestingRateItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  vestingRateDivider: {
+    width: 1,
+    backgroundColor: colors.border,
+    marginHorizontal: 8,
+  },
+  vestingRateLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginBottom: 4,
+    fontWeight: '600',
+  },
+  vestingRateValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.text,
+    fontFamily: 'monospace',
+  },
+  vestingSession: {
+    backgroundColor: `${colors.accent}20`,
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.accent,
+  },
+  vestingSessionLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  vestingSessionValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.accent,
+    fontFamily: 'monospace',
   },
   modalOverlay: {
     flex: 1,

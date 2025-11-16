@@ -10,12 +10,12 @@ import {
   Alert,
   RefreshControl,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, commonStyles } from '@/styles/commonStyles';
-import { IconSymbol } from '@/components/IconSymbol';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'expo-router';
+import { IconSymbol } from '@/components/IconSymbol';
+import { colors, commonStyles } from '@/styles/commonStyles';
+import { supabase } from '@/lib/supabase';
 import UniversalMXICounter from '@/components/UniversalMXICounter';
 
 interface AdminStats {
@@ -47,29 +47,225 @@ interface PhaseMetrics {
   totalMembers: number;
 }
 
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 100,
+  },
+  header: {
+    marginBottom: 24,
+  },
+  welcomeText: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  subtitleText: {
+    fontSize: 16,
+    color: colors.textSecondary,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 24,
+  },
+  statCard: {
+    width: '48%',
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  statCardWide: {
+    width: '100%',
+  },
+  statHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  statLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  quickActionsSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  actionButton: {
+    width: '48%',
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  actionButtonWide: {
+    width: '100%',
+  },
+  actionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  actionLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  actionBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: colors.error,
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  actionBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  phaseSection: {
+    marginBottom: 24,
+  },
+  phaseCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  phaseHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  phaseTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  phaseBadge: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  phaseBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  phaseStats: {
+    gap: 12,
+  },
+  phaseStatRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  phaseStatLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  phaseStatValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: colors.border,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginTop: 12,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  counterSection: {
+    marginBottom: 24,
+  },
+});
+
 export default function AdminDashboard() {
   const router = useRouter();
-  const { user, checkAdminStatus, logout } = useAuth();
+  const { user } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [phaseMetrics, setPhaseMetrics] = useState<PhaseMetrics | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  const checkAdminAccess = async () => {
-    const adminStatus = await checkAdminStatus();
-    setIsAdmin(adminStatus);
-    if (!adminStatus) {
-      Alert.alert('Access Denied', 'You do not have admin privileges');
-      router.replace('/(tabs)/(home)');
-    }
-  };
 
   useEffect(() => {
     if (user) {
       checkAdminAccess();
     }
   }, [user]);
+
+  const checkAdminAccess = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('admin_users')
+        .select('*')
+        .eq('user_id', user?.id)
+        .single();
+
+      if (error || !data) {
+        Alert.alert('Acceso Denegado', 'No tienes permisos de administrador');
+        router.replace('/(tabs)/(home)');
+        return;
+      }
+
+      setIsAdmin(true);
+      await loadStats();
+    } catch (error) {
+      console.error('Error checking admin access:', error);
+      router.replace('/(tabs)/(home)');
+    }
+  };
 
   const loadStats = useCallback(async () => {
     try {
@@ -80,52 +276,30 @@ export default function AdminDashboard() {
         .from('kyc_verifications')
         .select('status');
 
-      const pendingKYC = kycData?.filter(k => k.status === 'pending').length || 0;
-      const approvedKYC = kycData?.filter(k => k.status === 'approved').length || 0;
-      const rejectedKYC = kycData?.filter(k => k.status === 'rejected').length || 0;
-
       // Load withdrawal stats
       const { data: withdrawalData } = await supabase
         .from('withdrawals')
         .select('status');
-
-      const pendingWithdrawals = withdrawalData?.filter(w => w.status === 'pending').length || 0;
-      const approvedWithdrawals = withdrawalData?.filter(w => w.status === 'processing').length || 0;
-      const completedWithdrawals = withdrawalData?.filter(w => w.status === 'completed').length || 0;
-
-      // Load payment stats - UPDATED to use okx_payments
-      const { data: paymentData } = await supabase
-        .from('okx_payments')
-        .select('status');
-
-      const confirmedPayments = paymentData?.filter(p => p.status === 'confirmed').length || 0;
-      const pendingPayments = paymentData?.filter(p => p.status === 'pending').length || 0;
-      const confirmingPayments = paymentData?.filter(p => p.status === 'confirming').length || 0;
 
       // Load message stats
       const { data: messageData } = await supabase
         .from('messages')
         .select('status');
 
-      const openMessages = messageData?.filter(m => m.status === 'open' || m.status === 'in_progress').length || 0;
-
       // Load user stats
       const { data: userData } = await supabase
         .from('users')
         .select('mxi_balance, usdt_contributed, is_active_contributor, accumulated_yield');
 
-      const totalUsers = userData?.length || 0;
-      const activeContributors = userData?.filter(u => u.is_active_contributor).length || 0;
-      const totalMXI = userData?.reduce((sum, u) => sum + parseFloat(u.mxi_balance || '0'), 0) || 0;
-      const totalUSDT = userData?.reduce((sum, u) => sum + parseFloat(u.usdt_contributed || '0'), 0) || 0;
-      const totalYieldGenerated = userData?.reduce((sum, u) => sum + parseFloat(u.accumulated_yield || '0'), 0) || 0;
+      // Load payment stats
+      const { data: paymentData } = await supabase
+        .from('okx_payments')
+        .select('status');
 
       // Load commission stats
       const { data: commissionData } = await supabase
         .from('commissions')
         .select('amount');
-
-      const totalCommissions = commissionData?.reduce((sum, c) => sum + parseFloat(c.amount || '0'), 0) || 0;
 
       // Load phase metrics
       const { data: metricsData } = await supabase
@@ -133,17 +307,28 @@ export default function AdminDashboard() {
         .select('*')
         .single();
 
-      if (metricsData) {
-        setPhaseMetrics({
-          totalTokensSold: parseFloat(metricsData.total_tokens_sold || '0'),
-          currentPhase: metricsData.current_phase || 1,
-          currentPriceUsdt: parseFloat(metricsData.current_price_usdt || '0'),
-          phase1TokensSold: parseFloat(metricsData.phase_1_tokens_sold || '0'),
-          phase2TokensSold: parseFloat(metricsData.phase_2_tokens_sold || '0'),
-          phase3TokensSold: parseFloat(metricsData.phase_3_tokens_sold || '0'),
-          totalMembers: metricsData.total_members || 0,
-        });
-      }
+      // Calculate stats
+      const pendingKYC = kycData?.filter((k) => k.status === 'pending').length || 0;
+      const approvedKYC = kycData?.filter((k) => k.status === 'approved').length || 0;
+      const rejectedKYC = kycData?.filter((k) => k.status === 'rejected').length || 0;
+
+      const pendingWithdrawals = withdrawalData?.filter((w) => w.status === 'pending').length || 0;
+      const approvedWithdrawals = withdrawalData?.filter((w) => w.status === 'processing').length || 0;
+      const completedWithdrawals = withdrawalData?.filter((w) => w.status === 'completed').length || 0;
+
+      const openMessages = messageData?.filter((m) => m.status === 'open').length || 0;
+
+      const totalUsers = userData?.length || 0;
+      const activeContributors = userData?.filter((u) => u.is_active_contributor).length || 0;
+      const totalMXI = userData?.reduce((sum, u) => sum + parseFloat(u.mxi_balance || '0'), 0) || 0;
+      const totalUSDT = userData?.reduce((sum, u) => sum + parseFloat(u.usdt_contributed || '0'), 0) || 0;
+      const totalYieldGenerated = userData?.reduce((sum, u) => sum + parseFloat(u.accumulated_yield || '0'), 0) || 0;
+
+      const confirmedPayments = paymentData?.filter((p) => p.status === 'confirmed').length || 0;
+      const pendingPayments = paymentData?.filter((p) => p.status === 'pending').length || 0;
+      const confirmingPayments = paymentData?.filter((p) => p.status === 'confirming').length || 0;
+
+      const totalCommissions = commissionData?.reduce((sum, c) => sum + parseFloat(c.amount || '0'), 0) || 0;
 
       setStats({
         pendingKYC,
@@ -163,52 +348,44 @@ export default function AdminDashboard() {
         totalCommissions,
         totalYieldGenerated,
       });
+
+      if (metricsData) {
+        setPhaseMetrics({
+          totalTokensSold: parseFloat(metricsData.total_tokens_sold || '0'),
+          currentPhase: metricsData.current_phase || 1,
+          currentPriceUsdt: parseFloat(metricsData.current_price_usdt || '0'),
+          phase1TokensSold: parseFloat(metricsData.phase_1_tokens_sold || '0'),
+          phase2TokensSold: parseFloat(metricsData.phase_2_tokens_sold || '0'),
+          phase3TokensSold: parseFloat(metricsData.phase_3_tokens_sold || '0'),
+          totalMembers: metricsData.total_members || 0,
+        });
+      }
     } catch (error) {
       console.error('Error loading stats:', error);
-      Alert.alert('Error', 'Failed to load dashboard statistics');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, []);
 
-  useEffect(() => {
-    if (isAdmin) {
-      loadStats();
-    }
-  }, [isAdmin, loadStats]);
-
-  const onRefresh = useCallback(() => {
+  const onRefresh = () => {
     setRefreshing(true);
     loadStats();
-  }, [loadStats]);
+  };
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Cerrar Sesión',
-      '¿Estás seguro de que quieres cerrar sesión?',
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
+  const handleLogout = async () => {
+    Alert.alert('Cerrar Sesión', '¿Estás seguro que deseas cerrar sesión?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Cerrar Sesión',
+        style: 'destructive',
+        onPress: async () => {
+          const { logout } = useAuth();
+          await logout();
+          router.replace('/(auth)/login');
         },
-        {
-          text: 'Cerrar Sesión',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              console.log('Logging out from admin panel...');
-              await logout();
-              console.log('Logout successful, navigating to login...');
-              router.replace('/(auth)/login');
-            } catch (error) {
-              console.error('Logout error:', error);
-              Alert.alert('Error', 'Failed to logout. Please try again.');
-            }
-          },
-        },
-      ]
-    );
+      },
+    ]);
   };
 
   const formatNumber = (num: number) => {
@@ -220,504 +397,200 @@ export default function AdminDashboard() {
 
   const getPhaseProgress = () => {
     if (!phaseMetrics) return 0;
-    const maxTokensPerPhase = 8333333; // 8.33M tokens per phase
-    const currentPhaseTokens = 
-      phaseMetrics.currentPhase === 1 ? phaseMetrics.phase1TokensSold :
-      phaseMetrics.currentPhase === 2 ? phaseMetrics.phase2TokensSold :
-      phaseMetrics.phase3TokensSold;
-    return (currentPhaseTokens / maxTokensPerPhase) * 100;
+    const total = 25000000; // 25M total presale allocation
+    return ((phaseMetrics.totalTokensSold / total) * 100).toFixed(2);
   };
 
-  if (loading) {
+  if (loading && !stats) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading dashboard...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  if (!isAdmin) {
-    return null;
-  }
-
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <IconSymbol 
-            ios_icon_name="chevron.left" 
-            android_material_icon_name="arrow_back" 
-            size={24} 
-            color={colors.primary} 
-          />
-        </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <Text style={styles.title}>Admin Dashboard</Text>
-          <Text style={styles.subtitle}>MXI Pool Management</Text>
-        </View>
-        <View style={styles.headerActions}>
-          <TouchableOpacity 
-            onPress={onRefresh} 
-            disabled={refreshing}
-            style={styles.headerButton}
-          >
-            <IconSymbol 
-              ios_icon_name="arrow.clockwise" 
-              android_material_icon_name="refresh" 
-              size={24} 
-              color={colors.primary} 
-            />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            onPress={handleLogout}
-            style={styles.headerButton}
-          >
-            <IconSymbol 
-              ios_icon_name="rectangle.portrait.and.arrow.right" 
-              android_material_icon_name="logout" 
-              size={24} 
-              color={colors.error} 
-            />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <ScrollView 
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.welcomeText}>Panel de Administración</Text>
+          <Text style={styles.subtitleText}>Bienvenido, {user?.name}</Text>
+        </View>
+
         {/* Universal MXI Counter */}
-        <View style={styles.section}>
+        <View style={styles.counterSection}>
           <UniversalMXICounter isAdmin={true} />
         </View>
 
-        {/* Phase Progress */}
+        {/* Phase Metrics */}
         {phaseMetrics && (
-          <View style={[commonStyles.card, styles.phaseCard]}>
-            <Text style={styles.sectionTitle}>Current Phase</Text>
-            <View style={styles.phaseInfo}>
-              <Text style={styles.phaseNumber}>Phase {phaseMetrics.currentPhase}</Text>
-              <Text style={styles.phasePrice}>${phaseMetrics.currentPriceUsdt} USDT per MXI</Text>
-            </View>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: `${getPhaseProgress()}%` }]} />
-            </View>
-            <Text style={styles.progressText}>
-              {formatNumber(getPhaseProgress())}% Complete
-            </Text>
-            <View style={styles.phaseStats}>
-              <View style={styles.phaseStat}>
-                <Text style={styles.phaseStatLabel}>Total Sold</Text>
-                <Text style={styles.phaseStatValue}>{formatNumber(phaseMetrics.totalTokensSold)} MXI</Text>
+          <View style={styles.phaseSection}>
+            <Text style={styles.sectionTitle}>Métricas de Preventa</Text>
+            <View style={styles.phaseCard}>
+              <View style={styles.phaseHeader}>
+                <Text style={styles.phaseTitle}>Fase {phaseMetrics.currentPhase}</Text>
+                <View style={styles.phaseBadge}>
+                  <Text style={styles.phaseBadgeText}>${phaseMetrics.currentPriceUsdt} USDT</Text>
+                </View>
               </View>
-              <View style={styles.phaseStat}>
-                <Text style={styles.phaseStatLabel}>Total Members</Text>
-                <Text style={styles.phaseStatValue}>{formatNumber(phaseMetrics.totalMembers)}</Text>
+              <View style={styles.phaseStats}>
+                <View style={styles.phaseStatRow}>
+                  <Text style={styles.phaseStatLabel}>Total Vendido</Text>
+                  <Text style={styles.phaseStatValue}>{formatNumber(phaseMetrics.totalTokensSold)} MXI</Text>
+                </View>
+                <View style={styles.phaseStatRow}>
+                  <Text style={styles.phaseStatLabel}>Total Miembros</Text>
+                  <Text style={styles.phaseStatValue}>{formatNumber(phaseMetrics.totalMembers)}</Text>
+                </View>
+                <View style={styles.phaseStatRow}>
+                  <Text style={styles.phaseStatLabel}>Progreso</Text>
+                  <Text style={styles.phaseStatValue}>{getPhaseProgress()}%</Text>
+                </View>
+              </View>
+              <View style={styles.progressBar}>
+                <View style={[styles.progressFill, { width: `${getPhaseProgress()}%` }]} />
               </View>
             </View>
           </View>
         )}
 
-        {/* Quick Actions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.actionGrid}>
-            <TouchableOpacity
-              style={[commonStyles.card, styles.actionCard]}
-              onPress={() => router.push('/(tabs)/(admin)/user-management')}
-            >
-              <IconSymbol 
-                ios_icon_name="person.2.fill" 
-                android_material_icon_name="people" 
-                size={32} 
-                color={colors.primary} 
-              />
-              <Text style={styles.actionTitle}>Users</Text>
-              <Text style={styles.actionValue}>{stats?.totalUsers || 0}</Text>
-            </TouchableOpacity>
+        {/* Stats Grid */}
+        <View style={styles.statsGrid}>
+          <View style={styles.statCard}>
+            <View style={styles.statHeader}>
+              <IconSymbol ios_icon_name="person.3.fill" android_material_icon_name="people" size={20} color={colors.primary} />
+              <Text style={styles.statLabel}>Usuarios</Text>
+            </View>
+            <Text style={styles.statValue}>{stats?.totalUsers || 0}</Text>
+          </View>
 
-            <TouchableOpacity
-              style={[commonStyles.card, styles.actionCard]}
-              onPress={() => router.push('/(tabs)/(admin)/kyc-approvals')}
-            >
-              <IconSymbol 
-                ios_icon_name="checkmark.seal.fill" 
-                android_material_icon_name="verified_user" 
-                size={32} 
-                color={colors.warning} 
-              />
-              <Text style={styles.actionTitle}>KYC</Text>
-              <Text style={styles.actionValue}>{stats?.pendingKYC || 0}</Text>
-              {stats && stats.pendingKYC > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{stats.pendingKYC}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
+          <View style={styles.statCard}>
+            <View style={styles.statHeader}>
+              <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={20} color={colors.success} />
+              <Text style={styles.statLabel}>Activos</Text>
+            </View>
+            <Text style={styles.statValue}>{stats?.activeContributors || 0}</Text>
+          </View>
 
-            <TouchableOpacity
-              style={[commonStyles.card, styles.actionCard]}
-              onPress={() => router.push('/(tabs)/(admin)/payment-approvals')}
-            >
-              <IconSymbol 
-                ios_icon_name="creditcard.fill" 
-                android_material_icon_name="payment" 
-                size={32} 
-                color={colors.success} 
-              />
-              <Text style={styles.actionTitle}>Payments</Text>
-              <Text style={styles.actionValue}>{stats?.confirmingPayments || 0}</Text>
-              {stats && stats.confirmingPayments > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{stats.confirmingPayments}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
+          <View style={styles.statCard}>
+            <View style={styles.statHeader}>
+              <IconSymbol ios_icon_name="dollarsign.circle.fill" android_material_icon_name="attach_money" size={20} color={colors.warning} />
+              <Text style={styles.statLabel}>Total USDT</Text>
+            </View>
+            <Text style={styles.statValue}>{formatNumber(stats?.totalUSDT || 0)}</Text>
+          </View>
 
-            <TouchableOpacity
-              style={[commonStyles.card, styles.actionCard]}
-              onPress={() => router.push('/(tabs)/(admin)/withdrawal-approvals')}
-            >
-              <IconSymbol 
-                ios_icon_name="arrow.up.circle.fill" 
-                android_material_icon_name="upload" 
-                size={32} 
-                color={colors.error} 
-              />
-              <Text style={styles.actionTitle}>Withdrawals</Text>
-              <Text style={styles.actionValue}>{stats?.pendingWithdrawals || 0}</Text>
-              {stats && stats.pendingWithdrawals > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{stats.pendingWithdrawals}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[commonStyles.card, styles.actionCard]}
-              onPress={() => router.push('/(tabs)/(admin)/messages')}
-            >
-              <IconSymbol 
-                ios_icon_name="envelope.fill" 
-                android_material_icon_name="mail" 
-                size={32} 
-                color={colors.primary} 
-              />
-              <Text style={styles.actionTitle}>Messages</Text>
-              <Text style={styles.actionValue}>{stats?.openMessages || 0}</Text>
-              {stats && stats.openMessages > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{stats.openMessages}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[commonStyles.card, styles.actionCard]}
-              onPress={() => router.push('/(tabs)/(admin)/settings')}
-            >
-              <IconSymbol 
-                ios_icon_name="gearshape.fill" 
-                android_material_icon_name="settings" 
-                size={32} 
-                color={colors.textSecondary} 
-              />
-              <Text style={styles.actionTitle}>Settings</Text>
-            </TouchableOpacity>
+          <View style={styles.statCard}>
+            <View style={styles.statHeader}>
+              <IconSymbol ios_icon_name="star.fill" android_material_icon_name="star" size={20} color={colors.accent} />
+              <Text style={styles.statLabel}>Total MXI</Text>
+            </View>
+            <Text style={styles.statValue}>{formatNumber(stats?.totalMXI || 0)}</Text>
           </View>
         </View>
 
-        {/* Statistics */}
-        {stats && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Platform Statistics</Text>
-            
-            <View style={[commonStyles.card, styles.statCard]}>
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Total Users</Text>
-                <Text style={styles.statValue}>{formatNumber(stats.totalUsers)}</Text>
+        {/* Quick Actions */}
+        <View style={styles.quickActionsSection}>
+          <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
+          <View style={styles.quickActionsGrid}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => router.push('/(tabs)/(admin)/kyc-approvals')}
+            >
+              {stats && stats.pendingKYC > 0 && (
+                <View style={styles.actionBadge}>
+                  <Text style={styles.actionBadgeText}>{stats.pendingKYC}</Text>
+                </View>
+              )}
+              <View style={[styles.actionIcon, { backgroundColor: colors.primary + '20' }]}>
+                <IconSymbol ios_icon_name="person.badge.shield.checkmark.fill" android_material_icon_name="verified_user" size={24} color={colors.primary} />
               </View>
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Active Contributors</Text>
-                <Text style={styles.statValue}>{formatNumber(stats.activeContributors)}</Text>
-              </View>
-            </View>
+              <Text style={styles.actionLabel}>Aprobar KYC</Text>
+            </TouchableOpacity>
 
-            <View style={[commonStyles.card, styles.statCard]}>
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Total MXI Distributed</Text>
-                <Text style={styles.statValue}>{formatNumber(stats.totalMXI)} MXI</Text>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => router.push('/(tabs)/(admin)/payment-approvals')}
+            >
+              {stats && (stats.pendingPayments + stats.confirmingPayments) > 0 && (
+                <View style={styles.actionBadge}>
+                  <Text style={styles.actionBadgeText}>{stats.pendingPayments + stats.confirmingPayments}</Text>
+                </View>
+              )}
+              <View style={[styles.actionIcon, { backgroundColor: colors.success + '20' }]}>
+                <IconSymbol ios_icon_name="creditcard.fill" android_material_icon_name="payment" size={24} color={colors.success} />
               </View>
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Total USDT Contributed</Text>
-                <Text style={styles.statValue}>${formatNumber(stats.totalUSDT)}</Text>
-              </View>
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Total Yield Generated</Text>
-                <Text style={styles.statValue}>{formatNumber(stats.totalYieldGenerated)} MXI</Text>
-              </View>
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Total Commissions</Text>
-                <Text style={styles.statValue}>${formatNumber(stats.totalCommissions)}</Text>
-              </View>
-            </View>
+              <Text style={styles.actionLabel}>Pagos</Text>
+            </TouchableOpacity>
 
-            <View style={[commonStyles.card, styles.statCard]}>
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Confirmed Payments</Text>
-                <Text style={[styles.statValue, { color: colors.success }]}>
-                  {stats.confirmedPayments}
-                </Text>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => router.push('/(tabs)/(admin)/withdrawal-approvals')}
+            >
+              {stats && stats.pendingWithdrawals > 0 && (
+                <View style={styles.actionBadge}>
+                  <Text style={styles.actionBadgeText}>{stats.pendingWithdrawals}</Text>
+                </View>
+              )}
+              <View style={[styles.actionIcon, { backgroundColor: colors.warning + '20' }]}>
+                <IconSymbol ios_icon_name="arrow.up.circle.fill" android_material_icon_name="upload" size={24} color={colors.warning} />
               </View>
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Awaiting Approval</Text>
-                <Text style={[styles.statValue, { color: colors.warning }]}>
-                  {stats.confirmingPayments}
-                </Text>
-              </View>
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Pending Payments</Text>
-                <Text style={[styles.statValue, { color: colors.primary }]}>
-                  {stats.pendingPayments}
-                </Text>
-              </View>
-            </View>
+              <Text style={styles.actionLabel}>Retiros</Text>
+            </TouchableOpacity>
 
-            <View style={[commonStyles.card, styles.statCard]}>
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Approved KYC</Text>
-                <Text style={[styles.statValue, { color: colors.success }]}>
-                  {stats.approvedKYC}
-                </Text>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => router.push('/(tabs)/(admin)/messages')}
+            >
+              {stats && stats.openMessages > 0 && (
+                <View style={styles.actionBadge}>
+                  <Text style={styles.actionBadgeText}>{stats.openMessages}</Text>
+                </View>
+              )}
+              <View style={[styles.actionIcon, { backgroundColor: colors.accent + '20' }]}>
+                <IconSymbol ios_icon_name="envelope.fill" android_material_icon_name="mail" size={24} color={colors.accent} />
               </View>
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Pending KYC</Text>
-                <Text style={[styles.statValue, { color: colors.warning }]}>
-                  {stats.pendingKYC}
-                </Text>
-              </View>
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Rejected KYC</Text>
-                <Text style={[styles.statValue, { color: colors.error }]}>
-                  {stats.rejectedKYC}
-                </Text>
-              </View>
-            </View>
+              <Text style={styles.actionLabel}>Mensajes</Text>
+            </TouchableOpacity>
 
-            <View style={[commonStyles.card, styles.statCard]}>
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Completed Withdrawals</Text>
-                <Text style={[styles.statValue, { color: colors.success }]}>
-                  {stats.completedWithdrawals}
-                </Text>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => router.push('/(tabs)/(admin)/user-management')}
+            >
+              <View style={[styles.actionIcon, { backgroundColor: colors.primary + '20' }]}>
+                <IconSymbol ios_icon_name="person.crop.circle.badge.checkmark" android_material_icon_name="manage_accounts" size={24} color={colors.primary} />
               </View>
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Processing Withdrawals</Text>
-                <Text style={[styles.statValue, { color: colors.primary }]}>
-                  {stats.approvedWithdrawals}
-                </Text>
+              <Text style={styles.actionLabel}>Usuarios</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => router.push('/(tabs)/(admin)/vesting-analytics')}
+            >
+              <View style={[styles.actionIcon, { backgroundColor: colors.success + '20' }]}>
+                <IconSymbol ios_icon_name="chart.xyaxis.line" android_material_icon_name="show_chart" size={24} color={colors.success} />
               </View>
-              <View style={styles.statRow}>
-                <Text style={styles.statLabel}>Pending Withdrawals</Text>
-                <Text style={[styles.statValue, { color: colors.warning }]}>
-                  {stats.pendingWithdrawals}
-                </Text>
+              <Text style={styles.actionLabel}>Vesting Analytics</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => router.push('/(tabs)/(admin)/settings')}
+            >
+              <View style={[styles.actionIcon, { backgroundColor: colors.textSecondary + '20' }]}>
+                <IconSymbol ios_icon_name="gearshape.fill" android_material_icon_name="settings" size={24} color={colors.textSecondary} />
               </View>
-            </View>
+              <Text style={styles.actionLabel}>Configuración</Text>
+            </TouchableOpacity>
           </View>
-        )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 16,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: colors.textSecondary,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 24,
-    paddingBottom: 16,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  headerContent: {
-    flex: 1,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  headerButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: colors.card,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
-  scrollContent: {
-    padding: 24,
-    paddingBottom: 100,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  phaseCard: {
-    marginBottom: 24,
-  },
-  phaseInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  phaseNumber: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  phasePrice: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: colors.border,
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: colors.primary,
-  },
-  progressText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  phaseStats: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  phaseStat: {
-    flex: 1,
-    padding: 12,
-    backgroundColor: colors.background,
-    borderRadius: 8,
-  },
-  phaseStatLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  phaseStatValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 16,
-  },
-  actionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  actionCard: {
-    width: '48%',
-    alignItems: 'center',
-    padding: 20,
-    position: 'relative',
-  },
-  actionTitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 8,
-  },
-  actionValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.text,
-    marginTop: 4,
-  },
-  badge: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    backgroundColor: colors.error,
-    borderRadius: 12,
-    minWidth: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-  },
-  badgeText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  statCard: {
-    marginBottom: 12,
-  },
-  statRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  statLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  statValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-  },
-});
