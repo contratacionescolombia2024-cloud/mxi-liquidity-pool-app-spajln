@@ -86,31 +86,39 @@ export default function HomeScreen() {
     setTotalMxiBalance(getTotalMxiBalance());
     
     // Load metrics data
-    const { data: metricsData, error: metricsError } = await supabase
-      .from('metrics')
-      .select('*')
-      .single();
-    
-    if (metricsError) {
-      console.error('Error loading metrics:', metricsError);
-    } else if (metricsData) {
-      console.log('Metrics loaded:', metricsData);
-      setPoolMembers(metricsData.total_members);
-      setPhaseData({
-        totalTokensSold: parseFloat(metricsData.total_tokens_sold || '0'),
-        currentPhase: metricsData.current_phase || 1,
-        currentPriceUsdt: parseFloat(metricsData.current_price_usdt || '0'),
-        phase1TokensSold: parseFloat(metricsData.phase_1_tokens_sold || '0'),
-        phase2TokensSold: parseFloat(metricsData.phase_2_tokens_sold || '0'),
-        phase3TokensSold: parseFloat(metricsData.phase_3_tokens_sold || '0'),
-      });
+    try {
+      const { data: metricsData, error: metricsError } = await supabase
+        .from('metrics')
+        .select('*')
+        .single();
+      
+      if (metricsError) {
+        console.error('Error loading metrics:', metricsError);
+      } else if (metricsData) {
+        console.log('Metrics loaded:', metricsData);
+        setPoolMembers(metricsData.total_members);
+        setPhaseData({
+          totalTokensSold: parseFloat(metricsData.total_tokens_sold || '0'),
+          currentPhase: metricsData.current_phase || 1,
+          currentPriceUsdt: parseFloat(metricsData.current_price_usdt || '0'),
+          phase1TokensSold: parseFloat(metricsData.phase_1_tokens_sold || '0'),
+          phase2TokensSold: parseFloat(metricsData.phase_2_tokens_sold || '0'),
+          phase3TokensSold: parseFloat(metricsData.phase_3_tokens_sold || '0'),
+        });
+      }
+    } catch (error) {
+      console.error('Exception loading metrics:', error);
     }
   };
 
   const checkAdmin = async () => {
-    const adminStatus = await checkAdminStatus();
-    setIsAdmin(adminStatus);
-    console.log('Admin status:', adminStatus);
+    try {
+      const adminStatus = await checkAdminStatus();
+      setIsAdmin(adminStatus);
+      console.log('Admin status:', adminStatus);
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+    }
   };
 
   const onRefresh = async () => {

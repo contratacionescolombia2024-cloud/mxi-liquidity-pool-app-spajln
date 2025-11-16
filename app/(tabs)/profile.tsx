@@ -34,20 +34,21 @@ export default function ProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
+              console.log('=== LOGOUT INITIATED FROM PROFILE ===');
               console.log('User confirmed logout');
               setLoggingOut(true);
               
-              // Call logout function
+              // Call logout function - it handles everything
               await logout();
               
-              console.log('Logout completed successfully');
+              console.log('Logout function completed');
               
-              // The navigation is now handled in AuthContext
-              // But we can add a small delay to ensure state is cleared
+              // Small delay to ensure state is cleared
               setTimeout(() => {
                 setLoggingOut(false);
-              }, 500);
+              }, 1000);
             } catch (error) {
+              console.error('=== LOGOUT ERROR IN PROFILE ===');
               console.error('Error during logout:', error);
               setLoggingOut(false);
               Alert.alert(
@@ -237,7 +238,7 @@ export default function ProfileScreen() {
         >
           {loggingOut ? (
             <React.Fragment>
-              <ActivityIndicator color={colors.error} size="small" />
+              <ActivityIndicator color="#fff" size="small" />
               <Text style={styles.logoutButtonText}>Cerrando sesión...</Text>
             </React.Fragment>
           ) : (
@@ -246,7 +247,7 @@ export default function ProfileScreen() {
                 ios_icon_name="rectangle.portrait.and.arrow.right" 
                 android_material_icon_name="logout" 
                 size={20} 
-                color={colors.error} 
+                color="#fff" 
               />
               <Text style={styles.logoutButtonText}>Cerrar Sesión</Text>
             </React.Fragment>
@@ -427,12 +428,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
-    backgroundColor: colors.card,
+    backgroundColor: colors.error,
     paddingVertical: 16,
     borderRadius: 12,
     marginBottom: 24,
-    borderWidth: 2,
-    borderColor: colors.error,
+    borderWidth: 0,
   },
   logoutButtonDisabled: {
     opacity: 0.6,
@@ -440,7 +440,7 @@ const styles = StyleSheet.create({
   logoutButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.error,
+    color: '#fff',
   },
   footer: {
     alignItems: 'center',
