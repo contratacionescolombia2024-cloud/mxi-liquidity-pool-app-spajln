@@ -73,16 +73,11 @@ interface AuthContextType {
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => Promise<void>;
   addContribution: (usdtAmount: number, transactionType: 'initial' | 'increase' | 'reinvestment') => Promise<{ success: boolean; error?: string }>;
-  withdrawCommission: (amount: number, walletAddress: string) => Promise<{ success: boolean; error?: string }>;
-  withdrawMXI: (amount: number, walletAddress: string) => Promise<{ success: boolean; error?: string }>;
   unifyCommissionToMXI: (amount: number) => Promise<{ success: boolean; mxiAmount?: number; error?: string }>;
   resendVerificationEmail: () => Promise<{ success: boolean; error?: string }>;
-  checkWithdrawalEligibility: () => Promise<boolean>;
   claimYield: () => Promise<{ success: boolean; yieldEarned?: number; error?: string }>;
   getCurrentYield: () => number;
   getPoolStatus: () => Promise<PoolStatus | null>;
-  checkMXIWithdrawalEligibility: () => Promise<boolean>;
-  getAvailableMXI: () => Promise<number>;
   checkAdminStatus: () => Promise<boolean>;
   getPhaseInfo: () => Promise<PhaseInfo | null>;
 }
@@ -682,66 +677,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const withdrawCommission = async (
-    amount: number,
-    walletAddress: string
-  ): Promise<{ success: boolean; error?: string }> => {
-    if (!user) return { success: false, error: 'Not authenticated' };
-
-    // Check KYC status
-    if (user.kycStatus !== 'approved') {
-      return { 
-        success: false, 
-        error: 'KYC verification required. Please complete KYC verification before withdrawing.' 
-      };
-    }
-
-    if (!user.canWithdraw) {
-      return { success: false, error: 'Withdrawal not available. You need 5 active referrals and 10 days since joining.' };
-    }
-
-    if (amount > user.commissions.available) {
-      return { success: false, error: 'Insufficient available commission' };
-    }
-
-    try {
-      const { error: withdrawalError } = await supabase
-        .from('withdrawals')
-        .insert({
-          user_id: user.id,
-          amount,
-          currency: 'USDT',
-          wallet_address: walletAddress,
-          status: 'pending',
-        });
-
-      if (withdrawalError) {
-        console.error('Withdrawal error:', withdrawalError);
-        return { success: false, error: 'Failed to create withdrawal request' };
-      }
-
-      const { error: commissionError } = await supabase
-        .from('commissions')
-        .update({ status: 'withdrawn' })
-        .eq('user_id', user.id)
-        .eq('status', 'available')
-        .lte('amount', amount);
-
-      if (commissionError) {
-        console.error('Commission update error:', commissionError);
-        return { success: false, error: 'Failed to update commission status' };
-      }
-
-      await updateUser({ lastWithdrawalDate: new Date().toISOString() });
-      await loadUserData(user.id);
-
-      return { success: true };
-    } catch (error: any) {
-      console.error('Withdraw commission exception:', error);
-      return { success: false, error: error.message || 'Withdrawal failed' };
-    }
-  };
-
   const unifyCommissionToMXI = async (
     amount: number
   ): Promise<{ success: boolean; mxiAmount?: number; error?: string }> => {
@@ -782,125 +717,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const withdrawMXI = async (
-    amount: number,
-    walletAddress: string
-  ): Promise<{ success: boolean; error?: string }> => {
-    if (!user) return { success: false, error: 'Not authenticated' };
-
-    // Check KYC status
-    if (user.kycStatus !== 'approved') {
-      return { 
-        success: false, 
-        error: 'KYC verification required. Please complete KYC verification before withdrawing.' 
-      };
-    }
-
-    try {
-      // Check available MXI from phased release
-      const availableMXI = await getAvailableMXI();
-
-      if (availableMXI === 0) {
-        return { 
-          success: false, 
-          error: 'No MXI available for withdrawal yet. Please wait for the next release cycle.' 
-        };
-      }
-
-      if (amount > availableMXI) {
-        return { 
-          success: false, 
-          error: `You can only withdraw up to ${availableMXI.toFixed(2)} MXI at this time. The remaining balance will be released in weekly cycles.` 
-        };
-      }
-
-      // Check basic eligibility
-      const { data: canWithdrawMXI, error: eligibilityError } = await supabase
-        .rpc('check_mxi_withdrawal_eligibility', { p_user_id: user.id });
-
-      if (eligibilityError) {
-        console.error('MXI eligibility check error:', eligibilityError);
-        return { success: false, error: 'Failed to check withdrawal eligibility' };
-      }
-
-      if (!canWithdrawMXI) {
-        if (user.activeReferrals < 5) {
-          return { 
-            success: false, 
-            error: `You need 5 active referrals to withdraw mined MXI. You currently have ${user.activeReferrals} active referrals.` 
-          };
-        }
-
-        const { data: poolStatus } = await supabase.rpc('get_pool_status');
-        const status = poolStatus?.[0];
-
-        if (status && !status.is_mxi_launched) {
-          const daysUntil = status.days_until_launch;
-          return { 
-            success: false, 
-            error: `MXI withdrawals will be available in ${daysUntil} days after the pool closes.` 
-          };
-        }
-
-        return { success: false, error: 'MXI withdrawals are not yet available' };
-      }
-
-      // Create withdrawal request
-      const { error: withdrawalError } = await supabase
-        .from('withdrawals')
-        .insert({
-          user_id: user.id,
-          amount,
-          currency: 'MXI',
-          wallet_address: walletAddress,
-          status: 'pending',
-        });
-
-      if (withdrawalError) {
-        console.error('MXI withdrawal error:', withdrawalError);
-        return { success: false, error: 'Failed to create withdrawal request' };
-      }
-
-      // Update withdrawal schedule
-      const { error: scheduleError } = await supabase
-        .from('mxi_withdrawal_schedule')
-        .update({
-          released_mxi: user.availableMXI! - amount,
-        })
-        .eq('user_id', user.id);
-
-      if (scheduleError) {
-        console.error('Schedule update error:', scheduleError);
-      }
-
-      await loadUserData(user.id);
-
-      return { success: true };
-    } catch (error: any) {
-      console.error('Withdraw MXI exception:', error);
-      return { success: false, error: error.message || 'Withdrawal failed' };
-    }
-  };
-
-  const getAvailableMXI = async (): Promise<number> => {
-    if (!user) return 0;
-
-    try {
-      const { data, error } = await supabase
-        .rpc('get_available_mxi_for_withdrawal', { p_user_id: user.id });
-
-      if (error) {
-        console.error('Error getting available MXI:', error);
-        return 0;
-      }
-
-      return parseFloat(data?.toString() || '0');
-    } catch (error) {
-      console.error('Exception getting available MXI:', error);
-      return 0;
-    }
-  };
-
   const resendVerificationEmail = async (): Promise<{ success: boolean; error?: string }> => {
     if (!session?.user?.email) {
       return { success: false, error: 'No email found' };
@@ -922,30 +738,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message || 'Failed to resend email' };
-    }
-  };
-
-  const checkWithdrawalEligibility = async (): Promise<boolean> => {
-    if (!user) return false;
-
-    try {
-      const { data, error } = await supabase.rpc('check_withdrawal_eligibility_with_kyc', {
-        p_user_id: user.id,
-      });
-
-      if (error) {
-        console.error('Check eligibility error:', error);
-        return false;
-      }
-
-      if (data && !user.canWithdraw) {
-        await loadUserData(user.id);
-      }
-
-      return data || false;
-    } catch (error) {
-      console.error('Check eligibility exception:', error);
-      return false;
     }
   };
 
@@ -994,26 +786,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Get pool status exception:', error);
       return null;
-    }
-  };
-
-  const checkMXIWithdrawalEligibility = async (): Promise<boolean> => {
-    if (!user) return false;
-
-    try {
-      const { data, error } = await supabase.rpc('check_mxi_withdrawal_eligibility', {
-        p_user_id: user.id,
-      });
-
-      if (error) {
-        console.error('Check MXI eligibility error:', error);
-        return false;
-      }
-
-      return data || false;
-    } catch (error) {
-      console.error('Check MXI eligibility exception:', error);
-      return false;
     }
   };
 
@@ -1083,16 +855,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logout,
         updateUser,
         addContribution,
-        withdrawCommission,
-        withdrawMXI,
         unifyCommissionToMXI,
         resendVerificationEmail,
-        checkWithdrawalEligibility,
         claimYield,
         getCurrentYield,
         getPoolStatus,
-        checkMXIWithdrawalEligibility,
-        getAvailableMXI,
         checkAdminStatus,
         getPhaseInfo,
       }}

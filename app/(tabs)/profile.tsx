@@ -84,14 +84,6 @@ export default function ProfileScreen() {
       route: '/(tabs)/(home)/vesting',
     },
     {
-      id: 'withdrawals',
-      title: 'Withdrawal History',
-      subtitle: 'View past withdrawals',
-      icon: 'arrow.down.circle.fill',
-      androidIcon: 'arrow_circle_down',
-      route: '/(tabs)/(home)/withdrawals',
-    },
-    {
       id: 'contribute',
       title: 'Deposits',
       subtitle: 'Add funds to your account',

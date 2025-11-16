@@ -22,9 +22,6 @@ interface AdminStats {
   pendingKYC: number;
   approvedKYC: number;
   rejectedKYC: number;
-  pendingWithdrawals: number;
-  approvedWithdrawals: number;
-  completedWithdrawals: number;
   openMessages: number;
   totalUsers: number;
   activeContributors: number;
@@ -294,11 +291,6 @@ export default function AdminDashboard() {
         .from('kyc_verifications')
         .select('status');
 
-      // Load withdrawal stats
-      const { data: withdrawalData } = await supabase
-        .from('withdrawals')
-        .select('status');
-
       // Load message stats
       const { data: messageData } = await supabase
         .from('messages')
@@ -325,10 +317,6 @@ export default function AdminDashboard() {
       const approvedKYC = kycData?.filter((k) => k.status === 'approved').length || 0;
       const rejectedKYC = kycData?.filter((k) => k.status === 'rejected').length || 0;
 
-      const pendingWithdrawals = withdrawalData?.filter((w) => w.status === 'pending').length || 0;
-      const approvedWithdrawals = withdrawalData?.filter((w) => w.status === 'processing').length || 0;
-      const completedWithdrawals = withdrawalData?.filter((w) => w.status === 'completed').length || 0;
-
       const openMessages = messageData?.filter((m) => m.status === 'open').length || 0;
 
       const totalUsers = userData?.length || 0;
@@ -343,9 +331,6 @@ export default function AdminDashboard() {
         pendingKYC,
         approvedKYC,
         rejectedKYC,
-        pendingWithdrawals,
-        approvedWithdrawals,
-        completedWithdrawals,
         openMessages,
         totalUsers,
         activeContributors,
@@ -537,21 +522,6 @@ export default function AdminDashboard() {
 
             <TouchableOpacity
               style={styles.actionButton}
-              onPress={() => router.push('/(tabs)/(admin)/withdrawal-approvals')}
-            >
-              {stats && stats.pendingWithdrawals > 0 && (
-                <View style={styles.actionBadge}>
-                  <Text style={styles.actionBadgeText}>{stats.pendingWithdrawals}</Text>
-                </View>
-              )}
-              <View style={[styles.actionIcon, { backgroundColor: colors.warning + '20' }]}>
-                <IconSymbol ios_icon_name="arrow.up.circle.fill" android_material_icon_name="upload" size={24} color={colors.warning} />
-              </View>
-              <Text style={styles.actionLabel}>Retiros</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionButton}
               onPress={() => router.push('/(tabs)/(admin)/messages')}
             >
               {stats && stats.openMessages > 0 && (
@@ -586,7 +556,7 @@ export default function AdminDashboard() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.actionButton}
+              style={[styles.actionButton, styles.actionButtonWide]}
               onPress={() => router.push('/(tabs)/(admin)/settings')}
             >
               <View style={[styles.actionIcon, { backgroundColor: colors.textSecondary + '20' }]}>
