@@ -33,8 +33,6 @@ interface User {
   yieldRatePerMinute: number;
   lastYieldUpdate: string;
   accumulatedYield: number;
-  kycStatus: 'not_submitted' | 'pending' | 'approved' | 'rejected';
-  kycVerifiedAt?: string;
   availableMXI?: number;
   nextReleaseDate?: string;
   releasePercentage?: number;
@@ -232,8 +230,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         yieldRatePerMinute: parseFloat(userData.yield_rate_per_minute?.toString() || '0'),
         lastYieldUpdate: userData.last_yield_update || new Date().toISOString(),
         accumulatedYield: parseFloat(userData.accumulated_yield?.toString() || '0'),
-        kycStatus: userData.kyc_status || 'not_submitted',
-        kycVerifiedAt: userData.kyc_verified_at,
         availableMXI: scheduleData ? parseFloat(scheduleData.released_mxi?.toString() || '0') : 0,
         nextReleaseDate: scheduleData?.next_release_date,
         releasePercentage: scheduleData ? parseFloat(scheduleData.release_percentage?.toString() || '10') : 10,
@@ -469,7 +465,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             referred_by: referrerId,
             email_verified: false,
             is_active_contributor: false,
-            kyc_status: 'not_submitted',
           });
 
         if (insertError) {
@@ -600,7 +595,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (updates.canWithdraw !== undefined) dbUpdates.can_withdraw = updates.canWithdraw;
       if (updates.lastWithdrawalDate) dbUpdates.last_withdrawal_date = updates.lastWithdrawalDate;
       if (updates.isActiveContributor !== undefined) dbUpdates.is_active_contributor = updates.isActiveContributor;
-      if (updates.kycStatus) dbUpdates.kyc_status = updates.kycStatus;
 
       const { error } = await supabase
         .from('users')

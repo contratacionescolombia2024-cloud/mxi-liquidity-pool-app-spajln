@@ -114,7 +114,6 @@ export default function SupportScreen() {
 
   const getCategoryIcon = (cat: string) => {
     switch (cat) {
-      case 'kyc': return { ios: 'person.badge.shield.checkmark', android: 'verified_user' };
       case 'withdrawal': return { ios: 'arrow.down.circle', android: 'arrow_circle_down' };
       case 'transaction': return { ios: 'dollarsign.circle', android: 'monetization_on' };
       case 'technical': return { ios: 'wrench.and.screwdriver', android: 'build' };
@@ -163,7 +162,6 @@ export default function SupportScreen() {
               <View style={styles.categoryGrid}>
                 {[
                   { value: 'general', label: 'General', icon: 'envelope' },
-                  { value: 'kyc', label: 'KYC', icon: 'person.badge.shield.checkmark' },
                   { value: 'withdrawal', label: 'Withdrawal', icon: 'arrow.down.circle' },
                   { value: 'transaction', label: 'Transaction', icon: 'dollarsign.circle' },
                   { value: 'technical', label: 'Technical', icon: 'wrench.and.screwdriver' },
@@ -181,7 +179,6 @@ export default function SupportScreen() {
                       ios_icon_name={cat.icon as any}
                       android_material_icon_name={
                         cat.value === 'general' ? 'mail' :
-                        cat.value === 'kyc' ? 'verified_user' :
                         cat.value === 'withdrawal' ? 'arrow_circle_down' :
                         cat.value === 'transaction' ? 'monetization_on' :
                         cat.value === 'technical' ? 'build' :

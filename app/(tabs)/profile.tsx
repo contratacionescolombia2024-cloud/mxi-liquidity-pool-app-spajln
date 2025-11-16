@@ -49,15 +49,6 @@ export default function ProfileScreen() {
     );
   }
 
-  const getKYCStatusText = () => {
-    switch (user.kycStatus) {
-      case 'approved': return 'Approved';
-      case 'pending': return 'Pending Review';
-      case 'rejected': return 'Rejected';
-      default: return 'Not Submitted';
-    }
-  };
-
   const menuItems = [
     {
       id: 'edit-profile',
@@ -66,14 +57,6 @@ export default function ProfileScreen() {
       icon: 'person.fill',
       androidIcon: 'person',
       route: '/(tabs)/(home)/edit-profile',
-    },
-    {
-      id: 'kyc',
-      title: 'KYC Verification',
-      subtitle: getKYCStatusText(),
-      icon: 'checkmark.shield.fill',
-      androidIcon: 'verified_user',
-      route: '/(tabs)/(home)/kyc-verification',
     },
     {
       id: 'vesting',

@@ -27,7 +27,6 @@ interface UserData {
   mxi_balance: number;
   usdt_contributed: number;
   is_active_contributor: boolean;
-  kyc_status: string;
   active_referrals: number;
   joined_date: string;
   referral_code: string;

@@ -19,9 +19,6 @@ import { supabase } from '@/lib/supabase';
 import UniversalMXICounter from '@/components/UniversalMXICounter';
 
 interface AdminStats {
-  pendingKYC: number;
-  approvedKYC: number;
-  rejectedKYC: number;
   openMessages: number;
   totalUsers: number;
   activeContributors: number;
@@ -286,11 +283,6 @@ export default function AdminDashboard() {
     try {
       setLoading(true);
 
-      // Load KYC stats
-      const { data: kycData } = await supabase
-        .from('kyc_verifications')
-        .select('status');
-
       // Load message stats
       const { data: messageData } = await supabase
         .from('messages')
@@ -313,10 +305,6 @@ export default function AdminDashboard() {
         .single();
 
       // Calculate stats
-      const pendingKYC = kycData?.filter((k) => k.status === 'pending').length || 0;
-      const approvedKYC = kycData?.filter((k) => k.status === 'approved').length || 0;
-      const rejectedKYC = kycData?.filter((k) => k.status === 'rejected').length || 0;
-
       const openMessages = messageData?.filter((m) => m.status === 'open').length || 0;
 
       const totalUsers = userData?.length || 0;
@@ -328,9 +316,6 @@ export default function AdminDashboard() {
       const totalCommissions = commissionData?.reduce((sum, c) => sum + parseFloat(c.amount || '0'), 0) || 0;
 
       setStats({
-        pendingKYC,
-        approvedKYC,
-        rejectedKYC,
         openMessages,
         totalUsers,
         activeContributors,
@@ -505,21 +490,6 @@ export default function AdminDashboard() {
         <View style={styles.quickActionsSection}>
           <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
           <View style={styles.quickActionsGrid}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => router.push('/(tabs)/(admin)/kyc-approvals')}
-            >
-              {stats && stats.pendingKYC > 0 && (
-                <View style={styles.actionBadge}>
-                  <Text style={styles.actionBadgeText}>{stats.pendingKYC}</Text>
-                </View>
-              )}
-              <View style={[styles.actionIcon, { backgroundColor: colors.primary + '20' }]}>
-                <IconSymbol ios_icon_name="person.badge.shield.checkmark.fill" android_material_icon_name="verified_user" size={24} color={colors.primary} />
-              </View>
-              <Text style={styles.actionLabel}>Aprobar KYC</Text>
-            </TouchableOpacity>
-
             <TouchableOpacity
               style={styles.actionButton}
               onPress={() => router.push('/(tabs)/(admin)/messages')}
