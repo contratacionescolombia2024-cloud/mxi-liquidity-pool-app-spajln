@@ -84,14 +84,6 @@ export default function ProfileScreen() {
       route: '/(tabs)/(home)/vesting',
     },
     {
-      id: 'contribute',
-      title: 'Deposits',
-      subtitle: 'Add funds to your account',
-      icon: 'arrow.up.circle.fill',
-      androidIcon: 'arrow_circle_up',
-      route: '/(tabs)/(home)/contribute',
-    },
-    {
       id: 'referrals',
       title: 'Referrals',
       subtitle: `${user.activeReferrals} active referrals`,
