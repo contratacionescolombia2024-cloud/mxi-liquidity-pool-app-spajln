@@ -110,17 +110,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const initializationTimeout = useRef<NodeJS.Timeout | null>(null);
   const isInitializing = useRef(false);
   const authSubscription = useRef<any>(null);
+  const loadingUserData = useRef(false);
 
   useEffect(() => {
     console.log('=== AUTH PROVIDER INITIALIZING ===');
     
-    // Set a maximum initialization time of 4 seconds
+    // Set a maximum initialization time of 5 seconds
     initializationTimeout.current = setTimeout(() => {
       if (loading) {
         console.warn('Auth initialization timeout - continuing without session');
         setLoading(false);
       }
-    }, 4000);
+    }, 5000);
 
     // Initialize session
     initializeAuth();
@@ -138,31 +139,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (event === 'SIGNED_IN' && session) {
           console.log('User signed in - loading user data');
-          const { data: existingUser } = await supabase
-            .from('users')
-            .select('id')
-            .eq('id', session.user.id)
-            .single();
-          
-          if (!existingUser && session.user.email) {
-            await supabase
-              .from('users')
-              .update({ email_verified: true })
-              .eq('email', session.user.email);
-          }
-          
+          setSession(session);
           await loadUserData(session.user.id);
         } else if (event === 'TOKEN_REFRESHED' && session) {
           console.log('Token refreshed - updating session');
           setSession(session);
         } else if (session) {
+          setSession(session);
           await loadUserData(session.user.id);
         } else {
           clearAuthState();
         }
       } catch (error) {
         console.error('Error in auth state change handler:', error);
-        clearAuthState();
+        // Don't clear auth state on error - just log it
       }
     });
 
@@ -191,10 +181,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('=== INITIALIZING AUTH ===');
       
-      // Use a timeout for the session check
+      // Get session with timeout
       const sessionPromise = supabase.auth.getSession();
       const timeoutPromise = new Promise<{ data: { session: null }, error: Error }>((_, reject) => {
-        setTimeout(() => reject(new Error('Session check timeout')), 2500);
+        setTimeout(() => reject(new Error('Session check timeout')), 3000);
       });
 
       const result = await Promise.race([sessionPromise, timeoutPromise]);
@@ -229,13 +219,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSession(null);
     setIsAuthenticated(false);
     setLoading(false);
+    loadingUserData.current = false;
   };
 
   const loadUserData = async (userId: string) => {
+    // Prevent multiple simultaneous loads
+    if (loadingUserData.current) {
+      console.log('User data already loading, skipping...');
+      return;
+    }
+
+    loadingUserData.current = true;
+
     try {
       console.log('=== LOADING USER DATA ===', userId);
       
-      // Use timeout for user data loading
+      // Load user data with timeout
       const userDataPromise = supabase
         .from('users')
         .select('*')
@@ -243,7 +242,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       const timeoutPromise = new Promise<{ data: null, error: Error }>((_, reject) => {
-        setTimeout(() => reject(new Error('User data loading timeout')), 2500);
+        setTimeout(() => reject(new Error('User data loading timeout')), 3000);
       });
 
       const result = await Promise.race([userDataPromise, timeoutPromise]);
@@ -251,6 +250,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if ('error' in result && result.error) {
         console.error('Error loading user data:', result.error);
         setLoading(false);
+        loadingUserData.current = false;
         return;
       }
 
@@ -259,6 +259,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!userData) {
         console.log('No user data found');
         setLoading(false);
+        loadingUserData.current = false;
         return;
       }
 
@@ -266,15 +267,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const [referralResult, commissionResult, scheduleResult] = await Promise.allSettled([
         Promise.race([
           supabase.from('referrals').select('level').eq('referrer_id', userId),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 1500))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
         ]),
         Promise.race([
           supabase.from('commissions').select('amount, status').eq('user_id', userId),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 1500))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
         ]),
         Promise.race([
           supabase.from('mxi_withdrawal_schedule').select('*').eq('user_id', userId).single(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 1500))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
         ])
       ]);
 
@@ -335,9 +336,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(mappedUser);
       setIsAuthenticated(true);
       setLoading(false);
+      loadingUserData.current = false;
     } catch (error) {
       console.error('Error in loadUserData:', error);
       setLoading(false);
+      loadingUserData.current = false;
     }
   };
 
@@ -352,29 +355,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) {
         console.error('Login error:', error);
+        
+        // Provide more user-friendly error messages
+        if (error.message.includes('Invalid login credentials')) {
+          return { success: false, error: 'Correo electrónico o contraseña incorrectos. Por favor verifica tus credenciales.' };
+        }
+        
         return { success: false, error: error.message };
       }
 
       if (!data.session) {
-        return { success: false, error: 'No session created' };
+        return { success: false, error: 'No se pudo crear la sesión. Por favor intenta de nuevo.' };
       }
 
-      const { data: userData } = await supabase
+      // Check if email is verified
+      const { data: userData, error: userError } = await supabase
         .from('users')
         .select('email_verified')
         .eq('id', data.user.id)
         .single();
 
+      if (userError) {
+        console.error('Error checking email verification:', userError);
+        // Continue with login even if we can't check verification status
+      }
+
       if (userData && !userData.email_verified) {
+        // Sign out the user
         await supabase.auth.signOut();
-        return { success: false, error: 'Por favor verifica tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada para el enlace de verificación.' };
+        return { 
+          success: false, 
+          error: 'Por favor verifica tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada para el enlace de verificación.' 
+        };
       }
 
       console.log('Login successful');
       return { success: true };
     } catch (error: any) {
       console.error('Login exception:', error);
-      return { success: false, error: error.message || 'Login failed' };
+      return { success: false, error: error.message || 'Error al iniciar sesión. Por favor intenta de nuevo.' };
     }
   };
 
