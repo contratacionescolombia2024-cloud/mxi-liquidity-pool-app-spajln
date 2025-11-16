@@ -171,11 +171,11 @@ export default function HomeScreen() {
   };
 
   const getPhasePrice = (phase: number): string => {
-    // FIXED: Using consistent pricing from database
-    if (phase === 1) return '$0.30';
+    // FIXED: Using correct pricing from database
+    if (phase === 1) return '$0.40';
     if (phase === 2) return '$0.60';
-    if (phase === 3) return '$0.90';
-    return '$0.30';
+    if (phase === 3) return '$0.80';
+    return '$0.40';
   };
 
   const formatNumber = (num: number): string => {
@@ -189,7 +189,7 @@ export default function HomeScreen() {
 
   // FIXED: Calculate MXI exchange value using current phase price
   const getMxiExchangeValue = (mxiAmount: number): number => {
-    const currentPrice = phaseData?.currentPriceUsdt || 0.30;
+    const currentPrice = phaseData?.currentPriceUsdt || 0.40;
     return mxiAmount * currentPrice;
   };
 
@@ -471,7 +471,7 @@ export default function HomeScreen() {
               <View style={styles.phaseHeader}>
                 <View style={styles.phaseInfo}>
                   <Text style={styles.phaseNumber}>Fase 1</Text>
-                  <Text style={styles.phasePrice}>$0.30 por MXI</Text>
+                  <Text style={styles.phasePrice}>$0.40 por MXI</Text>
                 </View>
                 {phaseData.currentPhase === 1 && (
                   <View style={styles.currentPhaseBadge}>
@@ -536,7 +536,7 @@ export default function HomeScreen() {
               <View style={styles.phaseHeader}>
                 <View style={styles.phaseInfo}>
                   <Text style={styles.phaseNumber}>Fase 3</Text>
-                  <Text style={styles.phasePrice}>$0.90 por MXI</Text>
+                  <Text style={styles.phasePrice}>$0.80 por MXI</Text>
                 </View>
                 {phaseData.currentPhase === 3 && (
                   <View style={styles.currentPhaseBadge}>
