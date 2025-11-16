@@ -44,6 +44,7 @@ export default function HomeScreen() {
   const [poolMembers, setPoolMembers] = useState(56527);
   const [phaseData, setPhaseData] = useState<PhaseData | null>(null);
   const [countdown, setCountdown] = useState<CountdownTime>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  // FIXED: Corrected launch date to February 15, 2026
   const [launchDate] = useState(new Date('2026-02-15T12:00:00Z'));
 
   useEffect(() => {
@@ -158,7 +159,8 @@ export default function HomeScreen() {
   const getPhaseProgress = (phase: number): number => {
     if (!phaseData) return 0;
     
-    const phaseLimit = 5000000; // 5M tokens per phase
+    // FIXED: Corrected phase limit to 8.33M tokens per phase (25M total / 3 phases)
+    const phaseLimit = 8333333; // 8.33M tokens per phase
     let tokensSold = 0;
     
     if (phase === 1) tokensSold = phaseData.phase1TokensSold;
@@ -169,9 +171,10 @@ export default function HomeScreen() {
   };
 
   const getPhasePrice = (phase: number): string => {
+    // FIXED: Using consistent pricing from database
     if (phase === 1) return '$0.30';
-    if (phase === 2) return '$0.40';
-    if (phase === 3) return '$0.50';
+    if (phase === 2) return '$0.60';
+    if (phase === 3) return '$0.90';
     return '$0.30';
   };
 
@@ -184,10 +187,10 @@ export default function HomeScreen() {
     return num.toFixed(0);
   };
 
-  // Calculate MXI exchange value at Phase 1 price (0.4 USDT)
+  // FIXED: Calculate MXI exchange value using current phase price
   const getMxiExchangeValue = (mxiAmount: number): number => {
-    const mxiPhase1Price = 0.4; // Phase 1 sale price
-    return mxiAmount * mxiPhase1Price;
+    const currentPrice = phaseData?.currentPriceUsdt || 0.30;
+    return mxiAmount * currentPrice;
   };
 
   if (!user) {
@@ -405,7 +408,7 @@ export default function HomeScreen() {
               <Text style={styles.balanceItemLabel}>💎 MXI Total</Text>
               <Text style={styles.balanceItemValue}>{totalMxiBalance.toFixed(6)} MXI</Text>
               <Text style={styles.balanceItemSubtext}>≈ ${getMxiExchangeValue(totalMxiBalance).toFixed(2)} USDT</Text>
-              <Text style={styles.balanceItemNote}>(Fase 1: $0.40/MXI)</Text>
+              <Text style={styles.balanceItemNote}>(Precio Fase {phaseData?.currentPhase || 1}: {getPhasePrice(phaseData?.currentPhase || 1)}/MXI)</Text>
             </View>
             <View style={styles.balanceItem}>
               <Text style={styles.balanceItemLabel}>👥 Referidos Activos</Text>
@@ -426,7 +429,7 @@ export default function HomeScreen() {
               <View style={styles.salesStatItem}>
                 <Text style={styles.salesStatLabel}>Total MXI Vendidos</Text>
                 <Text style={styles.salesStatValue}>{formatNumber(phaseData.totalTokensSold)}</Text>
-                <Text style={styles.salesStatSubtext}>de 15M tokens</Text>
+                <Text style={styles.salesStatSubtext}>de 25M tokens</Text>
               </View>
               <View style={styles.salesDivider} />
               <View style={styles.salesStatItem}>
@@ -440,14 +443,14 @@ export default function HomeScreen() {
               <View style={styles.totalProgressHeader}>
                 <Text style={styles.totalProgressLabel}>Progreso Total</Text>
                 <Text style={styles.totalProgressPercent}>
-                  {((phaseData.totalTokensSold / 15000000) * 100).toFixed(2)}%
+                  {((phaseData.totalTokensSold / 25000000) * 100).toFixed(2)}%
                 </Text>
               </View>
               <View style={styles.totalProgressBar}>
                 <View 
                   style={[
                     styles.totalProgressFill, 
-                    { width: `${Math.min((phaseData.totalTokensSold / 15000000) * 100, 100)}%` }
+                    { width: `${Math.min((phaseData.totalTokensSold / 25000000) * 100, 100)}%` }
                   ]} 
                 />
               </View>
@@ -489,7 +492,7 @@ export default function HomeScreen() {
                   />
                 </View>
                 <Text style={styles.phaseProgressText}>
-                  {formatNumber(phaseData.phase1TokensSold)} / 5M
+                  {formatNumber(phaseData.phase1TokensSold)} / 8.33M
                 </Text>
               </View>
             </View>
@@ -499,7 +502,7 @@ export default function HomeScreen() {
               <View style={styles.phaseHeader}>
                 <View style={styles.phaseInfo}>
                   <Text style={styles.phaseNumber}>Fase 2</Text>
-                  <Text style={styles.phasePrice}>$0.40 por MXI</Text>
+                  <Text style={styles.phasePrice}>$0.60 por MXI</Text>
                 </View>
                 {phaseData.currentPhase === 2 && (
                   <View style={styles.currentPhaseBadge}>
@@ -523,7 +526,7 @@ export default function HomeScreen() {
                   />
                 </View>
                 <Text style={styles.phaseProgressText}>
-                  {formatNumber(phaseData.phase2TokensSold)} / 5M
+                  {formatNumber(phaseData.phase2TokensSold)} / 8.33M
                 </Text>
               </View>
             </View>
@@ -533,7 +536,7 @@ export default function HomeScreen() {
               <View style={styles.phaseHeader}>
                 <View style={styles.phaseInfo}>
                   <Text style={styles.phaseNumber}>Fase 3</Text>
-                  <Text style={styles.phasePrice}>$0.50 por MXI</Text>
+                  <Text style={styles.phasePrice}>$0.90 por MXI</Text>
                 </View>
                 {phaseData.currentPhase === 3 && (
                   <View style={styles.currentPhaseBadge}>
@@ -557,7 +560,7 @@ export default function HomeScreen() {
                   />
                 </View>
                 <Text style={styles.phaseProgressText}>
-                  {formatNumber(phaseData.phase3TokensSold)} / 5M
+                  {formatNumber(phaseData.phase3TokensSold)} / 8.33M
                 </Text>
               </View>
             </View>
