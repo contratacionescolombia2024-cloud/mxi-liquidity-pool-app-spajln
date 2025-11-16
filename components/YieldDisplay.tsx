@@ -1,11 +1,11 @@
 
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
 
-function YieldDisplay() {
+export default function YieldDisplay() {
   const { user, getCurrentYield, claimYield } = useAuth();
   const [currentYield, setCurrentYield] = useState(0);
   const [claiming, setClaiming] = useState(false);
@@ -16,23 +16,10 @@ function YieldDisplay() {
       return;
     }
 
-    // Initial update
-    const yield_amount = getCurrentYield();
-    setCurrentYield(yield_amount);
-
     // Update yield display every second
     const interval = setInterval(() => {
-      try {
-        const newYield = getCurrentYield();
-        
-        // Only update if value has changed (avoid unnecessary re-renders)
-        setCurrentYield(prev => {
-          const diff = Math.abs(newYield - prev);
-          return diff > 0.00000001 ? newYield : prev;
-        });
-      } catch (error) {
-        console.error('Error updating yield display:', error);
-      }
+      const yield_amount = getCurrentYield();
+      setCurrentYield(yield_amount);
     }, 1000);
 
     return () => clearInterval(interval);
@@ -339,5 +326,3 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 });
-
-export default memo(YieldDisplay);

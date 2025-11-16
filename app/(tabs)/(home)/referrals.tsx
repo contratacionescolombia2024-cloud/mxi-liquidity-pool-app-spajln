@@ -8,6 +8,7 @@ import {
   ScrollView,
   Alert,
   Share,
+  TextInput,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,9 +19,12 @@ import { IconSymbol } from '@/components/IconSymbol';
 import * as Clipboard from 'expo-clipboard';
 
 export default function ReferralsScreen() {
-  const { user, unifyCommissionToMXI, getCurrentYield } = useAuth();
+  const { user, withdrawCommission, unifyCommissionToMXI, getCurrentYield } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [walletAddress, setWalletAddress] = useState('');
+  const [canWithdraw, setCanWithdraw] = useState(false);
   const [currentPrice, setCurrentPrice] = useState(0);
   const [currentYield, setCurrentYield] = useState(0);
 
@@ -33,12 +37,25 @@ export default function ReferralsScreen() {
 
   useEffect(() => {
     if (user) {
+      checkEligibility();
       loadCurrentPrice();
     }
   }, [user]);
 
   const loadCurrentPrice = async () => {
     setCurrentPrice(0.012);
+  };
+
+  const checkEligibility = async () => {
+    if (!user) return;
+
+    const hasMinReferrals = user.activeReferrals >= 5;
+    const daysSinceLastWithdrawal = user.lastWithdrawalDate
+      ? (Date.now() - new Date(user.lastWithdrawalDate).getTime()) / (1000 * 60 * 60 * 24)
+      : 999;
+    const hasWaitedEnough = daysSinceLastWithdrawal >= 10;
+
+    setCanWithdraw(hasMinReferrals && hasWaitedEnough);
   };
 
   const handleCopyCode = async () => {
@@ -56,6 +73,46 @@ export default function ReferralsScreen() {
       });
     } catch (error) {
       console.error('Error sharing:', error);
+    }
+  };
+
+  const handleWithdraw = async () => {
+    if (!user) return;
+
+    const amount = parseFloat(withdrawAmount);
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('Invalid Amount', 'Please enter a valid amount');
+      return;
+    }
+
+    if (amount > user.commissions.available) {
+      Alert.alert('Insufficient Balance', 'You don&apos;t have enough available commissions');
+      return;
+    }
+
+    if (!canWithdraw) {
+      Alert.alert(
+        'Not Eligible',
+        'You need at least 5 active referrals and must wait 10 days between withdrawals'
+      );
+      return;
+    }
+
+    if (!walletAddress) {
+      Alert.alert('Missing Information', 'Please enter your wallet address');
+      return;
+    }
+
+    setLoading(true);
+    const result = await withdrawCommission(amount, walletAddress);
+    setLoading(false);
+
+    if (result.success) {
+      Alert.alert('Success', 'Withdrawal request submitted successfully!');
+      setWithdrawAmount('');
+      setWalletAddress('');
+    } else {
+      Alert.alert('Error', result.error || 'Failed to submit withdrawal request');
     }
   };
 
@@ -224,7 +281,63 @@ export default function ReferralsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Info Card - Withdrawals Removed */}
+        {/* Withdrawal Section */}
+        <View style={commonStyles.card}>
+          <Text style={styles.sectionTitle}>Withdraw Commissions</Text>
+          
+          {!canWithdraw && (
+            <View style={styles.warningBox}>
+              <IconSymbol 
+                ios_icon_name="exclamationmark.triangle.fill" 
+                android_material_icon_name="warning" 
+                size={20} 
+                color={colors.warning} 
+              />
+              <Text style={styles.warningText}>
+                You need at least 5 active referrals and must wait 10 days between withdrawals
+              </Text>
+            </View>
+          )}
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Amount (USDT)</Text>
+            <TextInput
+              style={styles.input}
+              value={withdrawAmount}
+              onChangeText={setWithdrawAmount}
+              keyboardType="decimal-pad"
+              placeholder="Enter amount"
+              placeholderTextColor={colors.textSecondary}
+              editable={canWithdraw}
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Wallet Address (TRC20)</Text>
+            <TextInput
+              style={styles.input}
+              value={walletAddress}
+              onChangeText={setWalletAddress}
+              placeholder="Enter your TRC20 wallet address"
+              placeholderTextColor={colors.textSecondary}
+              editable={canWithdraw}
+            />
+          </View>
+
+          <TouchableOpacity
+            style={[buttonStyles.primary, styles.withdrawButton]}
+            onPress={handleWithdraw}
+            disabled={loading || !canWithdraw}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={buttonStyles.primaryText}>Request Withdrawal</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* How It Works */}
         <View style={[commonStyles.card, styles.infoCard]}>
           <View style={styles.infoHeader}>
             <IconSymbol 
@@ -233,35 +346,15 @@ export default function ReferralsScreen() {
               size={24} 
               color={colors.primary} 
             />
-            <Text style={styles.infoTitle}>Commission Information</Text>
-          </View>
-          <View style={styles.infoList}>
-            <Text style={styles.infoItem}>• Commissions are earned from referral purchases</Text>
-            <Text style={styles.infoItem}>• Level 1 referrals earn you 3%</Text>
-            <Text style={styles.infoItem}>• Level 2 referrals earn you 2%</Text>
-            <Text style={styles.infoItem}>• Level 3 referrals earn you 1%</Text>
-            <Text style={styles.infoItem}>• Convert commissions to MXI tokens anytime</Text>
-            <Text style={styles.infoItem}>• MXI tokens will be available after launch</Text>
-          </View>
-        </View>
-
-        {/* How It Works */}
-        <View style={[commonStyles.card, styles.infoCard]}>
-          <View style={styles.infoHeader}>
-            <IconSymbol 
-              ios_icon_name="lightbulb.fill" 
-              android_material_icon_name="lightbulb" 
-              size={24} 
-              color={colors.warning} 
-            />
             <Text style={styles.infoTitle}>How Referrals Work</Text>
           </View>
           <View style={styles.infoList}>
             <Text style={styles.infoItem}>• Share your referral code with friends</Text>
-            <Text style={styles.infoItem}>• Earn commissions when they purchase MXI</Text>
-            <Text style={styles.infoItem}>• Build a 3-level referral network</Text>
-            <Text style={styles.infoItem}>• Convert commissions to MXI tokens</Text>
-            <Text style={styles.infoItem}>• Grow your MXI holdings through referrals</Text>
+            <Text style={styles.infoItem}>• Earn 3% from Level 1 referrals</Text>
+            <Text style={styles.infoItem}>• Earn 2% from Level 2 referrals</Text>
+            <Text style={styles.infoItem}>• Earn 1% from Level 3 referrals</Text>
+            <Text style={styles.infoItem}>• Commissions available after 10 days</Text>
+            <Text style={styles.infoItem}>• Need 5 active Level 1 referrals to withdraw</Text>
           </View>
         </View>
       </ScrollView>
@@ -426,6 +519,44 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   unifyButton: {
+    marginTop: 8,
+  },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.warning + '20',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.warning + '40',
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  inputContainer: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: colors.text,
+  },
+  withdrawButton: {
     marginTop: 8,
   },
   infoCard: {

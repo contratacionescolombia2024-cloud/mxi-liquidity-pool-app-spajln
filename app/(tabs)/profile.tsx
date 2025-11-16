@@ -17,110 +17,108 @@ import { IconSymbol } from '@/components/IconSymbol';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
-
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (!isAuthenticated && !loggingOut) {
-      console.log('User not authenticated, redirecting to login');
-      router.replace('/(auth)/login');
-    }
-  }, [isAuthenticated, loggingOut]);
 
   const handleLogout = () => {
     Alert.alert(
-      'Cerrar Sesión',
-      '¿Estás seguro de que deseas cerrar sesión?',
+      'Logout',
+      'Are you sure you want to logout?',
       [
-        { 
-          text: 'Cancelar', 
-          style: 'cancel' 
-        },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Cerrar Sesión',
+          text: 'Logout',
           style: 'destructive',
           onPress: async () => {
-            try {
-              console.log('=== LOGOUT INITIATED FROM PROFILE ===');
-              console.log('User confirmed logout');
-              setLoggingOut(true);
-              
-              // Call logout function - it handles everything
-              await logout();
-              
-              console.log('Logout function completed');
-              
-              // The logout function will handle navigation
-              // Keep loading state for a moment to prevent UI flicker
-              setTimeout(() => {
-                setLoggingOut(false);
-              }, 500);
-            } catch (error) {
-              console.error('=== LOGOUT ERROR IN PROFILE ===');
-              console.error('Error during logout:', error);
-              setLoggingOut(false);
-              Alert.alert(
-                'Error',
-                'Hubo un problema al cerrar sesión. Por favor intenta de nuevo.'
-              );
-            }
+            setLoggingOut(true);
+            await logout();
+            setLoggingOut(false);
           },
         },
       ]
     );
   };
 
-  if (!user || loggingOut) {
+  if (!user) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>
-            {loggingOut ? 'Cerrando sesión...' : 'Cargando perfil...'}
-          </Text>
         </View>
       </SafeAreaView>
     );
   }
 
+  const getKYCStatusText = () => {
+    switch (user.kycStatus) {
+      case 'approved': return 'Approved';
+      case 'pending': return 'Pending Review';
+      case 'rejected': return 'Rejected';
+      default: return 'Not Submitted';
+    }
+  };
+
   const menuItems = [
     {
       id: 'edit-profile',
-      title: 'Editar Perfil',
-      subtitle: 'Actualiza tu información',
+      title: 'Edit Profile',
+      subtitle: 'Update your information',
       icon: 'person.fill',
       androidIcon: 'person',
       route: '/(tabs)/(home)/edit-profile',
     },
     {
+      id: 'kyc',
+      title: 'KYC Verification',
+      subtitle: getKYCStatusText(),
+      icon: 'checkmark.shield.fill',
+      androidIcon: 'verified_user',
+      route: '/(tabs)/(home)/kyc-verification',
+    },
+    {
       id: 'vesting',
       title: 'Vesting & Rendimiento',
-      subtitle: 'Ver generación de rendimiento',
+      subtitle: 'View yield generation',
       icon: 'chart.line.uptrend.xyaxis',
       androidIcon: 'trending_up',
       route: '/(tabs)/(home)/vesting',
     },
     {
+      id: 'withdrawals',
+      title: 'Withdrawal History',
+      subtitle: 'View past withdrawals',
+      icon: 'arrow.down.circle.fill',
+      androidIcon: 'arrow_circle_down',
+      route: '/(tabs)/(home)/withdrawals',
+    },
+    {
+      id: 'contribute',
+      title: 'Deposits',
+      subtitle: 'Add funds to your account',
+      icon: 'arrow.up.circle.fill',
+      androidIcon: 'arrow_circle_up',
+      route: '/(tabs)/(home)/contribute',
+    },
+    {
       id: 'referrals',
-      title: 'Referidos',
-      subtitle: `${user.activeReferrals} referidos activos`,
+      title: 'Referrals',
+      subtitle: `${user.activeReferrals} active referrals`,
       icon: 'person.3.fill',
       androidIcon: 'group',
       route: '/(tabs)/(home)/referrals',
     },
     {
       id: 'challenge-history',
-      title: 'Historial de Desafíos',
-      subtitle: 'Ver registros de juegos',
+      title: 'Challenge History',
+      subtitle: 'View game records',
       icon: 'clock.fill',
       androidIcon: 'history',
       route: '/(tabs)/(home)/challenge-history',
     },
     {
       id: 'support',
-      title: 'Soporte',
-      subtitle: 'Obtener ayuda',
+      title: 'Support',
+      subtitle: 'Get help',
       icon: 'questionmark.circle.fill',
       androidIcon: 'help',
       route: '/(tabs)/(home)/support',
@@ -141,70 +139,45 @@ export default function ProfileScreen() {
             color={colors.text} 
           />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Perfil</Text>
+        <Text style={styles.headerTitle}>Profile</Text>
         <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <View style={styles.avatarContainer}>
-            <IconSymbol 
-              ios_icon_name="person.circle.fill" 
-              android_material_icon_name="account_circle" 
-              size={80} 
-              color={colors.primary} 
-            />
+            <IconSymbol ios_icon_name="person.circle.fill" android_material_icon_name="account_circle" size={80} color={colors.primary} />
           </View>
           <Text style={styles.userName}>{user.name}</Text>
           <Text style={styles.userEmail}>{user.email}</Text>
           <View style={styles.referralCodeContainer}>
-            <Text style={styles.referralCodeLabel}>Código de Referido:</Text>
+            <Text style={styles.referralCodeLabel}>Referral Code:</Text>
             <Text style={styles.referralCode}>{user.referralCode}</Text>
           </View>
         </View>
 
         <View style={[commonStyles.card, styles.statsCard]}>
-          <Text style={styles.statsTitle}>Estadísticas de Cuenta</Text>
+          <Text style={styles.statsTitle}>Account Statistics</Text>
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
-              <IconSymbol 
-                ios_icon_name="dollarsign.circle.fill" 
-                android_material_icon_name="account_balance_wallet" 
-                size={32} 
-                color={colors.primary} 
-              />
+              <IconSymbol ios_icon_name="dollarsign.circle.fill" android_material_icon_name="account_balance_wallet" size={32} color={colors.primary} />
               <Text style={styles.statValue}>{user.mxiBalance.toFixed(2)}</Text>
-              <Text style={styles.statLabel}>Balance MXI</Text>
+              <Text style={styles.statLabel}>MXI Balance</Text>
             </View>
             <View style={styles.statItem}>
-              <IconSymbol 
-                ios_icon_name="banknote.fill" 
-                android_material_icon_name="payments" 
-                size={32} 
-                color={colors.success} 
-              />
+              <IconSymbol ios_icon_name="banknote.fill" android_material_icon_name="payments" size={32} color={colors.success} />
               <Text style={styles.statValue}>${user.usdtContributed.toFixed(2)}</Text>
-              <Text style={styles.statLabel}>Contribuido</Text>
+              <Text style={styles.statLabel}>Contributed</Text>
             </View>
             <View style={styles.statItem}>
-              <IconSymbol 
-                ios_icon_name="person.3.fill" 
-                android_material_icon_name="group" 
-                size={32} 
-                color={colors.accent} 
-              />
+              <IconSymbol ios_icon_name="person.3.fill" android_material_icon_name="group" size={32} color={colors.accent} />
               <Text style={styles.statValue}>{user.activeReferrals}</Text>
-              <Text style={styles.statLabel}>Referidos</Text>
+              <Text style={styles.statLabel}>Referrals</Text>
             </View>
             <View style={styles.statItem}>
-              <IconSymbol 
-                ios_icon_name="chart.line.uptrend.xyaxis" 
-                android_material_icon_name="trending_up" 
-                size={32} 
-                color={colors.warning} 
-              />
+              <IconSymbol ios_icon_name="chart.line.uptrend.xyaxis" android_material_icon_name="trending_up" size={32} color={colors.warning} />
               <Text style={styles.statValue}>${user.commissions.total.toFixed(2)}</Text>
-              <Text style={styles.statLabel}>Comisiones</Text>
+              <Text style={styles.statLabel}>Commissions</Text>
             </View>
           </View>
         </View>
@@ -218,24 +191,14 @@ export default function ProfileScreen() {
               >
                 <View style={styles.menuItemLeft}>
                   <View style={styles.menuIconContainer}>
-                    <IconSymbol 
-                      ios_icon_name={item.icon} 
-                      android_material_icon_name={item.androidIcon} 
-                      size={24} 
-                      color={colors.primary} 
-                    />
+                    <IconSymbol ios_icon_name={item.icon} android_material_icon_name={item.androidIcon} size={24} color={colors.primary} />
                   </View>
                   <View style={styles.menuItemText}>
                     <Text style={styles.menuItemTitle}>{item.title}</Text>
                     <Text style={styles.menuItemSubtitle}>{item.subtitle}</Text>
                   </View>
                 </View>
-                <IconSymbol 
-                  ios_icon_name="chevron.right" 
-                  android_material_icon_name="chevron_right" 
-                  size={20} 
-                  color={colors.textSecondary} 
-                />
+                <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={20} color={colors.textSecondary} />
               </TouchableOpacity>
               {index < menuItems.length - 1 && <View style={styles.menuDivider} />}
             </React.Fragment>
@@ -243,31 +206,23 @@ export default function ProfileScreen() {
         </View>
 
         <TouchableOpacity
-          style={[styles.logoutButton, loggingOut && styles.logoutButtonDisabled]}
+          style={styles.logoutButton}
           onPress={handleLogout}
           disabled={loggingOut}
         >
           {loggingOut ? (
-            <React.Fragment>
-              <ActivityIndicator color="#fff" size="small" />
-              <Text style={styles.logoutButtonText}>Cerrando sesión...</Text>
-            </React.Fragment>
+            <ActivityIndicator color={colors.error} />
           ) : (
             <React.Fragment>
-              <IconSymbol 
-                ios_icon_name="rectangle.portrait.and.arrow.right" 
-                android_material_icon_name="logout" 
-                size={20} 
-                color="#fff" 
-              />
-              <Text style={styles.logoutButtonText}>Cerrar Sesión</Text>
+              <IconSymbol ios_icon_name="rectangle.portrait.and.arrow.right" android_material_icon_name="logout" size={20} color={colors.error} />
+              <Text style={styles.logoutButtonText}>Logout</Text>
             </React.Fragment>
           )}
         </TouchableOpacity>
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            Miembro desde {new Date(user.joinedDate).toLocaleDateString('es-ES')}
+            Member since {new Date(user.joinedDate).toLocaleDateString()}
           </Text>
           <Text style={styles.footerText}>
             ID: {user.idNumber}
@@ -287,11 +242,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 16,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: colors.textSecondary,
   },
   headerBar: {
     flexDirection: 'row',
@@ -438,20 +388,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    backgroundColor: colors.error,
+    gap: 8,
+    backgroundColor: colors.card,
     paddingVertical: 16,
     borderRadius: 12,
     marginBottom: 24,
-    borderWidth: 0,
-  },
-  logoutButtonDisabled: {
-    opacity: 0.6,
+    borderWidth: 2,
+    borderColor: colors.error,
   },
   logoutButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.error,
   },
   footer: {
     alignItems: 'center',

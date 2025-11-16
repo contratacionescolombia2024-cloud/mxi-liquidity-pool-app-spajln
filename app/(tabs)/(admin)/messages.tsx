@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -32,7 +31,6 @@ interface Message {
 export default function AdminMessagesScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [filter, setFilter] = useState<'open' | 'all'>('open');
 
@@ -58,39 +56,20 @@ export default function AdminMessagesScreen() {
 
       const { data, error } = await query;
 
-      if (error) {
-        console.error('Error loading messages:', error);
-        throw error;
-      }
+      if (error) throw error;
 
       const mapped = data?.map((m: any) => ({
         ...m,
-        user_email: m.users?.email || 'Unknown',
-        user_name: m.users?.name || 'Unknown User',
+        user_email: m.users.email,
+        user_name: m.users.name,
       })) || [];
 
       setMessages(mapped);
-    } catch (error: any) {
-      console.error('Error in loadMessages:', error);
-      Alert.alert('Error', error.message || 'Failed to load messages');
+    } catch (error) {
+      console.error('Error loading messages:', error);
+      Alert.alert('Error', 'Failed to load messages');
     } finally {
       setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadMessages();
-  };
-
-  const handleMessagePress = (messageId: string) => {
-    try {
-      console.log('Opening message:', messageId);
-      router.push(`/(tabs)/(admin)/message-detail?id=${messageId}`);
-    } catch (error) {
-      console.error('Error navigating to message detail:', error);
-      Alert.alert('Error', 'Failed to open message. Please try again.');
     }
   };
 
@@ -144,36 +123,22 @@ export default function AdminMessagesScreen() {
         </TouchableOpacity>
       </View>
 
-      {loading && !refreshing ? (
+      {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading messages...</Text>
         </View>
       ) : messages.length === 0 ? (
         <View style={styles.emptyContainer}>
           <IconSymbol name="envelope.open" size={64} color={colors.textSecondary} />
           <Text style={styles.emptyText}>No messages to display</Text>
-          <Text style={styles.emptySubtext}>
-            {filter === 'open' ? 'All messages are resolved or closed' : 'No messages found'}
-          </Text>
         </View>
       ) : (
-        <ScrollView 
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.primary}
-            />
-          }
-        >
+        <ScrollView contentContainerStyle={styles.scrollContent}>
           {messages.map((message) => (
             <TouchableOpacity
               key={message.id}
               style={[commonStyles.card, styles.messageCard]}
-              onPress={() => handleMessagePress(message.id)}
-              activeOpacity={0.7}
+              onPress={() => router.push(`/(tabs)/(admin)/message-detail?id=${message.id}`)}
             >
               <View style={styles.messageHeader}>
                 <IconSymbol 
@@ -182,12 +147,8 @@ export default function AdminMessagesScreen() {
                   color={getPriorityColor(message.priority)} 
                 />
                 <View style={styles.messageInfo}>
-                  <Text style={styles.messageSubject} numberOfLines={1}>
-                    {message.subject}
-                  </Text>
-                  <Text style={styles.messageUser} numberOfLines={1}>
-                    {message.user_name} • {message.user_email}
-                  </Text>
+                  <Text style={styles.messageSubject}>{message.subject}</Text>
+                  <Text style={styles.messageUser}>{message.user_name} • {message.user_email}</Text>
                 </View>
                 <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(message.priority) + '20' }]}>
                   <Text style={[styles.priorityText, { color: getPriorityColor(message.priority) }]}>
@@ -270,28 +231,16 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 16,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: colors.textSecondary,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 12,
-    padding: 24,
+    gap: 16,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  emptySubtext: {
-    fontSize: 14,
+    fontSize: 16,
     color: colors.textSecondary,
-    textAlign: 'center',
   },
   scrollContent: {
     padding: 24,

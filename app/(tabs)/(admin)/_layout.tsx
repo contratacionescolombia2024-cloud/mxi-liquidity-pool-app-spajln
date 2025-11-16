@@ -11,6 +11,7 @@ export default function AdminLayout() {
       }}
     >
       <Stack.Screen name="index" />
+      <Stack.Screen name="kyc-approvals" />
       <Stack.Screen name="withdrawal-approvals" />
       <Stack.Screen name="messages" />
       <Stack.Screen name="message-detail" />

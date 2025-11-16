@@ -1,8 +1,8 @@
 
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useRouter, useSegments } from 'expo-router';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
+import { useRouter } from 'expo-router';
 
 interface User {
   id: string;
@@ -33,13 +33,13 @@ interface User {
   yieldRatePerMinute: number;
   lastYieldUpdate: string;
   accumulatedYield: number;
+  kycStatus: 'not_submitted' | 'pending' | 'approved' | 'rejected';
+  kycVerifiedAt?: string;
   availableMXI?: number;
   nextReleaseDate?: string;
   releasePercentage?: number;
   mxiPurchasedDirectly?: number;
   mxiFromUnifiedCommissions?: number;
-  mxiFromChallenges?: number;
-  mxiVestingLocked?: number;
 }
 
 interface PoolStatus {
@@ -73,12 +73,16 @@ interface AuthContextType {
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => Promise<void>;
   addContribution: (usdtAmount: number, transactionType: 'initial' | 'increase' | 'reinvestment') => Promise<{ success: boolean; error?: string }>;
+  withdrawCommission: (amount: number, walletAddress: string) => Promise<{ success: boolean; error?: string }>;
+  withdrawMXI: (amount: number, walletAddress: string) => Promise<{ success: boolean; error?: string }>;
   unifyCommissionToMXI: (amount: number) => Promise<{ success: boolean; mxiAmount?: number; error?: string }>;
   resendVerificationEmail: () => Promise<{ success: boolean; error?: string }>;
+  checkWithdrawalEligibility: () => Promise<boolean>;
   claimYield: () => Promise<{ success: boolean; yieldEarned?: number; error?: string }>;
   getCurrentYield: () => number;
-  getTotalMxiBalance: () => number;
   getPoolStatus: () => Promise<PoolStatus | null>;
+  checkMXIWithdrawalEligibility: () => Promise<boolean>;
+  getAvailableMXI: () => Promise<number>;
   checkAdminStatus: () => Promise<boolean>;
   getPhaseInfo: () => Promise<PhaseInfo | null>;
 }
@@ -107,199 +111,107 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
-  const initializationTimeout = useRef<NodeJS.Timeout | null>(null);
-  const isInitializing = useRef(false);
-  const authSubscription = useRef<any>(null);
-  const loadingUserData = useRef(false);
 
   useEffect(() => {
-    console.log('=== AUTH PROVIDER INITIALIZING ===');
-    
-    // Set a maximum initialization time of 5 seconds
-    initializationTimeout.current = setTimeout(() => {
-      if (loading) {
-        console.warn('Auth initialization timeout - continuing without session');
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session:', session);
+      setSession(session);
+      if (session) {
+        loadUserData(session.user.id);
+      } else {
         setLoading(false);
-      }
-    }, 5000);
-
-    // Initialize session
-    initializeAuth();
-
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('=== AUTH STATE CHANGE ===', event);
-      
-      try {
-        if (event === 'SIGNED_OUT') {
-          console.log('User signed out - clearing all state');
-          clearAuthState();
-          return;
-        }
-        
-        if (event === 'SIGNED_IN' && session) {
-          console.log('User signed in - loading user data');
-          setSession(session);
-          await loadUserData(session.user.id);
-        } else if (event === 'TOKEN_REFRESHED' && session) {
-          console.log('Token refreshed - updating session');
-          setSession(session);
-        } else if (session) {
-          setSession(session);
-          await loadUserData(session.user.id);
-        } else {
-          clearAuthState();
-        }
-      } catch (error) {
-        console.error('Error in auth state change handler:', error);
-        // Don't clear auth state on error - just log it
       }
     });
 
-    authSubscription.current = subscription;
-
-    return () => {
-      console.log('Cleaning up auth subscription');
-      if (initializationTimeout.current) {
-        clearTimeout(initializationTimeout.current);
-      }
-      if (authSubscription.current) {
-        authSubscription.current.unsubscribe();
-      }
-    };
-  }, []);
-
-  const initializeAuth = async () => {
-    // Prevent multiple simultaneous initializations
-    if (isInitializing.current) {
-      console.log('Auth initialization already in progress');
-      return;
-    }
-
-    isInitializing.current = true;
-
-    try {
-      console.log('=== INITIALIZING AUTH ===');
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      console.log('Auth state changed:', _event, session);
+      setSession(session);
       
-      // Get session with timeout
-      const sessionPromise = supabase.auth.getSession();
-      const timeoutPromise = new Promise<{ data: { session: null }, error: Error }>((_, reject) => {
-        setTimeout(() => reject(new Error('Session check timeout')), 3000);
-      });
-
-      const result = await Promise.race([sessionPromise, timeoutPromise]);
-      
-      if ('error' in result && result.error) {
-        console.error('Error getting session:', result.error);
-        clearAuthState();
+      if (_event === 'SIGNED_OUT') {
+        console.log('User signed out, clearing state');
+        setUser(null);
+        setIsAuthenticated(false);
+        setLoading(false);
         return;
       }
-
-      const { data: { session } } = result as { data: { session: Session | null } };
-
-      if (session) {
-        console.log('Session found:', session.user.id);
-        setSession(session);
-        await loadUserData(session.user.id);
+      
+      if (_event === 'SIGNED_IN' && session) {
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (!existingUser && session.user.email) {
+          await supabase
+            .from('users')
+            .update({ email_verified: true })
+            .eq('email', session.user.email);
+        }
+        
+        loadUserData(session.user.id);
+      } else if (session) {
+        loadUserData(session.user.id);
       } else {
-        console.log('No session found');
-        clearAuthState();
+        setUser(null);
+        setIsAuthenticated(false);
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error initializing auth:', error);
-      clearAuthState();
-    } finally {
-      isInitializing.current = false;
-    }
-  };
+    });
 
-  const clearAuthState = () => {
-    console.log('=== CLEARING AUTH STATE ===');
-    setUser(null);
-    setSession(null);
-    setIsAuthenticated(false);
-    setLoading(false);
-    loadingUserData.current = false;
-  };
+    return () => subscription.unsubscribe();
+  }, []);
 
   const loadUserData = async (userId: string) => {
-    // Prevent multiple simultaneous loads
-    if (loadingUserData.current) {
-      console.log('User data already loading, skipping...');
-      return;
-    }
-
-    loadingUserData.current = true;
-
     try {
-      console.log('=== LOADING USER DATA ===', userId);
+      console.log('Loading user data for:', userId);
       
-      // Load user data with timeout
-      const userDataPromise = supabase
+      const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .single();
 
-      const timeoutPromise = new Promise<{ data: null, error: Error }>((_, reject) => {
-        setTimeout(() => reject(new Error('User data loading timeout')), 3000);
-      });
-
-      const result = await Promise.race([userDataPromise, timeoutPromise]);
-
-      if ('error' in result && result.error) {
-        console.error('Error loading user data:', result.error);
+      if (userError) {
+        console.error('Error loading user data:', userError);
         setLoading(false);
-        loadingUserData.current = false;
         return;
       }
-
-      const { data: userData } = result as { data: any };
 
       if (!userData) {
         console.log('No user data found');
         setLoading(false);
-        loadingUserData.current = false;
         return;
       }
 
-      // Load additional data in parallel with timeout
-      const [referralResult, commissionResult, scheduleResult] = await Promise.allSettled([
-        Promise.race([
-          supabase.from('referrals').select('level').eq('referrer_id', userId),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
-        ]),
-        Promise.race([
-          supabase.from('commissions').select('amount, status').eq('user_id', userId),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
-        ]),
-        Promise.race([
-          supabase.from('mxi_withdrawal_schedule').select('*').eq('user_id', userId).single(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
-        ])
-      ]);
-
-      const referralData = referralResult.status === 'fulfilled' && 'data' in referralResult.value 
-        ? referralResult.value.data 
-        : [];
-      const commissionData = commissionResult.status === 'fulfilled' && 'data' in commissionResult.value 
-        ? commissionResult.value.data 
-        : [];
-      const scheduleData = scheduleResult.status === 'fulfilled' && 'data' in scheduleResult.value 
-        ? scheduleResult.value.data 
-        : null;
+      const { data: referralData } = await supabase
+        .from('referrals')
+        .select('level')
+        .eq('referrer_id', userId);
 
       const referrals = {
-        level1: Array.isArray(referralData) ? referralData.filter((r: any) => r.level === 1).length : 0,
-        level2: Array.isArray(referralData) ? referralData.filter((r: any) => r.level === 2).length : 0,
-        level3: Array.isArray(referralData) ? referralData.filter((r: any) => r.level === 3).length : 0,
+        level1: referralData?.filter(r => r.level === 1).length || 0,
+        level2: referralData?.filter(r => r.level === 2).length || 0,
+        level3: referralData?.filter(r => r.level === 3).length || 0,
       };
 
+      const { data: commissionData } = await supabase
+        .from('commissions')
+        .select('amount, status')
+        .eq('user_id', userId);
+
       const commissions = {
-        total: Array.isArray(commissionData) ? commissionData.reduce((sum: number, c: any) => sum + parseFloat(c.amount?.toString() || '0'), 0) : 0,
-        available: Array.isArray(commissionData) ? commissionData.filter((c: any) => c.status === 'available').reduce((sum: number, c: any) => sum + parseFloat(c.amount?.toString() || '0'), 0) : 0,
-        withdrawn: Array.isArray(commissionData) ? commissionData.filter((c: any) => c.status === 'withdrawn').reduce((sum: number, c: any) => sum + parseFloat(c.amount?.toString() || '0'), 0) : 0,
+        total: commissionData?.reduce((sum, c) => sum + parseFloat(c.amount.toString()), 0) || 0,
+        available: commissionData?.filter(c => c.status === 'available').reduce((sum, c) => sum + parseFloat(c.amount.toString()), 0) || 0,
+        withdrawn: commissionData?.filter(c => c.status === 'withdrawn').reduce((sum, c) => sum + parseFloat(c.amount.toString()), 0) || 0,
       };
+
+      // Get MXI withdrawal schedule
+      const { data: scheduleData } = await supabase
+        .from('mxi_withdrawal_schedule')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
 
       const mappedUser: User = {
         id: userData.id,
@@ -308,45 +220,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         address: userData.address,
         email: userData.email,
         emailVerified: userData.email_verified,
-        mxiBalance: parseFloat(userData.mxi_balance?.toString() || '0'),
-        usdtContributed: parseFloat(userData.usdt_contributed?.toString() || '0'),
+        mxiBalance: parseFloat(userData.mxi_balance.toString()),
+        usdtContributed: parseFloat(userData.usdt_contributed.toString()),
         referralCode: userData.referral_code,
         referredBy: userData.referred_by,
         referrals,
         commissions,
-        activeReferrals: userData.active_referrals || 0,
-        canWithdraw: userData.can_withdraw || false,
+        activeReferrals: userData.active_referrals,
+        canWithdraw: userData.can_withdraw,
         lastWithdrawalDate: userData.last_withdrawal_date,
         joinedDate: userData.joined_date,
         isActiveContributor: userData.is_active_contributor || false,
         yieldRatePerMinute: parseFloat(userData.yield_rate_per_minute?.toString() || '0'),
         lastYieldUpdate: userData.last_yield_update || new Date().toISOString(),
         accumulatedYield: parseFloat(userData.accumulated_yield?.toString() || '0'),
+        kycStatus: userData.kyc_status || 'not_submitted',
+        kycVerifiedAt: userData.kyc_verified_at,
         availableMXI: scheduleData ? parseFloat(scheduleData.released_mxi?.toString() || '0') : 0,
         nextReleaseDate: scheduleData?.next_release_date,
         releasePercentage: scheduleData ? parseFloat(scheduleData.release_percentage?.toString() || '10') : 10,
         mxiPurchasedDirectly: parseFloat(userData.mxi_purchased_directly?.toString() || '0'),
         mxiFromUnifiedCommissions: parseFloat(userData.mxi_from_unified_commissions?.toString() || '0'),
-        mxiFromChallenges: parseFloat(userData.mxi_from_challenges?.toString() || '0'),
-        mxiVestingLocked: parseFloat(userData.mxi_vesting_locked?.toString() || '0'),
       };
 
-      console.log('User data loaded successfully');
-      
+      console.log('User data loaded:', mappedUser);
       setUser(mappedUser);
       setIsAuthenticated(true);
       setLoading(false);
-      loadingUserData.current = false;
     } catch (error) {
       console.error('Error in loadUserData:', error);
       setLoading(false);
-      loadingUserData.current = false;
     }
   };
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      console.log('=== LOGIN ATTEMPT ===', email);
+      console.log('Attempting login for:', email);
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -355,51 +264,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) {
         console.error('Login error:', error);
-        
-        // Provide more user-friendly error messages
-        if (error.message.includes('Invalid login credentials')) {
-          return { success: false, error: 'Correo electrónico o contraseña incorrectos. Por favor verifica tus credenciales.' };
-        }
-        
         return { success: false, error: error.message };
       }
 
       if (!data.session) {
-        return { success: false, error: 'No se pudo crear la sesión. Por favor intenta de nuevo.' };
+        return { success: false, error: 'No session created' };
       }
 
-      // Check if email is verified
-      const { data: userData, error: userError } = await supabase
+      const { data: userData } = await supabase
         .from('users')
         .select('email_verified')
         .eq('id', data.user.id)
         .single();
 
-      if (userError) {
-        console.error('Error checking email verification:', userError);
-        // Continue with login even if we can't check verification status
-      }
-
       if (userData && !userData.email_verified) {
-        // Sign out the user
         await supabase.auth.signOut();
-        return { 
-          success: false, 
-          error: 'Por favor verifica tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada para el enlace de verificación.' 
-        };
+        return { success: false, error: 'Por favor verifica tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada para el enlace de verificación.' };
       }
 
       console.log('Login successful');
       return { success: true };
     } catch (error: any) {
       console.error('Login exception:', error);
-      return { success: false, error: error.message || 'Error al iniciar sesión. Por favor intenta de nuevo.' };
+      return { success: false, error: error.message || 'Login failed' };
     }
   };
 
   const register = async (userData: RegisterData): Promise<{ success: boolean; error?: string }> => {
     try {
-      console.log('=== REGISTRATION START ===', userData.email);
+      console.log('=== REGISTRATION START ===');
+      console.log('Attempting registration for:', userData.email);
+      console.log('User data:', { name: userData.name, idNumber: userData.idNumber, address: userData.address });
 
       // Check for existing email
       const { data: existingUser, error: emailCheckError } = await supabase
@@ -563,6 +458,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             referred_by: referrerId,
             email_verified: false,
             is_active_contributor: false,
+            kyc_status: 'not_submitted',
           });
 
         if (insertError) {
@@ -590,10 +486,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'El usuario fue creado pero hubo un problema al verificar. Por favor contacta soporte.' };
       }
 
-      console.log('=== REGISTRATION SUCCESSFUL ===', finalCheck);
+      console.log('=== REGISTRATION SUCCESSFUL ===');
+      console.log('User profile verified:', finalCheck);
       return { success: true };
     } catch (error: any) {
-      console.error('=== REGISTRATION EXCEPTION ===', error);
+      console.error('=== REGISTRATION EXCEPTION ===');
+      console.error('Registration exception:', error);
       return { success: false, error: error.message || 'Error en el registro' };
     }
   };
@@ -645,28 +543,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       console.log('=== LOGOUT START ===');
+      console.log('Current session:', session?.user?.id);
+      console.log('Current user:', user?.id);
       
-      // Step 1: Clear local state IMMEDIATELY
-      console.log('Step 1: Clearing local auth state...');
-      clearAuthState();
-      
-      // Step 2: Sign out from Supabase with global scope
-      console.log('Step 2: Signing out from Supabase...');
-      const { error } = await supabase.auth.signOut({ scope: 'global' });
+      // Sign out from Supabase FIRST
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
       
       if (error) {
         console.error('Supabase signOut error:', error);
-        // Continue anyway since local state is already cleared
+        // Continue anyway to clear local state
       } else {
         console.log('Supabase signOut successful');
       }
       
+      // Then clear local state - this will trigger the navigation in _layout.tsx
+      setUser(null);
+      setSession(null);
+      setIsAuthenticated(false);
+      
+      console.log('Local state cleared');
       console.log('=== LOGOUT COMPLETE ===');
     } catch (error) {
-      console.error('=== LOGOUT EXCEPTION ===', error);
+      console.error('=== LOGOUT EXCEPTION ===');
+      console.error('Logout error:', error);
       
       // Ensure state is cleared even on error
-      clearAuthState();
+      setUser(null);
+      setSession(null);
+      setIsAuthenticated(false);
     }
   };
 
@@ -685,6 +589,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (updates.canWithdraw !== undefined) dbUpdates.can_withdraw = updates.canWithdraw;
       if (updates.lastWithdrawalDate) dbUpdates.last_withdrawal_date = updates.lastWithdrawalDate;
       if (updates.isActiveContributor !== undefined) dbUpdates.is_active_contributor = updates.isActiveContributor;
+      if (updates.kycStatus) dbUpdates.kyc_status = updates.kycStatus;
 
       const { error } = await supabase
         .from('users')
@@ -777,6 +682,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const withdrawCommission = async (
+    amount: number,
+    walletAddress: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!user) return { success: false, error: 'Not authenticated' };
+
+    // Check KYC status
+    if (user.kycStatus !== 'approved') {
+      return { 
+        success: false, 
+        error: 'KYC verification required. Please complete KYC verification before withdrawing.' 
+      };
+    }
+
+    if (!user.canWithdraw) {
+      return { success: false, error: 'Withdrawal not available. You need 5 active referrals and 10 days since joining.' };
+    }
+
+    if (amount > user.commissions.available) {
+      return { success: false, error: 'Insufficient available commission' };
+    }
+
+    try {
+      const { error: withdrawalError } = await supabase
+        .from('withdrawals')
+        .insert({
+          user_id: user.id,
+          amount,
+          currency: 'USDT',
+          wallet_address: walletAddress,
+          status: 'pending',
+        });
+
+      if (withdrawalError) {
+        console.error('Withdrawal error:', withdrawalError);
+        return { success: false, error: 'Failed to create withdrawal request' };
+      }
+
+      const { error: commissionError } = await supabase
+        .from('commissions')
+        .update({ status: 'withdrawn' })
+        .eq('user_id', user.id)
+        .eq('status', 'available')
+        .lte('amount', amount);
+
+      if (commissionError) {
+        console.error('Commission update error:', commissionError);
+        return { success: false, error: 'Failed to update commission status' };
+      }
+
+      await updateUser({ lastWithdrawalDate: new Date().toISOString() });
+      await loadUserData(user.id);
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Withdraw commission exception:', error);
+      return { success: false, error: error.message || 'Withdrawal failed' };
+    }
+  };
+
   const unifyCommissionToMXI = async (
     amount: number
   ): Promise<{ success: boolean; mxiAmount?: number; error?: string }> => {
@@ -817,6 +782,125 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const withdrawMXI = async (
+    amount: number,
+    walletAddress: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!user) return { success: false, error: 'Not authenticated' };
+
+    // Check KYC status
+    if (user.kycStatus !== 'approved') {
+      return { 
+        success: false, 
+        error: 'KYC verification required. Please complete KYC verification before withdrawing.' 
+      };
+    }
+
+    try {
+      // Check available MXI from phased release
+      const availableMXI = await getAvailableMXI();
+
+      if (availableMXI === 0) {
+        return { 
+          success: false, 
+          error: 'No MXI available for withdrawal yet. Please wait for the next release cycle.' 
+        };
+      }
+
+      if (amount > availableMXI) {
+        return { 
+          success: false, 
+          error: `You can only withdraw up to ${availableMXI.toFixed(2)} MXI at this time. The remaining balance will be released in weekly cycles.` 
+        };
+      }
+
+      // Check basic eligibility
+      const { data: canWithdrawMXI, error: eligibilityError } = await supabase
+        .rpc('check_mxi_withdrawal_eligibility', { p_user_id: user.id });
+
+      if (eligibilityError) {
+        console.error('MXI eligibility check error:', eligibilityError);
+        return { success: false, error: 'Failed to check withdrawal eligibility' };
+      }
+
+      if (!canWithdrawMXI) {
+        if (user.activeReferrals < 5) {
+          return { 
+            success: false, 
+            error: `You need 5 active referrals to withdraw mined MXI. You currently have ${user.activeReferrals} active referrals.` 
+          };
+        }
+
+        const { data: poolStatus } = await supabase.rpc('get_pool_status');
+        const status = poolStatus?.[0];
+
+        if (status && !status.is_mxi_launched) {
+          const daysUntil = status.days_until_launch;
+          return { 
+            success: false, 
+            error: `MXI withdrawals will be available in ${daysUntil} days after the pool closes.` 
+          };
+        }
+
+        return { success: false, error: 'MXI withdrawals are not yet available' };
+      }
+
+      // Create withdrawal request
+      const { error: withdrawalError } = await supabase
+        .from('withdrawals')
+        .insert({
+          user_id: user.id,
+          amount,
+          currency: 'MXI',
+          wallet_address: walletAddress,
+          status: 'pending',
+        });
+
+      if (withdrawalError) {
+        console.error('MXI withdrawal error:', withdrawalError);
+        return { success: false, error: 'Failed to create withdrawal request' };
+      }
+
+      // Update withdrawal schedule
+      const { error: scheduleError } = await supabase
+        .from('mxi_withdrawal_schedule')
+        .update({
+          released_mxi: user.availableMXI! - amount,
+        })
+        .eq('user_id', user.id);
+
+      if (scheduleError) {
+        console.error('Schedule update error:', scheduleError);
+      }
+
+      await loadUserData(user.id);
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Withdraw MXI exception:', error);
+      return { success: false, error: error.message || 'Withdrawal failed' };
+    }
+  };
+
+  const getAvailableMXI = async (): Promise<number> => {
+    if (!user) return 0;
+
+    try {
+      const { data, error } = await supabase
+        .rpc('get_available_mxi_for_withdrawal', { p_user_id: user.id });
+
+      if (error) {
+        console.error('Error getting available MXI:', error);
+        return 0;
+      }
+
+      return parseFloat(data?.toString() || '0');
+    } catch (error) {
+      console.error('Exception getting available MXI:', error);
+      return 0;
+    }
+  };
+
   const resendVerificationEmail = async (): Promise<{ success: boolean; error?: string }> => {
     if (!session?.user?.email) {
       return { success: false, error: 'No email found' };
@@ -838,6 +922,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message || 'Failed to resend email' };
+    }
+  };
+
+  const checkWithdrawalEligibility = async (): Promise<boolean> => {
+    if (!user) return false;
+
+    try {
+      const { data, error } = await supabase.rpc('check_withdrawal_eligibility_with_kyc', {
+        p_user_id: user.id,
+      });
+
+      if (error) {
+        console.error('Check eligibility error:', error);
+        return false;
+      }
+
+      if (data && !user.canWithdraw) {
+        await loadUserData(user.id);
+      }
+
+      return data || false;
+    } catch (error) {
+      console.error('Check eligibility exception:', error);
+      return false;
     }
   };
 
@@ -864,81 +972,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const getCurrentYield = (): number => {
-    try {
-      if (!user || user.yieldRatePerMinute === 0) return 0;
+    if (!user || user.yieldRatePerMinute === 0) return 0;
 
-      const lastUpdate = new Date(user.lastYieldUpdate);
-      const now = new Date();
-      
-      // Validate dates
-      if (isNaN(lastUpdate.getTime()) || isNaN(now.getTime())) {
-        console.error('Invalid date in getCurrentYield');
-        return 0;
-      }
-      
-      const minutesElapsed = (now.getTime() - lastUpdate.getTime()) / (1000 * 60);
-      
-      // Prevent negative or unreasonably large values
-      if (minutesElapsed < 0 || minutesElapsed > 10000) {
-        console.error('Invalid minutes elapsed:', minutesElapsed);
-        return 0;
-      }
-      
-      const yield_amount = user.yieldRatePerMinute * minutesElapsed;
-      
-      // Validate result
-      if (isNaN(yield_amount) || !isFinite(yield_amount)) {
-        console.error('Invalid yield calculation result');
-        return 0;
-      }
-      
-      return yield_amount;
-    } catch (error) {
-      console.error('Error in getCurrentYield:', error);
-      return 0;
-    }
-  };
-
-  const getTotalMxiBalance = (): number => {
-    try {
-      if (!user) return 0;
-
-      // Calculate total MXI balance including ALL sources:
-      // 1. MXI purchased directly
-      // 2. MXI from unified commissions
-      // 3. MXI from challenges
-      // 4. MXI vesting locked
-      // 5. Accumulated yield
-      // 6. Current real-time yield
-      const mxiPurchased = parseFloat((user.mxiPurchasedDirectly || 0).toString());
-      const mxiFromCommissions = parseFloat((user.mxiFromUnifiedCommissions || 0).toString());
-      const mxiFromChallenges = parseFloat((user.mxiFromChallenges || 0).toString());
-      const mxiVestingLocked = parseFloat((user.mxiVestingLocked || 0).toString());
-      const accumulatedYield = parseFloat((user.accumulatedYield || 0).toString());
-      const currentYield = getCurrentYield();
-
-      // Validate all values
-      const values = [mxiPurchased, mxiFromCommissions, mxiFromChallenges, mxiVestingLocked, accumulatedYield, currentYield];
-      for (const value of values) {
-        if (isNaN(value) || !isFinite(value)) {
-          console.error('Invalid value in getTotalMxiBalance:', value);
-          return 0;
-        }
-      }
-
-      const total = mxiPurchased + mxiFromCommissions + mxiFromChallenges + mxiVestingLocked + accumulatedYield + currentYield;
-
-      // Validate result
-      if (isNaN(total) || !isFinite(total) || total < 0) {
-        console.error('Invalid total MXI balance:', total);
-        return 0;
-      }
-
-      return total;
-    } catch (error) {
-      console.error('Error in getTotalMxiBalance:', error);
-      return 0;
-    }
+    const lastUpdate = new Date(user.lastYieldUpdate);
+    const now = new Date();
+    const minutesElapsed = (now.getTime() - lastUpdate.getTime()) / (1000 * 60);
+    
+    return user.yieldRatePerMinute * minutesElapsed;
   };
 
   const getPoolStatus = async (): Promise<PoolStatus | null> => {
@@ -954,6 +994,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Get pool status exception:', error);
       return null;
+    }
+  };
+
+  const checkMXIWithdrawalEligibility = async (): Promise<boolean> => {
+    if (!user) return false;
+
+    try {
+      const { data, error } = await supabase.rpc('check_mxi_withdrawal_eligibility', {
+        p_user_id: user.id,
+      });
+
+      if (error) {
+        console.error('Check MXI eligibility error:', error);
+        return false;
+      }
+
+      return data || false;
+    } catch (error) {
+      console.error('Check MXI eligibility exception:', error);
+      return false;
     }
   };
 
@@ -1023,12 +1083,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logout,
         updateUser,
         addContribution,
+        withdrawCommission,
+        withdrawMXI,
         unifyCommissionToMXI,
         resendVerificationEmail,
+        checkWithdrawalEligibility,
         claimYield,
         getCurrentYield,
-        getTotalMxiBalance,
         getPoolStatus,
+        checkMXIWithdrawalEligibility,
+        getAvailableMXI,
         checkAdminStatus,
         getPhaseInfo,
       }}
