@@ -41,111 +41,113 @@ export default function LaunchCountdown() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['rgba(99, 102, 241, 0.08)', 'rgba(168, 85, 247, 0.08)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.gradient}
-      >
-        {/* Subtle animated background elements */}
-        <View style={styles.backgroundCircle1} />
-        <View style={styles.backgroundCircle2} />
-        
-        <View style={styles.content}>
-          {/* Compact Header */}
-          <View style={styles.header}>
-            <IconSymbol 
-              ios_icon_name="sparkles" 
-              android_material_icon_name="auto_awesome" 
-              size={20} 
-              color="rgba(255, 255, 255, 0.95)" 
-            />
-            <Text style={styles.title}>LANZAMIENTO OFICIAL</Text>
-            <IconSymbol 
-              ios_icon_name="sparkles" 
-              android_material_icon_name="auto_awesome" 
-              size={20} 
-              color="rgba(255, 255, 255, 0.95)" 
-            />
-          </View>
-
-          <Text style={styles.subtitle}>Maxcoin (MXI)</Text>
-
-          {/* Compact Date Display */}
-          <View style={styles.dateContainer}>
-            <IconSymbol 
-              ios_icon_name="calendar" 
-              android_material_icon_name="event" 
-              size={14} 
-              color="rgba(255, 255, 255, 0.85)" 
-            />
-            <Text style={styles.dateText}>15 Feb 2026 • 12:00 UTC</Text>
-          </View>
-
-          {/* Compact Countdown Display */}
-          <View style={styles.countdownContainer}>
-            {/* Days */}
-            <View style={styles.timeBlock}>
-              <View style={styles.timeCard}>
-                <Text style={styles.timeValue}>{countdown.days}</Text>
-              </View>
-              <Text style={styles.timeLabel}>DÍAS</Text>
-            </View>
-
-            <Text style={styles.separator}>:</Text>
-
-            {/* Hours */}
-            <View style={styles.timeBlock}>
-              <View style={styles.timeCard}>
-                <Text style={styles.timeValue}>{countdown.hours.toString().padStart(2, '0')}</Text>
-              </View>
-              <Text style={styles.timeLabel}>HRS</Text>
-            </View>
-
-            <Text style={styles.separator}>:</Text>
-
-            {/* Minutes */}
-            <View style={styles.timeBlock}>
-              <View style={styles.timeCard}>
-                <Text style={styles.timeValue}>{countdown.minutes.toString().padStart(2, '0')}</Text>
-              </View>
-              <Text style={styles.timeLabel}>MIN</Text>
-            </View>
-
-            <Text style={styles.separator}>:</Text>
-
-            {/* Seconds */}
-            <View style={styles.timeBlock}>
-              <View style={styles.timeCard}>
-                <Text style={styles.timeValue}>{countdown.seconds.toString().padStart(2, '0')}</Text>
-              </View>
-              <Text style={styles.timeLabel}>SEG</Text>
-            </View>
-          </View>
-
-          {/* Compact Bottom Info */}
-          <View style={styles.infoContainer}>
-            <View style={styles.infoItem}>
+      <View style={styles.borderContainer}>
+        <LinearGradient
+          colors={['rgba(99, 102, 241, 0.08)', 'rgba(168, 85, 247, 0.08)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.gradient}
+        >
+          {/* Subtle animated background elements */}
+          <View style={styles.backgroundCircle1} />
+          <View style={styles.backgroundCircle2} />
+          
+          <View style={styles.content}>
+            {/* Compact Header */}
+            <View style={styles.header}>
               <IconSymbol 
-                ios_icon_name="checkmark.circle.fill" 
-                android_material_icon_name="check_circle" 
-                size={12} 
+                ios_icon_name="sparkles" 
+                android_material_icon_name="auto_awesome" 
+                size={20} 
+                color="rgba(255, 255, 255, 0.95)" 
+              />
+              <Text style={styles.title}>LANZAMIENTO OFICIAL</Text>
+              <IconSymbol 
+                ios_icon_name="sparkles" 
+                android_material_icon_name="auto_awesome" 
+                size={20} 
+                color="rgba(255, 255, 255, 0.95)" 
+              />
+            </View>
+
+            <Text style={styles.subtitle}>Maxcoin (MXI)</Text>
+
+            {/* Compact Date Display */}
+            <View style={styles.dateContainer}>
+              <IconSymbol 
+                ios_icon_name="calendar" 
+                android_material_icon_name="event" 
+                size={14} 
                 color="rgba(255, 255, 255, 0.85)" 
               />
-              <Text style={styles.infoText}>Pool Activo</Text>
+              <Text style={styles.dateText}>15 Feb 2026 • 12:00 UTC</Text>
             </View>
-            <View style={styles.infoItem}>
-              <IconSymbol 
-                ios_icon_name="checkmark.circle.fill" 
-                android_material_icon_name="check_circle" 
-                size={12} 
-                color="rgba(255, 255, 255, 0.85)" 
-              />
-              <Text style={styles.infoText}>Vesting Real-Time</Text>
+
+            {/* Compact Countdown Display */}
+            <View style={styles.countdownContainer}>
+              {/* Days */}
+              <View style={styles.timeBlock}>
+                <View style={styles.timeCard}>
+                  <Text style={styles.timeValue}>{countdown.days}</Text>
+                </View>
+                <Text style={styles.timeLabel}>DÍAS</Text>
+              </View>
+
+              <Text style={styles.separator}>:</Text>
+
+              {/* Hours */}
+              <View style={styles.timeBlock}>
+                <View style={styles.timeCard}>
+                  <Text style={styles.timeValue}>{countdown.hours.toString().padStart(2, '0')}</Text>
+                </View>
+                <Text style={styles.timeLabel}>HRS</Text>
+              </View>
+
+              <Text style={styles.separator}>:</Text>
+
+              {/* Minutes */}
+              <View style={styles.timeBlock}>
+                <View style={styles.timeCard}>
+                  <Text style={styles.timeValue}>{countdown.minutes.toString().padStart(2, '0')}</Text>
+                </View>
+                <Text style={styles.timeLabel}>MIN</Text>
+              </View>
+
+              <Text style={styles.separator}>:</Text>
+
+              {/* Seconds */}
+              <View style={styles.timeBlock}>
+                <View style={styles.timeCard}>
+                  <Text style={styles.timeValue}>{countdown.seconds.toString().padStart(2, '0')}</Text>
+                </View>
+                <Text style={styles.timeLabel}>SEG</Text>
+              </View>
+            </View>
+
+            {/* Compact Bottom Info */}
+            <View style={styles.infoContainer}>
+              <View style={styles.infoItem}>
+                <IconSymbol 
+                  ios_icon_name="checkmark.circle.fill" 
+                  android_material_icon_name="check_circle" 
+                  size={12} 
+                  color="rgba(255, 255, 255, 0.85)" 
+                />
+                <Text style={styles.infoText}>Pool Activo</Text>
+              </View>
+              <View style={styles.infoItem}>
+                <IconSymbol 
+                  ios_icon_name="checkmark.circle.fill" 
+                  android_material_icon_name="check_circle" 
+                  size={12} 
+                  color="rgba(255, 255, 255, 0.85)" 
+                />
+                <Text style={styles.infoText}>Vesting Real-Time</Text>
+              </View>
             </View>
           </View>
-        </View>
-      </LinearGradient>
+        </LinearGradient>
+      </View>
     </View>
   );
 }
@@ -160,6 +162,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 2,
+  },
+  borderContainer: {
+    borderWidth: 3,
+    borderRadius: 16,
+    borderColor: colors.primary,
+    overflow: 'hidden',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 5,
   },
   gradient: {
     padding: 16,

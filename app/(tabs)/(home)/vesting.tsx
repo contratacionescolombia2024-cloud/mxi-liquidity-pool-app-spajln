@@ -232,24 +232,24 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   transparentCard: {
-    backgroundColor: 'rgba(26, 31, 58, 0.6)',
+    backgroundColor: 'rgba(26, 31, 58, 0.3)',
     borderRadius: 12,
     padding: 20,
     marginBottom: 16,
-    borderWidth: 2,
-    borderColor: colors.primary + '40',
+    borderWidth: 1,
+    borderColor: colors.primary + '20',
   },
   mainCard: {
     alignItems: 'center',
     paddingVertical: 32,
-    backgroundColor: 'rgba(255, 215, 0, 0.08)',
-    borderColor: colors.primary,
+    backgroundColor: 'rgba(255, 215, 0, 0.04)',
+    borderColor: colors.primary + '30',
   },
   iconContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: colors.primary + '20',
+    backgroundColor: colors.primary + '15',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -273,6 +273,7 @@ const styles = StyleSheet.create({
   },
   statsCard: {
     padding: 0,
+    backgroundColor: 'rgba(26, 31, 58, 0.25)',
   },
   statRow: {
     flexDirection: 'row',
@@ -287,7 +288,7 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     height: 80,
-    backgroundColor: colors.border,
+    backgroundColor: colors.border + '40',
   },
   statLabel: {
     fontSize: 12,
@@ -300,6 +301,7 @@ const styles = StyleSheet.create({
   },
   infoCard: {
     gap: 16,
+    backgroundColor: 'rgba(26, 31, 58, 0.35)',
   },
   infoHeader: {
     flexDirection: 'row',
@@ -318,7 +320,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border + '30',
+    borderBottomColor: colors.border + '20',
   },
   infoLabel: {
     fontSize: 14,
@@ -331,6 +333,7 @@ const styles = StyleSheet.create({
   },
   descriptionCard: {
     gap: 12,
+    backgroundColor: 'rgba(26, 31, 58, 0.3)',
   },
   descriptionTitle: {
     fontSize: 16,

@@ -122,6 +122,102 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
     }
   };
 
+  const handleRemoveMxiNoCommission = async () => {
+    const amount = parseFloat(mxiAmount);
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('Error', 'Por favor ingresa un monto válido');
+      return;
+    }
+
+    Alert.alert(
+      '⚠️ Confirmar Eliminación',
+      `¿Estás seguro de querer eliminar ${amount} MXI sin afectar comisiones?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            setLoading(true);
+            try {
+              const { data: { user } } = await supabase.auth.getUser();
+              if (!user) throw new Error('No authenticated');
+
+              const { data, error } = await supabase.rpc('admin_remove_mxi_no_commission', {
+                p_user_id: userId,
+                p_admin_id: user.id,
+                p_amount: amount,
+              });
+
+              if (error) throw error;
+
+              if (data?.success) {
+                Alert.alert('✅ Éxito', `${amount} MXI eliminado sin afectar comisiones`);
+                closeModal();
+                onUpdate();
+              } else {
+                Alert.alert('❌ Error', data?.error || 'Error al eliminar MXI');
+              }
+            } catch (error: any) {
+              console.error('Error removing MXI:', error);
+              Alert.alert('❌ Error', error.message || 'Error al eliminar MXI');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRemoveMxiWithCommissionReversal = async () => {
+    const amount = parseFloat(mxiAmount);
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('Error', 'Por favor ingresa un monto válido');
+      return;
+    }
+
+    Alert.alert(
+      '⚠️ Confirmar Eliminación con Reversión',
+      `¿Estás seguro de querer eliminar ${amount} MXI y revertir las comisiones generadas?\n\nEsto afectará a los referidores del usuario.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar y Revertir',
+          style: 'destructive',
+          onPress: async () => {
+            setLoading(true);
+            try {
+              const { data: { user } } = await supabase.auth.getUser();
+              if (!user) throw new Error('No authenticated');
+
+              const { data, error } = await supabase.rpc('admin_remove_mxi_with_commission_reversal', {
+                p_user_id: userId,
+                p_admin_id: user.id,
+                p_amount: amount,
+              });
+
+              if (error) throw error;
+
+              if (data?.success) {
+                Alert.alert('✅ Éxito', `${amount} MXI eliminado con reversión de comisiones`);
+                closeModal();
+                onUpdate();
+              } else {
+                Alert.alert('❌ Error', data?.error || 'Error al eliminar MXI');
+              }
+            } catch (error: any) {
+              console.error('Error removing MXI with reversal:', error);
+              Alert.alert('❌ Error', error.message || 'Error al eliminar MXI');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleLinkReferral = async () => {
     if (!referralEmail || !referralCode) {
       Alert.alert('Error', 'Por favor completa todos los campos');
@@ -263,6 +359,72 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
           </View>
         );
 
+      case 'remove_mxi_no_commission':
+        return (
+          <View>
+            <Text style={styles.modalTitle}>Quitar MXI sin Afectar Comisiones</Text>
+            <Text style={styles.modalSubtitle}>Usuario: {userName}</Text>
+            <Text style={[styles.modalNote, { backgroundColor: colors.error + '20', borderLeftColor: colors.error }]}>
+              ⚠️ Esta acción eliminará MXI del usuario sin afectar las comisiones de sus referidores
+            </Text>
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Cantidad de MXI a Quitar</Text>
+              <TextInput
+                style={styles.input}
+                value={mxiAmount}
+                onChangeText={setMxiAmount}
+                keyboardType="decimal-pad"
+                placeholder="0.00"
+                placeholderTextColor={colors.textSecondary}
+              />
+            </View>
+            <TouchableOpacity
+              style={[buttonStyles.primary, { backgroundColor: colors.error }, loading && buttonStyles.disabled]}
+              onPress={handleRemoveMxiNoCommission}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={[buttonStyles.primaryText, { color: '#fff' }]}>Quitar MXI</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        );
+
+      case 'remove_mxi_with_commission':
+        return (
+          <View>
+            <Text style={styles.modalTitle}>Quitar MXI y Revertir Comisiones</Text>
+            <Text style={styles.modalSubtitle}>Usuario: {userName}</Text>
+            <Text style={[styles.modalNote, { backgroundColor: colors.error + '20', borderLeftColor: colors.error }]}>
+              ⚠️ Esta acción eliminará MXI del usuario Y revertirá las comisiones generadas a sus referidores
+            </Text>
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Cantidad de MXI a Quitar</Text>
+              <TextInput
+                style={styles.input}
+                value={mxiAmount}
+                onChangeText={setMxiAmount}
+                keyboardType="decimal-pad"
+                placeholder="0.00"
+                placeholderTextColor={colors.textSecondary}
+              />
+            </View>
+            <TouchableOpacity
+              style={[buttonStyles.primary, { backgroundColor: colors.error }, loading && buttonStyles.disabled]}
+              onPress={handleRemoveMxiWithCommissionReversal}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={[buttonStyles.primaryText, { color: '#fff' }]}>Quitar MXI y Revertir</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        );
+
       case 'link_referral':
         return (
           <View>
@@ -383,6 +545,32 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
 
         <TouchableOpacity
           style={styles.actionButton}
+          onPress={() => openModal('remove_mxi_no_commission')}
+        >
+          <IconSymbol 
+            ios_icon_name="minus.circle.fill" 
+            android_material_icon_name="remove_circle" 
+            size={24} 
+            color={colors.error} 
+          />
+          <Text style={styles.actionButtonText}>Quitar MXI{'\n'}Sin Afectar</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => openModal('remove_mxi_with_commission')}
+        >
+          <IconSymbol 
+            ios_icon_name="minus.circle.fill" 
+            android_material_icon_name="remove_circle" 
+            size={24} 
+            color={colors.warning} 
+          />
+          <Text style={styles.actionButtonText}>Quitar MXI{'\n'}Con Reversión</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
           onPress={() => openModal('link_referral')}
         >
           <IconSymbol 
@@ -451,7 +639,7 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
-    minWidth: '45%',
+    minWidth: '30%',
     backgroundColor: colors.card,
     borderRadius: 12,
     padding: 16,
