@@ -84,28 +84,32 @@ export default function VestingCounter() {
     router.push('/(tabs)/(home)/vesting');
   };
 
-  if (!user || !user.isActiveContributor || user.yieldRatePerMinute === 0) {
+  if (!user) {
     return null;
   }
-
-  const yieldPerSecond = user.yieldRatePerMinute / 60;
-  const totalYield = user.accumulatedYield + currentYield;
-  const canUnify = user.activeReferrals >= 10;
 
   // Calculate vesting amounts
   const mxiInVesting = (user.mxiPurchasedDirectly || 0) + (user.mxiFromUnifiedCommissions || 0);
   const vestingPercentage = user.mxiBalance > 0 ? (mxiInVesting / user.mxiBalance) * 100 : 0;
+  const yieldPerSecond = user.yieldRatePerMinute / 60;
+  const totalYield = user.accumulatedYield + currentYield;
+  const canUnify = user.activeReferrals >= 10;
+  const isGenerating = user.isActiveContributor && user.yieldRatePerMinute > 0;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, !isGenerating && styles.containerInactive]}>
       <View style={styles.header}>
         <View style={styles.iconContainer}>
-          <Text style={styles.iconEmoji}>⛏️</Text>
+          <Text style={styles.iconEmoji}>{isGenerating ? '⛏️' : '💤'}</Text>
         </View>
         <View style={styles.headerText}>
-          <Text style={styles.title}>Vesting Activo</Text>
+          <Text style={styles.title}>
+            {isGenerating ? 'Vesting Activo' : 'Vesting Inactivo'}
+          </Text>
           <Text style={styles.subtitle}>
-            ⚡ {yieldPerSecond.toFixed(8)} MXI por segundo
+            {isGenerating 
+              ? `⚡ ${yieldPerSecond.toFixed(8)} MXI por segundo`
+              : '⚠️ No estás generando rendimientos'}
           </Text>
         </View>
         <TouchableOpacity onPress={handleViewDetails} style={styles.detailsButton}>
@@ -113,18 +117,20 @@ export default function VestingCounter() {
             ios_icon_name="info.circle.fill" 
             android_material_icon_name="info" 
             size={24} 
-            color={colors.accent} 
+            color={isGenerating ? colors.accent : colors.textSecondary} 
           />
         </TouchableOpacity>
       </View>
 
-      {/* Vesting Balance Display */}
+      {/* Vesting Balance Display - Always visible */}
       <View style={styles.vestingBalanceSection}>
-        <View style={styles.vestingBalanceCard}>
+        <View style={[styles.vestingBalanceCard, !isGenerating && styles.vestingBalanceCardInactive]}>
           <Text style={styles.vestingBalanceLabel}>💎 MXI en Vesting</Text>
-          <Text style={styles.vestingBalanceValue}>{mxiInVesting.toFixed(2)}</Text>
+          <Text style={[styles.vestingBalanceValue, !isGenerating && styles.textInactive]}>
+            {mxiInVesting.toFixed(2)}
+          </Text>
           <Text style={styles.vestingBalanceUnit}>MXI</Text>
-          <View style={styles.vestingPercentageContainer}>
+          <View style={[styles.vestingPercentageContainer, !isGenerating && styles.vestingPercentageContainerInactive]}>
             <Text style={styles.vestingPercentageText}>
               {vestingPercentage.toFixed(2)}% del balance total
             </Text>
@@ -132,17 +138,38 @@ export default function VestingCounter() {
         </View>
       </View>
 
-      {/* Real-time Counter Display - Updates every second */}
+      {/* Show inactive message if not generating */}
+      {!isGenerating && (
+        <View style={styles.inactiveMessageBox}>
+          <Text style={styles.inactiveMessageIcon}>ℹ️</Text>
+          <View style={styles.inactiveMessageContent}>
+            <Text style={styles.inactiveMessageTitle}>Vesting No Activo</Text>
+            <Text style={styles.inactiveMessageText}>
+              {mxiInVesting === 0 
+                ? 'Necesitas comprar MXI para comenzar a generar rendimientos de vesting.'
+                : 'Tu vesting está pausado. Contacta con soporte si crees que esto es un error.'}
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* Real-time Counter Display - Always visible, shows 0 when inactive */}
       <View style={styles.counterSection}>
-        <View style={styles.counterCard}>
-          <Text style={styles.counterLabel}>🔥 Rendimiento Acumulado (Tiempo Real)</Text>
-          <Text style={styles.counterValue}>{totalYield.toFixed(8)}</Text>
+        <View style={[styles.counterCard, !isGenerating && styles.counterCardInactive]}>
+          <Text style={styles.counterLabel}>
+            {isGenerating ? '🔥 Rendimiento Acumulado (Tiempo Real)' : '💤 Rendimiento Acumulado'}
+          </Text>
+          <Text style={[styles.counterValue, !isGenerating && styles.textInactive]}>
+            {totalYield.toFixed(8)}
+          </Text>
           <Text style={styles.counterUnit}>MXI</Text>
-          <Text style={styles.counterSubtext}>Actualizado cada segundo</Text>
+          <Text style={styles.counterSubtext}>
+            {isGenerating ? 'Actualizado cada segundo' : 'Sin generación activa'}
+          </Text>
         </View>
       </View>
 
-      {/* Yield Breakdown */}
+      {/* Yield Breakdown - Always visible */}
       <View style={styles.yieldBreakdownSection}>
         <View style={styles.breakdownRow}>
           <Text style={styles.breakdownLabel}>💎 Sesión Actual</Text>
@@ -155,76 +182,87 @@ export default function VestingCounter() {
         </View>
       </View>
 
-      {/* Rate Information */}
+      {/* Rate Information - Show even when inactive */}
       <View style={styles.rateSection}>
         <View style={styles.rateItem}>
           <Text style={styles.rateLabel}>Por Segundo</Text>
-          <Text style={styles.rateValue}>{yieldPerSecond.toFixed(8)}</Text>
+          <Text style={[styles.rateValue, !isGenerating && styles.textInactive]}>
+            {isGenerating ? yieldPerSecond.toFixed(8) : '0.00000000'}
+          </Text>
         </View>
         <View style={styles.rateDivider} />
         <View style={styles.rateItem}>
           <Text style={styles.rateLabel}>Por Minuto</Text>
-          <Text style={styles.rateValue}>{user.yieldRatePerMinute.toFixed(8)}</Text>
+          <Text style={[styles.rateValue, !isGenerating && styles.textInactive]}>
+            {isGenerating ? user.yieldRatePerMinute.toFixed(8) : '0.00000000'}
+          </Text>
         </View>
         <View style={styles.rateDivider} />
         <View style={styles.rateItem}>
           <Text style={styles.rateLabel}>Por Hora</Text>
-          <Text style={styles.rateValue}>{(user.yieldRatePerMinute * 60).toFixed(6)}</Text>
+          <Text style={[styles.rateValue, !isGenerating && styles.textInactive]}>
+            {isGenerating ? (user.yieldRatePerMinute * 60).toFixed(6) : '0.000000'}
+          </Text>
         </View>
       </View>
 
-      {/* Daily Rate */}
-      <View style={styles.dailyRate}>
+      {/* Daily Rate - Always visible */}
+      <View style={[styles.dailyRate, !isGenerating && styles.dailyRateInactive]}>
         <Text style={styles.dailyRateLabel}>📈 Rendimiento Diario</Text>
-        <Text style={styles.dailyRateValue}>
-          {(user.yieldRatePerMinute * 60 * 24).toFixed(4)} MXI
+        <Text style={[styles.dailyRateValue, !isGenerating && styles.textInactive]}>
+          {isGenerating ? (user.yieldRatePerMinute * 60 * 24).toFixed(4) : '0.0000'} MXI
         </Text>
       </View>
 
-      {/* Unify Balance Button */}
+      {/* Unify Balance Button - Always visible */}
       <TouchableOpacity
         style={[
           styles.unifyButton,
-          !canUnify && styles.unifyButtonDisabled,
+          (!canUnify || !isGenerating) && styles.unifyButtonDisabled,
           unifying && styles.unifyButtonProcessing,
         ]}
         onPress={handleUnifyBalance}
-        disabled={!canUnify || unifying || totalYield < 0.000001}
+        disabled={!canUnify || unifying || totalYield < 0.000001 || !isGenerating}
       >
         <IconSymbol
-          ios_icon_name={canUnify ? 'checkmark.circle.fill' : 'lock.fill'}
-          android_material_icon_name={canUnify ? 'check_circle' : 'lock'}
+          ios_icon_name={canUnify && isGenerating ? 'checkmark.circle.fill' : 'lock.fill'}
+          android_material_icon_name={canUnify && isGenerating ? 'check_circle' : 'lock'}
           size={20}
-          color={canUnify && !unifying ? '#fff' : colors.textSecondary}
+          color={canUnify && isGenerating && !unifying ? '#fff' : colors.textSecondary}
         />
-        <Text style={[styles.unifyButtonText, !canUnify && styles.unifyButtonTextDisabled]}>
+        <Text style={[styles.unifyButtonText, (!canUnify || !isGenerating) && styles.unifyButtonTextDisabled]}>
           {unifying
             ? 'Unificando...'
+            : !isGenerating
+            ? '⚠️ Vesting Inactivo'
             : canUnify
             ? '💎 Unificar Saldo'
             : `🔒 Requiere 10 Referidos (${user.activeReferrals}/10)`}
         </Text>
       </TouchableOpacity>
 
-      {/* Info Box */}
+      {/* Info Box - Always visible with dynamic content */}
       <View style={styles.infoBox}>
         <Text style={styles.infoIcon}>ℹ️</Text>
         <Text style={styles.infoText}>
-          {canUnify
+          {!isGenerating
+            ? `Vesting inactivo. ${mxiInVesting === 0 ? 'Compra MXI para comenzar a generar rendimientos.' : 'Contacta con soporte para activar tu vesting.'}`
+            : canUnify
             ? '¡Felicidades! Has alcanzado 10 referidos activos. Puedes unificar tu saldo de vesting a tu balance principal en cualquier momento.'
             : `Necesitas ${10 - user.activeReferrals} referidos activos más para poder unificar tu saldo de vesting. El vesting genera 0.005% por hora de tu inversión total en MXI (${mxiInVesting.toFixed(2)} MXI).`}
         </Text>
       </View>
 
-      {/* Vesting Explanation */}
+      {/* Vesting Explanation - Always visible */}
       <View style={styles.explanationBox}>
         <Text style={styles.explanationTitle}>📚 ¿Qué es el Vesting?</Text>
         <Text style={styles.explanationText}>
           • El vesting genera rendimientos del 0.005% por hora{'\n'}
           • Solo cuenta el MXI comprado directamente y de comisiones unificadas{'\n'}
           • El rendimiento se actualiza cada segundo en tiempo real{'\n'}
-          • Actualmente tienes {mxiInVesting.toFixed(2)} MXI generando rendimientos{'\n'}
-          • Balance total: {user.mxiBalance.toFixed(2)} MXI ({vestingPercentage.toFixed(1)}% en vesting)
+          • Actualmente tienes {mxiInVesting.toFixed(2)} MXI {isGenerating ? 'generando rendimientos' : 'en vesting'}{'\n'}
+          • Balance total: {user.mxiBalance.toFixed(2)} MXI ({vestingPercentage.toFixed(1)}% en vesting){'\n'}
+          • Estado: {isGenerating ? '✅ Activo' : '⚠️ Inactivo'}
         </Text>
       </View>
     </View>
@@ -244,6 +282,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 5,
+  },
+  containerInactive: {
+    borderColor: colors.border,
+    shadowColor: colors.textSecondary,
+    shadowOpacity: 0.1,
+    opacity: 0.85,
   },
   header: {
     flexDirection: 'row',
@@ -292,6 +336,10 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.primary,
   },
+  vestingBalanceCardInactive: {
+    backgroundColor: `${colors.textSecondary}10`,
+    borderColor: colors.border,
+  },
   vestingBalanceLabel: {
     fontSize: 14,
     fontWeight: '600',
@@ -317,10 +365,41 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 12,
   },
+  vestingPercentageContainerInactive: {
+    backgroundColor: colors.textSecondary,
+  },
   vestingPercentageText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#fff',
+  },
+  inactiveMessageBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: `${colors.warning}20`,
+    padding: 16,
+    borderRadius: 12,
+    gap: 12,
+    borderWidth: 2,
+    borderColor: colors.warning,
+    marginBottom: 16,
+  },
+  inactiveMessageIcon: {
+    fontSize: 24,
+  },
+  inactiveMessageContent: {
+    flex: 1,
+  },
+  inactiveMessageTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 6,
+  },
+  inactiveMessageText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 20,
   },
   counterSection: {
     marginBottom: 16,
@@ -332,6 +411,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     borderColor: colors.accent,
+  },
+  counterCardInactive: {
+    backgroundColor: `${colors.textSecondary}10`,
+    borderColor: colors.border,
   },
   counterLabel: {
     fontSize: 14,
@@ -357,6 +440,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textSecondary,
     fontStyle: 'italic',
+  },
+  textInactive: {
+    color: colors.textSecondary,
   },
   yieldBreakdownSection: {
     backgroundColor: colors.background,
@@ -430,6 +516,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.primary,
+  },
+  dailyRateInactive: {
+    backgroundColor: `${colors.textSecondary}10`,
+    borderColor: colors.border,
   },
   dailyRateLabel: {
     fontSize: 14,
