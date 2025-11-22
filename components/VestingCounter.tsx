@@ -5,6 +5,7 @@ import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
+import { supabase } from '@/lib/supabase';
 
 const MONTHLY_YIELD_PERCENTAGE = 0.03; // 3% monthly
 const SECONDS_IN_MONTH = 2592000; // 30 days * 24 hours * 60 minutes * 60 seconds
@@ -12,46 +13,87 @@ const SECONDS_IN_MONTH = 2592000; // 30 days * 24 hours * 60 minutes * 60 second
 export default function VestingCounter() {
   const router = useRouter();
   const { user } = useAuth();
-  const [currentYield, setCurrentYield] = useState(0);
   const [displayYield, setDisplayYield] = useState(0);
+  const [lastUpdateTime, setLastUpdateTime] = useState(Date.now());
 
   useEffect(() => {
     if (!user) {
       return;
     }
 
-    // Update display every second for smooth animation
+    // Calculate the base for vesting - ONLY purchased MXI generates vesting
+    const mxiInVesting = (user.mxiPurchasedDirectly || 0) + (user.mxiFromUnifiedCommissions || 0);
+    
+    if (mxiInVesting === 0) {
+      setDisplayYield(0);
+      return;
+    }
+
+    // Calculate the maximum monthly yield (3% of purchased MXI)
+    const maxMonthlyYield = mxiInVesting * MONTHLY_YIELD_PERCENTAGE;
+    
+    // Calculate yield per second
+    const yieldPerSecond = maxMonthlyYield / SECONDS_IN_MONTH;
+
+    // Update display every second for smooth real-time animation
     const displayInterval = setInterval(() => {
-      setDisplayYield(prev => {
-        // Calculate vesting base (only purchased MXI generates vesting)
-        const mxiInVesting = (user.mxiPurchasedDirectly || 0) + (user.mxiFromUnifiedCommissions || 0);
-        
-        if (mxiInVesting === 0) {
-          return 0;
-        }
+      const now = Date.now();
+      const lastUpdate = new Date(user.lastYieldUpdate);
+      const secondsElapsed = (now - lastUpdate.getTime()) / 1000;
 
-        // Calculate yield per second based on 3% monthly
-        const maxMonthlyYield = mxiInVesting * MONTHLY_YIELD_PERCENTAGE;
-        const yieldPerSecond = maxMonthlyYield / SECONDS_IN_MONTH;
+      // Calculate current session yield
+      const sessionYield = yieldPerSecond * secondsElapsed;
 
-        // Calculate time elapsed since last update
-        const lastUpdate = new Date(user.lastYieldUpdate);
-        const now = Date.now();
-        const secondsElapsed = (now - lastUpdate.getTime()) / 1000;
+      // Calculate total yield (accumulated + session)
+      const totalYield = user.accumulatedYield + sessionYield;
 
-        // Calculate current session yield
-        const sessionYield = yieldPerSecond * secondsElapsed;
+      // Cap at 3% monthly maximum
+      const cappedTotalYield = Math.min(totalYield, maxMonthlyYield);
 
-        // Cap at 3% monthly maximum
-        const totalYield = user.accumulatedYield + sessionYield;
-        const cappedTotalYield = Math.min(totalYield, maxMonthlyYield);
-
-        return cappedTotalYield;
-      });
+      setDisplayYield(cappedTotalYield);
+      setLastUpdateTime(now);
     }, 1000); // Update every second
 
     return () => clearInterval(displayInterval);
-  }, [user]);
+  }, [user, user?.mxiPurchasedDirectly, user?.mxiFromUnifiedCommissions, user?.lastYieldUpdate, user?.accumulatedYield]);
+
+  // Update database every 10 seconds to persist the yield
+  useEffect(() => {
+    if (!user) return;
+
+    const mxiInVesting = (user.mxiPurchasedDirectly || 0) + (user.mxiFromUnifiedCommissions || 0);
+    if (mxiInVesting === 0) return;
+
+    const persistInterval = setInterval(async () => {
+      try {
+        const maxMonthlyYield = mxiInVesting * MONTHLY_YIELD_PERCENTAGE;
+        const yieldPerSecond = maxMonthlyYield / SECONDS_IN_MONTH;
+        
+        const now = Date.now();
+        const lastUpdate = new Date(user.lastYieldUpdate);
+        const secondsElapsed = (now - lastUpdate.getTime()) / 1000;
+        
+        const sessionYield = yieldPerSecond * secondsElapsed;
+        const totalYield = user.accumulatedYield + sessionYield;
+        const cappedTotalYield = Math.min(totalYield, maxMonthlyYield);
+
+        // Update database with current accumulated yield
+        await supabase
+          .from('users')
+          .update({
+            accumulated_yield: cappedTotalYield,
+            last_yield_update: new Date().toISOString(),
+          })
+          .eq('id', user.id);
+
+        console.log('Vesting yield persisted:', cappedTotalYield.toFixed(8), 'MXI');
+      } catch (error) {
+        console.error('Error persisting vesting yield:', error);
+      }
+    }, 10000); // Persist every 10 seconds
+
+    return () => clearInterval(persistInterval);
+  }, [user, user?.mxiPurchasedDirectly, user?.mxiFromUnifiedCommissions]);
 
   const handleViewDetails = () => {
     router.push('/(tabs)/(home)/vesting');
@@ -205,13 +247,28 @@ export default function VestingCounter() {
         </View>
       )}
 
+      {/* Monthly Maximum Display */}
+      {hasBalance && (
+        <View style={styles.monthlyMaxSection}>
+          <View style={styles.monthlyMaxCard}>
+            <Text style={styles.monthlyMaxLabel}>Máximo Mensual (3%)</Text>
+            <Text style={styles.monthlyMaxValue}>
+              {maxMonthlyYield.toFixed(4)} MXI
+            </Text>
+            <Text style={styles.monthlyMaxNote}>
+              Basado en {mxiInVesting.toFixed(2)} MXI comprados
+            </Text>
+          </View>
+        </View>
+      )}
+
       {/* Info Box - Updated message */}
       <View style={styles.infoBox}>
         <Text style={styles.infoIcon}>ℹ️</Text>
         <Text style={styles.infoText}>
           {!hasBalance
             ? 'Compra MXI para comenzar a generar rendimientos del 3% mensual.'
-            : 'Solo los MXI comprados directamente y los de comisiones unificadas generan rendimiento del 3% mensual. Este saldo no se puede retirar hasta que se lance la moneda oficialmente.'}
+            : 'El vesting genera un rendimiento del 3% mensual sobre tus MXI comprados. El contador se actualiza cada segundo y se recalcula automáticamente con cada compra o cambio de balance. Este saldo no se puede retirar hasta que se lance la moneda oficialmente.'}
         </Text>
       </View>
     </View>
@@ -523,6 +580,37 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.primary,
     fontFamily: 'monospace',
+  },
+  monthlyMaxSection: {
+    marginBottom: 16,
+  },
+  monthlyMaxCard: {
+    backgroundColor: `${colors.success}20`,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.success,
+  },
+  monthlyMaxLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  monthlyMaxValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.success,
+    fontFamily: 'monospace',
+    marginBottom: 6,
+  },
+  monthlyMaxNote: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   infoBox: {
     flexDirection: 'row',

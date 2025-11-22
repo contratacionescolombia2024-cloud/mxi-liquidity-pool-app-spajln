@@ -539,7 +539,7 @@ export default function PurchaseMXIScreen() {
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>•</Text>
               <Text style={styles.infoText}>
-                El MXI comprado genera rendimientos del 0.005% por hora (vesting)
+                El MXI comprado genera rendimientos del 3% mensual (vesting)
               </Text>
             </View>
             <View style={styles.infoItem}>
