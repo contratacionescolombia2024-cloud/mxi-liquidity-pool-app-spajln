@@ -1,22 +1,14 @@
 
 import React from 'react';
-import { Platform } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { Tabs } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
 import { colors } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
+import { BlurView } from 'expo-blur';
 
 export default function TabLayout() {
-  const { user, checkAdminStatus } = useAuth();
-  const [isAdmin, setIsAdmin] = React.useState(false);
-
-  React.useEffect(() => {
-    const checkAdmin = async () => {
-      const adminStatus = await checkAdminStatus();
-      setIsAdmin(adminStatus);
-    };
-    checkAdmin();
-  }, []);
+  const { user } = useAuth();
 
   return (
     <Tabs
@@ -25,16 +17,42 @@ export default function TabLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
-          backgroundColor: colors.card,
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 88 : 68,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 8,
-          paddingTop: 8,
+          position: 'absolute',
+          bottom: 20,
+          left: 20,
+          right: 20,
+          elevation: 8,
+          backgroundColor: Platform.OS === 'ios' ? 'transparent' : colors.card + 'F0',
+          borderRadius: 24,
+          height: 70,
+          paddingBottom: 10,
+          paddingTop: 10,
+          borderWidth: 1,
+          borderColor: colors.border,
+          shadowColor: '#000',
+          shadowOffset: {
+            width: 0,
+            height: 10,
+          },
+          shadowOpacity: 0.3,
+          shadowRadius: 20,
         },
+        tabBarBackground: () => (
+          Platform.OS === 'ios' ? (
+            <BlurView
+              intensity={80}
+              tint="dark"
+              style={StyleSheet.absoluteFill}
+            />
+          ) : null
+        ),
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: '600',
+          marginTop: 4,
+        },
+        tabBarItemStyle: {
+          paddingVertical: 4,
         },
       }}
     >
@@ -46,13 +64,88 @@ export default function TabLayout() {
             <IconSymbol
               ios_icon_name={focused ? 'house.fill' : 'house'}
               android_material_icon_name="home"
-              size={28}
+              size={24}
               color={color}
             />
           ),
         }}
       />
       
+      <Tabs.Screen
+        name="deposit"
+        options={{
+          title: 'Depositar',
+          tabBarIcon: ({ color, focused }) => (
+            <IconSymbol
+              ios_icon_name={focused ? 'arrow.down.circle.fill' : 'arrow.down.circle'}
+              android_material_icon_name="arrow_circle_down"
+              size={24}
+              color={color}
+            />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="withdraw"
+        options={{
+          title: 'Retirar',
+          tabBarIcon: ({ color, focused }) => (
+            <IconSymbol
+              ios_icon_name={focused ? 'arrow.up.circle.fill' : 'arrow.up.circle'}
+              android_material_icon_name="arrow_circle_up"
+              size={24}
+              color={color}
+            />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="referrals"
+        options={{
+          title: 'Referidos',
+          tabBarIcon: ({ color, focused }) => (
+            <IconSymbol
+              ios_icon_name={focused ? 'person.3.fill' : 'person.3'}
+              android_material_icon_name="group"
+              size={24}
+              color={color}
+            />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="tournaments"
+        options={{
+          title: 'Torneos',
+          tabBarIcon: ({ color, focused }) => (
+            <IconSymbol
+              ios_icon_name={focused ? 'trophy.fill' : 'trophy'}
+              android_material_icon_name="emoji_events"
+              size={24}
+              color={color}
+            />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="rewards"
+        options={{
+          title: 'Recompensas',
+          tabBarIcon: ({ color, focused }) => (
+            <IconSymbol
+              ios_icon_name={focused ? 'gift.fill' : 'gift'}
+              android_material_icon_name="card_giftcard"
+              size={24}
+              color={color}
+            />
+          ),
+        }}
+      />
+
       <Tabs.Screen
         name="profile"
         options={{
@@ -61,29 +154,20 @@ export default function TabLayout() {
             <IconSymbol
               ios_icon_name={focused ? 'person.circle.fill' : 'person.circle'}
               android_material_icon_name="account_circle"
-              size={28}
+              size={24}
               color={color}
             />
           ),
         }}
       />
 
-      {isAdmin && (
-        <Tabs.Screen
-          name="(admin)"
-          options={{
-            title: 'Admin',
-            tabBarIcon: ({ color, focused }) => (
-              <IconSymbol
-                ios_icon_name={focused ? 'shield.fill' : 'shield'}
-                android_material_icon_name="admin_panel_settings"
-                size={28}
-                color={color}
-              />
-            ),
-          }}
-        />
-      )}
+      {/* Hide admin tab from bottom bar */}
+      <Tabs.Screen
+        name="(admin)"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

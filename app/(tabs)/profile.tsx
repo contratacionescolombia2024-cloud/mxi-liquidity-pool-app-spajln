@@ -17,8 +17,21 @@ import { IconSymbol } from '@/components/IconSymbol';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, checkAdminStatus } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [checkingAdmin, setCheckingAdmin] = useState(true);
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (user) {
+        const adminStatus = await checkAdminStatus();
+        setIsAdmin(adminStatus);
+      }
+      setCheckingAdmin(false);
+    };
+    checkAdmin();
+  }, [user]);
 
   const handleLogout = () => {
     Alert.alert(
@@ -92,14 +105,6 @@ export default function ProfileScreen() {
       route: '/(tabs)/(home)/withdrawals',
     },
     {
-      id: 'referrals',
-      title: 'Referidos',
-      subtitle: `${user.activeReferrals} referidos activos`,
-      icon: 'person.3.fill',
-      androidIcon: 'group',
-      route: '/(tabs)/(home)/referrals',
-    },
-    {
       id: 'challenge-history',
       title: 'Historial de Retos',
       subtitle: 'Ver registros de juegos',
@@ -161,6 +166,35 @@ export default function ProfileScreen() {
             </View>
           </View>
         </View>
+
+        {/* Admin Panel Access */}
+        {!checkingAdmin && isAdmin && (
+          <TouchableOpacity
+            style={[commonStyles.card, styles.adminCard]}
+            onPress={() => router.push('/(tabs)/(admin)')}
+          >
+            <View style={styles.adminHeader}>
+              <View style={styles.adminIconContainer}>
+                <IconSymbol 
+                  ios_icon_name="shield.fill" 
+                  android_material_icon_name="admin_panel_settings" 
+                  size={32} 
+                  color={colors.error} 
+                />
+              </View>
+              <View style={styles.adminInfo}>
+                <Text style={styles.adminTitle}>Panel de Administrador</Text>
+                <Text style={styles.adminSubtitle}>Gestionar usuarios y sistema</Text>
+              </View>
+              <IconSymbol 
+                ios_icon_name="chevron.right" 
+                android_material_icon_name="chevron_right" 
+                size={24} 
+                color={colors.error} 
+              />
+            </View>
+          </TouchableOpacity>
+        )}
 
         <View style={styles.menuSection}>
           {menuItems.map((item, index) => (
@@ -240,7 +274,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     padding: 24,
-    paddingBottom: 100,
+    paddingBottom: 120,
   },
   header: {
     alignItems: 'center',
@@ -309,6 +343,38 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  adminCard: {
+    marginBottom: 24,
+    backgroundColor: colors.error + '15',
+    borderWidth: 2,
+    borderColor: colors.error,
+  },
+  adminHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  adminIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.error + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  adminInfo: {
+    flex: 1,
+  },
+  adminTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.error,
+    marginBottom: 4,
+  },
+  adminSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
   },
   menuSection: {
     backgroundColor: colors.card,
