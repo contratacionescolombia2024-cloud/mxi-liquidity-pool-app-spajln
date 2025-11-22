@@ -1057,7 +1057,7 @@ export default function UserManagementScreen() {
                   )}
                   <View style={[styles.statusBadge, { backgroundColor: getStatusColor(userData.kyc_status) + '20' }]}>
                     <Text style={[styles.statusBadgeText, { color: getStatusColor(userData.kyc_status) }]}>
-                      {userData.kyc_status.toUpperCase()}
+                      {userData.kyc_status ? userData.kyc_status.toUpperCase() : 'N/A'}
                     </Text>
                   </View>
                 </View>
