@@ -1,984 +1,478 @@
 
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Modal,
-  TextInput,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
-interface MXIDistribution {
-  totalDelivered: number;
-  vestingProduced: number;
-  fromCommissions: number;
-  fromChallenges: number;
-  totalPresaleAllocation: number;
-  phase1Allocation: number;
-  phase2Allocation: number;
-  phase3Allocation: number;
-  phase1Sold: number;
-  phase2Sold: number;
-  phase3Sold: number;
-  phase1Remaining: number;
-  phase2Remaining: number;
-  phase3Remaining: number;
-  totalRemaining: number;
-  // Real-time vesting data
-  totalVestingUsers: number;
-  currentSessionYield: number;
-  totalYieldAllTime: number;
-  yieldPerMinute: number;
-  yieldPerHour: number;
-  yieldPerDay: number;
-  // Referral data
-  totalReferrals: number;
-  totalActiveReferrals: number;
-  usersWithReferrals: number;
-}
+const MONTHLY_YIELD_PERCENTAGE = 0.03; // 3% monthly
+const SECONDS_IN_MONTH = 2592000; // 30 days * 24 hours * 60 minutes * 60 seconds
 
 interface UniversalMXICounterProps {
   isAdmin?: boolean;
 }
 
 export default function UniversalMXICounter({ isAdmin = false }: UniversalMXICounterProps) {
-  const [loading, setLoading] = useState(true);
-  const [distribution, setDistribution] = useState<MXIDistribution | null>(null);
-  const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editValue, setEditValue] = useState('');
-  const [saving, setSaving] = useState(false);
+  const { user } = useAuth();
+  const [displayYield, setDisplayYield] = useState(0);
 
   useEffect(() => {
-    loadDistribution();
-    
-    // Set up real-time updates every 5 seconds
-    const interval = setInterval(() => {
-      loadDistribution(true); // Silent refresh
-    }, 5000);
+    if (!user) {
+      return;
+    }
 
-    // Set up real-time subscription for database changes
-    const subscription = supabase
-      .channel('mxi_distribution_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
-        loadDistribution(true);
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'metrics' }, () => {
-        loadDistribution(true);
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'presale_allocation' }, () => {
-        loadDistribution(true);
-      })
-      .subscribe();
+    // Update display every second for smooth animation
+    const displayInterval = setInterval(() => {
+      setDisplayYield(prev => {
+        // Calculate vesting base (only purchased MXI generates vesting)
+        const mxiInVesting = (user.mxiPurchasedDirectly || 0) + (user.mxiFromUnifiedCommissions || 0);
+        
+        if (mxiInVesting === 0) {
+          return 0;
+        }
 
-    return () => {
-      clearInterval(interval);
-      subscription.unsubscribe();
-    };
-  }, []);
+        // Calculate yield per second based on 3% monthly
+        const maxMonthlyYield = mxiInVesting * MONTHLY_YIELD_PERCENTAGE;
+        const yieldPerSecond = maxMonthlyYield / SECONDS_IN_MONTH;
 
-  const loadDistribution = async (silent = false) => {
-    try {
-      if (!silent) {
-        setLoading(true);
-      }
+        // Calculate time elapsed since last update
+        const lastUpdate = new Date(user.lastYieldUpdate);
+        const now = Date.now();
+        const secondsElapsed = (now - lastUpdate.getTime()) / 1000;
 
-      // Use the new global_metrics view for comprehensive data
-      const { data: globalMetrics, error: metricsError } = await supabase
-        .from('global_metrics')
-        .select('*')
-        .single();
+        // Calculate current session yield
+        const sessionYield = yieldPerSecond * secondsElapsed;
 
-      if (metricsError) {
-        console.error('Error loading global metrics:', metricsError);
-        throw metricsError;
-      }
+        // Cap at 3% monthly maximum
+        const totalYield = user.accumulatedYield + sessionYield;
+        const cappedTotalYield = Math.min(totalYield, maxMonthlyYield);
 
-      console.log('Global metrics loaded:', globalMetrics);
-
-      // Calculate remaining tokens
-      const phase1Remaining = Math.max(0, parseFloat(globalMetrics.phase_1_allocation) - parseFloat(globalMetrics.phase_1_sold));
-      const phase2Remaining = Math.max(0, parseFloat(globalMetrics.phase_2_allocation) - parseFloat(globalMetrics.phase_2_sold));
-      const phase3Remaining = Math.max(0, parseFloat(globalMetrics.phase_3_allocation) - parseFloat(globalMetrics.phase_3_sold));
-      const totalRemaining = phase1Remaining + phase2Remaining + phase3Remaining;
-
-      setDistribution({
-        totalDelivered: parseFloat(globalMetrics.total_mxi_delivered || '0'),
-        vestingProduced: parseFloat(globalMetrics.total_accumulated_yield || '0'),
-        fromCommissions: parseFloat(globalMetrics.total_mxi_from_commissions || '0'),
-        fromChallenges: parseFloat(globalMetrics.total_mxi_from_challenges || '0'),
-        totalPresaleAllocation: parseFloat(globalMetrics.total_presale_allocation || '25000000'),
-        phase1Allocation: parseFloat(globalMetrics.phase_1_allocation || '8333333'),
-        phase2Allocation: parseFloat(globalMetrics.phase_2_allocation || '8333333'),
-        phase3Allocation: parseFloat(globalMetrics.phase_3_allocation || '8333334'),
-        phase1Sold: parseFloat(globalMetrics.phase_1_sold || '0'),
-        phase2Sold: parseFloat(globalMetrics.phase_2_sold || '0'),
-        phase3Sold: parseFloat(globalMetrics.phase_3_sold || '0'),
-        phase1Remaining,
-        phase2Remaining,
-        phase3Remaining,
-        totalRemaining,
-        totalVestingUsers: parseInt(globalMetrics.vesting_users_count || '0'),
-        currentSessionYield: parseFloat(globalMetrics.vesting_current_session || '0'),
-        totalYieldAllTime: parseFloat(globalMetrics.vesting_total_all_time || '0'),
-        yieldPerMinute: parseFloat(globalMetrics.vesting_rate_per_minute || '0'),
-        yieldPerHour: parseFloat(globalMetrics.vesting_rate_per_hour || '0'),
-        yieldPerDay: parseFloat(globalMetrics.vesting_rate_per_day || '0'),
-        totalReferrals: parseInt(globalMetrics.total_referrals_recorded || '0'),
-        totalActiveReferrals: parseInt(globalMetrics.total_active_referrals_count || '0'),
-        usersWithReferrals: parseInt(globalMetrics.users_with_referrals || '0'),
+        return cappedTotalYield;
       });
-    } catch (error) {
-      console.error('Error loading MXI distribution:', error);
-    } finally {
-      if (!silent) {
-        setLoading(false);
-      }
-    }
-  };
+    }, 1000); // Update every second
 
-  const handleEditAllocation = () => {
-    if (!distribution) return;
-    setEditValue(distribution.totalPresaleAllocation.toString());
-    setEditModalVisible(true);
-  };
+    return () => clearInterval(displayInterval);
+  }, [user]);
 
-  const handleSaveAllocation = async () => {
-    if (!editValue) {
-      Alert.alert('Error', 'Por favor ingrese un valor válido');
-      return;
-    }
-
-    const newTotal = parseFloat(editValue);
-    if (isNaN(newTotal) || newTotal <= 0) {
-      Alert.alert('Error', 'Por favor ingrese un número válido mayor a 0');
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      // Calculate new phase allocations (equal distribution)
-      const phase1 = Math.floor(newTotal / 3);
-      const phase2 = Math.floor(newTotal / 3);
-      const phase3 = newTotal - phase1 - phase2; // Remainder goes to phase 3
-
-      // Get admin user ID
-      const { data: adminData } = await supabase
-        .from('admin_users')
-        .select('id')
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-        .single();
-
-      // Update or insert allocation
-      const { error } = await supabase
-        .from('presale_allocation')
-        .upsert({
-          total_presale_allocation: newTotal,
-          phase_1_allocation: phase1,
-          phase_2_allocation: phase2,
-          phase_3_allocation: phase3,
-          updated_by: adminData?.id,
-          updated_at: new Date().toISOString(),
-        });
-
-      if (error) throw error;
-
-      Alert.alert('Éxito', 'Asignación de preventa actualizada correctamente');
-      setEditModalVisible(false);
-      loadDistribution();
-    } catch (error) {
-      console.error('Error saving allocation:', error);
-      Alert.alert('Error', 'No se pudo actualizar la asignación');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const formatNumber = (num: number) => {
-    return new Intl.NumberFormat('en-US', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    }).format(num);
-  };
-
-  const getPercentage = (value: number, total: number) => {
-    if (total === 0) return 0;
-    return ((value / total) * 100).toFixed(2);
-  };
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Cargando distribución MXI...</Text>
-      </View>
-    );
-  }
-
-  if (!distribution) {
+  if (!user) {
     return null;
   }
 
+  // Calculate vesting amounts - ONLY purchased MXI generates vesting
+  const mxiPurchased = user.mxiPurchasedDirectly || 0;
+  const mxiFromCommissions = user.mxiFromUnifiedCommissions || 0;
+  const mxiInVesting = mxiPurchased + mxiFromCommissions;
+  const maxMonthlyYield = mxiInVesting * MONTHLY_YIELD_PERCENTAGE;
+  const yieldPerSecond = mxiInVesting > 0 ? maxMonthlyYield / SECONDS_IN_MONTH : 0;
+  const hasBalance = mxiInVesting > 0;
+
+  // Calculate progress towards monthly cap
+  const progressPercentage = maxMonthlyYield > 0 ? (displayYield / maxMonthlyYield) * 100 : 0;
+
+  // Calculate session yield (current accumulation since last update)
+  const sessionYield = Math.max(0, displayYield - user.accumulatedYield);
+
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Contador Universal MXI</Text>
-          <Text style={styles.subtitle}>Distribución en tiempo real</Text>
-        </View>
-        {isAdmin && (
-          <TouchableOpacity
-            style={styles.editButton}
-            onPress={handleEditAllocation}
-          >
-            <IconSymbol
-              ios_icon_name="pencil.circle.fill"
-              android_material_icon_name="edit"
-              size={24}
-              color={colors.primary}
-            />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Total Presale Allocation */}
-      <View style={[styles.card, styles.mainCard]}>
-        <View style={styles.cardHeader}>
-          <IconSymbol
-            ios_icon_name="chart.pie.fill"
-            android_material_icon_name="pie_chart"
-            size={32}
-            color={colors.primary}
-          />
-          <View style={styles.cardHeaderText}>
-            <Text style={styles.cardLabel}>Total Asignado para Preventa</Text>
-            <Text style={styles.cardValue}>{formatNumber(distribution.totalPresaleAllocation)} MXI</Text>
-          </View>
-        </View>
-        <View style={styles.progressBar}>
-          <View
-            style={[
-              styles.progressFill,
-              {
-                width: `${getPercentage(
-                  distribution.phase1Sold + distribution.phase2Sold + distribution.phase3Sold,
-                  distribution.totalPresaleAllocation
-                )}%`,
-              },
-            ]}
+        <View style={styles.iconContainer}>
+          <IconSymbol 
+            ios_icon_name="chart.line.uptrend.xyaxis" 
+            android_material_icon_name="trending_up" 
+            size={28} 
+            color={colors.accent} 
           />
         </View>
-        <Text style={styles.progressText}>
-          {getPercentage(
-            distribution.phase1Sold + distribution.phase2Sold + distribution.phase3Sold,
-            distribution.totalPresaleAllocation
-          )}% vendido
-        </Text>
+        <View style={styles.headerText}>
+          <Text style={styles.title}>
+            {isAdmin ? 'Balance MXI del Administrador' : 'Balance MXI'}
+          </Text>
+          <Text style={styles.subtitle}>Actualización en tiempo real</Text>
+        </View>
       </View>
 
-      {/* Phase Distribution */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Distribución por Fase</Text>
+      {/* MXI Breakdown */}
+      <View style={styles.balanceSection}>
+        <View style={styles.balanceRow}>
+          <View style={styles.balanceItem}>
+            <Text style={styles.balanceLabel}>MXI Comprados</Text>
+            <Text style={styles.balanceValue}>{mxiPurchased.toFixed(2)}</Text>
+          </View>
+          <View style={styles.balanceDivider} />
+          <View style={styles.balanceItem}>
+            <Text style={styles.balanceLabel}>MXI Comisiones</Text>
+            <Text style={styles.balanceValue}>{mxiFromCommissions.toFixed(2)}</Text>
+          </View>
+        </View>
         
-        {/* Phase 1 - 0.40 USDT */}
-        <View style={styles.card}>
-          <View style={styles.phaseHeader}>
-            <View style={[styles.phaseBadge, { backgroundColor: colors.success + '20' }]}>
-              <Text style={[styles.phaseNumber, { color: colors.success }]}>Fase 1</Text>
-            </View>
-            <Text style={styles.phasePrice}>$0.40 USDT</Text>
-          </View>
-          <View style={styles.phaseStats}>
-            <View style={styles.phaseStat}>
-              <Text style={styles.phaseStatLabel}>Asignado</Text>
-              <Text style={styles.phaseStatValue}>{formatNumber(distribution.phase1Allocation)}</Text>
-            </View>
-            <View style={styles.phaseStat}>
-              <Text style={styles.phaseStatLabel}>Vendido</Text>
-              <Text style={[styles.phaseStatValue, { color: colors.success }]}>
-                {formatNumber(distribution.phase1Sold)}
-              </Text>
-            </View>
-            <View style={styles.phaseStat}>
-              <Text style={styles.phaseStatLabel}>Restante</Text>
-              <Text style={[styles.phaseStatValue, { color: colors.warning }]}>
-                {formatNumber(distribution.phase1Remaining)}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.progressBar}>
-            <View
-              style={[
-                styles.progressFill,
-                { width: `${getPercentage(distribution.phase1Sold, distribution.phase1Allocation)}%`, backgroundColor: colors.success },
-              ]}
-            />
-          </View>
-        </View>
-
-        {/* Phase 2 - 0.70 USDT */}
-        <View style={styles.card}>
-          <View style={styles.phaseHeader}>
-            <View style={[styles.phaseBadge, { backgroundColor: colors.primary + '20' }]}>
-              <Text style={[styles.phaseNumber, { color: colors.primary }]}>Fase 2</Text>
-            </View>
-            <Text style={styles.phasePrice}>$0.70 USDT</Text>
-          </View>
-          <View style={styles.phaseStats}>
-            <View style={styles.phaseStat}>
-              <Text style={styles.phaseStatLabel}>Asignado</Text>
-              <Text style={styles.phaseStatValue}>{formatNumber(distribution.phase2Allocation)}</Text>
-            </View>
-            <View style={styles.phaseStat}>
-              <Text style={styles.phaseStatLabel}>Vendido</Text>
-              <Text style={[styles.phaseStatValue, { color: colors.success }]}>
-                {formatNumber(distribution.phase2Sold)}
-              </Text>
-            </View>
-            <View style={styles.phaseStat}>
-              <Text style={styles.phaseStatLabel}>Restante</Text>
-              <Text style={[styles.phaseStatValue, { color: colors.warning }]}>
-                {formatNumber(distribution.phase2Remaining)}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.progressBar}>
-            <View
-              style={[
-                styles.progressFill,
-                { width: `${getPercentage(distribution.phase2Sold, distribution.phase2Allocation)}%` },
-              ]}
-            />
-          </View>
-        </View>
-
-        {/* Phase 3 - 1.00 USDT */}
-        <View style={styles.card}>
-          <View style={styles.phaseHeader}>
-            <View style={[styles.phaseBadge, { backgroundColor: colors.warning + '20' }]}>
-              <Text style={[styles.phaseNumber, { color: colors.warning }]}>Fase 3</Text>
-            </View>
-            <Text style={styles.phasePrice}>$1.00 USDT</Text>
-          </View>
-          <View style={styles.phaseStats}>
-            <View style={styles.phaseStat}>
-              <Text style={styles.phaseStatLabel}>Asignado</Text>
-              <Text style={styles.phaseStatValue}>{formatNumber(distribution.phase3Allocation)}</Text>
-            </View>
-            <View style={styles.phaseStat}>
-              <Text style={styles.phaseStatLabel}>Vendido</Text>
-              <Text style={[styles.phaseStatValue, { color: colors.success }]}>
-                {formatNumber(distribution.phase3Sold)}
-              </Text>
-            </View>
-            <View style={styles.phaseStat}>
-              <Text style={styles.phaseStatLabel}>Restante</Text>
-              <Text style={[styles.phaseStatValue, { color: colors.warning }]}>
-                {formatNumber(distribution.phase3Remaining)}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.progressBar}>
-            <View
-              style={[
-                styles.progressFill,
-                { width: `${getPercentage(distribution.phase3Sold, distribution.phase3Allocation)}%`, backgroundColor: colors.warning },
-              ]}
-            />
-          </View>
+        <View style={styles.totalRow}>
+          <Text style={styles.totalLabel}>Base de Vesting</Text>
+          <Text style={styles.totalValue}>{mxiInVesting.toFixed(2)} MXI</Text>
         </View>
       </View>
 
-      {/* MXI Distribution by Source */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Distribución MXI por Fuente</Text>
-
-        <View style={styles.distributionGrid}>
-          {/* Total Delivered */}
-          <View style={[styles.card, styles.distributionCard]}>
-            <View style={[styles.iconContainer, { backgroundColor: colors.primary + '20' }]}>
-              <IconSymbol
-                ios_icon_name="checkmark.circle.fill"
-                android_material_icon_name="check_circle"
-                size={28}
-                color={colors.primary}
-              />
+      {/* Vesting Counter */}
+      {hasBalance && (
+        <View style={styles.vestingSection}>
+          <View style={styles.vestingHeader}>
+            <Text style={styles.vestingTitle}>Rendimiento Acumulado</Text>
+            <View style={styles.liveIndicator}>
+              <View style={styles.liveDot} />
+              <Text style={styles.liveText}>EN VIVO</Text>
             </View>
-            <Text style={styles.distributionLabel}>MXI Entregados</Text>
-            <Text style={[styles.distributionValue, { color: colors.primary }]}>
-              {formatNumber(distribution.totalDelivered)}
-            </Text>
           </View>
-
-          {/* Vesting Produced - Real-time */}
-          <View style={[styles.card, styles.distributionCard, styles.liveCard]}>
-            <View style={[styles.iconContainer, { backgroundColor: colors.success + '20' }]}>
-              <IconSymbol
-                ios_icon_name="clock.fill"
-                android_material_icon_name="schedule"
-                size={28}
-                color={colors.success}
-              />
-            </View>
-            <Text style={styles.distributionLabel}>Producidos en Vesting</Text>
-            <Text style={[styles.distributionValue, { color: colors.success }]}>
-              {formatNumber(distribution.totalYieldAllTime)}
-            </Text>
-            <View style={styles.liveBadge}>
-              <Text style={styles.liveBadgeText}>⚡ LIVE</Text>
-            </View>
-            <Text style={styles.distributionSubtext}>
-              {distribution.totalVestingUsers} usuarios activos
-            </Text>
-          </View>
-
-          {/* From Commissions */}
-          <View style={[styles.card, styles.distributionCard]}>
-            <View style={[styles.iconContainer, { backgroundColor: colors.warning + '20' }]}>
-              <IconSymbol
-                ios_icon_name="person.3.fill"
-                android_material_icon_name="people"
-                size={28}
-                color={colors.warning}
-              />
-            </View>
-            <Text style={styles.distributionLabel}>Por Comisiones</Text>
-            <Text style={[styles.distributionValue, { color: colors.warning }]}>
-              {formatNumber(distribution.fromCommissions)}
-            </Text>
-          </View>
-
-          {/* From Challenges */}
-          <View style={[styles.card, styles.distributionCard]}>
-            <View style={[styles.iconContainer, { backgroundColor: colors.error + '20' }]}>
-              <IconSymbol
-                ios_icon_name="trophy.fill"
-                android_material_icon_name="emoji_events"
-                size={28}
-                color={colors.error}
-              />
-            </View>
-            <Text style={styles.distributionLabel}>Por Retos</Text>
-            <Text style={[styles.distributionValue, { color: colors.error }]}>
-              {formatNumber(distribution.fromChallenges)}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Referral Metrics */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>📊 Métricas de Referidos</Text>
-        
-        <View style={styles.distributionGrid}>
-          <View style={[styles.card, styles.distributionCard]}>
-            <View style={[styles.iconContainer, { backgroundColor: colors.accent + '20' }]}>
-              <IconSymbol
-                ios_icon_name="person.2.fill"
-                android_material_icon_name="group"
-                size={28}
-                color={colors.accent}
-              />
-            </View>
-            <Text style={styles.distributionLabel}>Total Referidos Activos</Text>
-            <Text style={[styles.distributionValue, { color: colors.accent }]}>
-              {distribution.totalActiveReferrals}
-            </Text>
-          </View>
-
-          <View style={[styles.card, styles.distributionCard]}>
-            <View style={[styles.iconContainer, { backgroundColor: colors.primary + '20' }]}>
-              <IconSymbol
-                ios_icon_name="person.badge.plus.fill"
-                android_material_icon_name="person_add"
-                size={28}
-                color={colors.primary}
-              />
-            </View>
-            <Text style={styles.distributionLabel}>Usuarios con Referidos</Text>
-            <Text style={[styles.distributionValue, { color: colors.primary }]}>
-              {distribution.usersWithReferrals}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Real-time Vesting Performance */}
-      {distribution.totalVestingUsers > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>⛏️ Rendimiento de Vesting en Tiempo Real</Text>
           
-          <View style={[styles.card, styles.vestingCard]}>
-            <View style={styles.vestingHeader}>
-              <IconSymbol
-                ios_icon_name="chart.line.uptrend.xyaxis"
-                android_material_icon_name="trending_up"
-                size={24}
-                color={colors.accent}
-              />
-              <Text style={styles.vestingHeaderText}>Tasas de Producción</Text>
-            </View>
+          <View style={styles.vestingDisplay}>
+            <Text style={styles.vestingValue}>{displayYield.toFixed(8)}</Text>
+            <Text style={styles.vestingUnit}>MXI</Text>
+          </View>
 
-            <View style={styles.vestingRates}>
-              <View style={styles.vestingRateItem}>
-                <Text style={styles.vestingRateLabel}>Por Minuto</Text>
-                <Text style={styles.vestingRateValue}>
-                  {formatNumber(distribution.yieldPerMinute)} MXI
-                </Text>
-              </View>
-              <View style={styles.vestingRateDivider} />
-              <View style={styles.vestingRateItem}>
-                <Text style={styles.vestingRateLabel}>Por Hora</Text>
-                <Text style={styles.vestingRateValue}>
-                  {formatNumber(distribution.yieldPerHour)} MXI
-                </Text>
-              </View>
-              <View style={styles.vestingRateDivider} />
-              <View style={styles.vestingRateItem}>
-                <Text style={styles.vestingRateLabel}>Por Día</Text>
-                <Text style={styles.vestingRateValue}>
-                  {formatNumber(distribution.yieldPerDay)} MXI
-                </Text>
-              </View>
+          <View style={styles.vestingBreakdown}>
+            <View style={styles.breakdownItem}>
+              <Text style={styles.breakdownLabel}>Sesión Actual</Text>
+              <Text style={styles.breakdownValue}>+{sessionYield.toFixed(8)} MXI</Text>
             </View>
+            <View style={styles.breakdownItem}>
+              <Text style={styles.breakdownLabel}>Acumulado Previo</Text>
+              <Text style={styles.breakdownValue}>{user.accumulatedYield.toFixed(8)} MXI</Text>
+            </View>
+          </View>
 
-            <View style={styles.vestingSession}>
-              <Text style={styles.vestingSessionLabel}>🔥 Sesión Actual</Text>
-              <Text style={styles.vestingSessionValue}>
-                {formatNumber(distribution.currentSessionYield)} MXI
-              </Text>
+          {/* Progress Bar */}
+          <View style={styles.progressSection}>
+            <View style={styles.progressHeader}>
+              <Text style={styles.progressLabel}>Progreso Mensual (3% máx.)</Text>
+              <Text style={styles.progressPercentage}>{progressPercentage.toFixed(2)}%</Text>
+            </View>
+            <View style={styles.progressBarContainer}>
+              <View style={[styles.progressBar, { width: `${Math.min(progressPercentage, 100)}%` }]} />
+            </View>
+            <View style={styles.progressFooter}>
+              <Text style={styles.progressText}>{displayYield.toFixed(4)} MXI</Text>
+              <Text style={styles.progressText}>{maxMonthlyYield.toFixed(4)} MXI</Text>
+            </View>
+          </View>
+
+          {/* Rate Information */}
+          <View style={styles.rateSection}>
+            <View style={styles.rateItem}>
+              <Text style={styles.rateLabel}>Por Segundo</Text>
+              <Text style={styles.rateValue}>{yieldPerSecond.toFixed(8)}</Text>
+            </View>
+            <View style={styles.rateDivider} />
+            <View style={styles.rateItem}>
+              <Text style={styles.rateLabel}>Por Minuto</Text>
+              <Text style={styles.rateValue}>{(yieldPerSecond * 60).toFixed(8)}</Text>
+            </View>
+            <View style={styles.rateDivider} />
+            <View style={styles.rateItem}>
+              <Text style={styles.rateLabel}>Por Hora</Text>
+              <Text style={styles.rateValue}>{(yieldPerSecond * 3600).toFixed(6)}</Text>
             </View>
           </View>
         </View>
       )}
 
-      {/* Edit Modal */}
-      <Modal
-        visible={editModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setEditModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Editar Asignación de Preventa</Text>
-              <TouchableOpacity onPress={() => setEditModalVisible(false)}>
-                <IconSymbol
-                  ios_icon_name="xmark.circle.fill"
-                  android_material_icon_name="cancel"
-                  size={28}
-                  color={colors.textSecondary}
-                />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.modalBody}>
-              <Text style={styles.modalLabel}>Total MXI para Preventa</Text>
-              <Text style={styles.modalHint}>
-                Actual: {formatNumber(distribution.totalPresaleAllocation)} MXI
-              </Text>
-
-              <TextInput
-                style={styles.input}
-                value={editValue}
-                onChangeText={setEditValue}
-                keyboardType="decimal-pad"
-                placeholder="Ingrese nuevo total"
-                placeholderTextColor={colors.textSecondary}
-              />
-
-              <View style={styles.warningBox}>
-                <IconSymbol
-                  ios_icon_name="exclamationmark.triangle.fill"
-                  android_material_icon_name="warning"
-                  size={20}
-                  color={colors.warning}
-                />
-                <Text style={styles.warningText}>
-                  Esto redistribuirá automáticamente los tokens entre las 3 fases de manera equitativa.
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={[styles.button, styles.buttonSecondary]}
-                onPress={() => setEditModalVisible(false)}
-                disabled={saving}
-              >
-                <Text style={styles.buttonSecondaryText}>Cancelar</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.button, styles.buttonPrimary]}
-                onPress={handleSaveAllocation}
-                disabled={saving}
-              >
-                {saving ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.buttonPrimaryText}>Guardar</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+      {!hasBalance && (
+        <View style={styles.emptyState}>
+          <IconSymbol 
+            ios_icon_name="exclamationmark.triangle" 
+            android_material_icon_name="warning" 
+            size={32} 
+            color={colors.textSecondary} 
+          />
+          <Text style={styles.emptyText}>
+            No hay MXI en vesting. Solo los MXI comprados directamente y los de comisiones unificadas generan rendimiento.
+          </Text>
         </View>
-      </Modal>
+      )}
+
+      {/* Info Note */}
+      <View style={styles.infoBox}>
+        <IconSymbol 
+          ios_icon_name="info.circle.fill" 
+          android_material_icon_name="info" 
+          size={16} 
+          color={colors.accent} 
+        />
+        <Text style={styles.infoText}>
+          El vesting se calcula sobre los MXI comprados directamente y los de comisiones unificadas. 
+          Rendimiento: 3% mensual, actualizado cada segundo.
+        </Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    gap: 16,
-  },
-  loadingContainer: {
-    padding: 40,
-    alignItems: 'center',
-    gap: 12,
-  },
-  loadingText: {
-    fontSize: 14,
-    color: colors.textSecondary,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 2,
+    borderColor: colors.accent,
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  editButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: colors.card,
-  },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-  },
-  mainCard: {
-    borderWidth: 2,
-    borderColor: colors.primary + '40',
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
-  },
-  cardHeaderText: {
-    flex: 1,
-  },
-  cardLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  cardValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: colors.border,
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: colors.primary,
-  },
-  progressText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  section: {
-    marginTop: 8,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  phaseHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  phaseBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  phaseNumber: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  phasePrice: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  phaseStats: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
-  },
-  phaseStat: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  phaseStatLabel: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  phaseStatValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  distributionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  distributionCard: {
-    width: '48%',
-    alignItems: 'center',
-    padding: 16,
-    position: 'relative',
-  },
-  liveCard: {
-    borderWidth: 2,
-    borderColor: colors.success,
-    shadowColor: colors.success,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    marginBottom: 20,
   },
   iconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: `${colors.accent}20`,
     alignItems: 'center',
-    marginBottom: 12,
+    justifyContent: 'center',
+    marginRight: 12,
+    borderWidth: 2,
+    borderColor: colors.accent,
   },
-  distributionLabel: {
+  headerText: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  subtitle: {
     fontSize: 12,
     color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 8,
   },
-  distributionValue: {
+  balanceSection: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  balanceRow: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  balanceItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  balanceDivider: {
+    width: 1,
+    backgroundColor: colors.border,
+    marginHorizontal: 12,
+  },
+  balanceLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginBottom: 6,
+    fontWeight: '600',
+  },
+  balanceValue: {
     fontSize: 20,
     fontWeight: '700',
-    textAlign: 'center',
+    color: colors.text,
+    fontFamily: 'monospace',
   },
-  distributionSubtext: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    marginTop: 4,
-    textAlign: 'center',
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
-  liveBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: colors.success,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  liveBadgeText: {
-    fontSize: 9,
+  totalLabel: {
+    fontSize: 14,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.text,
   },
-  vestingCard: {
+  totalValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.primary,
+    fontFamily: 'monospace',
+  },
+  vestingSection: {
+    backgroundColor: `${colors.accent}15`,
+    borderRadius: 12,
+    padding: 16,
     borderWidth: 2,
     borderColor: colors.accent,
   },
   vestingHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  vestingHeaderText: {
-    fontSize: 16,
+  vestingTitle: {
+    fontSize: 14,
     fontWeight: '700',
     color: colors.text,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
-  vestingRates: {
+  liveIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: `${colors.success}20`,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.success,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.success,
+  },
+  liveText: {
+    fontSize: 9,
+    color: colors.success,
+    fontWeight: '700',
+  },
+  vestingDisplay: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  vestingValue: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: colors.accent,
+    fontFamily: 'monospace',
+    marginBottom: 4,
+  },
+  vestingUnit: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  vestingBreakdown: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  breakdownItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    backgroundColor: colors.background,
-    borderRadius: 12,
+    alignItems: 'center',
   },
-  vestingRateItem: {
+  breakdownLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  breakdownValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.text,
+    fontFamily: 'monospace',
+  },
+  progressSection: {
+    marginBottom: 16,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  progressLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  progressPercentage: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.accent,
+  },
+  progressBarContainer: {
+    height: 6,
+    backgroundColor: colors.border,
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: colors.accent,
+    borderRadius: 3,
+  },
+  progressFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  progressText: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    fontFamily: 'monospace',
+  },
+  rateSection: {
+    flexDirection: 'row',
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: 12,
+  },
+  rateItem: {
     flex: 1,
     alignItems: 'center',
   },
-  vestingRateDivider: {
+  rateDivider: {
     width: 1,
     backgroundColor: colors.border,
     marginHorizontal: 8,
   },
-  vestingRateLabel: {
-    fontSize: 11,
+  rateLabel: {
+    fontSize: 10,
     color: colors.textSecondary,
     marginBottom: 4,
     fontWeight: '600',
   },
-  vestingRateValue: {
-    fontSize: 12,
+  rateValue: {
+    fontSize: 11,
     fontWeight: '700',
     color: colors.text,
     fontFamily: 'monospace',
   },
-  vestingSession: {
-    backgroundColor: `${colors.accent}20`,
-    borderRadius: 12,
-    padding: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  emptyState: {
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.accent,
-  },
-  vestingSessionLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  vestingSessionValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.accent,
-    fontFamily: 'monospace',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: colors.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingBottom: 40,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  modalBody: {
-    padding: 20,
-  },
-  modalLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  modalHint: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 16,
-  },
-  input: {
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    color: colors.text,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 16,
-  },
-  warningBox: {
-    flexDirection: 'row',
+    padding: 32,
     gap: 12,
-    padding: 16,
-    backgroundColor: colors.warning + '20',
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.warning,
   },
-  warningText: {
-    flex: 1,
+  emptyText: {
     fontSize: 13,
-    color: colors.text,
-    lineHeight: 18,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
   },
-  modalFooter: {
+  infoBox: {
     flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 20,
-  },
-  button: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonPrimary: {
-    backgroundColor: colors.primary,
-  },
-  buttonSecondary: {
-    backgroundColor: colors.background,
+    alignItems: 'flex-start',
+    backgroundColor: colors.highlight,
+    padding: 12,
+    borderRadius: 8,
+    gap: 8,
+    marginTop: 16,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  buttonPrimaryText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  buttonSecondaryText: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '600',
+  infoText: {
+    flex: 1,
+    fontSize: 11,
+    color: colors.textSecondary,
+    lineHeight: 16,
   },
 });

@@ -13,53 +13,45 @@ export default function VestingCounter() {
   const router = useRouter();
   const { user } = useAuth();
   const [currentYield, setCurrentYield] = useState(0);
-  const [currentTime, setCurrentTime] = useState(Date.now());
+  const [displayYield, setDisplayYield] = useState(0);
 
   useEffect(() => {
     if (!user) {
       return;
     }
 
-    // Update current time every second for real-time calculation
-    const interval = setInterval(() => {
-      setCurrentTime(Date.now());
-    }, 1000);
+    // Update display every second for smooth animation
+    const displayInterval = setInterval(() => {
+      setDisplayYield(prev => {
+        // Calculate vesting base (only purchased MXI generates vesting)
+        const mxiInVesting = (user.mxiPurchasedDirectly || 0) + (user.mxiFromUnifiedCommissions || 0);
+        
+        if (mxiInVesting === 0) {
+          return 0;
+        }
 
-    return () => clearInterval(interval);
+        // Calculate yield per second based on 3% monthly
+        const maxMonthlyYield = mxiInVesting * MONTHLY_YIELD_PERCENTAGE;
+        const yieldPerSecond = maxMonthlyYield / SECONDS_IN_MONTH;
+
+        // Calculate time elapsed since last update
+        const lastUpdate = new Date(user.lastYieldUpdate);
+        const now = Date.now();
+        const secondsElapsed = (now - lastUpdate.getTime()) / 1000;
+
+        // Calculate current session yield
+        const sessionYield = yieldPerSecond * secondsElapsed;
+
+        // Cap at 3% monthly maximum
+        const totalYield = user.accumulatedYield + sessionYield;
+        const cappedTotalYield = Math.min(totalYield, maxMonthlyYield);
+
+        return cappedTotalYield;
+      });
+    }, 1000); // Update every second
+
+    return () => clearInterval(displayInterval);
   }, [user]);
-
-  useEffect(() => {
-    if (!user) {
-      setCurrentYield(0);
-      return;
-    }
-
-    // Calculate yield based on MXI in vesting
-    const mxiInVesting = (user.mxiPurchasedDirectly || 0) + (user.mxiFromUnifiedCommissions || 0);
-    
-    if (mxiInVesting === 0) {
-      setCurrentYield(0);
-      return;
-    }
-
-    // Calculate yield per second based on 3% monthly
-    const maxMonthlyYield = mxiInVesting * MONTHLY_YIELD_PERCENTAGE;
-    const yieldPerSecond = maxMonthlyYield / SECONDS_IN_MONTH;
-
-    // Calculate time elapsed since last update
-    const lastUpdate = new Date(user.lastYieldUpdate);
-    const secondsElapsed = (currentTime - lastUpdate.getTime()) / 1000;
-
-    // Calculate current session yield
-    const sessionYield = yieldPerSecond * secondsElapsed;
-
-    // Cap at 3% monthly maximum
-    const totalYield = user.accumulatedYield + sessionYield;
-    const cappedTotalYield = Math.min(totalYield, maxMonthlyYield);
-    const cappedSessionYield = Math.max(0, cappedTotalYield - user.accumulatedYield);
-
-    setCurrentYield(cappedSessionYield);
-  }, [user, currentTime]);
 
   const handleViewDetails = () => {
     router.push('/(tabs)/(home)/vesting');
@@ -69,19 +61,21 @@ export default function VestingCounter() {
     return null;
   }
 
-  // Calculate vesting amounts
+  // Calculate vesting amounts - ONLY purchased MXI generates vesting
   const mxiInVesting = (user.mxiPurchasedDirectly || 0) + (user.mxiFromUnifiedCommissions || 0);
   const maxMonthlyYield = mxiInVesting * MONTHLY_YIELD_PERCENTAGE;
   const yieldPerSecond = mxiInVesting > 0 ? maxMonthlyYield / SECONDS_IN_MONTH : 0;
   const yieldPerMinute = yieldPerSecond * 60;
   const yieldPerHour = yieldPerMinute * 60;
   const yieldPerDay = yieldPerHour * 24;
-  const totalYield = user.accumulatedYield + currentYield;
   const hasBalance = mxiInVesting > 0;
 
   // Calculate progress towards monthly cap
-  const progressPercentage = maxMonthlyYield > 0 ? (totalYield / maxMonthlyYield) * 100 : 0;
+  const progressPercentage = maxMonthlyYield > 0 ? (displayYield / maxMonthlyYield) * 100 : 0;
   const isNearCap = progressPercentage >= 95;
+
+  // Calculate session yield (current accumulation since last update)
+  const sessionYield = Math.max(0, displayYield - user.accumulatedYield);
 
   return (
     <View style={styles.container}>
@@ -110,9 +104,9 @@ export default function VestingCounter() {
       {/* Real-time Counter Display - PROMINENT */}
       <View style={styles.counterSection}>
         <View style={styles.counterCard}>
-          <Text style={styles.counterLabel}>Rendimiento Acumulado</Text>
+          <Text style={styles.counterLabel}>Rendimiento Acumulado Total</Text>
           <Text style={styles.counterValue}>
-            {totalYield.toFixed(8)}
+            {displayYield.toFixed(8)}
           </Text>
           <Text style={styles.counterUnit}>MXI</Text>
           <View style={styles.liveIndicator}>
@@ -130,6 +124,9 @@ export default function VestingCounter() {
             {mxiInVesting.toFixed(2)}
           </Text>
           <Text style={styles.vestingBalanceUnit}>MXI</Text>
+          <Text style={styles.vestingBalanceNote}>
+            Solo MXI comprados generan vesting
+          </Text>
         </View>
       </View>
 
@@ -144,7 +141,7 @@ export default function VestingCounter() {
             <View style={[styles.progressBar, { width: `${Math.min(progressPercentage, 100)}%` }]} />
           </View>
           <View style={styles.progressFooter}>
-            <Text style={styles.progressText}>{totalYield.toFixed(4)} MXI</Text>
+            <Text style={styles.progressText}>{displayYield.toFixed(4)} MXI</Text>
             <Text style={styles.progressText}>{maxMonthlyYield.toFixed(4)} MXI</Text>
           </View>
           {isNearCap && (
@@ -168,7 +165,7 @@ export default function VestingCounter() {
         <View style={styles.yieldBreakdownSection}>
           <View style={styles.breakdownRow}>
             <Text style={styles.breakdownLabel}>Sesión Actual</Text>
-            <Text style={styles.breakdownValue}>{currentYield.toFixed(8)} MXI</Text>
+            <Text style={styles.breakdownValue}>{sessionYield.toFixed(8)} MXI</Text>
           </View>
           <View style={styles.breakdownDivider} />
           <View style={styles.breakdownRow}>
@@ -214,7 +211,7 @@ export default function VestingCounter() {
         <Text style={styles.infoText}>
           {!hasBalance
             ? 'Compra MXI para comenzar a generar rendimientos del 3% mensual.'
-            : 'El saldo de vesting genera un rendimiento del 3% mensual. Este saldo no se puede retirar hasta que se lance la moneda oficialmente. Una vez lanzada, podrás retirar tu saldo de vesting cumpliendo los requisitos de retiro.'}
+            : 'Solo los MXI comprados directamente y los de comisiones unificadas generan rendimiento del 3% mensual. Este saldo no se puede retirar hasta que se lance la moneda oficialmente.'}
         </Text>
       </View>
     </View>
@@ -375,6 +372,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: colors.text,
+    marginBottom: 8,
+  },
+  vestingBalanceNote: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
   progressSection: {
     marginBottom: 16,
