@@ -61,7 +61,7 @@ export default function TankArenaGame() {
   const gameLoopRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    console.log('Tank Arena game started with sessionId:', sessionId);
+    console.log('[TankArena] Game started with sessionId:', sessionId);
     initializeGame();
     return () => {
       if (gameLoopRef.current) {
@@ -72,14 +72,14 @@ export default function TankArenaGame() {
 
   useEffect(() => {
     if (timeLeft <= 0 && !gameOver) {
-      console.log('Game time expired');
+      console.log('[TankArena] Game time expired');
       endGame();
     }
   }, [timeLeft]);
 
   const initializeGame = async () => {
     try {
-      console.log('Initializing tank arena game');
+      console.log('[TankArena] Initializing game...');
       
       // Load participants
       const { data: participants, error } = await supabase
@@ -87,9 +87,12 @@ export default function TankArenaGame() {
         .select('*')
         .eq('session_id', sessionId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('[TankArena] Error loading participants:', error);
+        throw error;
+      }
 
-      console.log('Loaded', participants.length, 'participants');
+      console.log('[TankArena] Loaded', participants.length, 'participants');
 
       // Initialize tanks
       const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8'];
@@ -124,10 +127,11 @@ export default function TankArenaGame() {
         setTimeLeft(prev => Math.max(0, prev - 1));
       }, 1000);
 
-      console.log('Game initialized successfully');
+      console.log('[TankArena] Game initialized successfully');
     } catch (error) {
-      console.error('Error initializing game:', error);
+      console.error('[TankArena] Error initializing game:', error);
       Alert.alert('Error', 'No se pudo inicializar el juego');
+      router.back();
     }
   };
 
@@ -265,7 +269,7 @@ export default function TankArenaGame() {
       clearInterval(gameLoopRef.current);
     }
 
-    console.log('Ending game, determining winner');
+    console.log('[TankArena] Ending game, determining winner...');
 
     try {
       // Determine winner
@@ -295,7 +299,7 @@ export default function TankArenaGame() {
         }
       }
 
-      console.log('Winner determined:', winner.id);
+      console.log('[TankArena] Winner determined:', winner.id);
 
       // Update session with winner
       const { error: sessionError } = await supabase
@@ -307,7 +311,10 @@ export default function TankArenaGame() {
         })
         .eq('id', sessionId);
 
-      if (sessionError) throw sessionError;
+      if (sessionError) {
+        console.error('[TankArena] Session update error:', sessionError);
+        throw sessionError;
+      }
 
       // Update participant stats
       for (const tank of tanks) {
@@ -338,19 +345,36 @@ export default function TankArenaGame() {
         .single();
 
       if (session && session.prize_amount > 0) {
-        console.log('Awarding prize:', session.prize_amount, 'MXI to winner');
+        console.log('[TankArena] Awarding prize:', session.prize_amount, 'MXI to winner');
         
-        // Add to mxi_from_challenges (can be used for more games or withdrawn with 5 referrals)
+        // Get current balance
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('mxi_from_challenges')
+          .eq('id', winner.id)
+          .single();
+
+        if (userError) {
+          console.error('[TankArena] User data error:', userError);
+          throw userError;
+        }
+
+        // Add to mxi_from_challenges
+        const newBalance = (userData.mxi_from_challenges || 0) + session.prize_amount;
+        
         const { error: prizeError } = await supabase
           .from('users')
           .update({
-            mxi_from_challenges: supabase.raw(`mxi_from_challenges + ${session.prize_amount}`)
+            mxi_from_challenges: newBalance
           })
           .eq('id', winner.id);
 
         if (prizeError) {
-          console.error('Prize award error:', prizeError);
+          console.error('[TankArena] Prize award error:', prizeError);
+          throw prizeError;
         }
+
+        console.log('[TankArena] Prize awarded successfully');
 
         // Record result
         await supabase
@@ -375,8 +399,9 @@ export default function TankArenaGame() {
       );
 
     } catch (error) {
-      console.error('Error ending game:', error);
+      console.error('[TankArena] Error ending game:', error);
       Alert.alert('Error', 'Hubo un problema al finalizar el juego');
+      router.replace('/(tabs)/tournaments');
     }
   };
 

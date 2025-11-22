@@ -44,53 +44,69 @@ export default function TournamentsScreen() {
   const [availableMXI, setAvailableMXI] = useState(0);
 
   useEffect(() => {
+    console.log('[Tournaments] Component mounted, user:', user?.id);
     loadGames();
     loadAvailableMXI();
   }, []);
 
   const loadGames = async () => {
     try {
+      console.log('[Tournaments] Loading games...');
       const { data, error } = await supabase
         .from('tournament_games')
         .select('*')
         .eq('is_active', true)
         .order('created_at', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[Tournaments] Error loading games:', error);
+        throw error;
+      }
+      
+      console.log('[Tournaments] Games loaded successfully:', data?.length);
       setGames(data || []);
     } catch (error) {
-      console.error('Error loading games:', error);
-      Alert.alert('Error', 'No se pudieron cargar los juegos');
+      console.error('[Tournaments] Failed to load games:', error);
+      Alert.alert('Error', 'No se pudieron cargar los juegos. Por favor intenta de nuevo.');
     } finally {
       setLoading(false);
     }
   };
 
   const loadAvailableMXI = async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('[Tournaments] No user found, skipping MXI load');
+      return;
+    }
 
     try {
+      console.log('[Tournaments] Loading available MXI for user:', user.id);
       const { data, error } = await supabase
         .from('users')
         .select('mxi_from_unified_commissions, mxi_from_challenges')
         .eq('id', user.id)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[Tournaments] Error loading MXI:', error);
+        throw error;
+      }
       
-      // Only MXI from referral commissions and game winnings can be used
       const totalAvailable = (data.mxi_from_unified_commissions || 0) + 
                              (data.mxi_from_challenges || 0);
+      console.log('[Tournaments] Available MXI:', totalAvailable);
       setAvailableMXI(totalAvailable);
     } catch (error) {
-      console.error('Error loading available MXI:', error);
+      console.error('[Tournaments] Failed to load available MXI:', error);
+      Alert.alert('Error', 'No se pudo cargar tu saldo disponible.');
     }
   };
 
   const handleGameSelect = (game: TournamentGame) => {
-    console.log('Game selected:', game.name, game.game_type);
+    console.log('[Tournaments] Game selected:', game.name, game.game_type);
     
     if (availableMXI < game.entry_fee) {
+      console.log('[Tournaments] Insufficient balance. Available:', availableMXI, 'Required:', game.entry_fee);
       Alert.alert(
         'Saldo Insuficiente',
         `Necesitas al menos ${game.entry_fee} MXI para participar.\n\nTu saldo disponible: ${availableMXI.toFixed(2)} MXI\n\nSolo puedes usar MXI ganado por:\n• Comisiones de referidos unificadas\n• Premios de retos anteriores`,
@@ -115,10 +131,11 @@ export default function TournamentsScreen() {
 
   const joinGame = async (game: TournamentGame) => {
     try {
-      console.log('Joining game:', game.name);
+      console.log('[Tournaments] Joining game:', game.name);
       setLoading(true);
 
       // Check for available sessions or create new one
+      console.log('[Tournaments] Checking for available sessions...');
       const { data: availableSessions, error: sessionError } = await supabase
         .from('game_sessions')
         .select(`
@@ -132,11 +149,11 @@ export default function TournamentsScreen() {
         .order('created_at', { ascending: true });
 
       if (sessionError) {
-        console.error('Session error:', sessionError);
-        throw sessionError;
+        console.error('[Tournaments] Session query error:', sessionError);
+        throw new Error(`Error al buscar sesiones: ${sessionError.message}`);
       }
 
-      console.log('Available sessions:', availableSessions);
+      console.log('[Tournaments] Available sessions found:', availableSessions?.length || 0);
 
       let sessionId: string;
 
@@ -144,28 +161,29 @@ export default function TournamentsScreen() {
         const session = availableSessions[0];
         const participantCount = session.game_participants?.length || 0;
 
-        console.log('Found session with', participantCount, 'participants');
+        console.log('[Tournaments] Found session with', participantCount, 'participants');
 
         if (participantCount < game.max_players) {
           sessionId = session.id;
-          console.log('Joining existing session:', sessionId);
+          console.log('[Tournaments] Joining existing session:', sessionId);
         } else {
-          // Create new session
           sessionId = await createNewSession(game);
-          console.log('Created new session (existing full):', sessionId);
+          console.log('[Tournaments] Created new session (existing full):', sessionId);
         }
       } else {
-        // Create new session
         sessionId = await createNewSession(game);
-        console.log('Created new session (none available):', sessionId);
+        console.log('[Tournaments] Created new session (none available):', sessionId);
       }
 
       // Join the session
       await joinSession(sessionId, game);
 
-    } catch (error) {
-      console.error('Error joining game:', error);
-      Alert.alert('Error', 'No se pudo unir al juego. Intenta de nuevo.');
+    } catch (error: any) {
+      console.error('[Tournaments] Error joining game:', error);
+      Alert.alert(
+        'Error', 
+        error.message || 'No se pudo unir al juego. Intenta de nuevo.'
+      );
     } finally {
       setLoading(false);
     }
@@ -174,159 +192,173 @@ export default function TournamentsScreen() {
   const createNewSession = async (game: TournamentGame): Promise<string> => {
     const sessionCode = `${game.game_type.toUpperCase()}-${Date.now().toString(36)}`;
     
-    console.log('Creating session with code:', sessionCode);
+    console.log('[Tournaments] Creating session with code:', sessionCode);
     
-    const { data, error } = await supabase
-      .from('game_sessions')
-      .insert({
-        game_id: game.id,
-        session_code: sessionCode,
-        num_players: game.min_players,
-        status: 'waiting',
-        total_pool: 0,
-        prize_amount: 0
-      })
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('game_sessions')
+        .insert({
+          game_id: game.id,
+          session_code: sessionCode,
+          num_players: game.min_players,
+          status: 'waiting',
+          total_pool: 0,
+          prize_amount: 0
+        })
+        .select()
+        .single();
 
-    if (error) {
-      console.error('Create session error:', error);
+      if (error) {
+        console.error('[Tournaments] Create session error:', error);
+        throw new Error(`Error al crear sesión: ${error.message}`);
+      }
+      
+      console.log('[Tournaments] Session created successfully:', data.id);
+      return data.id;
+    } catch (error: any) {
+      console.error('[Tournaments] Failed to create session:', error);
       throw error;
     }
-    
-    console.log('Session created:', data);
-    return data.id;
   };
 
   const joinSession = async (sessionId: string, game: TournamentGame) => {
-    console.log('Joining session:', sessionId);
+    console.log('[Tournaments] Joining session:', sessionId);
     
-    // Get current participant count
-    const { data: participants, error: countError } = await supabase
-      .from('game_participants')
-      .select('player_number')
-      .eq('session_id', sessionId)
-      .order('player_number', { ascending: false })
-      .limit(1);
+    try {
+      // Get current participant count
+      console.log('[Tournaments] Getting participant count...');
+      const { data: participants, error: countError } = await supabase
+        .from('game_participants')
+        .select('player_number')
+        .eq('session_id', sessionId)
+        .order('player_number', { ascending: false })
+        .limit(1);
 
-    if (countError) {
-      console.error('Count error:', countError);
-      throw countError;
-    }
-
-    const nextPlayerNumber = participants && participants.length > 0 
-      ? participants[0].player_number + 1 
-      : 1;
-
-    console.log('Next player number:', nextPlayerNumber);
-
-    // Deduct entry fee from user balance (only from allowed sources)
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('mxi_from_unified_commissions, mxi_from_challenges')
-      .eq('id', user?.id)
-      .single();
-
-    if (userError) {
-      console.error('User data error:', userError);
-      throw userError;
-    }
-
-    let remaining = game.entry_fee;
-    let newCommissions = userData.mxi_from_unified_commissions || 0;
-    let newChallenges = userData.mxi_from_challenges || 0;
-
-    console.log('Current balances - Commissions:', newCommissions, 'Challenges:', newChallenges);
-
-    // Deduct from commissions first
-    if (newCommissions >= remaining) {
-      newCommissions -= remaining;
-      remaining = 0;
-    } else {
-      remaining -= newCommissions;
-      newCommissions = 0;
-    }
-
-    // Then from challenges
-    if (remaining > 0) {
-      newChallenges -= remaining;
-    }
-
-    console.log('New balances - Commissions:', newCommissions, 'Challenges:', newChallenges);
-
-    const { error: updateError } = await supabase
-      .from('users')
-      .update({
-        mxi_from_unified_commissions: newCommissions,
-        mxi_from_challenges: newChallenges
-      })
-      .eq('id', user?.id);
-
-    if (updateError) {
-      console.error('Update balance error:', updateError);
-      throw updateError;
-    }
-
-    console.log('Balance updated successfully');
-
-    // Add participant
-    const { error: participantError } = await supabase
-      .from('game_participants')
-      .insert({
-        session_id: sessionId,
-        user_id: user?.id,
-        player_number: nextPlayerNumber,
-        entry_paid: true
-      });
-
-    if (participantError) {
-      console.error('Participant error:', participantError);
-      throw participantError;
-    }
-
-    console.log('Participant added successfully');
-
-    // Update session pool (100% goes to winner now)
-    const { data: sessionData, error: sessionError } = await supabase
-      .from('game_sessions')
-      .select('total_pool')
-      .eq('id', sessionId)
-      .single();
-
-    if (sessionError) {
-      console.error('Session data error:', sessionError);
-      throw sessionError;
-    }
-
-    const newPool = (sessionData.total_pool || 0) + game.entry_fee;
-    const prizeAmount = newPool; // 100% goes to winner
-
-    console.log('Updating pool - New total:', newPool, 'Prize:', prizeAmount);
-
-    const { error: poolUpdateError } = await supabase
-      .from('game_sessions')
-      .update({
-        total_pool: newPool,
-        prize_amount: prizeAmount
-      })
-      .eq('id', sessionId);
-
-    if (poolUpdateError) {
-      console.error('Pool update error:', poolUpdateError);
-      throw poolUpdateError;
-    }
-
-    console.log('Pool updated successfully');
-
-    // Navigate to game lobby
-    console.log('Navigating to lobby with sessionId:', sessionId, 'gameType:', game.game_type);
-    router.push({
-      pathname: '/game-lobby',
-      params: { 
-        sessionId: sessionId, 
-        gameType: game.game_type 
+      if (countError) {
+        console.error('[Tournaments] Count error:', countError);
+        throw new Error(`Error al contar participantes: ${countError.message}`);
       }
-    });
+
+      const nextPlayerNumber = participants && participants.length > 0 
+        ? participants[0].player_number + 1 
+        : 1;
+
+      console.log('[Tournaments] Next player number:', nextPlayerNumber);
+
+      // Deduct entry fee from user balance
+      console.log('[Tournaments] Deducting entry fee...');
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('mxi_from_unified_commissions, mxi_from_challenges')
+        .eq('id', user?.id)
+        .single();
+
+      if (userError) {
+        console.error('[Tournaments] User data error:', userError);
+        throw new Error(`Error al obtener datos del usuario: ${userError.message}`);
+      }
+
+      let remaining = game.entry_fee;
+      let newCommissions = userData.mxi_from_unified_commissions || 0;
+      let newChallenges = userData.mxi_from_challenges || 0;
+
+      console.log('[Tournaments] Current balances - Commissions:', newCommissions, 'Challenges:', newChallenges);
+
+      // Deduct from commissions first
+      if (newCommissions >= remaining) {
+        newCommissions -= remaining;
+        remaining = 0;
+      } else {
+        remaining -= newCommissions;
+        newCommissions = 0;
+      }
+
+      // Then from challenges
+      if (remaining > 0) {
+        newChallenges -= remaining;
+      }
+
+      console.log('[Tournaments] New balances - Commissions:', newCommissions, 'Challenges:', newChallenges);
+
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({
+          mxi_from_unified_commissions: newCommissions,
+          mxi_from_challenges: newChallenges
+        })
+        .eq('id', user?.id);
+
+      if (updateError) {
+        console.error('[Tournaments] Update balance error:', updateError);
+        throw new Error(`Error al actualizar saldo: ${updateError.message}`);
+      }
+
+      console.log('[Tournaments] Balance updated successfully');
+
+      // Add participant
+      console.log('[Tournaments] Adding participant...');
+      const { error: participantError } = await supabase
+        .from('game_participants')
+        .insert({
+          session_id: sessionId,
+          user_id: user?.id,
+          player_number: nextPlayerNumber,
+          entry_paid: true
+        });
+
+      if (participantError) {
+        console.error('[Tournaments] Participant error:', participantError);
+        throw new Error(`Error al unirse al juego: ${participantError.message}`);
+      }
+
+      console.log('[Tournaments] Participant added successfully');
+
+      // Update session pool
+      console.log('[Tournaments] Updating session pool...');
+      const { data: sessionData, error: sessionError } = await supabase
+        .from('game_sessions')
+        .select('total_pool')
+        .eq('id', sessionId)
+        .single();
+
+      if (sessionError) {
+        console.error('[Tournaments] Session data error:', sessionError);
+        throw new Error(`Error al obtener datos de sesión: ${sessionError.message}`);
+      }
+
+      const newPool = (sessionData.total_pool || 0) + game.entry_fee;
+      const prizeAmount = newPool; // 100% goes to winner
+
+      console.log('[Tournaments] Updating pool - New total:', newPool, 'Prize:', prizeAmount);
+
+      const { error: poolUpdateError } = await supabase
+        .from('game_sessions')
+        .update({
+          total_pool: newPool,
+          prize_amount: prizeAmount
+        })
+        .eq('id', sessionId);
+
+      if (poolUpdateError) {
+        console.error('[Tournaments] Pool update error:', poolUpdateError);
+        throw new Error(`Error al actualizar pool: ${poolUpdateError.message}`);
+      }
+
+      console.log('[Tournaments] Pool updated successfully');
+
+      // Navigate to game lobby
+      console.log('[Tournaments] Navigating to lobby with sessionId:', sessionId, 'gameType:', game.game_type);
+      router.push({
+        pathname: '/game-lobby',
+        params: { 
+          sessionId: sessionId, 
+          gameType: game.game_type 
+        }
+      });
+    } catch (error: any) {
+      console.error('[Tournaments] Failed to join session:', error);
+      throw error;
+    }
   };
 
   if (loading) {
