@@ -15,6 +15,7 @@ import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { GameErrorHandler } from '@/utils/gameErrorHandler';
 
 interface TournamentGame {
   id: string;
@@ -73,14 +74,18 @@ export default function TournamentsScreen() {
 
       if (error) {
         console.error('[Tournaments] Error loading games:', error);
+        GameErrorHandler.logError(error, 'loadGames', { userId: user?.id });
         throw error;
       }
       
-      console.log('[Tournaments] Games loaded:', data?.length || 0);
+      console.log('[Tournaments] Games loaded successfully:', data?.length || 0);
       setGames(data || []);
     } catch (error: any) {
       console.error('[Tournaments] CRITICAL ERROR loading games:', error);
-      Alert.alert('Error', 'No se pudieron cargar los juegos. Por favor intenta de nuevo.');
+      GameErrorHandler.handleError(error, 'loadGames', {
+        showAlert: true,
+        onRetry: loadGames,
+      });
     } finally {
       setLoading(false);
     }
@@ -100,45 +105,64 @@ export default function TournamentsScreen() {
 
       if (error) {
         console.error('[Tournaments] Error loading MXI:', error);
+        GameErrorHandler.logError(error, 'loadAvailableMXI', { userId: user?.id });
         throw error;
       }
       
       const total = (data.mxi_from_unified_commissions || 0) + (data.mxi_from_challenges || 0);
-      console.log('[Tournaments] Available MXI:', total);
+      console.log('[Tournaments] Available MXI loaded:', total);
       setAvailableMXI(total);
     } catch (error: any) {
       console.error('[Tournaments] ERROR loading MXI:', error);
+      GameErrorHandler.logError(error, 'loadAvailableMXI', { userId: user?.id });
       setAvailableMXI(0);
     }
   };
 
-  const handleGamePress = async (game: TournamentGame) => {
+  const handleGamePress = (game: TournamentGame) => {
     console.log('[Tournaments] ========================================');
-    console.log('[Tournaments] GAME BUTTON PRESSED');
+    console.log('[Tournaments] GAME BUTTON PRESSED - START');
     console.log('[Tournaments] Game:', game.name);
     console.log('[Tournaments] Game ID:', game.id);
     console.log('[Tournaments] Game Type:', game.game_type);
     console.log('[Tournaments] Entry Fee:', game.entry_fee);
     console.log('[Tournaments] Available MXI:', availableMXI);
     console.log('[Tournaments] User ID:', user?.id);
+    console.log('[Tournaments] Processing Game:', processingGame);
     console.log('[Tournaments] ========================================');
     
     // Prevent double-clicks
     if (processingGame) {
-      console.log('[Tournaments] Already processing, ignoring click');
+      console.log('[Tournaments] Already processing a game, ignoring click');
       return;
     }
 
     // Validate user
     if (!user || !user.id) {
-      console.error('[Tournaments] ERROR: No user');
+      console.error('[Tournaments] ERROR: No user or user ID');
+      GameErrorHandler.handleError(
+        new Error('No user session'),
+        'handleGamePress - user validation',
+        {
+          showAlert: true,
+          additionalInfo: { game: game.name },
+        }
+      );
       Alert.alert('Error', 'Sesión no válida. Por favor inicia sesión nuevamente.');
       return;
     }
 
     // Validate game
     if (!game || !game.id || !game.game_type) {
-      console.error('[Tournaments] ERROR: Invalid game:', game);
+      console.error('[Tournaments] ERROR: Invalid game data:', game);
+      GameErrorHandler.handleError(
+        new Error('Invalid game data'),
+        'handleGamePress - game validation',
+        {
+          showAlert: true,
+          additionalInfo: { game },
+        }
+      );
       Alert.alert('Error', 'Juego no válido. Por favor intenta con otro juego.');
       return;
     }
@@ -148,25 +172,30 @@ export default function TournamentsScreen() {
       console.log('[Tournaments] Insufficient balance');
       Alert.alert(
         'Saldo Insuficiente',
-        `Necesitas al menos ${game.entry_fee} MXI para participar.\n\nTu saldo disponible: ${availableMXI.toFixed(2)} MXI`,
+        `Necesitas al menos ${game.entry_fee} MXI para participar.\n\nTu saldo disponible: ${availableMXI.toFixed(2)} MXI\n\nPuedes obtener MXI ganando en otros retos o por comisiones de referidos.`,
         [{ text: 'OK' }]
       );
       return;
     }
 
-    // Show confirmation
+    // Show confirmation with reward distribution info
     Alert.alert(
       game.name,
-      `¿Deseas participar en este reto?\n\n💰 Costo: ${game.entry_fee} MXI\n👥 Jugadores: ${game.min_players}-${game.max_players}\n🏆 Premio: 100% del pool`,
+      `¿Deseas participar en este reto?\n\n💰 Costo: ${game.entry_fee} MXI\n👥 Jugadores: ${game.min_players}-${game.max_players}\n🏆 Recompensas: 90% del pool para jugadores\n💎 Fondo de premios: 10% del pool\n\nEl ganador recibe el 90% del total recaudado como recompensa.`,
       [
         { 
           text: 'Cancelar', 
           style: 'cancel',
-          onPress: () => console.log('[Tournaments] User cancelled')
+          onPress: () => {
+            console.log('[Tournaments] User cancelled');
+          }
         },
         { 
           text: 'Participar', 
-          onPress: () => joinGameDirectly(game)
+          onPress: () => {
+            console.log('[Tournaments] User confirmed, joining game');
+            joinGameDirectly(game);
+          }
         }
       ]
     );
@@ -177,6 +206,8 @@ export default function TournamentsScreen() {
     console.log('[Tournaments] JOIN GAME STARTED');
     console.log('[Tournaments] Game:', game.name);
     console.log('[Tournaments] Game ID:', game.id);
+    console.log('[Tournaments] Game Type:', game.game_type);
+    console.log('[Tournaments] Timestamp:', new Date().toISOString());
     console.log('[Tournaments] ========================================');
 
     setProcessingGame(game.id);
@@ -195,14 +226,21 @@ export default function TournamentsScreen() {
 
       if (sessionError) {
         console.error('[Tournaments] Session query error:', sessionError);
+        GameErrorHandler.logError(sessionError, 'joinGame - find session', {
+          gameId: game.id,
+          userId: user?.id,
+        });
         throw new Error('Error al buscar sesiones disponibles');
       }
+
+      console.log('[Tournaments] Found sessions:', sessions?.length || 0);
 
       let sessionId: string;
 
       // Check if there's a session with space
       const availableSession = sessions?.find(s => {
         const count = s.game_participants?.length || 0;
+        console.log('[Tournaments] Session', s.id, 'has', count, 'participants');
         return count < game.max_players;
       });
 
@@ -229,6 +267,10 @@ export default function TournamentsScreen() {
 
         if (createError) {
           console.error('[Tournaments] Create session error:', createError);
+          GameErrorHandler.logError(createError, 'joinGame - create session', {
+            gameId: game.id,
+            sessionCode,
+          });
           throw new Error('Error al crear sesión');
         }
 
@@ -248,6 +290,9 @@ export default function TournamentsScreen() {
 
       if (countError) {
         console.error('[Tournaments] Count error:', countError);
+        GameErrorHandler.logError(countError, 'joinGame - count participants', {
+          sessionId,
+        });
         throw new Error('Error al contar participantes');
       }
 
@@ -268,12 +313,17 @@ export default function TournamentsScreen() {
 
       if (userError) {
         console.error('[Tournaments] User query error:', userError);
+        GameErrorHandler.logError(userError, 'joinGame - get user balance', {
+          userId: user.id,
+        });
         throw new Error('Error al obtener saldo');
       }
 
       let remaining = game.entry_fee;
       let newCommissions = userData.mxi_from_unified_commissions || 0;
       let newChallenges = userData.mxi_from_challenges || 0;
+
+      console.log('[Tournaments] Current balances - Commissions:', newCommissions, 'Challenges:', newChallenges);
 
       // Deduct from commissions first
       if (newCommissions >= remaining) {
@@ -290,8 +340,11 @@ export default function TournamentsScreen() {
       }
 
       if (newChallenges < 0) {
+        console.error('[Tournaments] Insufficient balance after calculation');
         throw new Error('Saldo insuficiente');
       }
+
+      console.log('[Tournaments] New balances - Commissions:', newCommissions, 'Challenges:', newChallenges);
 
       const { error: updateError } = await supabase
         .from('users')
@@ -303,6 +356,11 @@ export default function TournamentsScreen() {
 
       if (updateError) {
         console.error('[Tournaments] Balance update error:', updateError);
+        GameErrorHandler.logError(updateError, 'joinGame - update balance', {
+          userId: user.id,
+          newCommissions,
+          newChallenges,
+        });
         throw new Error('Error al actualizar saldo');
       }
 
@@ -322,8 +380,14 @@ export default function TournamentsScreen() {
 
       if (participantError) {
         console.error('[Tournaments] Participant insert error:', participantError);
+        GameErrorHandler.logError(participantError, 'joinGame - add participant', {
+          sessionId,
+          userId: user.id,
+          playerNumber: nextPlayerNumber,
+        });
         
         // Rollback balance
+        console.log('[Tournaments] Rolling back balance...');
         await supabase
           .from('users')
           .update({
@@ -337,7 +401,7 @@ export default function TournamentsScreen() {
 
       console.log('[Tournaments] Participant added successfully');
 
-      // Step 5: Update pool
+      // Step 5: Update pool (90% goes to prize, 10% to fund)
       console.log('[Tournaments] Step 5: Updating pool...');
       
       const { data: sessionData, error: poolQueryError } = await supabase
@@ -348,21 +412,33 @@ export default function TournamentsScreen() {
 
       if (poolQueryError) {
         console.error('[Tournaments] Pool query error:', poolQueryError);
+        GameErrorHandler.logError(poolQueryError, 'joinGame - get pool', {
+          sessionId,
+        });
         throw new Error('Error al obtener pool');
       }
 
       const newPool = (sessionData.total_pool || 0) + game.entry_fee;
+      const prizeAmount = newPool * 0.9; // 90% for players
+      const fundAmount = newPool * 0.1; // 10% for prize fund
+
+      console.log('[Tournaments] Pool calculation - Total:', newPool, 'Prize (90%):', prizeAmount, 'Fund (10%):', fundAmount);
 
       const { error: poolUpdateError } = await supabase
         .from('game_sessions')
         .update({
           total_pool: newPool,
-          prize_amount: newPool
+          prize_amount: prizeAmount
         })
         .eq('id', sessionId);
 
       if (poolUpdateError) {
         console.error('[Tournaments] Pool update error:', poolUpdateError);
+        GameErrorHandler.logError(poolUpdateError, 'joinGame - update pool', {
+          sessionId,
+          newPool,
+          prizeAmount,
+        });
         throw new Error('Error al actualizar pool');
       }
 
@@ -373,30 +449,39 @@ export default function TournamentsScreen() {
       console.log('[Tournaments] NAVIGATING TO LOBBY');
       console.log('[Tournaments] Session ID:', sessionId);
       console.log('[Tournaments] Game Type:', game.game_type);
+      console.log('[Tournaments] Timestamp:', new Date().toISOString());
       console.log('[Tournaments] ========================================');
 
-      // Use replace to ensure navigation happens
-      router.replace({
-        pathname: '/game-lobby',
-        params: { 
-          sessionId: sessionId, 
-          gameType: game.game_type 
-        }
-      });
-
-      console.log('[Tournaments] Navigation executed');
+      // Small delay to ensure state updates
+      setTimeout(() => {
+        router.push({
+          pathname: '/game-lobby',
+          params: { 
+            sessionId: sessionId, 
+            gameType: game.game_type 
+          }
+        });
+        console.log('[Tournaments] Navigation command executed');
+      }, 100);
 
     } catch (error: any) {
       console.error('[Tournaments] ========================================');
       console.error('[Tournaments] JOIN GAME FAILED');
       console.error('[Tournaments] Error:', error);
+      console.error('[Tournaments] Error message:', error.message);
+      console.error('[Tournaments] Error stack:', error.stack);
+      console.error('[Tournaments] Timestamp:', new Date().toISOString());
       console.error('[Tournaments] ========================================');
       
-      Alert.alert(
-        'Error',
-        error.message || 'No se pudo unir al juego. Por favor intenta de nuevo.',
-        [{ text: 'OK' }]
-      );
+      GameErrorHandler.handleError(error, 'joinGame - complete flow', {
+        showAlert: true,
+        onRetry: () => joinGameDirectly(game),
+        additionalInfo: {
+          gameId: game.id,
+          gameName: game.name,
+          userId: user?.id,
+        },
+      });
     } finally {
       setLoading(false);
       setProcessingGame(null);
@@ -430,6 +515,34 @@ export default function TournamentsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={[commonStyles.card, styles.distributionCard]}>
+          <View style={styles.distributionHeader}>
+            <IconSymbol 
+              ios_icon_name="chart.pie.fill" 
+              android_material_icon_name="pie_chart" 
+              size={32} 
+              color={colors.primary} 
+            />
+            <Text style={styles.distributionTitle}>Distribución de Recompensas</Text>
+          </View>
+          <View style={styles.distributionContent}>
+            <View style={styles.distributionItem}>
+              <View style={[styles.distributionBar, { width: '90%', backgroundColor: colors.success }]} />
+              <Text style={styles.distributionLabel}>90% - Recompensas para Jugadores</Text>
+              <Text style={styles.distributionDescription}>
+                El ganador recibe el 90% del pool total como recompensa
+              </Text>
+            </View>
+            <View style={styles.distributionItem}>
+              <View style={[styles.distributionBar, { width: '10%', backgroundColor: colors.primary }]} />
+              <Text style={styles.distributionLabel}>10% - Fondo de Premios</Text>
+              <Text style={styles.distributionDescription}>
+                Se destina al fondo de premios y recompensas especiales
+              </Text>
+            </View>
+          </View>
+        </View>
+
         <View style={[commonStyles.card, styles.infoCard]}>
           <View style={styles.infoHeader}>
             <IconSymbol 
@@ -443,8 +556,8 @@ export default function TournamentsScreen() {
           <View style={styles.infoList}>
             <Text style={styles.infoItem}>• Cada ticket cuesta 3 MXI</Text>
             <Text style={styles.infoItem}>• Participa con 3 a 5 jugadores al azar</Text>
-            <Text style={styles.infoItem}>• El ganador recibe el 100% del pool</Text>
-            <Text style={styles.infoItem}>• Premios por participación, no por apuesta</Text>
+            <Text style={styles.infoItem}>• El ganador recibe el 90% del pool como recompensa</Text>
+            <Text style={styles.infoItem}>• El 10% va al fondo de premios</Text>
             <Text style={styles.infoItem}>• Todos los juegos son de habilidad pura</Text>
             <Text style={styles.infoItem}>• Solo puedes usar MXI de comisiones o retos</Text>
           </View>
@@ -557,9 +670,9 @@ export default function TournamentsScreen() {
             size={48} 
             color={colors.primary} 
           />
-          <Text style={styles.prizeTitle}>Premios por Participación</Text>
+          <Text style={styles.prizeTitle}>Sistema de Recompensas</Text>
           <Text style={styles.prizeText}>
-            El ganador se lleva el 100% del total recaudado. No hay comisiones ni descuentos. ¡Demuestra tu habilidad y gana!
+            El ganador recibe el 90% del total recaudado como recompensa. El 10% restante se destina al fondo de premios para eventos especiales.
           </Text>
           <View style={styles.prizeExample}>
             <Text style={styles.prizeExampleTitle}>Ejemplo:</Text>
@@ -567,7 +680,10 @@ export default function TournamentsScreen() {
               5 jugadores × 3 MXI = 15 MXI total
             </Text>
             <Text style={styles.prizeExampleText}>
-              🏆 Ganador recibe: 15 MXI completos
+              🏆 Ganador recibe: 13.5 MXI (90%)
+            </Text>
+            <Text style={styles.prizeExampleText}>
+              💎 Fondo de premios: 1.5 MXI (10%)
             </Text>
           </View>
         </View>
@@ -625,10 +741,47 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textSecondary,
   },
-  infoCard: {
+  distributionCard: {
     backgroundColor: colors.primary + '10',
+    borderWidth: 2,
+    borderColor: colors.primary + '40',
+    marginBottom: 16,
+  },
+  distributionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  distributionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  distributionContent: {
+    gap: 16,
+  },
+  distributionItem: {
+    gap: 8,
+  },
+  distributionBar: {
+    height: 8,
+    borderRadius: 4,
+  },
+  distributionLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  distributionDescription: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  infoCard: {
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: colors.primary + '30',
+    borderColor: colors.border,
     marginBottom: 16,
   },
   infoHeader: {

@@ -14,6 +14,7 @@ import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { GameErrorHandler } from '@/utils/gameErrorHandler';
 
 interface Participant {
   id: string;
@@ -59,10 +60,19 @@ export default function GameLobbyScreen() {
     console.log('[GameLobby] Game Type:', gameType);
     console.log('[GameLobby] User ID:', user?.id);
     console.log('[GameLobby] All params:', params);
+    console.log('[GameLobby] Timestamp:', new Date().toISOString());
     console.log('[GameLobby] ========================================');
 
     if (!sessionId || !gameType) {
       console.error('[GameLobby] ERROR: Missing parameters');
+      GameErrorHandler.handleError(
+        new Error('Missing session parameters'),
+        'GameLobby - initialization',
+        {
+          showAlert: true,
+          additionalInfo: { sessionId, gameType },
+        }
+      );
       Alert.alert(
         'Error',
         'Parámetros de sesión inválidos. Volviendo a torneos.',
@@ -150,6 +160,9 @@ export default function GameLobbyScreen() {
 
       if (sessionError) {
         console.error('[GameLobby] Session error:', sessionError);
+        GameErrorHandler.logError(sessionError, 'loadSessionData - session query', {
+          sessionId,
+        });
         throw sessionError;
       }
       
@@ -170,6 +183,9 @@ export default function GameLobbyScreen() {
 
       if (participantsError) {
         console.error('[GameLobby] Participants error:', participantsError);
+        GameErrorHandler.logError(participantsError, 'loadSessionData - participants query', {
+          sessionId,
+        });
         throw participantsError;
       }
       
@@ -183,6 +199,11 @@ export default function GameLobbyScreen() {
       }
     } catch (error: any) {
       console.error('[GameLobby] ERROR loading data:', error);
+      GameErrorHandler.handleError(error, 'loadSessionData', {
+        showAlert: true,
+        onRetry: loadSessionData,
+        additionalInfo: { sessionId },
+      });
       Alert.alert(
         'Error',
         'No se pudo cargar la sesión. Volviendo a torneos.',
@@ -207,14 +228,18 @@ export default function GameLobbyScreen() {
 
       if (error) {
         console.error('[GameLobby] Start game error:', error);
+        GameErrorHandler.logError(error, 'startGame', { sessionId });
         throw error;
       }
 
-      console.log('[GameLobby] Game started');
+      console.log('[GameLobby] Game started successfully');
       navigateToGame();
     } catch (error: any) {
       console.error('[GameLobby] ERROR starting game:', error);
-      Alert.alert('Error', 'No se pudo iniciar el juego. Por favor intenta de nuevo.');
+      GameErrorHandler.handleError(error, 'startGame', {
+        showAlert: true,
+        onRetry: startGame,
+      });
     }
   };
 
@@ -233,15 +258,34 @@ export default function GameLobbyScreen() {
     console.log('[GameLobby] NAVIGATING TO GAME');
     console.log('[GameLobby] Route:', route);
     console.log('[GameLobby] Session ID:', sessionId);
+    console.log('[GameLobby] Game Type:', gameType);
+    console.log('[GameLobby] Timestamp:', new Date().toISOString());
     console.log('[GameLobby] ========================================');
     
     if (route) {
-      router.replace({
-        pathname: route as any,
-        params: { sessionId }
-      });
+      try {
+        router.replace({
+          pathname: route as any,
+          params: { sessionId }
+        });
+        console.log('[GameLobby] Navigation executed successfully');
+      } catch (navError) {
+        console.error('[GameLobby] Navigation error:', navError);
+        GameErrorHandler.handleError(navError, 'navigateToGame', {
+          showAlert: true,
+          additionalInfo: { route, sessionId, gameType },
+        });
+      }
     } else {
       console.error('[GameLobby] ERROR: Unknown game type:', gameType);
+      GameErrorHandler.handleError(
+        new Error(`Unknown game type: ${gameType}`),
+        'navigateToGame - route lookup',
+        {
+          showAlert: true,
+          additionalInfo: { gameType, availableRoutes: Object.keys(gameRoutes) },
+        }
+      );
       Alert.alert(
         'Error',
         'Tipo de juego no reconocido.',
@@ -261,6 +305,7 @@ export default function GameLobbyScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
+              console.log('[GameLobby] User leaving game');
               await supabase
                 .from('game_participants')
                 .delete()
@@ -270,6 +315,10 @@ export default function GameLobbyScreen() {
               router.replace('/(tabs)/tournaments');
             } catch (error) {
               console.error('[GameLobby] Leave error:', error);
+              GameErrorHandler.logError(error, 'handleLeave', {
+                sessionId,
+                userId: user?.id,
+              });
               router.replace('/(tabs)/tournaments');
             }
           }
@@ -336,12 +385,12 @@ export default function GameLobbyScreen() {
           
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Premio Total</Text>
+              <Text style={styles.statLabel}>Premio (90%)</Text>
               <Text style={styles.statValue}>{session.prize_amount.toFixed(2)} MXI</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Pool Acumulado</Text>
+              <Text style={styles.statLabel}>Pool Total</Text>
               <Text style={styles.statValue}>{session.total_pool.toFixed(2)} MXI</Text>
             </View>
           </View>
@@ -354,7 +403,7 @@ export default function GameLobbyScreen() {
               color={colors.success} 
             />
             <Text style={styles.prizeNoteText}>
-              El ganador recibe el 100% del pool
+              El ganador recibe el 90% del pool como recompensa
             </Text>
           </View>
         </View>
