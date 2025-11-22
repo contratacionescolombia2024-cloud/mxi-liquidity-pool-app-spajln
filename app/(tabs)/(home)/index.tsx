@@ -1,5 +1,6 @@
 
 import VestingCounter from '@/components/VestingCounter';
+import LaunchCountdown from '@/components/LaunchCountdown';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -31,12 +32,7 @@ interface PhaseData {
   phase3TokensSold: number;
 }
 
-interface CountdownTime {
-  days: number;
-  hours: number;
-  minutes: number;
-  seconds: number;
-}
+
 
 interface OKXPayment {
   paymentId: string;
@@ -57,8 +53,6 @@ export default function HomeScreen() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [poolMembers, setPoolMembers] = useState(56527);
   const [phaseData, setPhaseData] = useState<PhaseData | null>(null);
-  const [countdown, setCountdown] = useState<CountdownTime>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-  const [launchDate] = useState(new Date('2026-02-15T12:00:00Z'));
   
   // Sales panel states
   const [showSalesModal, setShowSalesModal] = useState(false);
@@ -77,27 +71,10 @@ export default function HomeScreen() {
       if (user) {
         setCurrentYield(getCurrentYield());
       }
-      updateCountdown();
     }, 1000);
 
     return () => clearInterval(interval);
   }, [user]);
-
-  const updateCountdown = () => {
-    const now = new Date();
-    const difference = launchDate.getTime() - now.getTime();
-
-    if (difference > 0) {
-      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((difference % (1000 * 60)) / 1000);
-
-      setCountdown({ days, hours, minutes, seconds });
-    } else {
-      setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-    }
-  };
 
   const loadData = async () => {
     if (!user) return;
@@ -392,34 +369,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Countdown to Launch */}
-        <View style={[commonStyles.card, styles.countdownCard]}>
-          <View style={styles.countdownHeader}>
-            <IconSymbol ios_icon_name="clock.fill" android_material_icon_name="schedule" size={28} color={colors.primary} />
-            <Text style={styles.countdownTitle}>🚀 Lanzamiento MXI</Text>
-          </View>
-          <Text style={styles.countdownSubtitle}>15 de Febrero 2026 - 12:00 UTC</Text>
-          <View style={styles.countdownDisplay}>
-            <View style={styles.countdownItem}>
-              <Text style={styles.countdownValue}>{countdown.days}</Text>
-              <Text style={styles.countdownLabel}>Días</Text>
-            </View>
-            <Text style={styles.countdownSeparator}>:</Text>
-            <View style={styles.countdownItem}>
-              <Text style={styles.countdownValue}>{countdown.hours.toString().padStart(2, '0')}</Text>
-              <Text style={styles.countdownLabel}>Horas</Text>
-            </View>
-            <Text style={styles.countdownSeparator}>:</Text>
-            <View style={styles.countdownItem}>
-              <Text style={styles.countdownValue}>{countdown.minutes.toString().padStart(2, '0')}</Text>
-              <Text style={styles.countdownLabel}>Min</Text>
-            </View>
-            <Text style={styles.countdownSeparator}>:</Text>
-            <View style={styles.countdownItem}>
-              <Text style={styles.countdownValue}>{countdown.seconds.toString().padStart(2, '0')}</Text>
-              <Text style={styles.countdownLabel}>Seg</Text>
-            </View>
-          </View>
-        </View>
+        <LaunchCountdown />
 
         {/* MXI Balance with Breakdown */}
         <View style={[commonStyles.card, styles.balanceCard]}>
@@ -1050,55 +1000,7 @@ const styles = StyleSheet.create({
   profileButton: {
     padding: 4,
   },
-  countdownCard: {
-    marginBottom: 16,
-    backgroundColor: `${colors.primary}15`,
-    borderWidth: 2,
-    borderColor: colors.primary,
-  },
-  countdownHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 8,
-  },
-  countdownTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  countdownSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 16,
-  },
-  countdownDisplay: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
-  countdownItem: {
-    alignItems: 'center',
-    minWidth: 60,
-  },
-  countdownValue: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: colors.primary,
-    fontFamily: 'monospace',
-  },
-  countdownLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
-  countdownSeparator: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.primary,
-    marginBottom: 20,
-  },
+
   balanceCard: {
     alignItems: 'center',
     marginBottom: 16,

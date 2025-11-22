@@ -29,7 +29,6 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
   
   // Input states
   const [mxiAmount, setMxiAmount] = useState('');
-  const [usdtAmount, setUsdtAmount] = useState('');
   const [referralEmail, setReferralEmail] = useState('');
   const [referralCode, setReferralCode] = useState('');
 
@@ -38,7 +37,6 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
     setModalVisible(true);
     // Reset inputs
     setMxiAmount('');
-    setUsdtAmount('');
     setReferralEmail('');
     setReferralCode('');
   };
@@ -85,10 +83,9 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
 
   const handleAddMxiWithCommission = async () => {
     const mxi = parseFloat(mxiAmount);
-    const usdt = parseFloat(usdtAmount);
     
-    if (isNaN(mxi) || mxi <= 0 || isNaN(usdt) || usdt <= 0) {
-      Alert.alert('Error', 'Por favor ingresa montos válidos');
+    if (isNaN(mxi) || mxi <= 0) {
+      Alert.alert('Error', 'Por favor ingresa un monto válido de MXI');
       return;
     }
 
@@ -97,11 +94,15 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No authenticated');
 
+      // Calculate USDT equivalent based on current phase price
+      // For now, we'll use Phase 1 price (0.40 USDT per MXI)
+      const usdtEquivalent = mxi * 0.40;
+
       const { data, error } = await supabase.rpc('admin_add_mxi_with_commission', {
         p_user_id: userId,
         p_admin_id: user.id,
         p_amount: mxi,
-        p_usdt_equivalent: usdt,
+        p_usdt_equivalent: usdtEquivalent,
       });
 
       if (error) throw error;
@@ -157,15 +158,14 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
 
   const handleAddBalanceToReferral = async () => {
     const mxi = parseFloat(mxiAmount) || 0;
-    const usdt = parseFloat(usdtAmount) || 0;
     
     if (!referralEmail) {
       Alert.alert('Error', 'Por favor ingresa el correo del referido');
       return;
     }
 
-    if (mxi === 0 && usdt === 0) {
-      Alert.alert('Error', 'Por favor ingresa al menos un monto');
+    if (mxi === 0) {
+      Alert.alert('Error', 'Por favor ingresa un monto de MXI');
       return;
     }
 
@@ -178,13 +178,13 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
         p_admin_id: user.id,
         p_referral_email: referralEmail,
         p_mxi_amount: mxi,
-        p_usdt_amount: usdt,
+        p_usdt_amount: 0, // USDT removed, keeping for backward compatibility
       });
 
       if (error) throw error;
 
       if (data?.success) {
-        Alert.alert('✅ Éxito', 'Saldo añadido al referido exitosamente');
+        Alert.alert('✅ Éxito', 'Saldo MXI añadido al referido exitosamente');
         closeModal();
         onUpdate();
       } else {
@@ -235,23 +235,15 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
           <View>
             <Text style={styles.modalTitle}>Añadir MXI con Comisión</Text>
             <Text style={styles.modalSubtitle}>Usuario: {userName}</Text>
+            <Text style={styles.modalNote}>
+              💡 Las comisiones se calcularán automáticamente basadas en la cantidad de MXI comprados
+            </Text>
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Cantidad de MXI</Text>
               <TextInput
                 style={styles.input}
                 value={mxiAmount}
                 onChangeText={setMxiAmount}
-                keyboardType="decimal-pad"
-                placeholder="0.00"
-                placeholderTextColor={colors.textSecondary}
-              />
-            </View>
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Equivalente en USDT</Text>
-              <TextInput
-                style={styles.input}
-                value={usdtAmount}
-                onChangeText={setUsdtAmount}
                 keyboardType="decimal-pad"
                 placeholder="0.00"
                 placeholderTextColor={colors.textSecondary}
@@ -315,7 +307,7 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
       case 'add_balance_to_referral':
         return (
           <View>
-            <Text style={styles.modalTitle}>Añadir Saldo a Referido</Text>
+            <Text style={styles.modalTitle}>Añadir Saldo MXI a Referido</Text>
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Correo del Referido</Text>
               <TextInput
@@ -329,22 +321,11 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
               />
             </View>
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Cantidad de MXI (opcional)</Text>
+              <Text style={styles.inputLabel}>Cantidad de MXI</Text>
               <TextInput
                 style={styles.input}
                 value={mxiAmount}
                 onChangeText={setMxiAmount}
-                keyboardType="decimal-pad"
-                placeholder="0.00"
-                placeholderTextColor={colors.textSecondary}
-              />
-            </View>
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Cantidad de USDT (opcional)</Text>
-              <TextInput
-                style={styles.input}
-                value={usdtAmount}
-                onChangeText={setUsdtAmount}
                 keyboardType="decimal-pad"
                 placeholder="0.00"
                 placeholderTextColor={colors.textSecondary}
@@ -514,6 +495,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     marginBottom: 20,
+  },
+  modalNote: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    backgroundColor: colors.primary + '20',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
   },
   inputContainer: {
     marginBottom: 16,

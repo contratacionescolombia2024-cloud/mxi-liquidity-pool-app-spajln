@@ -26,9 +26,11 @@ interface UserData {
   id_number: string;
   address: string;
   mxi_balance: number;
-  usdt_contributed: number;
+  mxi_purchased_directly: number;
+  mxi_from_unified_commissions: number;
+  mxi_from_challenges: number;
+  mxi_vesting_locked: number;
   is_active_contributor: boolean;
-  kyc_status: string;
   active_referrals: number;
   joined_date: string;
   referral_code: string;
@@ -38,11 +40,19 @@ interface UserData {
   yield_rate_per_minute: number;
   accumulated_yield: number;
   last_yield_update: string;
-  mxi_purchased_directly: number;
-  mxi_from_unified_commissions: number;
   is_blocked: boolean;
   blocked_at: string | null;
   blocked_reason: string | null;
+}
+
+interface ReferralData {
+  id: string;
+  name: string;
+  email: string;
+  mxi_purchased_directly: number;
+  mxi_from_unified_commissions: number;
+  is_active_contributor: boolean;
+  joined_date: string;
 }
 
 export default function UserManagementEnhancedScreen() {
@@ -52,9 +62,11 @@ export default function UserManagementEnhancedScreen() {
   const [users, setUsers] = useState<UserData[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserData[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'kyc_approved' | 'blocked'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'blocked'>('all');
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
+  const [referrals, setReferrals] = useState<ReferralData[]>([]);
+  const [loadingReferrals, setLoadingReferrals] = useState(false);
 
   useEffect(() => {
     loadUsers();
@@ -83,6 +95,28 @@ export default function UserManagementEnhancedScreen() {
     }
   };
 
+  const loadUserReferrals = async (userId: string) => {
+    try {
+      setLoadingReferrals(true);
+      
+      // Get direct referrals
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, name, email, mxi_purchased_directly, mxi_from_unified_commissions, is_active_contributor, joined_date')
+        .eq('referred_by', userId)
+        .order('joined_date', { ascending: false });
+
+      if (error) throw error;
+
+      setReferrals(data || []);
+    } catch (error) {
+      console.error('Error loading referrals:', error);
+      Alert.alert('Error', 'Failed to load referrals');
+    } finally {
+      setLoadingReferrals(false);
+    }
+  };
+
   const filterUsers = () => {
     let filtered = [...users];
 
@@ -90,8 +124,6 @@ export default function UserManagementEnhancedScreen() {
       filtered = filtered.filter(u => u.is_active_contributor && !u.is_blocked);
     } else if (filterStatus === 'inactive') {
       filtered = filtered.filter(u => !u.is_active_contributor && !u.is_blocked);
-    } else if (filterStatus === 'kyc_approved') {
-      filtered = filtered.filter(u => u.kyc_status === 'approved' && !u.is_blocked);
     } else if (filterStatus === 'blocked') {
       filtered = filtered.filter(u => u.is_blocked);
     }
@@ -109,9 +141,10 @@ export default function UserManagementEnhancedScreen() {
     setFilteredUsers(filtered);
   };
 
-  const handleUserPress = (userData: UserData) => {
+  const handleUserPress = async (userData: UserData) => {
     setSelectedUser(userData);
     setDetailsModalVisible(true);
+    await loadUserReferrals(userData.id);
   };
 
   const handleBlockUser = async (userId: string) => {
@@ -188,19 +221,31 @@ export default function UserManagementEnhancedScreen() {
     );
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'approved': return colors.success;
-      case 'pending': return colors.warning;
-      case 'rejected': return colors.error;
-      default: return colors.textSecondary;
-    }
-  };
-
   const formatDate = (dateString: string) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
     return date.toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' });
+  };
+
+  const formatNumber = (num: number) => {
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(num);
+  };
+
+  const calculateTotalMxiBalance = (userData: UserData) => {
+    return (
+      userData.mxi_purchased_directly +
+      userData.mxi_from_unified_commissions +
+      userData.mxi_from_challenges +
+      userData.mxi_vesting_locked
+    );
+  };
+
+  const calculateAveragePerReferral = (userData: UserData) => {
+    if (userData.active_referrals === 0) return 0;
+    return userData.mxi_from_unified_commissions / userData.active_referrals;
   };
 
   if (loading) {
@@ -290,15 +335,6 @@ export default function UserManagementEnhancedScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.filterButton, filterStatus === 'kyc_approved' && styles.filterButtonActive]}
-            onPress={() => setFilterStatus('kyc_approved')}
-          >
-            <Text style={[styles.filterButtonText, filterStatus === 'kyc_approved' && styles.filterButtonTextActive]}>
-              KYC Aprobado
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
             style={[styles.filterButton, filterStatus === 'blocked' && styles.filterButtonActive]}
             onPress={() => setFilterStatus('blocked')}
           >
@@ -362,11 +398,6 @@ export default function UserManagementEnhancedScreen() {
                       <Text style={[styles.statusBadgeText, { color: colors.success }]}>Activo</Text>
                     </View>
                   )}
-                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(userData.kyc_status) + '20' }]}>
-                    <Text style={[styles.statusBadgeText, { color: getStatusColor(userData.kyc_status) }]}>
-                      {userData.kyc_status ? userData.kyc_status.toUpperCase() : 'N/A'}
-                    </Text>
-                  </View>
                 </View>
               </View>
 
@@ -378,21 +409,21 @@ export default function UserManagementEnhancedScreen() {
                     size={16} 
                     color={colors.primary} 
                   />
-                  <Text style={styles.userStatValue}>{parseFloat(userData.mxi_balance.toString()).toFixed(2)} MXI</Text>
+                  <Text style={styles.userStatValue}>{formatNumber(calculateTotalMxiBalance(userData))} MXI</Text>
                 </View>
                 <View style={styles.userStat}>
                   <IconSymbol 
-                    ios_icon_name="dollarsign.circle" 
-                    android_material_icon_name="attach_money" 
+                    ios_icon_name="person.3.fill" 
+                    android_material_icon_name="group" 
                     size={16} 
                     color={colors.success} 
                   />
-                  <Text style={styles.userStatValue}>${parseFloat(userData.usdt_contributed.toString()).toFixed(2)}</Text>
+                  <Text style={styles.userStatValue}>{formatNumber(userData.mxi_from_unified_commissions)} MXI</Text>
                 </View>
                 <View style={styles.userStat}>
                   <IconSymbol 
                     ios_icon_name="person.2" 
-                    android_material_icon_name="group" 
+                    android_material_icon_name="people" 
                     size={16} 
                     color={colors.warning} 
                   />
@@ -453,26 +484,182 @@ export default function UserManagementEnhancedScreen() {
                   <Text style={styles.infoValue}>{selectedUser.address}</Text>
                 </View>
                 <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Estado KYC:</Text>
-                  <Text style={[styles.infoValue, { color: getStatusColor(selectedUser.kyc_status) }]}>
-                    {selectedUser.kyc_status?.toUpperCase() || 'N/A'}
+                  <Text style={styles.infoLabel}>Estado:</Text>
+                  <Text style={[styles.infoValue, { color: selectedUser.is_active_contributor ? colors.success : colors.textSecondary }]}>
+                    {selectedUser.is_active_contributor ? 'ACTIVO' : 'INACTIVO'}
                   </Text>
                 </View>
               </View>
 
+              {/* MXI Balance Breakdown */}
               <View style={commonStyles.card}>
-                <Text style={styles.sectionTitle}>Balances</Text>
+                <Text style={styles.sectionTitle}>💎 Balance MXI Total</Text>
+                <View style={styles.totalBalanceRow}>
+                  <Text style={styles.totalBalanceLabel}>Balance Total:</Text>
+                  <Text style={styles.totalBalanceValue}>{formatNumber(calculateTotalMxiBalance(selectedUser))} MXI</Text>
+                </View>
+                
+                <View style={styles.balanceDivider} />
+                
                 <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>MXI Balance:</Text>
-                  <Text style={styles.infoValue}>{selectedUser.mxi_balance.toFixed(2)} MXI</Text>
+                  <View style={styles.infoRowIcon}>
+                    <IconSymbol 
+                      ios_icon_name="cart.fill" 
+                      android_material_icon_name="shopping_cart" 
+                      size={18} 
+                      color={colors.primary} 
+                    />
+                    <Text style={styles.infoLabel}>MXI Comprados:</Text>
+                  </View>
+                  <Text style={styles.infoValue}>{formatNumber(selectedUser.mxi_purchased_directly)} MXI</Text>
+                </View>
+                
+                <View style={styles.infoRow}>
+                  <View style={styles.infoRowIcon}>
+                    <IconSymbol 
+                      ios_icon_name="person.3.fill" 
+                      android_material_icon_name="group" 
+                      size={18} 
+                      color={colors.success} 
+                    />
+                    <Text style={styles.infoLabel}>MXI por Referidos:</Text>
+                  </View>
+                  <Text style={[styles.infoValue, { color: colors.success }]}>
+                    {formatNumber(selectedUser.mxi_from_unified_commissions)} MXI
+                  </Text>
+                </View>
+                
+                <View style={styles.infoRow}>
+                  <View style={styles.infoRowIcon}>
+                    <IconSymbol 
+                      ios_icon_name="trophy.fill" 
+                      android_material_icon_name="emoji_events" 
+                      size={18} 
+                      color={colors.warning} 
+                    />
+                    <Text style={styles.infoLabel}>MXI por Retos:</Text>
+                  </View>
+                  <Text style={styles.infoValue}>{formatNumber(selectedUser.mxi_from_challenges)} MXI</Text>
+                </View>
+                
+                <View style={styles.infoRow}>
+                  <View style={styles.infoRowIcon}>
+                    <IconSymbol 
+                      ios_icon_name="lock.fill" 
+                      android_material_icon_name="lock" 
+                      size={18} 
+                      color={colors.accent} 
+                    />
+                    <Text style={styles.infoLabel}>MXI Vesting:</Text>
+                  </View>
+                  <Text style={styles.infoValue}>{formatNumber(selectedUser.mxi_vesting_locked)} MXI</Text>
+                </View>
+              </View>
+
+              {/* Referral Metrics */}
+              <View style={commonStyles.card}>
+                <Text style={styles.sectionTitle}>📊 Métricas de Referidos</Text>
+                
+                <View style={styles.metricsGrid}>
+                  <View style={styles.metricCard}>
+                    <IconSymbol 
+                      ios_icon_name="person.2.fill" 
+                      android_material_icon_name="people" 
+                      size={32} 
+                      color={colors.primary} 
+                    />
+                    <Text style={styles.metricValue}>{selectedUser.active_referrals}</Text>
+                    <Text style={styles.metricLabel}>Referidos Activos</Text>
+                  </View>
+                  
+                  <View style={styles.metricCard}>
+                    <IconSymbol 
+                      ios_icon_name="dollarsign.circle.fill" 
+                      android_material_icon_name="attach_money" 
+                      size={32} 
+                      color={colors.success} 
+                    />
+                    <Text style={styles.metricValue}>{formatNumber(selectedUser.mxi_from_unified_commissions)}</Text>
+                    <Text style={styles.metricLabel}>MXI por Comisiones</Text>
+                  </View>
+                </View>
+                
+                <View style={styles.averageCard}>
+                  <View style={styles.averageHeader}>
+                    <IconSymbol 
+                      ios_icon_name="chart.bar.fill" 
+                      android_material_icon_name="bar_chart" 
+                      size={24} 
+                      color={colors.accent} 
+                    />
+                    <Text style={styles.averageTitle}>Promedio por Referido</Text>
+                  </View>
+                  <Text style={styles.averageValue}>
+                    {formatNumber(calculateAveragePerReferral(selectedUser))} MXI
+                  </Text>
+                  <Text style={styles.averageSubtext}>
+                    {selectedUser.active_referrals > 0 
+                      ? `Basado en ${selectedUser.active_referrals} referido${selectedUser.active_referrals > 1 ? 's' : ''}`
+                      : 'Sin referidos activos'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Referrals List */}
+              {referrals.length > 0 && (
+                <View style={commonStyles.card}>
+                  <Text style={styles.sectionTitle}>👥 Lista de Referidos ({referrals.length})</Text>
+                  {loadingReferrals ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <View style={styles.referralsList}>
+                      {referrals.map((referral, index) => (
+                        <View key={referral.id} style={styles.referralItem}>
+                          <View style={styles.referralHeader}>
+                            <View style={styles.referralInfo}>
+                              <Text style={styles.referralName}>{referral.name}</Text>
+                              <Text style={styles.referralEmail}>{referral.email}</Text>
+                            </View>
+                            {referral.is_active_contributor && (
+                              <View style={styles.activeReferralBadge}>
+                                <Text style={styles.activeReferralBadgeText}>ACTIVO</Text>
+                              </View>
+                            )}
+                          </View>
+                          <View style={styles.referralStats}>
+                            <View style={styles.referralStat}>
+                              <Text style={styles.referralStatLabel}>MXI Comprados:</Text>
+                              <Text style={styles.referralStatValue}>{formatNumber(referral.mxi_purchased_directly)}</Text>
+                            </View>
+                            <View style={styles.referralStat}>
+                              <Text style={styles.referralStatLabel}>Comisión Generada:</Text>
+                              <Text style={[styles.referralStatValue, { color: colors.success }]}>
+                                {formatNumber(referral.mxi_purchased_directly * 0.05)} MXI
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={styles.referralDate}>Unido: {formatDate(referral.joined_date)}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {/* Vesting Information */}
+              <View style={commonStyles.card}>
+                <Text style={styles.sectionTitle}>⚡ Información de Vesting</Text>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Tasa por Minuto:</Text>
+                  <Text style={styles.infoValue}>{selectedUser.yield_rate_per_minute.toFixed(8)} MXI</Text>
                 </View>
                 <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>USDT Contribuido:</Text>
-                  <Text style={styles.infoValue}>${selectedUser.usdt_contributed.toFixed(2)}</Text>
+                  <Text style={styles.infoLabel}>Rendimiento Acumulado:</Text>
+                  <Text style={styles.infoValue}>{formatNumber(selectedUser.accumulated_yield)} MXI</Text>
                 </View>
                 <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Referidos Activos:</Text>
-                  <Text style={styles.infoValue}>{selectedUser.active_referrals}</Text>
+                  <Text style={styles.infoLabel}>Última Actualización:</Text>
+                  <Text style={styles.infoValue}>{formatDate(selectedUser.last_yield_update)}</Text>
                 </View>
               </View>
 
@@ -780,6 +967,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  infoRowIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   infoLabel: {
     fontSize: 14,
     color: colors.textSecondary,
@@ -788,5 +980,146 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
+  },
+  totalBalanceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    backgroundColor: colors.primary + '20',
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  totalBalanceLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  totalBalanceValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  balanceDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: 12,
+  },
+  metricsGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  metricCard: {
+    flex: 1,
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  metricValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: 8,
+  },
+  metricLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  averageCard: {
+    backgroundColor: colors.accent + '20',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: colors.accent,
+  },
+  averageHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  averageTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  averageValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.accent,
+    marginBottom: 4,
+  },
+  averageSubtext: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  referralsList: {
+    gap: 12,
+  },
+  referralItem: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  referralHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  referralInfo: {
+    flex: 1,
+  },
+  referralName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 2,
+  },
+  referralEmail: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  activeReferralBadge: {
+    backgroundColor: colors.success + '20',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  activeReferralBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.success,
+  },
+  referralStats: {
+    gap: 6,
+    marginBottom: 8,
+  },
+  referralStat: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  referralStatLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  referralStatValue: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  referralDate: {
+    fontSize: 11,
+    color: colors.textSecondary,
   },
 });
