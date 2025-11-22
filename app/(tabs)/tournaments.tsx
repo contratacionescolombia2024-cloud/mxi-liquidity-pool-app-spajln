@@ -217,9 +217,10 @@ export default function TournamentsScreen() {
       // Step 1: Find or create session
       console.log('[Tournaments] Step 1: Finding available session...');
       
+      // First, get all waiting sessions for this game
       const { data: sessions, error: sessionError } = await supabase
         .from('game_sessions')
-        .select('id, game_participants(id)')
+        .select('id')
         .eq('game_id', game.id)
         .eq('status', 'waiting')
         .order('created_at', { ascending: true });
@@ -235,20 +236,35 @@ export default function TournamentsScreen() {
 
       console.log('[Tournaments] Found sessions:', sessions?.length || 0);
 
-      let sessionId: string;
+      let sessionId: string | null = null;
 
-      // Check if there's a session with space
-      const availableSession = sessions?.find(s => {
-        const count = s.game_participants?.length || 0;
-        console.log('[Tournaments] Session', s.id, 'has', count, 'participants');
-        return count < game.max_players;
-      });
+      // Check each session to see if it has space
+      if (sessions && sessions.length > 0) {
+        for (const session of sessions) {
+          // Count participants in this session
+          const { data: participants, error: countError } = await supabase
+            .from('game_participants')
+            .select('id', { count: 'exact', head: true })
+            .eq('session_id', session.id);
 
-      if (availableSession) {
-        sessionId = availableSession.id;
-        console.log('[Tournaments] Found available session:', sessionId);
-      } else {
-        // Create new session
+          if (countError) {
+            console.error('[Tournaments] Count error for session', session.id, ':', countError);
+            continue;
+          }
+
+          const participantCount = participants?.length || 0;
+          console.log('[Tournaments] Session', session.id, 'has', participantCount, 'participants');
+
+          if (participantCount < game.max_players) {
+            sessionId = session.id;
+            console.log('[Tournaments] Found available session:', sessionId);
+            break;
+          }
+        }
+      }
+
+      // If no available session found, create a new one
+      if (!sessionId) {
         console.log('[Tournaments] Creating new session...');
         const sessionCode = `${game.game_type.toUpperCase()}-${Date.now().toString(36)}`;
         
