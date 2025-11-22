@@ -8,6 +8,8 @@ import {
   ScrollView,
   Alert,
   Share,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,18 +17,45 @@ import { useRouter } from 'expo-router';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import * as Clipboard from 'expo-clipboard';
+import { supabase } from '@/lib/supabase';
 
 export default function ReferralsScreen() {
   const { user, getCurrentYield } = useAuth();
   const router = useRouter();
   const [currentYield, setCurrentYield] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [mxiFromCommissions, setMxiFromCommissions] = useState(0);
 
   useEffect(() => {
     if (user && getCurrentYield) {
       const yield_value = getCurrentYield();
       setCurrentYield(yield_value);
     }
+    loadMxiFromCommissions();
   }, [user, getCurrentYield]);
+
+  const loadMxiFromCommissions = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('mxi_from_unified_commissions')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error loading MXI from commissions:', error);
+        return;
+      }
+
+      setMxiFromCommissions(parseFloat(data.mxi_from_unified_commissions?.toString() || '0'));
+    } catch (error) {
+      console.error('Exception loading MXI from commissions:', error);
+    }
+  };
 
   const handleCopyCode = async () => {
     if (!user?.referralCode) return;
@@ -44,6 +73,85 @@ export default function ReferralsScreen() {
     } catch (error) {
       console.error('Error sharing:', error);
     }
+  };
+
+  const handleWithdrawToBalance = async () => {
+    if (!user) return;
+
+    const amount = parseFloat(withdrawAmount);
+    
+    // Validate amount
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('Monto Inválido', 'Por favor ingresa un monto válido');
+      return;
+    }
+
+    // Check minimum withdrawal
+    if (amount < 50) {
+      Alert.alert('Monto Mínimo', 'El retiro mínimo es de 50 MXI');
+      return;
+    }
+
+    // Check available balance
+    if (amount > mxiFromCommissions) {
+      Alert.alert('Saldo Insuficiente', `Solo tienes ${mxiFromCommissions.toFixed(2)} MXI disponibles de comisiones`);
+      return;
+    }
+
+    // Check active referrals requirement
+    if (user.activeReferrals < 5) {
+      Alert.alert(
+        'Requisitos No Cumplidos',
+        `Necesitas 5 referidos activos que hayan comprado el mínimo de MXI.\n\nActualmente tienes: ${user.activeReferrals} referidos activos`
+      );
+      return;
+    }
+
+    // Confirm withdrawal
+    Alert.alert(
+      'Confirmar Retiro a Balance MXI',
+      `¿Deseas transferir ${amount.toFixed(2)} MXI de comisiones a tu balance principal?\n\nEsto te permitirá usar estos MXI para compras y otras funciones.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Confirmar',
+          onPress: async () => {
+            setLoading(true);
+            try {
+              const { data, error } = await supabase.rpc('withdraw_commission_to_mxi_balance', {
+                p_user_id: user.id,
+                p_amount: amount
+              });
+
+              if (error) {
+                console.error('Withdrawal error:', error);
+                Alert.alert('Error', error.message || 'No se pudo completar el retiro');
+                return;
+              }
+
+              if (!data || !data.success) {
+                Alert.alert('Error', data?.error || 'No se pudo completar el retiro');
+                return;
+              }
+
+              Alert.alert(
+                'Retiro Exitoso',
+                `Se han transferido ${amount.toFixed(2)} MXI a tu balance principal`
+              );
+              
+              setWithdrawAmount('');
+              setShowWithdrawModal(false);
+              await loadMxiFromCommissions();
+            } catch (error: any) {
+              console.error('Exception during withdrawal:', error);
+              Alert.alert('Error', error.message || 'Ocurrió un error inesperado');
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   return (
@@ -102,13 +210,114 @@ export default function ReferralsScreen() {
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Available</Text>
               <Text style={[styles.statValue, { color: colors.success }]}>
-                {user?.mxiBalance.toFixed(4) || '0.0000'} MXI
+                {mxiFromCommissions.toFixed(4)} MXI
               </Text>
             </View>
           </View>
           <Text style={styles.infoNote}>
             💡 All commissions are handled internally in MXI
           </Text>
+
+          {/* Withdraw to Balance Button */}
+          {mxiFromCommissions >= 50 && (
+            <View style={styles.withdrawSection}>
+              <View style={styles.withdrawHeader}>
+                <IconSymbol 
+                  ios_icon_name="arrow.down.circle.fill" 
+                  android_material_icon_name="arrow_circle_down" 
+                  size={24} 
+                  color={colors.primary} 
+                />
+                <Text style={styles.withdrawTitle}>Retirar a Balance MXI</Text>
+              </View>
+              <Text style={styles.withdrawDescription}>
+                Transfiere tus comisiones a tu balance principal de MXI para usarlas en compras y otras funciones.
+              </Text>
+              
+              {!showWithdrawModal ? (
+                <TouchableOpacity
+                  style={[buttonStyles.primary, styles.withdrawButton]}
+                  onPress={() => setShowWithdrawModal(true)}
+                >
+                  <IconSymbol 
+                    ios_icon_name="arrow.down.circle" 
+                    android_material_icon_name="arrow_circle_down" 
+                    size={20} 
+                    color="#fff" 
+                  />
+                  <Text style={buttonStyles.primaryText}>Retirar a Balance</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.withdrawForm}>
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Monto a Retirar (MXI)</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={withdrawAmount}
+                      onChangeText={setWithdrawAmount}
+                      keyboardType="decimal-pad"
+                      placeholder="Mínimo 50 MXI"
+                      placeholderTextColor={colors.textSecondary}
+                    />
+                    <Text style={styles.inputHint}>
+                      Disponible: {mxiFromCommissions.toFixed(2)} MXI
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.withdrawActions}>
+                    <TouchableOpacity
+                      style={[buttonStyles.secondary, styles.actionButton]}
+                      onPress={() => {
+                        setShowWithdrawModal(false);
+                        setWithdrawAmount('');
+                      }}
+                      disabled={loading}
+                    >
+                      <Text style={buttonStyles.secondaryText}>Cancelar</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity
+                      style={[buttonStyles.primary, styles.actionButton]}
+                      onPress={handleWithdrawToBalance}
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <ActivityIndicator color="#fff" />
+                      ) : (
+                        <Text style={buttonStyles.primaryText}>Confirmar</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              <View style={styles.requirementsBox}>
+                <Text style={styles.requirementsTitle}>Requisitos:</Text>
+                <View style={styles.requirementItem}>
+                  <IconSymbol 
+                    ios_icon_name={user && user.activeReferrals >= 5 ? 'checkmark.circle.fill' : 'xmark.circle.fill'} 
+                    android_material_icon_name={user && user.activeReferrals >= 5 ? 'check_circle' : 'cancel'} 
+                    size={16} 
+                    color={user && user.activeReferrals >= 5 ? colors.success : colors.error} 
+                  />
+                  <Text style={styles.requirementText}>
+                    5 referidos activos ({user?.activeReferrals || 0}/5)
+                  </Text>
+                </View>
+                <View style={styles.requirementItem}>
+                  <IconSymbol 
+                    ios_icon_name={mxiFromCommissions >= 50 ? 'checkmark.circle.fill' : 'xmark.circle.fill'} 
+                    android_material_icon_name={mxiFromCommissions >= 50 ? 'check_circle' : 'cancel'} 
+                    size={16} 
+                    color={mxiFromCommissions >= 50 ? colors.success : colors.error} 
+                  />
+                  <Text style={styles.requirementText}>
+                    Mínimo 50 MXI
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
         </View>
 
         {/* Referral Stats */}
@@ -349,5 +558,90 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     lineHeight: 20,
+  },
+  withdrawSection: {
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  withdrawHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
+  withdrawTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  withdrawDescription: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 16,
+    lineHeight: 18,
+  },
+  withdrawButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  withdrawForm: {
+    gap: 12,
+    marginBottom: 12,
+  },
+  inputContainer: {
+    gap: 8,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  input: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: colors.text,
+  },
+  inputHint: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  withdrawActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+  },
+  requirementsBox: {
+    backgroundColor: colors.background,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  requirementsTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  requirementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  requirementText: {
+    fontSize: 12,
+    color: colors.textSecondary,
   },
 });

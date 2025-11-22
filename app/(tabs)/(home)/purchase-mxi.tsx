@@ -147,6 +147,11 @@ export default function PurchaseMXIScreen() {
       return;
     }
 
+    if (total > 500000) {
+      Alert.alert('Monto Máximo', 'El monto máximo de compra es $500,000 USDT por transacción');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -444,9 +449,14 @@ export default function PurchaseMXIScreen() {
             )}
           </TouchableOpacity>
 
-          <Text style={styles.minPurchaseNote}>
-            * Monto mínimo: $20 USDT ({Math.ceil(20 / phaseData.currentPriceUsdt)} MXI)
-          </Text>
+          <View style={styles.purchaseNotes}>
+            <Text style={styles.minPurchaseNote}>
+              * Monto mínimo: $20 USDT ({Math.ceil(20 / phaseData.currentPriceUsdt)} MXI)
+            </Text>
+            <Text style={styles.minPurchaseNote}>
+              * Monto máximo: $500,000 USDT por transacción
+            </Text>
+          </View>
         </View>
 
         {/* Pending Orders */}
@@ -817,6 +827,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#fff',
+  },
+  purchaseNotes: {
+    gap: 4,
   },
   minPurchaseNote: {
     fontSize: 12,
