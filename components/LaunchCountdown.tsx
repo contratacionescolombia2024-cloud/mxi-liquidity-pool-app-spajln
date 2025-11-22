@@ -42,7 +42,7 @@ export default function LaunchCountdown() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['rgba(99, 102, 241, 0.25)', 'rgba(168, 85, 247, 0.25)']}
+        colors={['rgba(99, 102, 241, 0.08)', 'rgba(168, 85, 247, 0.08)']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gradient}
@@ -165,14 +165,14 @@ const styles = StyleSheet.create({
     padding: 16,
     position: 'relative',
     overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
   },
   backgroundCircle1: {
     position: 'absolute',
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
     top: -30,
     right: -30,
   },
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: 'rgba(255, 255, 255, 0.015)',
     bottom: -20,
     left: -20,
   },
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     marginBottom: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     paddingVertical: 5,
     paddingHorizontal: 12,
     borderRadius: 12,
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   timeCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 8,
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     paddingVertical: 5,
     paddingHorizontal: 10,
     borderRadius: 10,

@@ -165,7 +165,7 @@ export default function VestingScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Real-time Yield Card - Updates every second */}
+        {/* Real-time Yield Card - Updates every second - TRANSLUCENT */}
         <View style={[commonStyles.card, styles.yieldCard]}>
           <View style={styles.yieldHeader}>
             <IconSymbol 
@@ -398,9 +398,9 @@ const styles = StyleSheet.create({
   yieldCard: {
     alignItems: 'center',
     paddingVertical: 24,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    backgroundColor: `${colors.primary}15`,
+    borderWidth: 1,
+    borderColor: 'rgba(99, 102, 241, 0.15)',
+    backgroundColor: 'rgba(99, 102, 241, 0.05)',
   },
   yieldHeader: {
     flexDirection: 'row',
@@ -429,21 +429,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: colors.success,
+    backgroundColor: 'rgba(34, 197, 94, 0.2)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(34, 197, 94, 0.3)',
   },
   realtimeDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#fff',
+    backgroundColor: colors.success,
   },
   realtimeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.success,
   },
   sectionTitle: {
     fontSize: 18,
