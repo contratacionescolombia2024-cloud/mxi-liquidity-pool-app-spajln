@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,9 +11,8 @@ const SECONDS_IN_MONTH = 2592000; // 30 days * 24 hours * 60 minutes * 60 second
 
 export default function VestingCounter() {
   const router = useRouter();
-  const { user, claimYield } = useAuth();
+  const { user } = useAuth();
   const [currentYield, setCurrentYield] = useState(0);
-  const [unifying, setUnifying] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -62,59 +61,6 @@ export default function VestingCounter() {
     return () => clearInterval(interval);
   }, [user]);
 
-  const handleUnifyBalance = async () => {
-    if (!user) return;
-
-    // Check if user has 10 active referrals
-    if (user.activeReferrals < 10) {
-      Alert.alert(
-        'Requisitos No Cumplidos',
-        `Para unificar tu saldo de vesting necesitas 10 referidos activos.\n\nActualmente tienes ${user.activeReferrals} referidos activos.\n\nNecesitas ${10 - user.activeReferrals} referidos más.`,
-        [{ text: 'Entendido' }]
-      );
-      return;
-    }
-
-    // Check if there's yield to claim
-    const totalYield = user.accumulatedYield + currentYield;
-    if (totalYield < 0.000001) {
-      Alert.alert(
-        'Sin Saldo para Unificar',
-        'Necesitas acumular más MXI en vesting antes de poder unificar tu saldo.',
-        [{ text: 'OK' }]
-      );
-      return;
-    }
-
-    // Confirm unification
-    Alert.alert(
-      '💎 Unificar Saldo de Vesting',
-      `¿Deseas unificar ${totalYield.toFixed(8)} MXI de tu saldo de vesting a tu balance principal?\n\nEsto transferirá todo tu MXI minado a tu balance disponible.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Unificar',
-          onPress: async () => {
-            setUnifying(true);
-            const result = await claimYield();
-            setUnifying(false);
-
-            if (result.success) {
-              Alert.alert(
-                '✅ Saldo Unificado',
-                `Has unificado exitosamente ${result.yieldEarned?.toFixed(8)} MXI a tu balance principal.\n\n¡Tu saldo ha sido actualizado!`,
-                [{ text: 'Excelente' }]
-              );
-              setCurrentYield(0);
-            } else {
-              Alert.alert('Error', result.error || 'No se pudo unificar el saldo');
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const handleViewDetails = () => {
     router.push('/(tabs)/(home)/vesting');
   };
@@ -131,7 +77,6 @@ export default function VestingCounter() {
   const yieldPerHour = yieldPerMinute * 60;
   const yieldPerDay = yieldPerHour * 24;
   const totalYield = user.accumulatedYield + currentYield;
-  const canUnify = user.activeReferrals >= 10;
   const hasBalance = mxiInVesting > 0;
 
   // Calculate progress towards monthly cap
@@ -262,42 +207,13 @@ export default function VestingCounter() {
         </View>
       )}
 
-      {/* Unify Balance Button */}
-      <TouchableOpacity
-        style={[
-          styles.unifyButton,
-          (!canUnify || !hasBalance) && styles.unifyButtonDisabled,
-          unifying && styles.unifyButtonProcessing,
-        ]}
-        onPress={handleUnifyBalance}
-        disabled={!canUnify || unifying || totalYield < 0.000001 || !hasBalance}
-      >
-        <IconSymbol
-          ios_icon_name={canUnify && hasBalance ? 'checkmark.circle.fill' : 'lock.fill'}
-          android_material_icon_name={canUnify && hasBalance ? 'check_circle' : 'lock'}
-          size={20}
-          color={canUnify && hasBalance && !unifying ? '#fff' : colors.textSecondary}
-        />
-        <Text style={[styles.unifyButtonText, (!canUnify || !hasBalance) && styles.unifyButtonTextDisabled]}>
-          {unifying
-            ? 'Unificando...'
-            : !hasBalance
-            ? 'Sin Balance en Vesting'
-            : canUnify
-            ? '💎 Unificar Saldo'
-            : `🔒 Requiere 10 Referidos (${user.activeReferrals}/10)`}
-        </Text>
-      </TouchableOpacity>
-
-      {/* Info Box */}
+      {/* Info Box - Updated message */}
       <View style={styles.infoBox}>
         <Text style={styles.infoIcon}>ℹ️</Text>
         <Text style={styles.infoText}>
           {!hasBalance
             ? 'Compra MXI para comenzar a generar rendimientos del 3% mensual.'
-            : canUnify
-            ? '¡Felicidades! Has alcanzado 10 referidos activos. Puedes unificar tu saldo de vesting a tu balance principal en cualquier momento.'
-            : `Necesitas ${10 - user.activeReferrals} referidos activos más para poder unificar tu saldo de vesting. El vesting genera 3% mensual sobre tu inversión total en MXI (${mxiInVesting.toFixed(2)} MXI).`}
+            : 'El saldo de vesting genera un rendimiento del 3% mensual. Este saldo no se puede retirar hasta que se lance la moneda oficialmente. Una vez lanzada, podrás retirar tu saldo de vesting cumpliendo los requisitos de retiro.'}
         </Text>
       </View>
     </View>
@@ -568,37 +484,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.primary,
     fontFamily: 'monospace',
-  },
-  unifyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.accent,
-    paddingVertical: 14,
-    borderRadius: 12,
-    marginBottom: 12,
-    gap: 8,
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  unifyButtonDisabled: {
-    backgroundColor: colors.border,
-    shadowOpacity: 0,
-  },
-  unifyButtonProcessing: {
-    backgroundColor: colors.textSecondary,
-    shadowOpacity: 0,
-  },
-  unifyButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  unifyButtonTextDisabled: {
-    color: colors.textSecondary,
   },
   infoBox: {
     flexDirection: 'row',

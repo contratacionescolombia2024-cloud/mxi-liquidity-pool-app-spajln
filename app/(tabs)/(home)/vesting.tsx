@@ -18,10 +18,11 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export default function VestingScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, getPoolStatus } = useAuth();
   const [loading, setLoading] = useState(true);
   const [vestingData, setVestingData] = useState<any>(null);
   const [userData, setUserData] = useState<any>(null);
+  const [poolStatus, setPoolStatus] = useState<any>(null);
 
   useEffect(() => {
     loadVestingData();
@@ -53,6 +54,10 @@ export default function VestingScreen() {
       }
 
       setVestingData(schedule);
+
+      // Load pool status
+      const status = await getPoolStatus();
+      setPoolStatus(status);
     } catch (error) {
       console.error('Error loading vesting data:', error);
       Alert.alert('Error', 'No se pudo cargar la información de vesting');
@@ -80,6 +85,8 @@ export default function VestingScreen() {
     ? new Date(vestingData.next_release_date)
     : null;
   const releaseCount = vestingData?.release_count || 0;
+  const isLaunched = poolStatus?.is_mxi_launched || false;
+  const daysUntilLaunch = poolStatus?.days_until_launch || 0;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -109,9 +116,35 @@ export default function VestingScreen() {
           <Text style={styles.mainTitle}>MXI en Vesting</Text>
           <Text style={styles.mainAmount}>{totalMXI.toFixed(2)} MXI</Text>
           <Text style={styles.mainSubtitle}>
-            Bloqueado hasta el lanzamiento oficial
+            {isLaunched 
+              ? 'Disponible para retiro una vez lanzada la moneda'
+              : `Bloqueado hasta el lanzamiento oficial (${daysUntilLaunch} días)`}
           </Text>
         </View>
+
+        {!isLaunched && (
+          <View style={[styles.transparentCard, styles.warningCard]}>
+            <View style={styles.warningHeader}>
+              <IconSymbol
+                ios_icon_name="exclamationmark.triangle.fill"
+                android_material_icon_name="warning"
+                size={32}
+                color={colors.warning}
+              />
+              <Text style={styles.warningTitle}>Saldo Bloqueado</Text>
+            </View>
+            <Text style={styles.warningText}>
+              El saldo de vesting no se puede unificar ni retirar hasta que se lance la moneda oficialmente.
+              Una vez lanzada, podrás retirar tu saldo cumpliendo los requisitos de retiro (5 referidos activos y KYC aprobado).
+            </Text>
+            {daysUntilLaunch > 0 && (
+              <View style={styles.countdownBox}>
+                <Text style={styles.countdownLabel}>Tiempo hasta el lanzamiento:</Text>
+                <Text style={styles.countdownValue}>{daysUntilLaunch} días</Text>
+              </View>
+            )}
+          </View>
+        )}
 
         <View style={[styles.transparentCard, styles.statsCard]}>
           <View style={styles.statRow}>
@@ -160,7 +193,7 @@ export default function VestingScreen() {
             <Text style={styles.infoValue}>{releaseCount}</Text>
           </View>
 
-          {nextReleaseDate && (
+          {nextReleaseDate && isLaunched && (
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Próxima liberación:</Text>
               <Text style={styles.infoValue}>
@@ -172,6 +205,13 @@ export default function VestingScreen() {
               </Text>
             </View>
           )}
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Estado de retiro:</Text>
+            <Text style={[styles.infoValue, { color: isLaunched ? colors.success : colors.error }]}>
+              {isLaunched ? 'Habilitado' : 'Bloqueado hasta lanzamiento'}
+            </Text>
+          </View>
         </View>
 
         <View style={[styles.transparentCard, styles.descriptionCard]}>
@@ -182,11 +222,39 @@ export default function VestingScreen() {
             mercado y protege el valor de la moneda.
           </Text>
           <Text style={styles.descriptionText}>
-            Cada 10 días se libera el {releasePercentage}% de tu saldo en
-            vesting, que podrás retirar una vez cumplas los requisitos (5
-            referidos activos).
+            {isLaunched 
+              ? `Cada 10 días se libera el ${releasePercentage}% de tu saldo en vesting, que podrás retirar una vez cumplas los requisitos (5 referidos activos y KYC aprobado).`
+              : `Una vez lanzada la moneda, cada 10 días se liberará el ${releasePercentage}% de tu saldo en vesting para retiro.`}
           </Text>
         </View>
+
+        {isLaunched && (
+          <TouchableOpacity
+            style={[styles.transparentCard, styles.actionCard]}
+            onPress={() => router.push('/(tabs)/(home)/withdraw-mxi')}
+          >
+            <View style={styles.actionContent}>
+              <IconSymbol
+                ios_icon_name="arrow.down.circle.fill"
+                android_material_icon_name="arrow_circle_down"
+                size={32}
+                color={colors.success}
+              />
+              <View style={styles.actionText}>
+                <Text style={styles.actionTitle}>Retirar MXI</Text>
+                <Text style={styles.actionSubtitle}>
+                  Retira tu saldo de vesting liberado
+                </Text>
+              </View>
+              <IconSymbol
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron_right"
+                size={24}
+                color={colors.textSecondary}
+              />
+            </View>
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -271,6 +339,44 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
   },
+  warningCard: {
+    backgroundColor: 'rgba(255, 193, 7, 0.1)',
+    borderColor: colors.warning + '40',
+    borderWidth: 2,
+  },
+  warningHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  warningTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.warning,
+  },
+  warningText: {
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  countdownBox: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+  },
+  countdownLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  countdownValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.warning,
+  },
   statsCard: {
     padding: 0,
     backgroundColor: 'rgba(26, 31, 58, 0.25)',
@@ -345,5 +451,28 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     lineHeight: 20,
+  },
+  actionCard: {
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    borderColor: colors.success + '40',
+    borderWidth: 2,
+  },
+  actionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  actionText: {
+    flex: 1,
+  },
+  actionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  actionSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
   },
 });

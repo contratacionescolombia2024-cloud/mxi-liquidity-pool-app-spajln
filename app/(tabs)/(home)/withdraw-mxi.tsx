@@ -45,6 +45,16 @@ export default function WithdrawMXIScreen() {
   const handleWithdraw = async () => {
     if (!user) return;
 
+    // Check if coin is launched
+    if (!poolStatus?.is_mxi_launched) {
+      Alert.alert(
+        'Retiro No Disponible',
+        `El saldo de vesting no se puede retirar hasta que se lance la moneda oficialmente.\n\nTiempo restante: ${poolStatus?.days_until_launch || 0} días`,
+        [{ text: 'Entendido' }]
+      );
+      return;
+    }
+
     const amount = parseFloat(withdrawAmount);
 
     if (isNaN(amount) || amount <= 0) {
@@ -273,12 +283,12 @@ export default function WithdrawMXIScreen() {
                     size={24}
                     color={poolStatus?.is_mxi_launched ? colors.success : colors.textSecondary}
                   />
-                  <Text style={styles.requirementText}>Pool Launch Date</Text>
+                  <Text style={styles.requirementText}>Lanzamiento de Moneda</Text>
                 </View>
                 {poolStatus && (
                   <>
                     <Text style={styles.requirementDate}>
-                      {new Date(poolStatus.mxi_launch_date).toLocaleDateString('en-US', {
+                      {new Date(poolStatus.mxi_launch_date).toLocaleDateString('es-ES', {
                         year: 'numeric',
                         month: 'long',
                         day: 'numeric',
@@ -288,9 +298,16 @@ export default function WithdrawMXIScreen() {
                       })}
                     </Text>
                     {!poolStatus.is_mxi_launched && (
-                      <Text style={styles.requirementNote}>
-                        {poolStatus.days_until_launch} days remaining
-                      </Text>
+                      <>
+                        <Text style={styles.requirementNote}>
+                          {poolStatus.days_until_launch} días restantes
+                        </Text>
+                        <View style={[styles.kycButton, { backgroundColor: colors.warning }]}>
+                          <Text style={[styles.kycButtonText, { fontSize: 12 }]}>
+                            ⚠️ El saldo de vesting no se puede retirar hasta el lanzamiento
+                          </Text>
+                        </View>
+                      </>
                     )}
                   </>
                 )}
@@ -299,7 +316,7 @@ export default function WithdrawMXIScreen() {
           )}
         </View>
 
-        {canWithdrawMXI && availableMXI > 0 && (
+        {canWithdrawMXI && availableMXI > 0 && poolStatus?.is_mxi_launched && (
           <View style={[commonStyles.card, styles.withdrawForm]}>
             <Text style={styles.formTitle}>Withdrawal Details</Text>
 
@@ -354,16 +371,17 @@ export default function WithdrawMXIScreen() {
         <View style={[commonStyles.card, styles.warningCard]}>
           <IconSymbol name="exclamationmark.triangle.fill" size={20} color={colors.warning} />
           <View style={styles.warningContent}>
-            <Text style={styles.warningTitle}>Important Information:</Text>
+            <Text style={styles.warningTitle}>Información Importante:</Text>
             <Text style={styles.warningText}>
-              - MXI withdrawals require 5 active referrals{'\n'}
-              - KYC verification is mandatory{'\n'}
-              - Only available MXI can be withdrawn{'\n'}
-              - Remaining balance releases every 7 days{'\n'}
-              - Mined MXI must be claimed first (same requirements){'\n'}
-              - Processing time: 24-48 hours{'\n'}
-              - Verify wallet address carefully{'\n'}
-              - Transactions cannot be reversed
+              - Los retiros de MXI requieren 5 referidos activos{'\n'}
+              - La verificación KYC es obligatoria{'\n'}
+              - Solo se puede retirar el MXI disponible{'\n'}
+              - El saldo restante se libera cada 7 días{'\n'}
+              - El saldo de vesting NO se puede retirar hasta el lanzamiento oficial{'\n'}
+              - Una vez lanzada la moneda, podrás retirar tu saldo de vesting{'\n'}
+              - Tiempo de procesamiento: 24-48 horas{'\n'}
+              - Verifica cuidadosamente la dirección de la billetera{'\n'}
+              - Las transacciones no se pueden revertir
             </Text>
           </View>
         </View>
