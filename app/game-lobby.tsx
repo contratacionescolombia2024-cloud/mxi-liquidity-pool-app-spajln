@@ -14,13 +14,11 @@ import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { GameErrorHandler } from '@/utils/gameErrorHandler';
 
 interface Participant {
   id: string;
   user_id: string;
   player_number: number;
-  entry_paid: boolean;
   users: {
     name: string;
     email: string;
@@ -37,7 +35,6 @@ interface GameSession {
   tournament_games: {
     name: string;
     game_type: string;
-    entry_fee: number;
   };
 }
 
@@ -54,197 +51,106 @@ export default function GameLobbyScreen() {
   const [countdown, setCountdown] = useState<number | null>(null);
 
   useEffect(() => {
-    console.log('[GameLobby] ========================================');
-    console.log('[GameLobby] Component mounted');
-    console.log('[GameLobby] Session ID:', sessionId);
-    console.log('[GameLobby] Game Type:', gameType);
-    console.log('[GameLobby] User ID:', user?.id);
-    console.log('[GameLobby] All params:', params);
-    console.log('[GameLobby] Timestamp:', new Date().toISOString());
-    console.log('[GameLobby] ========================================');
-
+    console.log('[GameLobby] Mounted - Session:', sessionId, 'Game:', gameType);
+    
     if (!sessionId || !gameType) {
-      console.error('[GameLobby] ERROR: Missing parameters');
-      GameErrorHandler.handleError(
-        new Error('Missing session parameters'),
-        'GameLobby - initialization',
-        {
-          showAlert: true,
-          additionalInfo: { sessionId, gameType },
-        }
-      );
-      Alert.alert(
-        'Error',
-        'Parámetros de sesión inválidos. Volviendo a torneos.',
-        [{ text: 'OK', onPress: () => router.replace('/(tabs)/tournaments') }]
-      );
+      Alert.alert('Error', 'Parámetros inválidos', [
+        { text: 'OK', onPress: () => router.replace('/(tabs)/tournaments') }
+      ]);
       return;
     }
 
-    loadSessionData();
+    loadSession();
     
-    // Subscribe to realtime updates
+    // Subscribe to updates
     const channel = supabase
-      .channel(`game_session_${sessionId}`)
+      .channel(`session_${sessionId}`)
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'game_sessions',
-          filter: `id=eq.${sessionId}`,
-        },
-        (payload) => {
-          console.log('[GameLobby] Session updated:', payload);
-          loadSessionData();
-        }
+        { event: '*', schema: 'public', table: 'game_sessions', filter: `id=eq.${sessionId}` },
+        () => loadSession()
       )
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'game_participants',
-          filter: `session_id=eq.${sessionId}`,
-        },
-        (payload) => {
-          console.log('[GameLobby] Participants updated:', payload);
-          loadSessionData();
-        }
+        { event: '*', schema: 'public', table: 'game_participants', filter: `session_id=eq.${sessionId}` },
+        () => loadSession()
       )
-      .subscribe((status) => {
-        console.log('[GameLobby] Realtime status:', status);
-      });
+      .subscribe();
 
     return () => {
-      console.log('[GameLobby] Cleaning up');
       supabase.removeChannel(channel);
     };
   }, [sessionId, gameType]);
 
   useEffect(() => {
     if (session && participants.length >= session.num_players && session.status === 'waiting') {
-      console.log('[GameLobby] Enough players, starting countdown');
       setCountdown(5);
     }
   }, [session, participants]);
 
   useEffect(() => {
     if (countdown !== null && countdown > 0) {
-      const timer = setTimeout(() => {
-        setCountdown(countdown - 1);
-      }, 1000);
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
       return () => clearTimeout(timer);
     } else if (countdown === 0) {
-      console.log('[GameLobby] Countdown finished, starting game');
       startGame();
     }
   }, [countdown]);
 
-  const loadSessionData = async () => {
-    console.log('[GameLobby] Loading session data...');
-    
+  const loadSession = async () => {
     try {
       const { data: sessionData, error: sessionError } = await supabase
         .from('game_sessions')
         .select(`
           *,
-          tournament_games (
-            name,
-            game_type,
-            entry_fee
-          )
+          tournament_games (name, game_type)
         `)
         .eq('id', sessionId)
         .single();
 
-      if (sessionError) {
-        console.error('[GameLobby] Session error:', sessionError);
-        GameErrorHandler.logError(sessionError, 'loadSessionData - session query', {
-          sessionId,
-        });
-        throw sessionError;
-      }
-      
-      console.log('[GameLobby] Session loaded:', sessionData);
+      if (sessionError) throw sessionError;
       setSession(sessionData);
 
       const { data: participantsData, error: participantsError } = await supabase
         .from('game_participants')
         .select(`
           *,
-          users (
-            name,
-            email
-          )
+          users (name, email)
         `)
         .eq('session_id', sessionId)
         .order('player_number', { ascending: true });
 
-      if (participantsError) {
-        console.error('[GameLobby] Participants error:', participantsError);
-        GameErrorHandler.logError(participantsError, 'loadSessionData - participants query', {
-          sessionId,
-        });
-        throw participantsError;
-      }
-      
-      console.log('[GameLobby] Participants loaded:', participantsData?.length || 0);
+      if (participantsError) throw participantsError;
       setParticipants(participantsData || []);
 
-      // Check if game is ready
       if (sessionData.status === 'ready') {
-        console.log('[GameLobby] Game is ready, navigating');
         navigateToGame();
       }
-    } catch (error: any) {
-      console.error('[GameLobby] ERROR loading data:', error);
-      GameErrorHandler.handleError(error, 'loadSessionData', {
-        showAlert: true,
-        onRetry: loadSessionData,
-        additionalInfo: { sessionId },
-      });
-      Alert.alert(
-        'Error',
-        'No se pudo cargar la sesión. Volviendo a torneos.',
-        [{ text: 'OK', onPress: () => router.replace('/(tabs)/tournaments') }]
-      );
+    } catch (error) {
+      console.error('[GameLobby] Load error:', error);
+      Alert.alert('Error', 'No se pudo cargar la sesión', [
+        { text: 'OK', onPress: () => router.replace('/(tabs)/tournaments') }
+      ]);
     } finally {
       setLoading(false);
     }
   };
 
   const startGame = async () => {
-    console.log('[GameLobby] Starting game...');
-    
     try {
-      const { error } = await supabase
+      await supabase
         .from('game_sessions')
-        .update({
-          status: 'ready',
-          started_at: new Date().toISOString()
-        })
+        .update({ status: 'ready', started_at: new Date().toISOString() })
         .eq('id', sessionId);
 
-      if (error) {
-        console.error('[GameLobby] Start game error:', error);
-        GameErrorHandler.logError(error, 'startGame', { sessionId });
-        throw error;
-      }
-
-      console.log('[GameLobby] Game started successfully');
       navigateToGame();
-    } catch (error: any) {
-      console.error('[GameLobby] ERROR starting game:', error);
-      GameErrorHandler.handleError(error, 'startGame', {
-        showAlert: true,
-        onRetry: startGame,
-      });
+    } catch (error) {
+      console.error('[GameLobby] Start error:', error);
     }
   };
 
   const navigateToGame = () => {
-    const gameRoutes: { [key: string]: string } = {
+    const routes: { [key: string]: string } = {
       tank_arena: '/games/tank-arena',
       mini_cars: '/games/mini-cars',
       shooter_retro: '/games/shooter-retro',
@@ -252,75 +158,33 @@ export default function GameLobbyScreen() {
       bomb_runner: '/games/bomb-runner',
     };
 
-    const route = gameRoutes[gameType];
-    
-    console.log('[GameLobby] ========================================');
-    console.log('[GameLobby] NAVIGATING TO GAME');
-    console.log('[GameLobby] Route:', route);
-    console.log('[GameLobby] Session ID:', sessionId);
-    console.log('[GameLobby] Game Type:', gameType);
-    console.log('[GameLobby] Timestamp:', new Date().toISOString());
-    console.log('[GameLobby] ========================================');
-    
+    const route = routes[gameType];
     if (route) {
-      try {
-        router.replace({
-          pathname: route as any,
-          params: { sessionId }
-        });
-        console.log('[GameLobby] Navigation executed successfully');
-      } catch (navError) {
-        console.error('[GameLobby] Navigation error:', navError);
-        GameErrorHandler.handleError(navError, 'navigateToGame', {
-          showAlert: true,
-          additionalInfo: { route, sessionId, gameType },
-        });
-      }
+      console.log('[GameLobby] Navigating to:', route);
+      router.replace({ pathname: route as any, params: { sessionId } });
     } else {
-      console.error('[GameLobby] ERROR: Unknown game type:', gameType);
-      GameErrorHandler.handleError(
-        new Error(`Unknown game type: ${gameType}`),
-        'navigateToGame - route lookup',
-        {
-          showAlert: true,
-          additionalInfo: { gameType, availableRoutes: Object.keys(gameRoutes) },
-        }
-      );
-      Alert.alert(
-        'Error',
-        'Tipo de juego no reconocido.',
-        [{ text: 'OK', onPress: () => router.replace('/(tabs)/tournaments') }]
-      );
+      Alert.alert('Error', 'Juego no encontrado', [
+        { text: 'OK', onPress: () => router.replace('/(tabs)/tournaments') }
+      ]);
     }
   };
 
   const handleLeave = () => {
     Alert.alert(
-      'Abandonar Juego',
-      '¿Estás seguro? Perderás tu entrada de 3 MXI.',
+      'Abandonar',
+      '¿Salir del juego? Perderás tu entrada.',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Abandonar',
+          text: 'Salir',
           style: 'destructive',
           onPress: async () => {
-            try {
-              console.log('[GameLobby] User leaving game');
-              await supabase
-                .from('game_participants')
-                .delete()
-                .eq('session_id', sessionId)
-                .eq('user_id', user?.id);
-
-              router.replace('/(tabs)/tournaments');
-            } catch (error) {
-              console.error('[GameLobby] Leave error:', error);
-              GameErrorHandler.logError(error, 'handleLeave', {
-                sessionId,
-                userId: user?.id,
-              });
-              router.replace('/(tabs)/tournaments');
-            }
+            await supabase
+              .from('game_participants')
+              .delete()
+              .eq('session_id', sessionId)
+              .eq('user_id', user?.id);
+            router.replace('/(tabs)/tournaments');
           }
         }
       ]
@@ -353,7 +217,7 @@ export default function GameLobbyScreen() {
             style={[buttonStyles.primary, { marginTop: 20 }]}
             onPress={() => router.replace('/(tabs)/tournaments')}
           >
-            <Text style={buttonStyles.primaryText}>Volver a Torneos</Text>
+            <Text style={buttonStyles.primaryText}>Volver</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -361,7 +225,6 @@ export default function GameLobbyScreen() {
   }
 
   const spotsRemaining = session.num_players - participants.length;
-  const isReady = participants.length >= session.num_players;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -379,38 +242,26 @@ export default function GameLobbyScreen() {
       </View>
 
       <View style={styles.content}>
-        <View style={[commonStyles.card, styles.gameInfoCard]}>
+        <View style={[commonStyles.card, styles.gameCard]}>
           <Text style={styles.gameName}>{session.tournament_games.name}</Text>
-          <Text style={styles.sessionCode}>Código: {session.session_code}</Text>
+          <Text style={styles.sessionCode}>{session.session_code}</Text>
           
           <View style={styles.statsRow}>
-            <View style={styles.statItem}>
+            <View style={styles.stat}>
               <Text style={styles.statLabel}>Premio (90%)</Text>
               <Text style={styles.statValue}>{session.prize_amount.toFixed(2)} MXI</Text>
             </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
+            <View style={styles.divider} />
+            <View style={styles.stat}>
               <Text style={styles.statLabel}>Pool Total</Text>
               <Text style={styles.statValue}>{session.total_pool.toFixed(2)} MXI</Text>
             </View>
-          </View>
-          
-          <View style={styles.prizeNote}>
-            <IconSymbol 
-              ios_icon_name="trophy.fill" 
-              android_material_icon_name="emoji_events" 
-              size={16} 
-              color={colors.success} 
-            />
-            <Text style={styles.prizeNoteText}>
-              El ganador recibe el 90% del pool como recompensa
-            </Text>
           </View>
         </View>
 
         {countdown !== null && countdown > 0 && (
           <View style={[commonStyles.card, styles.countdownCard]}>
-            <Text style={styles.countdownText}>El juego comienza en</Text>
+            <Text style={styles.countdownText}>Iniciando en</Text>
             <Text style={styles.countdownNumber}>{countdown}</Text>
           </View>
         )}
@@ -424,7 +275,7 @@ export default function GameLobbyScreen() {
           </View>
 
           {participants.map((participant) => (
-            <View key={participant.id} style={styles.playerItem}>
+            <View key={participant.id} style={styles.playerRow}>
               <View style={styles.playerNumber}>
                 <Text style={styles.playerNumberText}>{participant.player_number}</Text>
               </View>
@@ -447,14 +298,14 @@ export default function GameLobbyScreen() {
           ))}
 
           {Array.from({ length: spotsRemaining }).map((_, index) => (
-            <View key={`empty-${index}`} style={[styles.playerItem, styles.emptySlot]}>
-              <View style={[styles.playerNumber, styles.emptyPlayerNumber]}>
+            <View key={`empty-${index}`} style={[styles.playerRow, styles.emptyRow]}>
+              <View style={[styles.playerNumber, styles.emptyNumber]}>
                 <Text style={styles.playerNumberText}>
                   {participants.length + index + 1}
                 </Text>
               </View>
               <View style={styles.playerInfo}>
-                <Text style={styles.emptyPlayerText}>Esperando jugador...</Text>
+                <Text style={styles.emptyText}>Esperando...</Text>
               </View>
               <IconSymbol 
                 ios_icon_name="clock.fill" 
@@ -466,24 +317,12 @@ export default function GameLobbyScreen() {
           ))}
         </View>
 
-        {!isReady && (
+        {spotsRemaining > 0 && (
           <View style={[commonStyles.card, styles.waitingCard]}>
             <ActivityIndicator size="small" color={colors.primary} />
             <Text style={styles.waitingText}>
-              Esperando {spotsRemaining} jugador{spotsRemaining !== 1 ? 'es' : ''} más...
+              Esperando {spotsRemaining} jugador{spotsRemaining !== 1 ? 'es' : ''}...
             </Text>
-          </View>
-        )}
-
-        {isReady && countdown === null && (
-          <View style={[commonStyles.card, styles.readyCard]}>
-            <IconSymbol 
-              ios_icon_name="checkmark.circle.fill" 
-              android_material_icon_name="check_circle" 
-              size={48} 
-              color={colors.success} 
-            />
-            <Text style={styles.readyText}>¡Todos listos!</Text>
           </View>
         )}
       </View>
@@ -509,7 +348,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     justifyContent: 'center',
-    alignItems: 'flex-start',
   },
   headerTitle: {
     fontSize: 20,
@@ -542,7 +380,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginTop: 16,
   },
-  gameInfoCard: {
+  gameCard: {
     alignItems: 'center',
     marginBottom: 20,
   },
@@ -561,13 +399,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    marginBottom: 12,
   },
-  statItem: {
+  stat: {
     flex: 1,
     alignItems: 'center',
   },
-  statDivider: {
+  divider: {
     width: 1,
     height: 40,
     backgroundColor: colors.border,
@@ -581,20 +418,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.primary,
-  },
-  prizeNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: colors.success + '10',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  prizeNoteText: {
-    fontSize: 12,
-    color: colors.success,
-    fontWeight: '600',
   },
   countdownCard: {
     alignItems: 'center',
@@ -633,7 +456,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.primary,
   },
-  playerItem: {
+  playerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -641,7 +464,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  emptySlot: {
+  emptyRow: {
     opacity: 0.5,
   },
   playerNumber: {
@@ -652,7 +475,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  emptyPlayerNumber: {
+  emptyNumber: {
     backgroundColor: colors.border,
   },
   playerNumberText: {
@@ -672,7 +495,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
   },
-  emptyPlayerText: {
+  emptyText: {
     fontSize: 14,
     color: colors.textSecondary,
     fontStyle: 'italic',
@@ -694,23 +517,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 12,
     paddingVertical: 16,
-    backgroundColor: colors.card,
   },
   waitingText: {
     fontSize: 14,
     color: colors.textSecondary,
-  },
-  readyCard: {
-    alignItems: 'center',
-    paddingVertical: 24,
-    backgroundColor: colors.success + '20',
-    borderWidth: 1,
-    borderColor: colors.success,
-  },
-  readyText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.success,
-    marginTop: 12,
   },
 });
