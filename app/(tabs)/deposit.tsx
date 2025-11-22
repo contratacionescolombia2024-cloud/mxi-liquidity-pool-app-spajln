@@ -43,7 +43,7 @@ export default function DepositScreen() {
           
           <TouchableOpacity
             style={styles.methodCard}
-            onPress={() => router.push('/(tabs)/(home)/okx-payments')}
+            onPress={() => router.push('/(tabs)/(home)/purchase-mxi')}
           >
             <View style={styles.methodIcon}>
               <IconSymbol 
@@ -54,8 +54,8 @@ export default function DepositScreen() {
               />
             </View>
             <View style={styles.methodInfo}>
-              <Text style={styles.methodTitle}>Pago con Binance/OKX</Text>
-              <Text style={styles.methodDescription}>Deposita USDT para comprar MXI</Text>
+              <Text style={styles.methodTitle}>Comprar MXI con USDT</Text>
+              <Text style={styles.methodDescription}>Pago seguro con NOWPayments (USDT BEP20)</Text>
             </View>
             <IconSymbol 
               ios_icon_name="chevron.right" 
@@ -77,11 +77,26 @@ export default function DepositScreen() {
             <Text style={styles.infoTitle}>Información Importante</Text>
           </View>
           <View style={styles.infoList}>
-            <Text style={styles.infoItem}>• Depósito mínimo: $20 USDT</Text>
-            <Text style={styles.infoItem}>• Depósito máximo: $100,000 USDT</Text>
-            <Text style={styles.infoItem}>• Los tokens MXI se acreditan instantáneamente</Text>
-            <Text style={styles.infoItem}>• Precio actual por fase del pool</Text>
-            <Text style={styles.infoItem}>• Todos los pagos son procesados de forma segura</Text>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoBullet}>•</Text>
+              <Text style={styles.infoText}>Depósito mínimo: $20 USDT</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoBullet}>•</Text>
+              <Text style={styles.infoText}>Precio actual según fase de preventa</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoBullet}>•</Text>
+              <Text style={styles.infoText}>Los tokens MXI se acreditan automáticamente</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoBullet}>•</Text>
+              <Text style={styles.infoText}>Comisiones de referidos: 5%, 2%, 1%</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoBullet}>•</Text>
+              <Text style={styles.infoText}>Todos los pagos son procesados de forma segura</Text>
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -189,6 +204,17 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   infoItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  infoBullet: {
+    fontSize: 14,
+    color: colors.primary,
+    marginRight: 8,
+    marginTop: 2,
+  },
+  infoText: {
+    flex: 1,
     fontSize: 14,
     color: colors.textSecondary,
     lineHeight: 20,

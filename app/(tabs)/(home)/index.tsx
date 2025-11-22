@@ -457,6 +457,9 @@ export default function HomeScreen() {
         {/* Countdown to Launch */}
         <LaunchCountdown />
 
+        {/* Vesting Counter - RESTORED */}
+        <VestingCounter />
+
         {/* MXI Balance with Breakdown */}
         <View style={[commonStyles.card, styles.balanceCard]}>
           <View style={styles.balanceHeader}>
@@ -567,7 +570,7 @@ export default function HomeScreen() {
                   <Text style={styles.metricValue}>{referralMetrics?.level1Count || 0}</Text>
                   <Text style={styles.metricLabel}>Referidos</Text>
                   <Text style={styles.metricEarnings}>{(referralMetrics?.level1Earnings || 0).toFixed(2)} MXI</Text>
-                  <Text style={styles.metricPercentage}>3% comisión</Text>
+                  <Text style={styles.metricPercentage}>5% comisión</Text>
                 </View>
 
                 <View style={styles.metricItem}>
@@ -783,8 +786,6 @@ export default function HomeScreen() {
             onClaim={handleClaimYield}
           />
         )}
-
-        <VestingCounter />
 
         <View style={[commonStyles.card, styles.statsCard]}>
           <Text style={styles.statsTitle}>Estadísticas del Pool</Text>
