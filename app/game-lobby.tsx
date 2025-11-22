@@ -14,7 +14,6 @@ import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { GameErrorHandler, withRetry } from '@/utils/gameErrorHandler';
 
 interface Participant {
   id: string;
@@ -44,7 +43,10 @@ interface GameSession {
 export default function GameLobbyScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { sessionId, gameType } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+  const sessionId = params.sessionId as string;
+  const gameType = params.gameType as string;
+  
   const [session, setSession] = useState<GameSession | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,16 +58,11 @@ export default function GameLobbyScreen() {
     console.log('[GameLobby] Session ID:', sessionId);
     console.log('[GameLobby] Game Type:', gameType);
     console.log('[GameLobby] User ID:', user?.id);
-    console.log('[GameLobby] Timestamp:', new Date().toISOString());
+    console.log('[GameLobby] All params:', params);
     console.log('[GameLobby] ========================================');
 
     if (!sessionId || !gameType) {
-      console.error('[GameLobby] ERROR: Missing required parameters');
-      GameErrorHandler.logError(
-        new Error('Missing sessionId or gameType'),
-        'GameLobby - Mount',
-        { sessionId, gameType, userId: user?.id }
-      );
+      console.error('[GameLobby] ERROR: Missing parameters');
       Alert.alert(
         'Error',
         'Parámetros de sesión inválidos. Volviendo a torneos.',
@@ -76,8 +73,8 @@ export default function GameLobbyScreen() {
 
     loadSessionData();
     
-    // Subscribe to session updates
-    const sessionChannel = supabase
+    // Subscribe to realtime updates
+    const channel = supabase
       .channel(`game_session_${sessionId}`)
       .on(
         'postgres_changes',
@@ -88,7 +85,7 @@ export default function GameLobbyScreen() {
           filter: `id=eq.${sessionId}`,
         },
         (payload) => {
-          console.log('[GameLobby] Session updated via realtime:', payload);
+          console.log('[GameLobby] Session updated:', payload);
           loadSessionData();
         }
       )
@@ -101,23 +98,23 @@ export default function GameLobbyScreen() {
           filter: `session_id=eq.${sessionId}`,
         },
         (payload) => {
-          console.log('[GameLobby] Participants updated via realtime:', payload);
+          console.log('[GameLobby] Participants updated:', payload);
           loadSessionData();
         }
       )
       .subscribe((status) => {
-        console.log('[GameLobby] Realtime subscription status:', status);
+        console.log('[GameLobby] Realtime status:', status);
       });
 
     return () => {
-      console.log('[GameLobby] Cleaning up realtime subscription');
-      supabase.removeChannel(sessionChannel);
+      console.log('[GameLobby] Cleaning up');
+      supabase.removeChannel(channel);
     };
   }, [sessionId, gameType]);
 
   useEffect(() => {
     if (session && participants.length >= session.num_players && session.status === 'waiting') {
-      console.log('[GameLobby] Enough players joined, starting countdown');
+      console.log('[GameLobby] Enough players, starting countdown');
       setCountdown(5);
     }
   }, [session, participants]);
@@ -138,83 +135,66 @@ export default function GameLobbyScreen() {
     console.log('[GameLobby] Loading session data...');
     
     try {
-      const result = await withRetry(
-        async () => {
-          const { data: sessionData, error: sessionError } = await supabase
-            .from('game_sessions')
-            .select(`
-              *,
-              tournament_games (
-                name,
-                game_type,
-                entry_fee
-              )
-            `)
-            .eq('id', sessionId)
-            .single();
+      const { data: sessionData, error: sessionError } = await supabase
+        .from('game_sessions')
+        .select(`
+          *,
+          tournament_games (
+            name,
+            game_type,
+            entry_fee
+          )
+        `)
+        .eq('id', sessionId)
+        .single();
 
-          if (sessionError) {
-            console.error('[GameLobby] Session query error:', sessionError);
-            throw sessionError;
-          }
-          
-          return sessionData;
-        },
-        'GameLobby - Load Session',
-        { maxRetries: 3 }
-      );
+      if (sessionError) {
+        console.error('[GameLobby] Session error:', sessionError);
+        throw sessionError;
+      }
       
-      console.log('[GameLobby] Session data loaded:', result);
-      setSession(result);
+      console.log('[GameLobby] Session loaded:', sessionData);
+      setSession(sessionData);
 
-      const participantsResult = await withRetry(
-        async () => {
-          const { data: participantsData, error: participantsError } = await supabase
-            .from('game_participants')
-            .select(`
-              *,
-              users (
-                name,
-                email
-              )
-            `)
-            .eq('session_id', sessionId)
-            .order('player_number', { ascending: true });
+      const { data: participantsData, error: participantsError } = await supabase
+        .from('game_participants')
+        .select(`
+          *,
+          users (
+            name,
+            email
+          )
+        `)
+        .eq('session_id', sessionId)
+        .order('player_number', { ascending: true });
 
-          if (participantsError) {
-            console.error('[GameLobby] Participants query error:', participantsError);
-            throw participantsError;
-          }
-          
-          return participantsData;
-        },
-        'GameLobby - Load Participants',
-        { maxRetries: 3 }
-      );
+      if (participantsError) {
+        console.error('[GameLobby] Participants error:', participantsError);
+        throw participantsError;
+      }
       
-      console.log('[GameLobby] Participants loaded:', participantsResult?.length || 0);
-      setParticipants(participantsResult || []);
+      console.log('[GameLobby] Participants loaded:', participantsData?.length || 0);
+      setParticipants(participantsData || []);
 
-      // Check if game is ready to start
-      if (result.status === 'ready') {
-        console.log('[GameLobby] Game is ready, navigating to game');
+      // Check if game is ready
+      if (sessionData.status === 'ready') {
+        console.log('[GameLobby] Game is ready, navigating');
         navigateToGame();
       }
-    } catch (error) {
-      console.error('[GameLobby] ERROR loading session data:', error);
-      GameErrorHandler.handleError(error, 'GameLobby - Load Session Data', {
-        showAlert: true,
-        onRetry: loadSessionData,
-        onCancel: () => router.replace('/(tabs)/tournaments'),
-        additionalInfo: { sessionId, gameType, userId: user?.id }
-      });
+    } catch (error: any) {
+      console.error('[GameLobby] ERROR loading data:', error);
+      Alert.alert(
+        'Error',
+        'No se pudo cargar la sesión. Volviendo a torneos.',
+        [{ text: 'OK', onPress: () => router.replace('/(tabs)/tournaments') }]
+      );
     } finally {
       setLoading(false);
     }
   };
 
   const startGame = async () => {
-    console.log('[GameLobby] Starting game for session:', sessionId);
+    console.log('[GameLobby] Starting game...');
     
     try {
       const { error } = await supabase
@@ -230,15 +210,11 @@ export default function GameLobbyScreen() {
         throw error;
       }
 
-      console.log('[GameLobby] Game started successfully');
+      console.log('[GameLobby] Game started');
       navigateToGame();
-    } catch (error) {
+    } catch (error: any) {
       console.error('[GameLobby] ERROR starting game:', error);
-      GameErrorHandler.handleError(error, 'GameLobby - Start Game', {
-        showAlert: true,
-        onRetry: startGame,
-        additionalInfo: { sessionId, gameType }
-      });
+      Alert.alert('Error', 'No se pudo iniciar el juego. Por favor intenta de nuevo.');
     }
   };
 
@@ -251,34 +227,24 @@ export default function GameLobbyScreen() {
       bomb_runner: '/games/bomb-runner',
     };
 
-    const route = gameRoutes[gameType as string];
+    const route = gameRoutes[gameType];
+    
     console.log('[GameLobby] ========================================');
     console.log('[GameLobby] NAVIGATING TO GAME');
     console.log('[GameLobby] Route:', route);
     console.log('[GameLobby] Session ID:', sessionId);
-    console.log('[GameLobby] Game Type:', gameType);
-    console.log('[GameLobby] Timestamp:', new Date().toISOString());
     console.log('[GameLobby] ========================================');
     
     if (route) {
-      try {
-        router.replace({
-          pathname: route as any,
-          params: { sessionId }
-        });
-        console.log('[GameLobby] Navigation command executed');
-      } catch (navError) {
-        console.error('[GameLobby] NAVIGATION ERROR:', navError);
-        GameErrorHandler.handleError(navError, 'GameLobby - Navigation', {
-          showAlert: true,
-          additionalInfo: { route, sessionId, gameType }
-        });
-      }
+      router.replace({
+        pathname: route as any,
+        params: { sessionId }
+      });
     } else {
       console.error('[GameLobby] ERROR: Unknown game type:', gameType);
       Alert.alert(
         'Error',
-        'Tipo de juego no reconocido. Volviendo a torneos.',
+        'Tipo de juego no reconocido.',
         [{ text: 'OK', onPress: () => router.replace('/(tabs)/tournaments') }]
       );
     }
@@ -287,7 +253,7 @@ export default function GameLobbyScreen() {
   const handleLeave = () => {
     Alert.alert(
       'Abandonar Juego',
-      '¿Estás seguro de que quieres abandonar? Perderás tu entrada de 3 MXI.',
+      '¿Estás seguro? Perderás tu entrada de 3 MXI.',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -295,7 +261,6 @@ export default function GameLobbyScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              console.log('[GameLobby] User leaving game session');
               await supabase
                 .from('game_participants')
                 .delete()
@@ -304,11 +269,7 @@ export default function GameLobbyScreen() {
 
               router.replace('/(tabs)/tournaments');
             } catch (error) {
-              console.error('[GameLobby] Error leaving game:', error);
-              GameErrorHandler.handleError(error, 'GameLobby - Leave Game', {
-                showAlert: false
-              });
-              // Navigate anyway
+              console.error('[GameLobby] Leave error:', error);
               router.replace('/(tabs)/tournaments');
             }
           }
