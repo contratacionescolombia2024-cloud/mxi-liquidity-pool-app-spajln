@@ -50,6 +50,7 @@ export default function GameLobbyScreen() {
   const [countdown, setCountdown] = useState<number | null>(null);
 
   useEffect(() => {
+    console.log('Game lobby mounted with sessionId:', sessionId, 'gameType:', gameType);
     loadSessionData();
     
     // Subscribe to session updates
@@ -91,6 +92,7 @@ export default function GameLobbyScreen() {
   useEffect(() => {
     if (session && participants.length >= session.num_players && session.status === 'waiting') {
       // Start countdown when enough players join
+      console.log('Starting countdown - enough players joined');
       setCountdown(5);
     }
   }, [session, participants]);
@@ -102,12 +104,15 @@ export default function GameLobbyScreen() {
       }, 1000);
       return () => clearTimeout(timer);
     } else if (countdown === 0) {
+      console.log('Countdown finished, starting game');
       startGame();
     }
   }, [countdown]);
 
   const loadSessionData = async () => {
     try {
+      console.log('Loading session data for:', sessionId);
+      
       const { data: sessionData, error: sessionError } = await supabase
         .from('game_sessions')
         .select(`
@@ -121,7 +126,12 @@ export default function GameLobbyScreen() {
         .eq('id', sessionId)
         .single();
 
-      if (sessionError) throw sessionError;
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        throw sessionError;
+      }
+      
+      console.log('Session data loaded:', sessionData);
       setSession(sessionData);
 
       const { data: participantsData, error: participantsError } = await supabase
@@ -136,11 +146,17 @@ export default function GameLobbyScreen() {
         .eq('session_id', sessionId)
         .order('player_number', { ascending: true });
 
-      if (participantsError) throw participantsError;
+      if (participantsError) {
+        console.error('Participants error:', participantsError);
+        throw participantsError;
+      }
+      
+      console.log('Participants loaded:', participantsData?.length);
       setParticipants(participantsData || []);
 
       // Check if game is ready to start
       if (sessionData.status === 'ready') {
+        console.log('Game is ready, navigating to game');
         navigateToGame();
       }
     } catch (error) {
@@ -153,6 +169,8 @@ export default function GameLobbyScreen() {
 
   const startGame = async () => {
     try {
+      console.log('Starting game for session:', sessionId);
+      
       const { error } = await supabase
         .from('game_sessions')
         .update({
@@ -161,8 +179,12 @@ export default function GameLobbyScreen() {
         })
         .eq('id', sessionId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Start game error:', error);
+        throw error;
+      }
 
+      console.log('Game started successfully');
       navigateToGame();
     } catch (error) {
       console.error('Error starting game:', error);
@@ -180,11 +202,16 @@ export default function GameLobbyScreen() {
     };
 
     const route = gameRoutes[gameType as string];
+    console.log('Navigating to game route:', route, 'with sessionId:', sessionId);
+    
     if (route) {
       router.replace({
-        pathname: route,
+        pathname: route as any,
         params: { sessionId }
       });
+    } else {
+      console.error('Unknown game type:', gameType);
+      Alert.alert('Error', 'Tipo de juego no reconocido');
     }
   };
 
@@ -199,6 +226,7 @@ export default function GameLobbyScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
+              console.log('Leaving game session');
               await supabase
                 .from('game_participants')
                 .delete()
@@ -273,14 +301,26 @@ export default function GameLobbyScreen() {
           
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Premio</Text>
+              <Text style={styles.statLabel}>Premio Total</Text>
               <Text style={styles.statValue}>{session.prize_amount.toFixed(2)} MXI</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Total Pool</Text>
+              <Text style={styles.statLabel}>Pool Acumulado</Text>
               <Text style={styles.statValue}>{session.total_pool.toFixed(2)} MXI</Text>
             </View>
+          </View>
+          
+          <View style={styles.prizeNote}>
+            <IconSymbol 
+              ios_icon_name="trophy.fill" 
+              android_material_icon_name="emoji_events" 
+              size={16} 
+              color={colors.success} 
+            />
+            <Text style={styles.prizeNoteText}>
+              El ganador recibe el 100% del pool
+            </Text>
           </View>
         </View>
 
@@ -299,7 +339,7 @@ export default function GameLobbyScreen() {
             </Text>
           </View>
 
-          {participants.map((participant, index) => (
+          {participants.map((participant) => (
             <View key={participant.id} style={styles.playerItem}>
               <View style={styles.playerNumber}>
                 <Text style={styles.playerNumberText}>{participant.player_number}</Text>
@@ -437,6 +477,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
+    marginBottom: 12,
   },
   statItem: {
     flex: 1,
@@ -456,6 +497,20 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.primary,
+  },
+  prizeNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.success + '10',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  prizeNoteText: {
+    fontSize: 12,
+    color: colors.success,
+    fontWeight: '600',
   },
   countdownCard: {
     alignItems: 'center',

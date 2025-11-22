@@ -25,7 +25,6 @@ interface TournamentGame {
   min_players: number;
   max_players: number;
   winner_percentage: number;
-  admin_percentage: number;
   is_active: boolean;
 }
 
@@ -42,11 +41,11 @@ export default function TournamentsScreen() {
   const { user } = useAuth();
   const [games, setGames] = useState<TournamentGame[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userMXI, setUserMXI] = useState(0);
+  const [availableMXI, setAvailableMXI] = useState(0);
 
   useEffect(() => {
     loadGames();
-    loadUserBalance();
+    loadAvailableMXI();
   }, []);
 
   const loadGames = async () => {
@@ -67,45 +66,46 @@ export default function TournamentsScreen() {
     }
   };
 
-  const loadUserBalance = async () => {
+  const loadAvailableMXI = async () => {
     if (!user) return;
 
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('mxi_balance, mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges')
+        .select('mxi_from_unified_commissions, mxi_from_challenges')
         .eq('id', user.id)
         .single();
 
       if (error) throw error;
       
-      // Calculate total available MXI for games
-      const totalMXI = (data.mxi_purchased_directly || 0) + 
-                       (data.mxi_from_unified_commissions || 0) + 
-                       (data.mxi_from_challenges || 0);
-      setUserMXI(totalMXI);
+      // Only MXI from referral commissions and game winnings can be used
+      const totalAvailable = (data.mxi_from_unified_commissions || 0) + 
+                             (data.mxi_from_challenges || 0);
+      setAvailableMXI(totalAvailable);
     } catch (error) {
-      console.error('Error loading user balance:', error);
+      console.error('Error loading available MXI:', error);
     }
   };
 
   const handleGameSelect = (game: TournamentGame) => {
-    if (userMXI < game.entry_fee) {
+    console.log('Game selected:', game.name, game.game_type);
+    
+    if (availableMXI < game.entry_fee) {
       Alert.alert(
         'Saldo Insuficiente',
-        `Necesitas al menos ${game.entry_fee} MXI para jugar. Tu saldo disponible es ${userMXI.toFixed(2)} MXI.`,
-        [{ text: 'OK' }]
+        `Necesitas al menos ${game.entry_fee} MXI para participar.\n\nTu saldo disponible: ${availableMXI.toFixed(2)} MXI\n\nSolo puedes usar MXI ganado por:\n• Comisiones de referidos unificadas\n• Premios de retos anteriores`,
+        [{ text: 'Entendido' }]
       );
       return;
     }
 
     Alert.alert(
       game.name,
-      `¿Deseas unirte a este juego?\n\nCosto de entrada: ${game.entry_fee} MXI\nJugadores: ${game.min_players}-${game.max_players}\nPremio: ${game.winner_percentage}% del total recaudado`,
+      `¿Deseas participar en este reto?\n\n💰 Costo de entrada: ${game.entry_fee} MXI\n👥 Jugadores: ${game.min_players}-${game.max_players}\n🏆 Premio: 100% del total recaudado\n\nEste es un juego de habilidad, no una apuesta. El ganador se lleva todo el pool por su participación.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         { 
-          text: 'Unirse', 
+          text: 'Participar', 
           onPress: () => joinGame(game),
           style: 'default'
         }
@@ -115,34 +115,49 @@ export default function TournamentsScreen() {
 
   const joinGame = async (game: TournamentGame) => {
     try {
+      console.log('Joining game:', game.name);
       setLoading(true);
 
       // Check for available sessions or create new one
       const { data: availableSessions, error: sessionError } = await supabase
         .from('game_sessions')
-        .select('*, game_participants(count)')
+        .select(`
+          *,
+          game_participants (
+            id
+          )
+        `)
         .eq('game_id', game.id)
         .eq('status', 'waiting')
-        .order('created_at', { ascending: true })
-        .limit(1);
+        .order('created_at', { ascending: true });
 
-      if (sessionError) throw sessionError;
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        throw sessionError;
+      }
+
+      console.log('Available sessions:', availableSessions);
 
       let sessionId: string;
 
       if (availableSessions && availableSessions.length > 0) {
         const session = availableSessions[0];
-        const participantCount = session.game_participants?.[0]?.count || 0;
+        const participantCount = session.game_participants?.length || 0;
+
+        console.log('Found session with', participantCount, 'participants');
 
         if (participantCount < game.max_players) {
           sessionId = session.id;
+          console.log('Joining existing session:', sessionId);
         } else {
           // Create new session
           sessionId = await createNewSession(game);
+          console.log('Created new session (existing full):', sessionId);
         }
       } else {
         // Create new session
         sessionId = await createNewSession(game);
+        console.log('Created new session (none available):', sessionId);
       }
 
       // Join the session
@@ -159,22 +174,33 @@ export default function TournamentsScreen() {
   const createNewSession = async (game: TournamentGame): Promise<string> => {
     const sessionCode = `${game.game_type.toUpperCase()}-${Date.now().toString(36)}`;
     
+    console.log('Creating session with code:', sessionCode);
+    
     const { data, error } = await supabase
       .from('game_sessions')
       .insert({
         game_id: game.id,
         session_code: sessionCode,
         num_players: game.min_players,
-        status: 'waiting'
+        status: 'waiting',
+        total_pool: 0,
+        prize_amount: 0
       })
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Create session error:', error);
+      throw error;
+    }
+    
+    console.log('Session created:', data);
     return data.id;
   };
 
   const joinSession = async (sessionId: string, game: TournamentGame) => {
+    console.log('Joining session:', sessionId);
+    
     // Get current participant count
     const { data: participants, error: countError } = await supabase
       .from('game_participants')
@@ -183,67 +209,65 @@ export default function TournamentsScreen() {
       .order('player_number', { ascending: false })
       .limit(1);
 
-    if (countError) throw countError;
+    if (countError) {
+      console.error('Count error:', countError);
+      throw countError;
+    }
 
     const nextPlayerNumber = participants && participants.length > 0 
       ? participants[0].player_number + 1 
       : 1;
 
-    // Deduct entry fee from user balance
-    const { error: deductError } = await supabase.rpc('deduct_mxi_for_game', {
-      p_user_id: user?.id,
-      p_amount: game.entry_fee
-    });
+    console.log('Next player number:', nextPlayerNumber);
 
-    if (deductError) {
-      // If RPC doesn't exist, do manual deduction
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges')
-        .eq('id', user?.id)
-        .single();
+    // Deduct entry fee from user balance (only from allowed sources)
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('mxi_from_unified_commissions, mxi_from_challenges')
+      .eq('id', user?.id)
+      .single();
 
-      if (userError) throw userError;
-
-      let remaining = game.entry_fee;
-      let newPurchased = userData.mxi_purchased_directly || 0;
-      let newCommissions = userData.mxi_from_unified_commissions || 0;
-      let newChallenges = userData.mxi_from_challenges || 0;
-
-      // Deduct from purchased first
-      if (newPurchased >= remaining) {
-        newPurchased -= remaining;
-        remaining = 0;
-      } else {
-        remaining -= newPurchased;
-        newPurchased = 0;
-      }
-
-      // Then from commissions
-      if (remaining > 0 && newCommissions >= remaining) {
-        newCommissions -= remaining;
-        remaining = 0;
-      } else if (remaining > 0) {
-        remaining -= newCommissions;
-        newCommissions = 0;
-      }
-
-      // Finally from challenges
-      if (remaining > 0) {
-        newChallenges -= remaining;
-      }
-
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({
-          mxi_purchased_directly: newPurchased,
-          mxi_from_unified_commissions: newCommissions,
-          mxi_from_challenges: newChallenges
-        })
-        .eq('id', user?.id);
-
-      if (updateError) throw updateError;
+    if (userError) {
+      console.error('User data error:', userError);
+      throw userError;
     }
+
+    let remaining = game.entry_fee;
+    let newCommissions = userData.mxi_from_unified_commissions || 0;
+    let newChallenges = userData.mxi_from_challenges || 0;
+
+    console.log('Current balances - Commissions:', newCommissions, 'Challenges:', newChallenges);
+
+    // Deduct from commissions first
+    if (newCommissions >= remaining) {
+      newCommissions -= remaining;
+      remaining = 0;
+    } else {
+      remaining -= newCommissions;
+      newCommissions = 0;
+    }
+
+    // Then from challenges
+    if (remaining > 0) {
+      newChallenges -= remaining;
+    }
+
+    console.log('New balances - Commissions:', newCommissions, 'Challenges:', newChallenges);
+
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({
+        mxi_from_unified_commissions: newCommissions,
+        mxi_from_challenges: newChallenges
+      })
+      .eq('id', user?.id);
+
+    if (updateError) {
+      console.error('Update balance error:', updateError);
+      throw updateError;
+    }
+
+    console.log('Balance updated successfully');
 
     // Add participant
     const { error: participantError } = await supabase
@@ -255,46 +279,53 @@ export default function TournamentsScreen() {
         entry_paid: true
       });
 
-    if (participantError) throw participantError;
-
-    // Update session pool
-    const { error: poolError } = await supabase.rpc('update_game_pool', {
-      p_session_id: sessionId,
-      p_entry_fee: game.entry_fee,
-      p_winner_percentage: game.winner_percentage,
-      p_admin_percentage: game.admin_percentage
-    });
-
-    if (poolError) {
-      // Manual update if RPC doesn't exist
-      const { data: sessionData, error: sessionError } = await supabase
-        .from('game_sessions')
-        .select('total_pool')
-        .eq('id', sessionId)
-        .single();
-
-      if (sessionError) throw sessionError;
-
-      const newPool = (sessionData.total_pool || 0) + game.entry_fee;
-      const prizeAmount = newPool * (game.winner_percentage / 100);
-      const adminFee = newPool * (game.admin_percentage / 100);
-
-      const { error: updateError } = await supabase
-        .from('game_sessions')
-        .update({
-          total_pool: newPool,
-          prize_amount: prizeAmount,
-          admin_fee: adminFee
-        })
-        .eq('id', sessionId);
-
-      if (updateError) throw updateError;
+    if (participantError) {
+      console.error('Participant error:', participantError);
+      throw participantError;
     }
 
+    console.log('Participant added successfully');
+
+    // Update session pool (100% goes to winner now)
+    const { data: sessionData, error: sessionError } = await supabase
+      .from('game_sessions')
+      .select('total_pool')
+      .eq('id', sessionId)
+      .single();
+
+    if (sessionError) {
+      console.error('Session data error:', sessionError);
+      throw sessionError;
+    }
+
+    const newPool = (sessionData.total_pool || 0) + game.entry_fee;
+    const prizeAmount = newPool; // 100% goes to winner
+
+    console.log('Updating pool - New total:', newPool, 'Prize:', prizeAmount);
+
+    const { error: poolUpdateError } = await supabase
+      .from('game_sessions')
+      .update({
+        total_pool: newPool,
+        prize_amount: prizeAmount
+      })
+      .eq('id', sessionId);
+
+    if (poolUpdateError) {
+      console.error('Pool update error:', poolUpdateError);
+      throw poolUpdateError;
+    }
+
+    console.log('Pool updated successfully');
+
     // Navigate to game lobby
+    console.log('Navigating to lobby with sessionId:', sessionId, 'gameType:', game.game_type);
     router.push({
       pathname: '/game-lobby',
-      params: { sessionId, gameType: game.game_type }
+      params: { 
+        sessionId: sessionId, 
+        gameType: game.game_type 
+      }
     });
   };
 
@@ -320,7 +351,7 @@ export default function TournamentsScreen() {
             size={20} 
             color={colors.primary} 
           />
-          <Text style={styles.balanceText}>{userMXI.toFixed(2)} MXI</Text>
+          <Text style={styles.balanceText}>{availableMXI.toFixed(2)} MXI</Text>
         </View>
       </View>
 
@@ -336,17 +367,30 @@ export default function TournamentsScreen() {
             <Text style={styles.infoTitle}>Cómo Funciona</Text>
           </View>
           <View style={styles.infoList}>
-            <Text style={styles.infoItem}>- Cada juego cuesta 3 MXI para entrar</Text>
-            <Text style={styles.infoItem}>- Elige entre 3 a 5 participantes</Text>
-            <Text style={styles.infoItem}>- El ganador recibe el 90% del total</Text>
-            <Text style={styles.infoItem}>- El 10% es para el administrador</Text>
-            <Text style={styles.infoItem}>- Todos los juegos son de habilidad</Text>
+            <Text style={styles.infoItem}>• Cada ticket cuesta 3 MXI</Text>
+            <Text style={styles.infoItem}>• Participa con 3 a 5 jugadores al azar</Text>
+            <Text style={styles.infoItem}>• El ganador recibe el 100% del pool</Text>
+            <Text style={styles.infoItem}>• Premios por participación, no por apuesta</Text>
+            <Text style={styles.infoItem}>• Todos los juegos son de habilidad pura</Text>
+            <Text style={styles.infoItem}>• Solo puedes usar MXI de comisiones o retos</Text>
           </View>
+        </View>
+
+        <View style={[commonStyles.card, styles.warningCard]}>
+          <IconSymbol 
+            ios_icon_name="exclamationmark.triangle.fill" 
+            android_material_icon_name="warning" 
+            size={20} 
+            color={colors.warning} 
+          />
+          <Text style={styles.warningText}>
+            Solo puedes pagar con MXI ganado por comisiones de referidos o retos anteriores
+          </Text>
         </View>
 
         <Text style={styles.sectionTitle}>Juegos Disponibles</Text>
 
-        {games.map((game, index) => {
+        {games.map((game) => {
           const icon = GAME_ICONS[game.game_type as keyof typeof GAME_ICONS];
           return (
             <TouchableOpacity
@@ -382,12 +426,12 @@ export default function TournamentsScreen() {
                   </View>
                   <View style={styles.gameDetailItem}>
                     <IconSymbol 
-                      ios_icon_name="dollarsign.circle" 
-                      android_material_icon_name="attach_money" 
+                      ios_icon_name="ticket.fill" 
+                      android_material_icon_name="confirmation_number" 
                       size={16} 
-                      color={colors.textSecondary} 
+                      color={colors.success} 
                     />
-                    <Text style={styles.gameDetailText}>
+                    <Text style={styles.gameDetailTextHighlight}>
                       {game.entry_fee} MXI
                     </Text>
                   </View>
@@ -410,10 +454,19 @@ export default function TournamentsScreen() {
             size={48} 
             color={colors.primary} 
           />
-          <Text style={styles.prizeTitle}>Premios en MXI</Text>
+          <Text style={styles.prizeTitle}>Premios por Participación</Text>
           <Text style={styles.prizeText}>
-            El ganador se lleva el 90% del total recaudado. ¡Demuestra tu habilidad y gana!
+            El ganador se lleva el 100% del total recaudado. No hay comisiones ni descuentos. ¡Demuestra tu habilidad y gana!
           </Text>
+          <View style={styles.prizeExample}>
+            <Text style={styles.prizeExampleTitle}>Ejemplo:</Text>
+            <Text style={styles.prizeExampleText}>
+              5 jugadores × 3 MXI = 15 MXI total
+            </Text>
+            <Text style={styles.prizeExampleText}>
+              🏆 Ganador recibe: 15 MXI completos
+            </Text>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -473,7 +526,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary + '10',
     borderWidth: 1,
     borderColor: colors.primary + '30',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   infoHeader: {
     flexDirection: 'row',
@@ -493,6 +546,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     lineHeight: 20,
+  },
+  warningCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.warning + '10',
+    borderWidth: 1,
+    borderColor: colors.warning + '30',
+    marginBottom: 24,
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.warning,
+    lineHeight: 18,
+    fontWeight: '600',
   },
   sectionTitle: {
     fontSize: 20,
@@ -544,12 +613,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
   },
+  gameDetailTextHighlight: {
+    fontSize: 12,
+    color: colors.success,
+    fontWeight: '700',
+  },
   prizeCard: {
     alignItems: 'center',
     paddingVertical: 32,
-    backgroundColor: colors.primary + '10',
+    backgroundColor: colors.success + '10',
     borderWidth: 1,
-    borderColor: colors.primary + '30',
+    borderColor: colors.success + '30',
     marginTop: 12,
   },
   prizeTitle: {
@@ -565,5 +639,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
     paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  prizeExample: {
+    backgroundColor: colors.card,
+    padding: 16,
+    borderRadius: 12,
+    width: '90%',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  prizeExampleTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  prizeExampleText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 20,
   },
 });

@@ -61,6 +61,7 @@ export default function TankArenaGame() {
   const gameLoopRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
+    console.log('Tank Arena game started with sessionId:', sessionId);
     initializeGame();
     return () => {
       if (gameLoopRef.current) {
@@ -71,12 +72,15 @@ export default function TankArenaGame() {
 
   useEffect(() => {
     if (timeLeft <= 0 && !gameOver) {
+      console.log('Game time expired');
       endGame();
     }
   }, [timeLeft]);
 
   const initializeGame = async () => {
     try {
+      console.log('Initializing tank arena game');
+      
       // Load participants
       const { data: participants, error } = await supabase
         .from('game_participants')
@@ -84,6 +88,8 @@ export default function TankArenaGame() {
         .eq('session_id', sessionId);
 
       if (error) throw error;
+
+      console.log('Loaded', participants.length, 'participants');
 
       // Initialize tanks
       const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8'];
@@ -118,6 +124,7 @@ export default function TankArenaGame() {
         setTimeLeft(prev => Math.max(0, prev - 1));
       }, 1000);
 
+      console.log('Game initialized successfully');
     } catch (error) {
       console.error('Error initializing game:', error);
       Alert.alert('Error', 'No se pudo inicializar el juego');
@@ -258,6 +265,8 @@ export default function TankArenaGame() {
       clearInterval(gameLoopRef.current);
     }
 
+    console.log('Ending game, determining winner');
+
     try {
       // Determine winner
       const aliveTanks = tanks.filter(t => t.health > 0);
@@ -285,6 +294,8 @@ export default function TankArenaGame() {
           );
         }
       }
+
+      console.log('Winner determined:', winner.id);
 
       // Update session with winner
       const { error: sessionError } = await supabase
@@ -319,20 +330,27 @@ export default function TankArenaGame() {
           .eq('user_id', tank.id);
       }
 
-      // Award prize to winner
+      // Award prize to winner (100% of pool)
       const { data: session } = await supabase
         .from('game_sessions')
         .select('prize_amount')
         .eq('id', sessionId)
         .single();
 
-      if (session) {
-        await supabase
+      if (session && session.prize_amount > 0) {
+        console.log('Awarding prize:', session.prize_amount, 'MXI to winner');
+        
+        // Add to mxi_from_challenges (can be used for more games or withdrawn with 5 referrals)
+        const { error: prizeError } = await supabase
           .from('users')
           .update({
             mxi_from_challenges: supabase.raw(`mxi_from_challenges + ${session.prize_amount}`)
           })
           .eq('id', winner.id);
+
+        if (prizeError) {
+          console.error('Prize award error:', prizeError);
+        }
 
         // Record result
         await supabase
@@ -351,8 +369,8 @@ export default function TankArenaGame() {
       Alert.alert(
         'Juego Terminado',
         winner.id === myTankId 
-          ? `¡Felicidades! Ganaste ${session?.prize_amount.toFixed(2)} MXI`
-          : `El ganador es el jugador ${tanks.findIndex(t => t.id === winner.id) + 1}`,
+          ? `¡Felicidades! Ganaste ${session?.prize_amount.toFixed(2)} MXI\n\nEl premio ha sido agregado a tu saldo de retos.`
+          : `El ganador es el jugador ${tanks.findIndex(t => t.id === winner.id) + 1}\n\nPremio: ${session?.prize_amount.toFixed(2)} MXI`,
         [{ text: 'OK', onPress: () => router.replace('/(tabs)/tournaments') }]
       );
 
@@ -393,7 +411,7 @@ export default function TankArenaGame() {
             />
           ))}
 
-          {tanks.map((tank, index) => (
+          {tanks.map((tank) => (
             <React.Fragment key={tank.id}>
               {tank.health > 0 && (
                 <View
