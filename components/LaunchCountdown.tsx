@@ -42,53 +42,47 @@ export default function LaunchCountdown() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={[colors.primary, colors.accent]}
+        colors={['rgba(99, 102, 241, 0.85)', 'rgba(168, 85, 247, 0.85)']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gradient}
       >
-        {/* Animated background elements */}
+        {/* Subtle animated background elements */}
         <View style={styles.backgroundCircle1} />
         <View style={styles.backgroundCircle2} />
-        <View style={styles.backgroundCircle3} />
         
         <View style={styles.content}>
-          {/* Header */}
+          {/* Compact Header */}
           <View style={styles.header}>
-            <View style={styles.rocketContainer}>
-              <IconSymbol 
-                ios_icon_name="sparkles" 
-                android_material_icon_name="auto_awesome" 
-                size={32} 
-                color="#fff" 
-              />
-            </View>
-            <View style={styles.headerText}>
-              <Text style={styles.title}>🚀 LANZAMIENTO OFICIAL</Text>
-              <Text style={styles.subtitle}>Maxcoin (MXI)</Text>
-            </View>
-            <View style={styles.rocketContainer}>
-              <IconSymbol 
-                ios_icon_name="sparkles" 
-                android_material_icon_name="auto_awesome" 
-                size={32} 
-                color="#fff" 
-              />
-            </View>
+            <IconSymbol 
+              ios_icon_name="sparkles" 
+              android_material_icon_name="auto_awesome" 
+              size={20} 
+              color="rgba(255, 255, 255, 0.95)" 
+            />
+            <Text style={styles.title}>LANZAMIENTO OFICIAL</Text>
+            <IconSymbol 
+              ios_icon_name="sparkles" 
+              android_material_icon_name="auto_awesome" 
+              size={20} 
+              color="rgba(255, 255, 255, 0.95)" 
+            />
           </View>
 
-          {/* Date Display */}
+          <Text style={styles.subtitle}>Maxcoin (MXI)</Text>
+
+          {/* Compact Date Display */}
           <View style={styles.dateContainer}>
             <IconSymbol 
               ios_icon_name="calendar" 
               android_material_icon_name="event" 
-              size={20} 
-              color="rgba(255, 255, 255, 0.9)" 
+              size={14} 
+              color="rgba(255, 255, 255, 0.85)" 
             />
-            <Text style={styles.dateText}>15 de Febrero 2026 • 12:00 UTC</Text>
+            <Text style={styles.dateText}>15 Feb 2026 • 12:00 UTC</Text>
           </View>
 
-          {/* Countdown Display */}
+          {/* Compact Countdown Display */}
           <View style={styles.countdownContainer}>
             {/* Days */}
             <View style={styles.timeBlock}>
@@ -105,7 +99,7 @@ export default function LaunchCountdown() {
               <View style={styles.timeCard}>
                 <Text style={styles.timeValue}>{countdown.hours.toString().padStart(2, '0')}</Text>
               </View>
-              <Text style={styles.timeLabel}>HORAS</Text>
+              <Text style={styles.timeLabel}>HRS</Text>
             </View>
 
             <Text style={styles.separator}>:</Text>
@@ -129,25 +123,25 @@ export default function LaunchCountdown() {
             </View>
           </View>
 
-          {/* Bottom Info */}
+          {/* Compact Bottom Info */}
           <View style={styles.infoContainer}>
             <View style={styles.infoItem}>
               <IconSymbol 
                 ios_icon_name="checkmark.circle.fill" 
                 android_material_icon_name="check_circle" 
-                size={18} 
-                color="rgba(255, 255, 255, 0.9)" 
+                size={12} 
+                color="rgba(255, 255, 255, 0.85)" 
               />
-              <Text style={styles.infoText}>Pool de Liquidez Activo</Text>
+              <Text style={styles.infoText}>Pool Activo</Text>
             </View>
             <View style={styles.infoItem}>
               <IconSymbol 
                 ios_icon_name="checkmark.circle.fill" 
                 android_material_icon_name="check_circle" 
-                size={18} 
-                color="rgba(255, 255, 255, 0.9)" 
+                size={12} 
+                color="rgba(255, 255, 255, 0.85)" 
               />
-              <Text style={styles.infoText}>Vesting en Tiempo Real</Text>
+              <Text style={styles.infoText}>Vesting Real-Time</Text>
             </View>
           </View>
         </View>
@@ -158,46 +152,37 @@ export default function LaunchCountdown() {
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
-    borderRadius: 20,
+    marginBottom: 12,
+    borderRadius: 16,
     overflow: 'hidden',
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
   gradient: {
-    padding: 24,
+    padding: 16,
     position: 'relative',
     overflow: 'hidden',
   },
   backgroundCircle1: {
     position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    top: -50,
-    right: -50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    top: -30,
+    right: -30,
   },
   backgroundCircle2: {
     position: 'absolute',
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    bottom: -30,
-    left: -30,
-  },
-  backgroundCircle3: {
-    position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    top: '50%',
-    left: '50%',
+    bottom: -20,
+    left: -20,
   },
   content: {
     position: 'relative',
@@ -207,118 +192,109 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
-    gap: 12,
-  },
-  rocketContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerText: {
-    alignItems: 'center',
+    marginBottom: 6,
+    gap: 8,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#fff',
-    textAlign: 'center',
-    letterSpacing: 1,
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
-  subtitle: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
     color: 'rgba(255, 255, 255, 0.95)',
     textAlign: 'center',
-    marginTop: 4,
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  subtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.9)',
+    textAlign: 'center',
+    marginBottom: 10,
   },
   dateContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginBottom: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
+    gap: 6,
+    marginBottom: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 12,
     alignSelf: 'center',
   },
   dateText: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.95)',
+    color: 'rgba(255, 255, 255, 0.9)',
   },
   countdownContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 24,
+    gap: 6,
+    marginBottom: 14,
   },
   timeBlock: {
     alignItems: 'center',
-    gap: 8,
+    gap: 4,
   },
   timeCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    minWidth: 70,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    minWidth: 48,
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
   timeValue: {
-    fontSize: 36,
+    fontSize: 24,
     fontWeight: '900',
-    color: '#fff',
+    color: 'rgba(255, 255, 255, 0.98)',
     fontFamily: 'monospace',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+    lineHeight: 28,
   },
   timeLabel: {
-    fontSize: 11,
+    fontSize: 9,
     fontWeight: '700',
-    color: 'rgba(255, 255, 255, 0.9)',
-    letterSpacing: 1,
+    color: 'rgba(255, 255, 255, 0.85)',
+    letterSpacing: 0.5,
   },
   separator: {
-    fontSize: 32,
+    fontSize: 20,
     fontWeight: '700',
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: 24,
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginBottom: 16,
   },
   infoContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    gap: 12,
+    justifyContent: 'center',
+    gap: 8,
   },
   infoItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 10,
   },
   infoText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.95)',
+    color: 'rgba(255, 255, 255, 0.9)',
   },
 });
