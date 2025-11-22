@@ -147,6 +147,21 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
+        name="ecosystem"
+        options={{
+          title: 'Ecosistema',
+          tabBarIcon: ({ color, focused }) => (
+            <IconSymbol
+              ios_icon_name={focused ? 'globe.americas.fill' : 'globe.americas'}
+              android_material_icon_name="public"
+              size={24}
+              color={color}
+            />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Perfil',
