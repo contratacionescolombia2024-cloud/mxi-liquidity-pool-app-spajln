@@ -13,9 +13,24 @@ export default function VestingCounter() {
   const router = useRouter();
   const { user } = useAuth();
   const [currentYield, setCurrentYield] = useState(0);
+  const [currentTime, setCurrentTime] = useState(Date.now());
 
   useEffect(() => {
     if (!user) {
+      return;
+    }
+
+    // Update current time every second for real-time calculation
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) {
+      setCurrentYield(0);
       return;
     }
 
@@ -33,8 +48,7 @@ export default function VestingCounter() {
 
     // Calculate time elapsed since last update
     const lastUpdate = new Date(user.lastYieldUpdate);
-    const now = new Date();
-    const secondsElapsed = (now.getTime() - lastUpdate.getTime()) / 1000;
+    const secondsElapsed = (currentTime - lastUpdate.getTime()) / 1000;
 
     // Calculate current session yield
     const sessionYield = yieldPerSecond * secondsElapsed;
@@ -45,21 +59,7 @@ export default function VestingCounter() {
     const cappedSessionYield = Math.max(0, cappedTotalYield - user.accumulatedYield);
 
     setCurrentYield(cappedSessionYield);
-
-    // Update yield display every second for real-time counter
-    const interval = setInterval(() => {
-      const now = new Date();
-      const secondsElapsed = (now.getTime() - lastUpdate.getTime()) / 1000;
-      const sessionYield = yieldPerSecond * secondsElapsed;
-      const totalYield = user.accumulatedYield + sessionYield;
-      const cappedTotalYield = Math.min(totalYield, maxMonthlyYield);
-      const cappedSessionYield = Math.max(0, cappedTotalYield - user.accumulatedYield);
-      
-      setCurrentYield(cappedSessionYield);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [user]);
+  }, [user, currentTime]);
 
   const handleViewDetails = () => {
     router.push('/(tabs)/(home)/vesting');
@@ -107,6 +107,21 @@ export default function VestingCounter() {
         </TouchableOpacity>
       </View>
 
+      {/* Real-time Counter Display - PROMINENT */}
+      <View style={styles.counterSection}>
+        <View style={styles.counterCard}>
+          <Text style={styles.counterLabel}>Rendimiento Acumulado</Text>
+          <Text style={styles.counterValue}>
+            {totalYield.toFixed(8)}
+          </Text>
+          <Text style={styles.counterUnit}>MXI</Text>
+          <View style={styles.liveIndicator}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveText}>Actualizando cada segundo</Text>
+          </View>
+        </View>
+      </View>
+
       {/* MXI in Vesting Display */}
       <View style={styles.vestingBalanceSection}>
         <View style={styles.vestingBalanceCard}>
@@ -115,20 +130,6 @@ export default function VestingCounter() {
             {mxiInVesting.toFixed(2)}
           </Text>
           <Text style={styles.vestingBalanceUnit}>MXI</Text>
-        </View>
-      </View>
-
-      {/* Real-time Counter Display */}
-      <View style={styles.counterSection}>
-        <View style={styles.counterCard}>
-          <Text style={styles.counterLabel}>Rendimiento Acumulado</Text>
-          <Text style={styles.counterValue}>
-            {totalYield.toFixed(8)}
-          </Text>
-          <Text style={styles.counterUnit}>MXI</Text>
-          <Text style={styles.counterSubtext}>
-            Actualizado en tiempo real
-          </Text>
         </View>
       </View>
 
@@ -276,6 +277,76 @@ const styles = StyleSheet.create({
   detailsButton: {
     padding: 8,
   },
+  counterSection: {
+    marginBottom: 16,
+  },
+  counterCard: {
+    backgroundColor: `${colors.accent}20`,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: colors.accent,
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  counterLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 12,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  counterValue: {
+    fontSize: 40,
+    fontWeight: '700',
+    color: colors.accent,
+    fontFamily: 'monospace',
+    marginBottom: 6,
+    textShadowColor: `${colors.accent}40`,
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  counterUnit: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  liveIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: `${colors.success}20`,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.success,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.success,
+    shadowColor: colors.success,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  liveText: {
+    fontSize: 11,
+    color: colors.success,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   vestingBalanceSection: {
     marginBottom: 16,
   },
@@ -304,42 +375,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: colors.text,
-  },
-  counterSection: {
-    marginBottom: 16,
-  },
-  counterCard: {
-    backgroundColor: `${colors.accent}20`,
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: colors.accent,
-  },
-  counterLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  counterValue: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: colors.accent,
-    fontFamily: 'monospace',
-    marginBottom: 4,
-  },
-  counterUnit: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  counterSubtext: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
   },
   progressSection: {
     marginBottom: 16,

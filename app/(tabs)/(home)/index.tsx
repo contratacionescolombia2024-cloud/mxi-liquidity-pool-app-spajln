@@ -457,9 +457,6 @@ export default function HomeScreen() {
         {/* Countdown to Launch */}
         <LaunchCountdown />
 
-        {/* Vesting Counter - RESTORED */}
-        <VestingCounter />
-
         {/* MXI Balance with Breakdown */}
         <View style={[commonStyles.card, styles.balanceCard]}>
           <View style={styles.balanceHeader}>
@@ -542,6 +539,9 @@ export default function HomeScreen() {
             </View>
           </View>
         </View>
+
+        {/* Vesting Counter - POSITIONED BELOW MXI BALANCE */}
+        <VestingCounter />
 
         {/* Referral Metrics */}
         {loadingMetrics ? (
