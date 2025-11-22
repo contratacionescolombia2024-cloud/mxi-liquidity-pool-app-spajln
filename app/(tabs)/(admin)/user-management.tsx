@@ -215,6 +215,7 @@ export default function UserManagementScreen() {
   };
 
   const handleUserPress = async (userData: UserData) => {
+    console.log('User pressed:', userData.name, userData.id);
     setSelectedUser(userData);
     setDetailsModalVisible(true);
     await loadUserDetails(userData.id);
@@ -539,29 +540,31 @@ export default function UserManagementScreen() {
   };
 
   const handleRemoveBalance = async (type: 'mxi' | 'usdt', amount: number) => {
-    if (!selectedUser || isNaN(amount) || amount <= 0) {
+    if (!selectedUser || !user || isNaN(amount) || amount <= 0) {
       Alert.alert('Error', 'Please enter a valid positive number');
       return;
     }
 
     try {
-      const field = type === 'mxi' ? 'mxi_balance' : 'usdt_contributed';
-      const currentValue = type === 'mxi' ? selectedUser.mxi_balance : selectedUser.usdt_contributed;
-      const newValue = Math.max(0, parseFloat(currentValue.toString()) - amount);
-
-      const { error } = await supabase
-        .from('users')
-        .update({ [field]: newValue })
-        .eq('id', selectedUser.id);
+      const { data, error } = await supabase.rpc('admin_remove_balance', {
+        p_user_id: selectedUser.id,
+        p_admin_id: user.id,
+        p_mxi_amount: type === 'mxi' ? amount : 0,
+        p_usdt_amount: type === 'usdt' ? amount : 0,
+      });
 
       if (error) throw error;
 
-      Alert.alert('✅ Success', `${amount} ${type.toUpperCase()} removed successfully`);
-      await loadUsers();
-      await loadUserDetails(selectedUser.id);
-      
-      const updatedUser = users.find(u => u.id === selectedUser.id);
-      if (updatedUser) setSelectedUser(updatedUser);
+      if (data?.success) {
+        Alert.alert('✅ Success', `${amount} ${type.toUpperCase()} removed successfully`);
+        await loadUsers();
+        await loadUserDetails(selectedUser.id);
+        
+        const updatedUser = users.find(u => u.id === selectedUser.id);
+        if (updatedUser) setSelectedUser(updatedUser);
+      } else {
+        Alert.alert('❌ Error', data?.error || 'Failed to remove balance');
+      }
     } catch (error) {
       console.error('Error removing balance:', error);
       Alert.alert('❌ Error', 'Failed to remove balance');
@@ -1024,6 +1027,7 @@ export default function UserManagementScreen() {
                 userData.is_blocked && styles.blockedUserCard
               ]}
               onPress={() => handleUserPress(userData)}
+              activeOpacity={0.7}
             >
               <View style={styles.userCardHeader}>
                 <View style={styles.userInfo}>
@@ -1055,8 +1059,8 @@ export default function UserManagementScreen() {
                       <Text style={[styles.statusBadgeText, { color: colors.success }]}>Active</Text>
                     </View>
                   )}
-                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(userData.kyc_status) + '20' }]}>
-                    <Text style={[styles.statusBadgeText, { color: getStatusColor(userData.kyc_status) }]}>
+                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(userData.kyc_status || 'pending') + '20' }]}>
+                    <Text style={[styles.statusBadgeText, { color: getStatusColor(userData.kyc_status || 'pending') }]}>
                       {userData.kyc_status ? userData.kyc_status.toUpperCase() : 'N/A'}
                     </Text>
                   </View>
@@ -1107,7 +1111,152 @@ export default function UserManagementScreen() {
         )}
       </ScrollView>
 
-      {/* User Details Modal - Truncated for brevity, but includes all the modal content from the original file */}
+      {/* User Details Modal - Simplified version with key actions */}
+      <Modal
+        visible={detailsModalVisible}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setDetailsModalVisible(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setDetailsModalVisible(false)}>
+              <IconSymbol 
+                ios_icon_name="xmark.circle.fill" 
+                android_material_icon_name="cancel" 
+                size={32} 
+                color={colors.textSecondary} 
+              />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>User Details</Text>
+            <View style={{ width: 32 }} />
+          </View>
+
+          {selectedUser && (
+            <ScrollView contentContainerStyle={styles.modalContent}>
+              <View style={styles.userInfoSection}>
+                <Text style={styles.sectionTitle}>{selectedUser.name}</Text>
+                <Text style={styles.sectionSubtitle}>{selectedUser.email}</Text>
+              </View>
+
+              <View style={styles.actionButtonsGrid}>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => openInputModal('add_mxi')}
+                >
+                  <IconSymbol ios_icon_name="plus.circle" android_material_icon_name="add_circle" size={24} color={colors.primary} />
+                  <Text style={styles.actionButtonText}>Add MXI</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => openInputModal('remove_mxi')}
+                >
+                  <IconSymbol ios_icon_name="minus.circle" android_material_icon_name="remove_circle" size={24} color={colors.error} />
+                  <Text style={styles.actionButtonText}>Remove MXI</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => openInputModal('add_usdt')}
+                >
+                  <IconSymbol ios_icon_name="plus.circle" android_material_icon_name="add_circle" size={24} color={colors.success} />
+                  <Text style={styles.actionButtonText}>Add USDT</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => openInputModal('remove_usdt')}
+                >
+                  <IconSymbol ios_icon_name="minus.circle" android_material_icon_name="remove_circle" size={24} color={colors.warning} />
+                  <Text style={styles.actionButtonText}>Remove USDT</Text>
+                </TouchableOpacity>
+              </View>
+
+              {selectedUser.is_blocked ? (
+                <TouchableOpacity
+                  style={[buttonStyles.primary, { backgroundColor: colors.success }]}
+                  onPress={() => handleUnblockUser(selectedUser.id)}
+                  disabled={processing}
+                >
+                  {processing ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={buttonStyles.primaryText}>Unblock User</Text>
+                  )}
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[buttonStyles.primary, { backgroundColor: colors.error }]}
+                  onPress={() => handleBlockUser(selectedUser.id)}
+                  disabled={processing}
+                >
+                  {processing ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={buttonStyles.primaryText}>Block User</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            </ScrollView>
+          )}
+        </SafeAreaView>
+      </Modal>
+
+      {/* Input Modal */}
+      <Modal
+        visible={inputModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={closeInputModal}
+      >
+        <View style={styles.inputModalOverlay}>
+          <View style={styles.inputModalContent}>
+            <Text style={styles.inputModalTitle}>{getInputModalTitle()}</Text>
+            
+            <TextInput
+              style={styles.input}
+              value={inputValue}
+              onChangeText={setInputValue}
+              keyboardType="decimal-pad"
+              placeholder="Enter amount"
+              placeholderTextColor={colors.textSecondary}
+            />
+
+            {currentAction === 'add_commission' && (
+              <TextInput
+                style={styles.input}
+                value={inputValue2}
+                onChangeText={setInputValue2}
+                keyboardType="number-pad"
+                placeholder="Enter level (1-3)"
+                placeholderTextColor={colors.textSecondary}
+              />
+            )}
+
+            <View style={styles.inputModalButtons}>
+              <TouchableOpacity
+                style={[buttonStyles.secondary, { flex: 1 }]}
+                onPress={closeInputModal}
+              >
+                <Text style={buttonStyles.secondaryText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[buttonStyles.primary, { flex: 1 }]}
+                onPress={handleInputSubmit}
+                disabled={processing}
+              >
+                {processing ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={buttonStyles.primaryText}>Submit</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1310,5 +1459,95 @@ const styles = StyleSheet.create({
   userJoinDate: {
     fontSize: 12,
     color: colors.textSecondary,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  modalContent: {
+    padding: 16,
+    paddingBottom: 100,
+  },
+  userInfoSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  actionButtonsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 24,
+  },
+  actionButton: {
+    width: '48%',
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  actionButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  inputModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  inputModalContent: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+  },
+  inputModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  input: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 16,
+  },
+  inputModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
   },
 });

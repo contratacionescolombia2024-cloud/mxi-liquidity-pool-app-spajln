@@ -287,7 +287,7 @@ export default function UniversalMXICounter({ isAdmin = false }: UniversalMXICou
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Distribución por Fase</Text>
         
-        {/* Phase 1 */}
+        {/* Phase 1 - 0.40 USDT */}
         <View style={styles.card}>
           <View style={styles.phaseHeader}>
             <View style={[styles.phaseBadge, { backgroundColor: colors.success + '20' }]}>
@@ -323,13 +323,13 @@ export default function UniversalMXICounter({ isAdmin = false }: UniversalMXICou
           </View>
         </View>
 
-        {/* Phase 2 */}
+        {/* Phase 2 - 0.70 USDT */}
         <View style={styles.card}>
           <View style={styles.phaseHeader}>
             <View style={[styles.phaseBadge, { backgroundColor: colors.primary + '20' }]}>
               <Text style={[styles.phaseNumber, { color: colors.primary }]}>Fase 2</Text>
             </View>
-            <Text style={styles.phasePrice}>$0.60 USDT</Text>
+            <Text style={styles.phasePrice}>$0.70 USDT</Text>
           </View>
           <View style={styles.phaseStats}>
             <View style={styles.phaseStat}>
@@ -359,13 +359,13 @@ export default function UniversalMXICounter({ isAdmin = false }: UniversalMXICou
           </View>
         </View>
 
-        {/* Phase 3 */}
+        {/* Phase 3 - 1.00 USDT */}
         <View style={styles.card}>
           <View style={styles.phaseHeader}>
             <View style={[styles.phaseBadge, { backgroundColor: colors.warning + '20' }]}>
               <Text style={[styles.phaseNumber, { color: colors.warning }]}>Fase 3</Text>
             </View>
-            <Text style={styles.phasePrice}>$0.80 USDT</Text>
+            <Text style={styles.phasePrice}>$1.00 USDT</Text>
           </View>
           <View style={styles.phaseStats}>
             <View style={styles.phaseStat}>
