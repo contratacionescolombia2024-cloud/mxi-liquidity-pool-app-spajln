@@ -82,7 +82,7 @@ function RootLayoutNav() {
     dark: false,
     colors: {
       primary: "rgb(41, 98, 255)",
-      background: "rgb(249, 249, 249)",
+      background: "#000000",
       card: "rgb(255, 255, 255)",
       text: "rgb(33, 33, 33)",
       border: "rgb(224, 224, 224)",
@@ -94,7 +94,7 @@ function RootLayoutNav() {
     ...DarkTheme,
     colors: {
       primary: "rgb(41, 98, 255)",
-      background: "rgb(18, 18, 18)",
+      background: "#000000",
       card: "rgb(28, 28, 30)",
       text: "rgb(255, 255, 255)",
       border: "rgb(44, 44, 46)",
@@ -146,14 +146,14 @@ export default function RootLayout() {
 
   return (
     <>
-      <StatusBar style="auto" animated />
-      <GestureHandlerRootView style={{ flex: 1 }}>
+      <StatusBar style="light" animated />
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#000000' }}>
         <WidgetProvider>
           <AuthProvider>
             <RootLayoutNav />
           </AuthProvider>
         </WidgetProvider>
-        <SystemBars style={"auto"} />
+        <SystemBars style={"light"} />
       </GestureHandlerRootView>
     </>
   );
