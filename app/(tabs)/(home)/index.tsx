@@ -16,12 +16,9 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
-  TextInput,
-  Modal,
   ActivityIndicator,
 } from 'react-native';
-import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
-import * as Clipboard from 'expo-clipboard';
+import { colors, commonStyles } from '@/styles/commonStyles';
 
 interface PhaseData {
   totalTokensSold: number;
@@ -32,18 +29,36 @@ interface PhaseData {
   phase3TokensSold: number;
 }
 
-
-
-interface OKXPayment {
-  paymentId: string;
-  usdtAmount: number;
-  mxiAmount: number;
-  paymentAddress: string;
-  status: string;
-  expiresAt: string;
+interface ReferralMetrics {
+  level1Count: number;
+  level2Count: number;
+  level3Count: number;
+  level1Earnings: number;
+  level2Earnings: number;
+  level3Earnings: number;
+  totalEarnings: number;
+  pendingCommissions: number;
+  availableToWithdraw: number;
 }
 
-const OKX_WALLET_ADDRESS = 'TYDzsYUEpvnYmQk4zGP9sWWcTEd2MiAtW6';
+interface ChallengeMetrics {
+  totalGamesPlayed: number;
+  totalWins: number;
+  totalLosses: number;
+  totalEarnings: number;
+  winRate: number;
+  averageEarnings: number;
+}
+
+interface Transaction {
+  id: string;
+  type: 'deposit' | 'withdrawal' | 'commission' | 'game_win' | 'game_loss';
+  amount: number;
+  currency: string;
+  status: string;
+  created_at: string;
+  description: string;
+}
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -53,19 +68,14 @@ export default function HomeScreen() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [poolMembers, setPoolMembers] = useState(56527);
   const [phaseData, setPhaseData] = useState<PhaseData | null>(null);
-  
-  // Sales panel states
-  const [showSalesModal, setShowSalesModal] = useState(false);
-  const [usdtAmount, setUsdtAmount] = useState('');
-  const [mxiAmount, setMxiAmount] = useState('0');
-  const [loading, setLoading] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [currentPayment, setCurrentPayment] = useState<OKXPayment | null>(null);
+  const [referralMetrics, setReferralMetrics] = useState<ReferralMetrics | null>(null);
+  const [challengeMetrics, setChallengeMetrics] = useState<ChallengeMetrics | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loadingMetrics, setLoadingMetrics] = useState(true);
 
   useEffect(() => {
     loadData();
     checkAdmin();
-    checkExistingPayment();
     
     const interval = setInterval(() => {
       if (user) {
@@ -102,6 +112,215 @@ export default function HomeScreen() {
         phase3TokensSold: parseFloat(metricsData.phase_3_tokens_sold || '0'),
       });
     }
+
+    // Load referral metrics
+    await loadReferralMetrics();
+
+    // Load challenge metrics
+    await loadChallengeMetrics();
+
+    // Load transaction history
+    await loadTransactionHistory();
+  };
+
+  const loadReferralMetrics = async () => {
+    if (!user) return;
+
+    try {
+      // Get referral counts by level
+      const { data: referrals, error: refError } = await supabase
+        .from('referrals')
+        .select('level, referred_id')
+        .eq('referrer_id', user.id);
+
+      if (refError) throw refError;
+
+      // Count referrals by level
+      const level1Count = referrals?.filter(r => r.level === 1).length || 0;
+      const level2Count = referrals?.filter(r => r.level === 2).length || 0;
+      const level3Count = referrals?.filter(r => r.level === 3).length || 0;
+
+      // Get commission earnings by level
+      const { data: commissions, error: commError } = await supabase
+        .from('commissions')
+        .select('level, amount, status')
+        .eq('user_id', user.id);
+
+      if (commError) throw commError;
+
+      const level1Earnings = commissions?.filter(c => c.level === 1).reduce((sum, c) => sum + parseFloat(c.amount.toString()), 0) || 0;
+      const level2Earnings = commissions?.filter(c => c.level === 2).reduce((sum, c) => sum + parseFloat(c.amount.toString()), 0) || 0;
+      const level3Earnings = commissions?.filter(c => c.level === 3).reduce((sum, c) => sum + parseFloat(c.amount.toString()), 0) || 0;
+      const totalEarnings = level1Earnings + level2Earnings + level3Earnings;
+
+      const pendingCommissions = commissions?.filter(c => c.status === 'pending').reduce((sum, c) => sum + parseFloat(c.amount.toString()), 0) || 0;
+      const availableToWithdraw = commissions?.filter(c => c.status === 'available').reduce((sum, c) => sum + parseFloat(c.amount.toString()), 0) || 0;
+
+      setReferralMetrics({
+        level1Count,
+        level2Count,
+        level3Count,
+        level1Earnings,
+        level2Earnings,
+        level3Earnings,
+        totalEarnings,
+        pendingCommissions,
+        availableToWithdraw,
+      });
+    } catch (error) {
+      console.error('Error loading referral metrics:', error);
+    }
+  };
+
+  const loadChallengeMetrics = async () => {
+    if (!user) return;
+
+    try {
+      // Get challenge history
+      const { data: challenges, error: chalError } = await supabase
+        .from('challenge_history')
+        .select('result, amount_won, amount_lost')
+        .eq('user_id', user.id);
+
+      if (chalError) throw chalError;
+
+      // Get game results
+      const { data: gameResults, error: gameError } = await supabase
+        .from('game_results')
+        .select('rank, prize_won')
+        .eq('user_id', user.id);
+
+      if (gameError) throw gameError;
+
+      const totalGamesPlayed = (challenges?.length || 0) + (gameResults?.length || 0);
+      const challengeWins = challenges?.filter(c => c.result === 'win').length || 0;
+      const gameWins = gameResults?.filter(g => g.rank === 1).length || 0;
+      const totalWins = challengeWins + gameWins;
+      const totalLosses = totalGamesPlayed - totalWins;
+
+      const challengeEarnings = challenges?.reduce((sum, c) => sum + parseFloat(c.amount_won?.toString() || '0'), 0) || 0;
+      const gameEarnings = gameResults?.reduce((sum, g) => sum + parseFloat(g.prize_won?.toString() || '0'), 0) || 0;
+      const totalEarnings = challengeEarnings + gameEarnings;
+
+      const winRate = totalGamesPlayed > 0 ? (totalWins / totalGamesPlayed) * 100 : 0;
+      const averageEarnings = totalGamesPlayed > 0 ? totalEarnings / totalGamesPlayed : 0;
+
+      setChallengeMetrics({
+        totalGamesPlayed,
+        totalWins,
+        totalLosses,
+        totalEarnings,
+        winRate,
+        averageEarnings,
+      });
+    } catch (error) {
+      console.error('Error loading challenge metrics:', error);
+    } finally {
+      setLoadingMetrics(false);
+    }
+  };
+
+  const loadTransactionHistory = async () => {
+    if (!user) return;
+
+    try {
+      const transactionList: Transaction[] = [];
+
+      // Get withdrawals
+      const { data: withdrawals, error: wError } = await supabase
+        .from('withdrawals')
+        .select('id, amount, currency, status, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (!wError && withdrawals) {
+        withdrawals.forEach(w => {
+          transactionList.push({
+            id: w.id,
+            type: 'withdrawal',
+            amount: parseFloat(w.amount.toString()),
+            currency: w.currency,
+            status: w.status,
+            created_at: w.created_at,
+            description: `Retiro de ${w.currency}`,
+          });
+        });
+      }
+
+      // Get contributions (deposits)
+      const { data: contributions, error: cError } = await supabase
+        .from('contributions')
+        .select('id, usdt_amount, mxi_amount, status, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (!cError && contributions) {
+        contributions.forEach(c => {
+          transactionList.push({
+            id: c.id,
+            type: 'deposit',
+            amount: parseFloat(c.usdt_amount.toString()),
+            currency: 'USDT',
+            status: c.status,
+            created_at: c.created_at,
+            description: `Depósito - ${parseFloat(c.mxi_amount.toString()).toFixed(2)} MXI`,
+          });
+        });
+      }
+
+      // Get commissions
+      const { data: commissions, error: comError } = await supabase
+        .from('commissions')
+        .select('id, amount, level, status, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (!comError && commissions) {
+        commissions.forEach(c => {
+          transactionList.push({
+            id: c.id,
+            type: 'commission',
+            amount: parseFloat(c.amount.toString()),
+            currency: 'MXI',
+            status: c.status,
+            created_at: c.created_at,
+            description: `Comisión Nivel ${c.level}`,
+          });
+        });
+      }
+
+      // Get game results
+      const { data: gameResults, error: gError } = await supabase
+        .from('game_results')
+        .select('id, prize_won, rank, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (!gError && gameResults) {
+        gameResults.forEach(g => {
+          const prizeWon = parseFloat(g.prize_won?.toString() || '0');
+          transactionList.push({
+            id: g.id,
+            type: prizeWon > 0 ? 'game_win' : 'game_loss',
+            amount: prizeWon,
+            currency: 'MXI',
+            status: 'completed',
+            created_at: g.created_at,
+            description: g.rank === 1 ? `Victoria en Reto - Puesto ${g.rank}` : `Reto Completado - Puesto ${g.rank}`,
+          });
+        });
+      }
+
+      // Sort by date and take last 5
+      transactionList.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      setTransactions(transactionList.slice(0, 5));
+    } catch (error) {
+      console.error('Error loading transaction history:', error);
+    }
   };
 
   const checkAdmin = async () => {
@@ -110,43 +329,9 @@ export default function HomeScreen() {
     console.log('Admin status:', adminStatus);
   };
 
-  const checkExistingPayment = async () => {
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from('okx_payments')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      console.error('Error checking existing payment:', error);
-      return;
-    }
-
-    if (data) {
-      const expiresAt = new Date(data.expires_at);
-      if (expiresAt > new Date()) {
-        setCurrentPayment({
-          paymentId: data.payment_id,
-          usdtAmount: parseFloat(data.usdt_amount.toString()),
-          mxiAmount: parseFloat(data.mxi_amount.toString()),
-          paymentAddress: data.payment_address || OKX_WALLET_ADDRESS,
-          status: data.status,
-          expiresAt: data.expires_at,
-        });
-        console.log('Existing payment found:', data.payment_id);
-      }
-    }
-  };
-
   const onRefresh = async () => {
     setRefreshing(true);
     await loadData();
-    await checkExistingPayment();
     setRefreshing(false);
   };
 
@@ -177,126 +362,6 @@ export default function HomeScreen() {
     );
   };
 
-  const calculateMxi = (usdt: string) => {
-    const amount = parseFloat(usdt);
-    if (isNaN(amount) || amount <= 0 || !phaseData) {
-      setMxiAmount('0');
-      return;
-    }
-
-    const mxi = amount / phaseData.currentPriceUsdt;
-    setMxiAmount(mxi.toFixed(4));
-  };
-
-  const handleOpenSalesPanel = () => {
-    if (currentPayment) {
-      setShowPaymentModal(true);
-    } else {
-      setShowSalesModal(true);
-    }
-  };
-
-  const handleCreatePayment = async () => {
-    if (!user || !phaseData) return;
-
-    const amount = parseFloat(usdtAmount);
-
-    if (isNaN(amount) || amount < 50) {
-      Alert.alert('Invalid Amount', 'Minimum contribution is 50 USDT');
-      return;
-    }
-
-    if (amount > 100000) {
-      Alert.alert('Invalid Amount', 'Maximum contribution is 100,000 USDT');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const mxi = amount / phaseData.currentPriceUsdt;
-      const paymentId = `MXI-${Date.now()}-${user.id.substring(0, 8)}`;
-      const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
-
-      const { error } = await supabase.from('okx_payments').insert({
-        user_id: user.id,
-        payment_id: paymentId,
-        usdt_amount: amount,
-        mxi_amount: mxi,
-        payment_address: OKX_WALLET_ADDRESS,
-        status: 'pending',
-        expires_at: expiresAt,
-      });
-
-      if (error) {
-        console.error('Payment creation error:', error);
-        Alert.alert('Error', 'Failed to create payment request');
-        setLoading(false);
-        return;
-      }
-
-      setCurrentPayment({
-        paymentId,
-        usdtAmount: amount,
-        mxiAmount: mxi,
-        paymentAddress: OKX_WALLET_ADDRESS,
-        status: 'pending',
-        expiresAt,
-      });
-
-      setShowSalesModal(false);
-      setShowPaymentModal(true);
-      setLoading(false);
-      console.log('Payment created:', paymentId);
-    } catch (error) {
-      console.error('Payment creation exception:', error);
-      Alert.alert('Error', 'Failed to create payment');
-      setLoading(false);
-    }
-  };
-
-  const handleCopyAddress = async () => {
-    await Clipboard.setStringAsync(OKX_WALLET_ADDRESS);
-    Alert.alert('Copied', 'Wallet address copied to clipboard');
-  };
-
-  const handleVerifyPayment = async () => {
-    if (!currentPayment) return;
-
-    Alert.alert(
-      'Verify Payment',
-      'Payment verification is handled by administrators. You will be notified once your payment is confirmed.',
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            setShowPaymentModal(false);
-          },
-        },
-      ]
-    );
-  };
-
-  const getPhaseProgress = (phase: number): number => {
-    if (!phaseData) return 0;
-    
-    const phaseLimit = 5000000; // 5M tokens per phase
-    let tokensSold = 0;
-    
-    if (phase === 1) tokensSold = phaseData.phase1TokensSold;
-    else if (phase === 2) tokensSold = phaseData.phase2TokensSold;
-    else if (phase === 3) tokensSold = phaseData.phase3TokensSold;
-    
-    return Math.min((tokensSold / phaseLimit) * 100, 100);
-  };
-
-  const getPhasePrice = (phase: number): string => {
-    if (phase === 1) return '$0.30';
-    if (phase === 2) return '$0.40';
-    if (phase === 3) return '$0.50';
-    return '$0.30';
-  };
-
   const formatNumber = (num: number): string => {
     if (num >= 1000000) {
       return `${(num / 1000000).toFixed(2)}M`;
@@ -306,10 +371,49 @@ export default function HomeScreen() {
     return num.toFixed(0);
   };
 
-  // Calculate MXI exchange value at Phase 1 price (0.4 USDT)
-  const getMxiExchangeValue = (mxiAmount: number): number => {
-    const mxiPhase1Price = 0.4; // Phase 1 sale price
-    return mxiAmount * mxiPhase1Price;
+  const getTransactionIcon = (type: string) => {
+    switch (type) {
+      case 'deposit':
+        return { ios: 'arrow.down.circle.fill', android: 'arrow_circle_down', color: colors.success };
+      case 'withdrawal':
+        return { ios: 'arrow.up.circle.fill', android: 'arrow_circle_up', color: colors.error };
+      case 'commission':
+        return { ios: 'person.3.fill', android: 'group', color: colors.warning };
+      case 'game_win':
+        return { ios: 'trophy.fill', android: 'emoji_events', color: colors.accent };
+      case 'game_loss':
+        return { ios: 'gamecontroller.fill', android: 'sports_esports', color: colors.textSecondary };
+      default:
+        return { ios: 'circle.fill', android: 'circle', color: colors.textSecondary };
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return colors.success;
+      case 'pending':
+        return colors.warning;
+      case 'failed':
+        return colors.error;
+      default:
+        return colors.textSecondary;
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Ahora';
+    if (diffMins < 60) return `Hace ${diffMins}m`;
+    if (diffHours < 24) return `Hace ${diffHours}h`;
+    if (diffDays < 7) return `Hace ${diffDays}d`;
+    return date.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
   };
 
   if (!user) {
@@ -322,30 +426,12 @@ export default function HomeScreen() {
     );
   }
 
-  // Calculate MXI breakdown - these fields come from the users table
+  // Calculate MXI breakdown
   const mxiPurchased = user.mxiPurchasedDirectly || 0;
   const mxiFromCommissions = user.mxiFromUnifiedCommissions || 0;
   const mxiFromChallenges = (user as any).mxi_from_challenges || 0;
   const mxiVestingLocked = (user as any).mxi_vesting_locked || 0;
-
-  // Total MXI balance NOW INCLUDES VESTING as requested:
-  // "sumatoria de mxi comprados, mxi por referidos, mxi por retos, mxi vesting"
   const totalMxiBalance = mxiPurchased + mxiFromCommissions + mxiFromChallenges + mxiVestingLocked;
-
-  console.log('MXI Balance Breakdown:', {
-    total: totalMxiBalance,
-    purchased: mxiPurchased,
-    commissions: mxiFromCommissions,
-    challenges: mxiFromChallenges,
-    vesting: mxiVestingLocked,
-    userBalance: user.mxiBalance
-  });
-
-  // Calculate vesting data
-  const mxiInVesting = mxiPurchased + mxiFromCommissions;
-  const yieldPerSecond = user.yieldRatePerMinute / 60;
-  const totalYield = user.accumulatedYield + currentYield;
-  const canUnify = user.activeReferrals >= 10;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -357,7 +443,7 @@ export default function HomeScreen() {
       >
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>Welcome back,</Text>
+            <Text style={styles.greeting}>Bienvenido,</Text>
             <Text style={styles.userName}>{user.name}</Text>
           </View>
           <TouchableOpacity
@@ -374,7 +460,7 @@ export default function HomeScreen() {
         {/* MXI Balance with Breakdown */}
         <View style={[commonStyles.card, styles.balanceCard]}>
           <View style={styles.balanceHeader}>
-            <Text style={styles.balanceLabel}>MXI Balance Total</Text>
+            <Text style={styles.balanceLabel}>Balance Total MXI</Text>
             <TouchableOpacity onPress={() => router.push('/(tabs)/(home)/vesting')}>
               <IconSymbol ios_icon_name="info.circle" android_material_icon_name="info" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
@@ -452,171 +538,242 @@ export default function HomeScreen() {
               <Text style={styles.breakdownValue}>{mxiVestingLocked.toFixed(2)}</Text>
             </View>
           </View>
-
-          <View style={styles.balanceDivider} />
-          
-          <View style={styles.balanceRow}>
-            <View style={styles.balanceItem}>
-              <Text style={styles.balanceItemLabel}>MXI Total</Text>
-              <Text style={styles.balanceItemValue}>{totalMxiBalance.toFixed(2)} MXI</Text>
-              <Text style={styles.balanceItemSubtext}>≈ ${getMxiExchangeValue(totalMxiBalance).toFixed(2)} USDT</Text>
-              <Text style={styles.balanceItemNote}>(Fase 1: $0.40/MXI)</Text>
-            </View>
-            <View style={styles.balanceItem}>
-              <Text style={styles.balanceItemLabel}>Referidos Activos</Text>
-              <Text style={styles.balanceItemValue}>{user.activeReferrals}</Text>
-            </View>
-          </View>
         </View>
 
-        {/* MXI Sales Status */}
-        {phaseData && (
-          <View style={[commonStyles.card, styles.salesCard]}>
-            <View style={styles.salesHeader}>
-              <IconSymbol ios_icon_name="chart.bar.fill" android_material_icon_name="bar_chart" size={28} color={colors.success} />
-              <Text style={styles.salesTitle}>📊 Estado de Ventas</Text>
-            </View>
-            
-            <View style={styles.salesStats}>
-              <View style={styles.salesStatItem}>
-                <Text style={styles.salesStatLabel}>Total MXI Vendidos</Text>
-                <Text style={styles.salesStatValue}>{formatNumber(phaseData.totalTokensSold)}</Text>
-                <Text style={styles.salesStatSubtext}>de 15M tokens</Text>
-              </View>
-              <View style={styles.salesDivider} />
-              <View style={styles.salesStatItem}>
-                <Text style={styles.salesStatLabel}>Fase Actual</Text>
-                <Text style={styles.salesStatValue}>Fase {phaseData.currentPhase}</Text>
-                <Text style={styles.salesStatSubtext}>{getPhasePrice(phaseData.currentPhase)} por MXI</Text>
-              </View>
-            </View>
-
-            <View style={styles.totalProgressContainer}>
-              <View style={styles.totalProgressHeader}>
-                <Text style={styles.totalProgressLabel}>Progreso Total</Text>
-                <Text style={styles.totalProgressPercent}>
-                  {((phaseData.totalTokensSold / 15000000) * 100).toFixed(2)}%
-                </Text>
-              </View>
-              <View style={styles.totalProgressBar}>
-                <View 
-                  style={[
-                    styles.totalProgressFill, 
-                    { width: `${Math.min((phaseData.totalTokensSold / 15000000) * 100, 100)}%` }
-                  ]} 
+        {/* Referral Metrics */}
+        {loadingMetrics ? (
+          <View style={[commonStyles.card, styles.loadingCard]}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingText}>Cargando métricas...</Text>
+          </View>
+        ) : (
+          <React.Fragment>
+            <View style={[commonStyles.card, styles.metricsCard]}>
+              <View style={styles.metricsHeader}>
+                <IconSymbol 
+                  ios_icon_name="person.3.fill" 
+                  android_material_icon_name="group" 
+                  size={28} 
+                  color={colors.success} 
                 />
+                <Text style={styles.metricsTitle}>📊 Métricas de Referidos</Text>
               </View>
-            </View>
-          </View>
-        )}
 
-        {/* Phase Listing */}
-        {phaseData && (
-          <View style={[commonStyles.card, styles.phasesCard]}>
-            <View style={styles.phasesHeader}>
-              <IconSymbol ios_icon_name="list.bullet" android_material_icon_name="format_list_bulleted" size={24} color={colors.accent} />
-              <Text style={styles.phasesTitle}>📈 Fases de Venta</Text>
-            </View>
-
-            {/* Phase 1 */}
-            <View style={[styles.phaseItem, phaseData.currentPhase === 1 && styles.phaseItemActive]}>
-              <View style={styles.phaseHeader}>
-                <View style={styles.phaseInfo}>
-                  <Text style={styles.phaseNumber}>Fase 1</Text>
-                  <Text style={styles.phasePrice}>$0.30 por MXI</Text>
-                </View>
-                {phaseData.currentPhase === 1 && (
-                  <View style={styles.currentPhaseBadge}>
-                    <Text style={styles.currentPhaseBadgeText}>ACTUAL</Text>
+              <View style={styles.metricsGrid}>
+                <View style={styles.metricItem}>
+                  <View style={[styles.metricBadge, { backgroundColor: colors.success + '20' }]}>
+                    <Text style={[styles.metricBadgeText, { color: colors.success }]}>Nivel 1</Text>
                   </View>
-                )}
-                {phaseData.currentPhase > 1 && (
-                  <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={24} color={colors.success} />
-                )}
-              </View>
-              <View style={styles.phaseProgressContainer}>
-                <View style={styles.phaseProgressBar}>
-                  <View 
-                    style={[
-                      styles.phaseProgressFill, 
-                      { width: `${getPhaseProgress(1)}%` }
-                    ]} 
-                  />
+                  <Text style={styles.metricValue}>{referralMetrics?.level1Count || 0}</Text>
+                  <Text style={styles.metricLabel}>Referidos</Text>
+                  <Text style={styles.metricEarnings}>{(referralMetrics?.level1Earnings || 0).toFixed(2)} MXI</Text>
+                  <Text style={styles.metricPercentage}>3% comisión</Text>
                 </View>
-                <Text style={styles.phaseProgressText}>
-                  {formatNumber(phaseData.phase1TokensSold)} / 5M
-                </Text>
+
+                <View style={styles.metricItem}>
+                  <View style={[styles.metricBadge, { backgroundColor: colors.primary + '20' }]}>
+                    <Text style={[styles.metricBadgeText, { color: colors.primary }]}>Nivel 2</Text>
+                  </View>
+                  <Text style={styles.metricValue}>{referralMetrics?.level2Count || 0}</Text>
+                  <Text style={styles.metricLabel}>Referidos</Text>
+                  <Text style={styles.metricEarnings}>{(referralMetrics?.level2Earnings || 0).toFixed(2)} MXI</Text>
+                  <Text style={styles.metricPercentage}>2% comisión</Text>
+                </View>
+
+                <View style={styles.metricItem}>
+                  <View style={[styles.metricBadge, { backgroundColor: colors.warning + '20' }]}>
+                    <Text style={[styles.metricBadgeText, { color: colors.warning }]}>Nivel 3</Text>
+                  </View>
+                  <Text style={styles.metricValue}>{referralMetrics?.level3Count || 0}</Text>
+                  <Text style={styles.metricLabel}>Referidos</Text>
+                  <Text style={styles.metricEarnings}>{(referralMetrics?.level3Earnings || 0).toFixed(2)} MXI</Text>
+                  <Text style={styles.metricPercentage}>1% comisión</Text>
+                </View>
+              </View>
+
+              <View style={styles.metricsSummary}>
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryLabel}>Total Ganado</Text>
+                  <Text style={[styles.summaryValue, { color: colors.success }]}>
+                    {(referralMetrics?.totalEarnings || 0).toFixed(2)} MXI
+                  </Text>
+                </View>
+                <View style={styles.summaryDivider} />
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryLabel}>Pendiente</Text>
+                  <Text style={[styles.summaryValue, { color: colors.warning }]}>
+                    {(referralMetrics?.pendingCommissions || 0).toFixed(2)} MXI
+                  </Text>
+                </View>
+                <View style={styles.summaryDivider} />
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryLabel}>Disponible</Text>
+                  <Text style={[styles.summaryValue, { color: colors.accent }]}>
+                    {(referralMetrics?.availableToWithdraw || 0).toFixed(2)} MXI
+                  </Text>
+                </View>
               </View>
             </View>
 
-            {/* Phase 2 */}
-            <View style={[styles.phaseItem, phaseData.currentPhase === 2 && styles.phaseItemActive]}>
-              <View style={styles.phaseHeader}>
-                <View style={styles.phaseInfo}>
-                  <Text style={styles.phaseNumber}>Fase 2</Text>
-                  <Text style={styles.phasePrice}>$0.40 por MXI</Text>
-                </View>
-                {phaseData.currentPhase === 2 && (
-                  <View style={styles.currentPhaseBadge}>
-                    <Text style={styles.currentPhaseBadgeText}>ACTUAL</Text>
-                  </View>
-                )}
-                {phaseData.currentPhase > 2 && (
-                  <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={24} color={colors.success} />
-                )}
-                {phaseData.currentPhase < 2 && (
-                  <IconSymbol ios_icon_name="lock.fill" android_material_icon_name="lock" size={24} color={colors.textSecondary} />
-                )}
+            {/* Challenge Metrics */}
+            <View style={[commonStyles.card, styles.metricsCard]}>
+              <View style={styles.metricsHeader}>
+                <IconSymbol 
+                  ios_icon_name="trophy.fill" 
+                  android_material_icon_name="emoji_events" 
+                  size={28} 
+                  color={colors.warning} 
+                />
+                <Text style={styles.metricsTitle}>🎮 Métricas de Retos</Text>
               </View>
-              <View style={styles.phaseProgressContainer}>
-                <View style={styles.phaseProgressBar}>
-                  <View 
-                    style={[
-                      styles.phaseProgressFill, 
-                      { width: `${getPhaseProgress(2)}%` }
-                    ]} 
-                  />
+
+              <View style={styles.challengeStats}>
+                <View style={styles.challengeStatRow}>
+                  <View style={styles.challengeStatItem}>
+                    <IconSymbol 
+                      ios_icon_name="gamecontroller.fill" 
+                      android_material_icon_name="sports_esports" 
+                      size={24} 
+                      color={colors.primary} 
+                    />
+                    <View style={styles.challengeStatText}>
+                      <Text style={styles.challengeStatValue}>{challengeMetrics?.totalGamesPlayed || 0}</Text>
+                      <Text style={styles.challengeStatLabel}>Juegos Totales</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.challengeStatItem}>
+                    <IconSymbol 
+                      ios_icon_name="checkmark.circle.fill" 
+                      android_material_icon_name="check_circle" 
+                      size={24} 
+                      color={colors.success} 
+                    />
+                    <View style={styles.challengeStatText}>
+                      <Text style={[styles.challengeStatValue, { color: colors.success }]}>
+                        {challengeMetrics?.totalWins || 0}
+                      </Text>
+                      <Text style={styles.challengeStatLabel}>Victorias</Text>
+                    </View>
+                  </View>
                 </View>
-                <Text style={styles.phaseProgressText}>
-                  {formatNumber(phaseData.phase2TokensSold)} / 5M
-                </Text>
+
+                <View style={styles.challengeStatRow}>
+                  <View style={styles.challengeStatItem}>
+                    <IconSymbol 
+                      ios_icon_name="xmark.circle.fill" 
+                      android_material_icon_name="cancel" 
+                      size={24} 
+                      color={colors.error} 
+                    />
+                    <View style={styles.challengeStatText}>
+                      <Text style={[styles.challengeStatValue, { color: colors.error }]}>
+                        {challengeMetrics?.totalLosses || 0}
+                      </Text>
+                      <Text style={styles.challengeStatLabel}>Derrotas</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.challengeStatItem}>
+                    <IconSymbol 
+                      ios_icon_name="percent" 
+                      android_material_icon_name="percent" 
+                      size={24} 
+                      color={colors.accent} 
+                    />
+                    <View style={styles.challengeStatText}>
+                      <Text style={[styles.challengeStatValue, { color: colors.accent }]}>
+                        {(challengeMetrics?.winRate || 0).toFixed(1)}%
+                      </Text>
+                      <Text style={styles.challengeStatLabel}>Tasa de Victoria</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.challengeEarnings}>
+                <View style={styles.earningsItem}>
+                  <Text style={styles.earningsLabel}>Total Ganado</Text>
+                  <Text style={[styles.earningsValue, { color: colors.success }]}>
+                    {(challengeMetrics?.totalEarnings || 0).toFixed(2)} MXI
+                  </Text>
+                </View>
+                <View style={styles.summaryDivider} />
+                <View style={styles.earningsItem}>
+                  <Text style={styles.earningsLabel}>Promedio por Juego</Text>
+                  <Text style={[styles.earningsValue, { color: colors.primary }]}>
+                    {(challengeMetrics?.averageEarnings || 0).toFixed(2)} MXI
+                  </Text>
+                </View>
               </View>
             </View>
 
-            {/* Phase 3 */}
-            <View style={[styles.phaseItem, phaseData.currentPhase === 3 && styles.phaseItemActive]}>
-              <View style={styles.phaseHeader}>
-                <View style={styles.phaseInfo}>
-                  <Text style={styles.phaseNumber}>Fase 3</Text>
-                  <Text style={styles.phasePrice}>$0.50 por MXI</Text>
-                </View>
-                {phaseData.currentPhase === 3 && (
-                  <View style={styles.currentPhaseBadge}>
-                    <Text style={styles.currentPhaseBadgeText}>ACTUAL</Text>
-                  </View>
-                )}
-                {phaseData.currentPhase > 3 && (
-                  <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={24} color={colors.success} />
-                )}
-                {phaseData.currentPhase < 3 && (
-                  <IconSymbol ios_icon_name="lock.fill" android_material_icon_name="lock" size={24} color={colors.textSecondary} />
-                )}
+            {/* Transaction History */}
+            <View style={[commonStyles.card, styles.transactionsCard]}>
+              <View style={styles.transactionsHeader}>
+                <IconSymbol 
+                  ios_icon_name="list.bullet.rectangle" 
+                  android_material_icon_name="receipt_long" 
+                  size={28} 
+                  color={colors.accent} 
+                />
+                <Text style={styles.transactionsTitle}>📜 Últimas Transacciones</Text>
               </View>
-              <View style={styles.phaseProgressContainer}>
-                <View style={styles.phaseProgressBar}>
-                  <View 
-                    style={[
-                      styles.phaseProgressFill, 
-                      { width: `${getPhaseProgress(3)}%` }
-                    ]} 
+
+              {transactions.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <IconSymbol 
+                    ios_icon_name="tray" 
+                    android_material_icon_name="inbox" 
+                    size={48} 
+                    color={colors.textSecondary} 
                   />
+                  <Text style={styles.emptyStateText}>No hay transacciones recientes</Text>
                 </View>
-                <Text style={styles.phaseProgressText}>
-                  {formatNumber(phaseData.phase3TokensSold)} / 5M
-                </Text>
-              </View>
+              ) : (
+                <View style={styles.transactionsList}>
+                  {transactions.map((transaction, index) => {
+                    const icon = getTransactionIcon(transaction.type);
+                    return (
+                      <View key={index} style={styles.transactionItem}>
+                        <View style={[styles.transactionIcon, { backgroundColor: icon.color + '20' }]}>
+                          <IconSymbol 
+                            ios_icon_name={icon.ios} 
+                            android_material_icon_name={icon.android} 
+                            size={24} 
+                            color={icon.color} 
+                          />
+                        </View>
+                        <View style={styles.transactionDetails}>
+                          <Text style={styles.transactionDescription}>{transaction.description}</Text>
+                          <View style={styles.transactionMeta}>
+                            <Text style={styles.transactionDate}>{formatDate(transaction.created_at)}</Text>
+                            <View style={[styles.transactionStatus, { backgroundColor: getStatusColor(transaction.status) + '20' }]}>
+                              <Text style={[styles.transactionStatusText, { color: getStatusColor(transaction.status) }]}>
+                                {transaction.status === 'completed' ? 'Completado' : 
+                                 transaction.status === 'pending' ? 'Pendiente' : 
+                                 transaction.status === 'failed' ? 'Fallido' : transaction.status}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                        <View style={styles.transactionAmount}>
+                          <Text style={[
+                            styles.transactionAmountValue,
+                            { color: transaction.type === 'withdrawal' || transaction.type === 'game_loss' ? colors.error : colors.success }
+                          ]}>
+                            {transaction.type === 'withdrawal' || transaction.type === 'game_loss' ? '-' : '+'}
+                            {transaction.amount.toFixed(2)}
+                          </Text>
+                          <Text style={styles.transactionCurrency}>{transaction.currency}</Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
             </View>
-          </View>
+          </React.Fragment>
         )}
 
         {user.yieldRatePerMinute > 0 && (
@@ -629,169 +786,19 @@ export default function HomeScreen() {
 
         <VestingCounter />
 
-        <View style={styles.quickActions}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          
-          {/* VESTING PANEL - Prominent Vesting Card */}
-          <TouchableOpacity
-            style={[commonStyles.card, styles.vestingPanelCard]}
-            onPress={() => router.push('/(tabs)/(home)/vesting')}
-          >
-            <View style={styles.vestingPanelHeader}>
-              <View style={styles.vestingPanelIconContainer}>
-                <IconSymbol 
-                  ios_icon_name="chart.line.uptrend.xyaxis" 
-                  android_material_icon_name="trending_up" 
-                  size={36} 
-                  color="#fff" 
-                />
-              </View>
-              <View style={styles.vestingPanelInfo}>
-                <Text style={styles.vestingPanelTitle}>⚡ Vesting & Rendimiento</Text>
-                <Text style={styles.vestingPanelSubtitle}>
-                  {yieldPerSecond.toFixed(8)} MXI por segundo
-                </Text>
-              </View>
-              <IconSymbol 
-                ios_icon_name="chevron.right" 
-                android_material_icon_name="chevron_right" 
-                size={28} 
-                color="#fff" 
-              />
-            </View>
-            
-            <View style={styles.vestingPanelStats}>
-              <View style={styles.vestingPanelStat}>
-                <Text style={styles.vestingPanelStatLabel}>Balance en Vesting</Text>
-                <Text style={styles.vestingPanelStatValue}>{mxiInVesting.toFixed(2)} MXI</Text>
-              </View>
-              <View style={styles.vestingPanelDivider} />
-              <View style={styles.vestingPanelStat}>
-                <Text style={styles.vestingPanelStatLabel}>Rendimiento Acumulado</Text>
-                <Text style={styles.vestingPanelStatValue}>{totalYield.toFixed(6)} MXI</Text>
-              </View>
-            </View>
-            
-            <View style={styles.vestingPanelFeatures}>
-              <View style={styles.vestingPanelFeature}>
-                <IconSymbol 
-                  ios_icon_name="checkmark.circle.fill" 
-                  android_material_icon_name="check_circle" 
-                  size={18} 
-                  color="#fff" 
-                />
-                <Text style={styles.vestingPanelFeatureText}>Rendimiento en tiempo real</Text>
-              </View>
-              <View style={styles.vestingPanelFeature}>
-                <IconSymbol 
-                  ios_icon_name="checkmark.circle.fill" 
-                  android_material_icon_name="check_circle" 
-                  size={18} 
-                  color="#fff" 
-                />
-                <Text style={styles.vestingPanelFeatureText}>0.005% por hora</Text>
-              </View>
-              <View style={styles.vestingPanelFeature}>
-                <IconSymbol 
-                  ios_icon_name={canUnify ? "checkmark.circle.fill" : "lock.fill"}
-                  android_material_icon_name={canUnify ? "check_circle" : "lock"}
-                  size={18} 
-                  color="#fff" 
-                />
-                <Text style={styles.vestingPanelFeatureText}>
-                  {canUnify ? 'Listo para unificar' : `Requiere ${10 - user.activeReferrals} referidos más`}
-                </Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-          
-          <View style={styles.actionsGrid}>
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() => Alert.alert('Sistema de Pagos', 'El sistema de pagos ha sido deshabilitado temporalmente. Por favor, contacta al soporte para más información.')}
-            >
-              <View style={styles.actionIconContainer}>
-                <IconSymbol ios_icon_name="plus.circle.fill" android_material_icon_name="add_circle" size={32} color={colors.textSecondary} />
-              </View>
-              <Text style={styles.actionTitle}>Depositar</Text>
-              <Text style={styles.actionSubtitle}>No disponible</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() => router.push('/(tabs)/(home)/withdrawal')}
-            >
-              <View style={styles.actionIconContainer}>
-                <IconSymbol ios_icon_name="arrow.down.circle.fill" android_material_icon_name="arrow_circle_down" size={32} color={colors.success} />
-              </View>
-              <Text style={styles.actionTitle}>Retirar</Text>
-              <Text style={styles.actionSubtitle}>Fondos</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() => router.push('/(tabs)/(home)/referrals')}
-            >
-              <View style={styles.actionIconContainer}>
-                <IconSymbol ios_icon_name="person.3.fill" android_material_icon_name="group" size={32} color={colors.accent} />
-              </View>
-              <Text style={styles.actionTitle}>Referidos</Text>
-              <Text style={styles.actionSubtitle}>Invitar</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() => router.push('/(tabs)/(home)/kyc-verification')}
-            >
-              <View style={styles.actionIconContainer}>
-                <IconSymbol ios_icon_name="checkmark.shield.fill" android_material_icon_name="verified_user" size={32} color={colors.warning} />
-              </View>
-              <Text style={styles.actionTitle}>KYC</Text>
-              <Text style={styles.actionSubtitle}>Verificar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.gamesSection}>
-          <Text style={styles.sectionTitle}>Challenge Games</Text>
-          <View style={styles.gamesGrid}>
-            <TouchableOpacity
-              style={styles.gameCard}
-              onPress={() => router.push('/(tabs)/(home)/lottery')}
-            >
-              <View style={styles.gameIconContainer}>
-                <IconSymbol ios_icon_name="ticket.fill" android_material_icon_name="confirmation_number" size={40} color="#FFD700" />
-              </View>
-              <Text style={styles.gameTitle}>Lottery</Text>
-              <Text style={styles.gameSubtitle}>Win big!</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.gameCard}
-              onPress={() => router.push('/(tabs)/(home)/challenge-history')}
-            >
-              <View style={styles.gameIconContainer}>
-                <IconSymbol ios_icon_name="clock.fill" android_material_icon_name="history" size={40} color={colors.textSecondary} />
-              </View>
-              <Text style={styles.gameTitle}>History</Text>
-              <Text style={styles.gameSubtitle}>View records</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
         <View style={[commonStyles.card, styles.statsCard]}>
-          <Text style={styles.statsTitle}>Pool Statistics</Text>
+          <Text style={styles.statsTitle}>Estadísticas del Pool</Text>
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <IconSymbol ios_icon_name="person.3.fill" android_material_icon_name="group" size={24} color={colors.primary} />
               <Text style={styles.statValue}>{poolMembers.toLocaleString()}</Text>
-              <Text style={styles.statLabel}>Members</Text>
+              <Text style={styles.statLabel}>Miembros</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <IconSymbol ios_icon_name="person.2.fill" android_material_icon_name="people" size={24} color={colors.success} />
               <Text style={styles.statValue}>{user.activeReferrals}</Text>
-              <Text style={styles.statLabel}>Active Referrals</Text>
+              <Text style={styles.statLabel}>Referidos Activos</Text>
             </View>
           </View>
         </View>
@@ -804,160 +811,14 @@ export default function HomeScreen() {
             <View style={styles.adminContent}>
               <IconSymbol ios_icon_name="shield.fill" android_material_icon_name="admin_panel_settings" size={32} color={colors.primary} />
               <View style={styles.adminText}>
-                <Text style={styles.adminTitle}>Admin Panel</Text>
-                <Text style={styles.adminSubtitle}>Manage system settings</Text>
+                <Text style={styles.adminTitle}>Panel de Administrador</Text>
+                <Text style={styles.adminSubtitle}>Gestionar configuración del sistema</Text>
               </View>
               <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={24} color={colors.textSecondary} />
             </View>
           </TouchableOpacity>
         )}
       </ScrollView>
-
-      {/* Sales Modal */}
-      <Modal
-        visible={showSalesModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowSalesModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>💎 Comprar MXI</Text>
-              <TouchableOpacity onPress={() => setShowSalesModal(false)}>
-                <IconSymbol ios_icon_name="xmark.circle.fill" android_material_icon_name="cancel" size={28} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalScroll}>
-              {phaseData && (
-                <React.Fragment>
-                  <View style={styles.modalPhaseInfo}>
-                    <Text style={styles.modalPhaseLabel}>Fase Actual</Text>
-                    <Text style={styles.modalPhaseValue}>
-                      Fase {phaseData.currentPhase} - ${phaseData.currentPriceUsdt.toFixed(2)} por MXI
-                    </Text>
-                  </View>
-
-                  <View style={styles.modalInputContainer}>
-                    <Text style={styles.modalInputLabel}>💵 Cantidad en USDT</Text>
-                    <TextInput
-                      style={styles.modalInput}
-                      placeholder="Mínimo: 50 USDT"
-                      placeholderTextColor={colors.textSecondary}
-                      value={usdtAmount}
-                      onChangeText={(text) => {
-                        setUsdtAmount(text);
-                        calculateMxi(text);
-                      }}
-                      keyboardType="decimal-pad"
-                    />
-                  </View>
-
-                  <View style={styles.modalConversionCard}>
-                    <View style={styles.modalConversionRow}>
-                      <Text style={styles.modalConversionLabel}>💎 Recibirás:</Text>
-                      <Text style={styles.modalConversionValue}>{mxiAmount} MXI</Text>
-                    </View>
-                  </View>
-
-                  <TouchableOpacity
-                    style={[buttonStyles.primary, styles.modalButton]}
-                    onPress={handleCreatePayment}
-                    disabled={loading || !usdtAmount || parseFloat(usdtAmount) < 50}
-                  >
-                    {loading ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <React.Fragment>
-                        <IconSymbol ios_icon_name="cart.fill" android_material_icon_name="shopping_cart" size={20} color="#fff" />
-                        <Text style={styles.buttonText}>Crear Orden de Pago</Text>
-                      </React.Fragment>
-                    )}
-                  </TouchableOpacity>
-
-                  <View style={styles.modalInfoCard}>
-                    <IconSymbol ios_icon_name="info.circle.fill" android_material_icon_name="info" size={20} color={colors.primary} />
-                    <View style={styles.modalInfoContent}>
-                      <Text style={styles.modalInfoText}>
-                        • Mínimo: 50 USDT{'\n'}
-                        • Máximo: 100,000 USDT{'\n'}
-                        • Pago expira en 8 horas{'\n'}
-                        • Verificación por administrador
-                      </Text>
-                    </View>
-                  </View>
-                </React.Fragment>
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Payment Instructions Modal */}
-      <Modal
-        visible={showPaymentModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowPaymentModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>💰 Instrucciones de Pago</Text>
-              <TouchableOpacity onPress={() => setShowPaymentModal(false)}>
-                <IconSymbol ios_icon_name="xmark.circle.fill" android_material_icon_name="cancel" size={28} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalScroll}>
-              {currentPayment && (
-                <React.Fragment>
-                  <View style={styles.paymentInfo}>
-                    <Text style={styles.paymentLabel}>💵 Cantidad:</Text>
-                    <Text style={styles.paymentValue}>{currentPayment.usdtAmount} USDT</Text>
-                  </View>
-
-                  <View style={styles.paymentInfo}>
-                    <Text style={styles.paymentLabel}>💎 Recibirás:</Text>
-                    <Text style={styles.paymentValue}>{currentPayment.mxiAmount.toFixed(4)} MXI</Text>
-                  </View>
-
-                  <View style={styles.paymentInfo}>
-                    <Text style={styles.paymentLabel}>🆔 ID de Pago:</Text>
-                    <Text style={styles.paymentValue}>{currentPayment.paymentId}</Text>
-                  </View>
-
-                  <View style={styles.addressCard}>
-                    <Text style={styles.addressLabel}>🏦 Enviar USDT (TRC20) a:</Text>
-                    <View style={styles.addressContainer}>
-                      <Text style={styles.addressText}>{currentPayment.paymentAddress}</Text>
-                      <TouchableOpacity onPress={handleCopyAddress}>
-                        <IconSymbol ios_icon_name="doc.on.doc.fill" android_material_icon_name="content_copy" size={20} color={colors.primary} />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  <TouchableOpacity
-                    style={[buttonStyles.primary, styles.modalButton]}
-                    onPress={handleVerifyPayment}
-                  >
-                    <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={20} color="#fff" />
-                    <Text style={styles.buttonText}>Entendido</Text>
-                  </TouchableOpacity>
-
-                  <View style={styles.warningCard}>
-                    <IconSymbol ios_icon_name="exclamationmark.triangle.fill" android_material_icon_name="warning" size={20} color={colors.warning} />
-                    <Text style={styles.warningText}>
-                      ⚠️ Solo enviar USDT (TRC20) a esta dirección. El pago será verificado por un administrador.
-                    </Text>
-                  </View>
-                </React.Fragment>
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -975,6 +836,7 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     color: colors.textSecondary,
+    marginTop: 12,
   },
   scrollContent: {
     flexGrow: 1,
@@ -1000,7 +862,6 @@ const styles = StyleSheet.create({
   profileButton: {
     padding: 4,
   },
-
   balanceCard: {
     alignItems: 'center',
     marginBottom: 16,
@@ -1075,334 +936,227 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
-  balanceRow: {
-    flexDirection: 'row',
-    width: '100%',
-    gap: 16,
-  },
-  balanceItem: {
-    flex: 1,
+  loadingCard: {
     alignItems: 'center',
-  },
-  balanceItemLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  balanceItemValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  balanceItemSubtext: {
-    fontSize: 14,
-    color: colors.success,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  balanceItemNote: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    marginTop: 2,
-    fontStyle: 'italic',
-  },
-  salesCard: {
+    padding: 40,
     marginBottom: 16,
-    backgroundColor: `${colors.success}15`,
-    borderWidth: 2,
-    borderColor: colors.success,
   },
-  salesHeader: {
+  metricsCard: {
+    marginBottom: 16,
+    backgroundColor: colors.card,
+  },
+  metricsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     marginBottom: 16,
   },
-  salesTitle: {
+  metricsTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: colors.text,
   },
-  salesStats: {
+  metricsGrid: {
     flexDirection: 'row',
-    marginBottom: 20,
+    gap: 12,
+    marginBottom: 16,
   },
-  salesStatItem: {
+  metricItem: {
     flex: 1,
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 12,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  salesStatLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
+  metricBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 8,
     marginBottom: 8,
-    textAlign: 'center',
   },
-  salesStatValue: {
+  metricBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  metricValue: {
     fontSize: 24,
     fontWeight: '700',
     color: colors.text,
     marginBottom: 4,
   },
-  salesStatSubtext: {
+  metricLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  metricEarnings: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.success,
+    marginBottom: 2,
+  },
+  metricPercentage: {
+    fontSize: 10,
+    color: colors.textSecondary,
+  },
+  metricsSummary: {
+    flexDirection: 'row',
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+  },
+  summaryItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  summaryLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  summaryValue: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  summaryDivider: {
+    width: 1,
+    backgroundColor: colors.border,
+    marginHorizontal: 12,
+  },
+  challengeStats: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  challengeStatRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  challengeStatItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  challengeStatText: {
+    flex: 1,
+  },
+  challengeStatValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 2,
+  },
+  challengeStatLabel: {
     fontSize: 11,
     color: colors.textSecondary,
   },
-  salesDivider: {
-    width: 1,
-    backgroundColor: colors.border,
-    marginHorizontal: 16,
-  },
-  totalProgressContainer: {
-    marginTop: 8,
-  },
-  totalProgressHeader: {
+  challengeEarnings: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  totalProgressLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  totalProgressPercent: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.success,
-  },
-  totalProgressBar: {
-    height: 12,
     backgroundColor: colors.background,
-    borderRadius: 6,
-    overflow: 'hidden',
+    borderRadius: 12,
+    padding: 16,
   },
-  totalProgressFill: {
-    height: '100%',
-    backgroundColor: colors.success,
-    borderRadius: 6,
+  earningsItem: {
+    flex: 1,
+    alignItems: 'center',
   },
-  phasesCard: {
+  earningsLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  earningsValue: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  transactionsCard: {
     marginBottom: 16,
-    backgroundColor: `${colors.accent}15`,
-    borderWidth: 2,
-    borderColor: colors.accent,
   },
-  phasesHeader: {
+  transactionsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     marginBottom: 16,
   },
-  phasesTitle: {
+  transactionsTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: colors.text,
   },
-  phaseItem: {
+  emptyState: {
+    alignItems: 'center',
+    padding: 40,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 12,
+  },
+  transactionsList: {
+    gap: 12,
+  },
+  transactionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     backgroundColor: colors.background,
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    padding: 12,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  phaseItemActive: {
-    backgroundColor: `${colors.accent}20`,
-    borderWidth: 2,
-    borderColor: colors.accent,
-  },
-  phaseHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  phaseInfo: {
-    flex: 1,
-  },
-  phaseNumber: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  phasePrice: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-  currentPhaseBadge: {
-    backgroundColor: colors.accent,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  currentPhaseBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  phaseProgressContainer: {
-    gap: 8,
-  },
-  phaseProgressBar: {
-    height: 8,
-    backgroundColor: colors.border,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  phaseProgressFill: {
-    height: '100%',
-    backgroundColor: colors.accent,
-    borderRadius: 4,
-  },
-  phaseProgressText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: 'right',
-  },
-  quickActions: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 16,
-  },
-  vestingPanelCard: {
-    marginBottom: 16,
-    backgroundColor: colors.accent,
-    borderWidth: 0,
-    padding: 20,
-  },
-  vestingPanelHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    marginBottom: 16,
-  },
-  vestingPanelIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  transactionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  vestingPanelInfo: {
+  transactionDetails: {
     flex: 1,
   },
-  vestingPanelTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  vestingPanelSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
-  },
-  vestingPanelStats: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    gap: 16,
-  },
-  vestingPanelStat: {
-    flex: 1,
-  },
-  vestingPanelStatLabel: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: 4,
-  },
-  vestingPanelStatValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  vestingPanelDivider: {
-    width: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  vestingPanelFeatures: {
-    gap: 8,
-  },
-  vestingPanelFeature: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  vestingPanelFeatureText: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
-  },
-  actionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  actionCard: {
-    flex: 1,
-    minWidth: '47%',
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  actionIconContainer: {
-    marginBottom: 12,
-  },
-  actionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  actionSubtitle: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  gamesSection: {
-    marginBottom: 24,
-  },
-  gamesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  gameCard: {
-    flex: 1,
-    minWidth: '30%',
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  gameIconContainer: {
-    marginBottom: 12,
-  },
-  gameTitle: {
+  transactionDescription: {
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
     marginBottom: 4,
-    textAlign: 'center',
   },
-  gameSubtitle: {
+  transactionMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  transactionDate: {
     fontSize: 11,
     color: colors.textSecondary,
-    textAlign: 'center',
+  },
+  transactionStatus: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  transactionStatusText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  transactionAmount: {
+    alignItems: 'flex-end',
+  },
+  transactionAmountValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  transactionCurrency: {
+    fontSize: 11,
+    color: colors.textSecondary,
   },
   statsCard: {
     marginBottom: 16,
@@ -1459,179 +1213,5 @@ const styles = StyleSheet.create({
   adminSubtitle: {
     fontSize: 14,
     color: colors.textSecondary,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: colors.background,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '90%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  modalScroll: {
-    padding: 24,
-  },
-  modalPhaseInfo: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
-  },
-  modalPhaseLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  modalPhaseValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  modalInputContainer: {
-    marginBottom: 16,
-  },
-  modalInputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  modalInput: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    color: colors.text,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  modalConversionCard: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  modalConversionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  modalConversionLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  modalConversionValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  modalButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 16,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  modalInfoCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    backgroundColor: colors.card,
-    padding: 16,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
-  },
-  modalInfoContent: {
-    flex: 1,
-  },
-  modalInfoText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    lineHeight: 20,
-  },
-  paymentInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  paymentLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  paymentValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  addressCard: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    marginVertical: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  addressLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  addressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: colors.background,
-    padding: 12,
-    borderRadius: 8,
-  },
-  addressText: {
-    flex: 1,
-    fontSize: 13,
-    color: colors.text,
-    fontFamily: 'monospace',
-  },
-  warningCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    backgroundColor: colors.warning + '20',
-    padding: 16,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.warning,
-  },
-  warningText: {
-    flex: 1,
-    fontSize: 13,
-    color: colors.text,
-    lineHeight: 20,
   },
 });
