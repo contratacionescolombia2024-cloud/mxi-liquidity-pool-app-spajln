@@ -25,7 +25,6 @@ interface UserData {
   email: string;
   id_number: string;
   address: string;
-  mxi_balance: number;
   mxi_purchased_directly: number;
   mxi_from_unified_commissions: number;
   mxi_from_challenges: number;
@@ -43,6 +42,7 @@ interface UserData {
   is_blocked: boolean;
   blocked_at: string | null;
   blocked_reason: string | null;
+  usdt_contributed: number;
 }
 
 interface ReferralData {
@@ -99,7 +99,6 @@ export default function UserManagementEnhancedScreen() {
     try {
       setLoadingReferrals(true);
       
-      // Get direct referrals
       const { data, error } = await supabase
         .from('users')
         .select('id, name, email, mxi_purchased_directly, mxi_from_unified_commissions, is_active_contributor, joined_date')
@@ -160,21 +159,21 @@ export default function UserManagementEnhancedScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const { data, error } = await supabase.rpc('block_user_account', {
-                p_user_id: userId,
-                p_admin_id: user.id,
-                p_reason: 'Bloqueado por administrador'
-              });
+              const { error } = await supabase
+                .from('users')
+                .update({
+                  is_blocked: true,
+                  blocked_at: new Date().toISOString(),
+                  blocked_reason: 'Bloqueado por administrador',
+                  blocked_by: user.id
+                })
+                .eq('id', userId);
 
               if (error) throw error;
 
-              if (data?.success) {
-                Alert.alert('✅ Éxito', 'Usuario bloqueado exitosamente');
-                await loadUsers();
-                setDetailsModalVisible(false);
-              } else {
-                Alert.alert('❌ Error', data?.error || 'Error al bloquear usuario');
-              }
+              Alert.alert('✅ Éxito', 'Usuario bloqueado exitosamente');
+              await loadUsers();
+              setDetailsModalVisible(false);
             } catch (error) {
               console.error('Error blocking user:', error);
               Alert.alert('❌ Error', 'Error al bloquear usuario');
@@ -197,20 +196,21 @@ export default function UserManagementEnhancedScreen() {
           text: 'Desbloquear',
           onPress: async () => {
             try {
-              const { data, error } = await supabase.rpc('unblock_user_account', {
-                p_user_id: userId,
-                p_admin_id: user.id
-              });
+              const { error } = await supabase
+                .from('users')
+                .update({
+                  is_blocked: false,
+                  blocked_at: null,
+                  blocked_reason: null,
+                  blocked_by: null
+                })
+                .eq('id', userId);
 
               if (error) throw error;
 
-              if (data?.success) {
-                Alert.alert('✅ Éxito', 'Usuario desbloqueado exitosamente');
-                await loadUsers();
-                setDetailsModalVisible(false);
-              } else {
-                Alert.alert('❌ Error', data?.error || 'Error al desbloquear usuario');
-              }
+              Alert.alert('✅ Éxito', 'Usuario desbloqueado exitosamente');
+              await loadUsers();
+              setDetailsModalVisible(false);
             } catch (error) {
               console.error('Error unblocking user:', error);
               Alert.alert('❌ Error', 'Error al desbloquear usuario');
@@ -246,6 +246,11 @@ export default function UserManagementEnhancedScreen() {
   const calculateAveragePerReferral = (userData: UserData) => {
     if (userData.active_referrals === 0) return 0;
     return userData.mxi_from_unified_commissions / userData.active_referrals;
+  };
+
+  const calculateCommissionGenerated = (referral: ReferralData) => {
+    // 5% commission on direct purchases (Level 1)
+    return referral.mxi_purchased_directly * 0.05;
   };
 
   if (loading) {
@@ -489,6 +494,10 @@ export default function UserManagementEnhancedScreen() {
                     {selectedUser.is_active_contributor ? 'ACTIVO' : 'INACTIVO'}
                   </Text>
                 </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>USDT Contribuido:</Text>
+                  <Text style={styles.infoValue}>${formatNumber(selectedUser.usdt_contributed)}</Text>
+                </View>
               </View>
 
               {/* MXI Balance Breakdown */}
@@ -613,7 +622,7 @@ export default function UserManagementEnhancedScreen() {
                     <ActivityIndicator size="small" color={colors.primary} />
                   ) : (
                     <View style={styles.referralsList}>
-                      {referrals.map((referral, index) => (
+                      {referrals.map((referral) => (
                         <View key={referral.id} style={styles.referralItem}>
                           <View style={styles.referralHeader}>
                             <View style={styles.referralInfo}>
@@ -634,7 +643,7 @@ export default function UserManagementEnhancedScreen() {
                             <View style={styles.referralStat}>
                               <Text style={styles.referralStatLabel}>Comisión Generada:</Text>
                               <Text style={[styles.referralStatValue, { color: colors.success }]}>
-                                {formatNumber(referral.mxi_purchased_directly * 0.05)} MXI
+                                {formatNumber(calculateCommissionGenerated(referral))} MXI
                               </Text>
                             </View>
                           </View>
@@ -702,6 +711,13 @@ export default function UserManagementEnhancedScreen() {
                     />
                     <Text style={[buttonStyles.primaryText, { color: '#fff' }]}>Bloquear Usuario</Text>
                   </TouchableOpacity>
+                )}
+                {selectedUser.is_blocked && selectedUser.blocked_reason && (
+                  <View style={styles.blockReasonCard}>
+                    <Text style={styles.blockReasonLabel}>Razón del Bloqueo:</Text>
+                    <Text style={styles.blockReasonText}>{selectedUser.blocked_reason}</Text>
+                    <Text style={styles.blockReasonDate}>Bloqueado: {formatDate(selectedUser.blocked_at || '')}</Text>
+                  </View>
                 )}
               </View>
             </ScrollView>
@@ -1119,6 +1135,29 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   referralDate: {
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
+  blockReasonCard: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: colors.error + '10',
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.error,
+  },
+  blockReasonLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.error,
+    marginBottom: 4,
+  },
+  blockReasonText: {
+    fontSize: 14,
+    color: colors.text,
+    marginBottom: 4,
+  },
+  blockReasonDate: {
     fontSize: 11,
     color: colors.textSecondary,
   },
