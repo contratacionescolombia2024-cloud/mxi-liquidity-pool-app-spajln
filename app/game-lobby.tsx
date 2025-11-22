@@ -14,6 +14,7 @@ import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { GameErrorHandler, withRetry } from '@/utils/gameErrorHandler';
 
 interface Participant {
   id: string;
@@ -50,7 +51,29 @@ export default function GameLobbyScreen() {
   const [countdown, setCountdown] = useState<number | null>(null);
 
   useEffect(() => {
-    console.log('Game lobby mounted with sessionId:', sessionId, 'gameType:', gameType);
+    console.log('[GameLobby] ========================================');
+    console.log('[GameLobby] Component mounted');
+    console.log('[GameLobby] Session ID:', sessionId);
+    console.log('[GameLobby] Game Type:', gameType);
+    console.log('[GameLobby] User ID:', user?.id);
+    console.log('[GameLobby] Timestamp:', new Date().toISOString());
+    console.log('[GameLobby] ========================================');
+
+    if (!sessionId || !gameType) {
+      console.error('[GameLobby] ERROR: Missing required parameters');
+      GameErrorHandler.logError(
+        new Error('Missing sessionId or gameType'),
+        'GameLobby - Mount',
+        { sessionId, gameType, userId: user?.id }
+      );
+      Alert.alert(
+        'Error',
+        'Parámetros de sesión inválidos. Volviendo a torneos.',
+        [{ text: 'OK', onPress: () => router.replace('/(tabs)/tournaments') }]
+      );
+      return;
+    }
+
     loadSessionData();
     
     // Subscribe to session updates
@@ -65,7 +88,7 @@ export default function GameLobbyScreen() {
           filter: `id=eq.${sessionId}`,
         },
         (payload) => {
-          console.log('Session updated:', payload);
+          console.log('[GameLobby] Session updated via realtime:', payload);
           loadSessionData();
         }
       )
@@ -78,21 +101,23 @@ export default function GameLobbyScreen() {
           filter: `session_id=eq.${sessionId}`,
         },
         (payload) => {
-          console.log('Participants updated:', payload);
+          console.log('[GameLobby] Participants updated via realtime:', payload);
           loadSessionData();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[GameLobby] Realtime subscription status:', status);
+      });
 
     return () => {
+      console.log('[GameLobby] Cleaning up realtime subscription');
       supabase.removeChannel(sessionChannel);
     };
-  }, [sessionId]);
+  }, [sessionId, gameType]);
 
   useEffect(() => {
     if (session && participants.length >= session.num_players && session.status === 'waiting') {
-      // Start countdown when enough players join
-      console.log('Starting countdown - enough players joined');
+      console.log('[GameLobby] Enough players joined, starting countdown');
       setCountdown(5);
     }
   }, [session, participants]);
@@ -104,73 +129,94 @@ export default function GameLobbyScreen() {
       }, 1000);
       return () => clearTimeout(timer);
     } else if (countdown === 0) {
-      console.log('Countdown finished, starting game');
+      console.log('[GameLobby] Countdown finished, starting game');
       startGame();
     }
   }, [countdown]);
 
   const loadSessionData = async () => {
+    console.log('[GameLobby] Loading session data...');
+    
     try {
-      console.log('Loading session data for:', sessionId);
-      
-      const { data: sessionData, error: sessionError } = await supabase
-        .from('game_sessions')
-        .select(`
-          *,
-          tournament_games (
-            name,
-            game_type,
-            entry_fee
-          )
-        `)
-        .eq('id', sessionId)
-        .single();
+      const result = await withRetry(
+        async () => {
+          const { data: sessionData, error: sessionError } = await supabase
+            .from('game_sessions')
+            .select(`
+              *,
+              tournament_games (
+                name,
+                game_type,
+                entry_fee
+              )
+            `)
+            .eq('id', sessionId)
+            .single();
 
-      if (sessionError) {
-        console.error('Session error:', sessionError);
-        throw sessionError;
-      }
+          if (sessionError) {
+            console.error('[GameLobby] Session query error:', sessionError);
+            throw sessionError;
+          }
+          
+          return sessionData;
+        },
+        'GameLobby - Load Session',
+        { maxRetries: 3 }
+      );
       
-      console.log('Session data loaded:', sessionData);
-      setSession(sessionData);
+      console.log('[GameLobby] Session data loaded:', result);
+      setSession(result);
 
-      const { data: participantsData, error: participantsError } = await supabase
-        .from('game_participants')
-        .select(`
-          *,
-          users (
-            name,
-            email
-          )
-        `)
-        .eq('session_id', sessionId)
-        .order('player_number', { ascending: true });
+      const participantsResult = await withRetry(
+        async () => {
+          const { data: participantsData, error: participantsError } = await supabase
+            .from('game_participants')
+            .select(`
+              *,
+              users (
+                name,
+                email
+              )
+            `)
+            .eq('session_id', sessionId)
+            .order('player_number', { ascending: true });
 
-      if (participantsError) {
-        console.error('Participants error:', participantsError);
-        throw participantsError;
-      }
+          if (participantsError) {
+            console.error('[GameLobby] Participants query error:', participantsError);
+            throw participantsError;
+          }
+          
+          return participantsData;
+        },
+        'GameLobby - Load Participants',
+        { maxRetries: 3 }
+      );
       
-      console.log('Participants loaded:', participantsData?.length);
-      setParticipants(participantsData || []);
+      console.log('[GameLobby] Participants loaded:', participantsResult?.length || 0);
+      setParticipants(participantsResult || []);
 
       // Check if game is ready to start
-      if (sessionData.status === 'ready') {
-        console.log('Game is ready, navigating to game');
+      if (result.status === 'ready') {
+        console.log('[GameLobby] Game is ready, navigating to game');
         navigateToGame();
       }
     } catch (error) {
-      console.error('Error loading session data:', error);
-      Alert.alert('Error', 'No se pudo cargar la información de la sesión');
+      console.error('[GameLobby] ERROR loading session data:', error);
+      GameErrorHandler.handleError(error, 'GameLobby - Load Session Data', {
+        showAlert: true,
+        onRetry: loadSessionData,
+        onCancel: () => router.replace('/(tabs)/tournaments'),
+        additionalInfo: { sessionId, gameType, userId: user?.id }
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const startGame = async () => {
+    console.log('[GameLobby] Starting game for session:', sessionId);
+    
     try {
-      console.log('Starting game for session:', sessionId);
-      
       const { error } = await supabase
         .from('game_sessions')
         .update({
@@ -180,15 +226,19 @@ export default function GameLobbyScreen() {
         .eq('id', sessionId);
 
       if (error) {
-        console.error('Start game error:', error);
+        console.error('[GameLobby] Start game error:', error);
         throw error;
       }
 
-      console.log('Game started successfully');
+      console.log('[GameLobby] Game started successfully');
       navigateToGame();
     } catch (error) {
-      console.error('Error starting game:', error);
-      Alert.alert('Error', 'No se pudo iniciar el juego');
+      console.error('[GameLobby] ERROR starting game:', error);
+      GameErrorHandler.handleError(error, 'GameLobby - Start Game', {
+        showAlert: true,
+        onRetry: startGame,
+        additionalInfo: { sessionId, gameType }
+      });
     }
   };
 
@@ -202,16 +252,35 @@ export default function GameLobbyScreen() {
     };
 
     const route = gameRoutes[gameType as string];
-    console.log('Navigating to game route:', route, 'with sessionId:', sessionId);
+    console.log('[GameLobby] ========================================');
+    console.log('[GameLobby] NAVIGATING TO GAME');
+    console.log('[GameLobby] Route:', route);
+    console.log('[GameLobby] Session ID:', sessionId);
+    console.log('[GameLobby] Game Type:', gameType);
+    console.log('[GameLobby] Timestamp:', new Date().toISOString());
+    console.log('[GameLobby] ========================================');
     
     if (route) {
-      router.replace({
-        pathname: route as any,
-        params: { sessionId }
-      });
+      try {
+        router.replace({
+          pathname: route as any,
+          params: { sessionId }
+        });
+        console.log('[GameLobby] Navigation command executed');
+      } catch (navError) {
+        console.error('[GameLobby] NAVIGATION ERROR:', navError);
+        GameErrorHandler.handleError(navError, 'GameLobby - Navigation', {
+          showAlert: true,
+          additionalInfo: { route, sessionId, gameType }
+        });
+      }
     } else {
-      console.error('Unknown game type:', gameType);
-      Alert.alert('Error', 'Tipo de juego no reconocido');
+      console.error('[GameLobby] ERROR: Unknown game type:', gameType);
+      Alert.alert(
+        'Error',
+        'Tipo de juego no reconocido. Volviendo a torneos.',
+        [{ text: 'OK', onPress: () => router.replace('/(tabs)/tournaments') }]
+      );
     }
   };
 
@@ -226,16 +295,21 @@ export default function GameLobbyScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              console.log('Leaving game session');
+              console.log('[GameLobby] User leaving game session');
               await supabase
                 .from('game_participants')
                 .delete()
                 .eq('session_id', sessionId)
                 .eq('user_id', user?.id);
 
-              router.back();
+              router.replace('/(tabs)/tournaments');
             } catch (error) {
-              console.error('Error leaving game:', error);
+              console.error('[GameLobby] Error leaving game:', error);
+              GameErrorHandler.handleError(error, 'GameLobby - Leave Game', {
+                showAlert: false
+              });
+              // Navigate anyway
+              router.replace('/(tabs)/tournaments');
             }
           }
         }
@@ -267,9 +341,9 @@ export default function GameLobbyScreen() {
           <Text style={styles.errorText}>Sesión no encontrada</Text>
           <TouchableOpacity
             style={[buttonStyles.primary, { marginTop: 20 }]}
-            onPress={() => router.back()}
+            onPress={() => router.replace('/(tabs)/tournaments')}
           >
-            <Text style={buttonStyles.primaryText}>Volver</Text>
+            <Text style={buttonStyles.primaryText}>Volver a Torneos</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
