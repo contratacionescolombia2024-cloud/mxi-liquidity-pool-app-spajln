@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
   phaseBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#fff',
+    color: '#000',
   },
   phaseStats: {
     gap: 12,
@@ -307,7 +307,7 @@ export default function AdminDashboard() {
       // Load user stats
       const { data: userData } = await supabase
         .from('users')
-        .select('mxi_balance, usdt_contributed, is_active_contributor, accumulated_yield');
+        .select('mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges, mxi_vesting_locked, usdt_contributed, is_active_contributor, accumulated_yield');
 
       // Load commission stats
       const { data: commissionData } = await supabase
@@ -333,7 +333,12 @@ export default function AdminDashboard() {
 
       const totalUsers = userData?.length || 0;
       const activeContributors = userData?.filter((u) => u.is_active_contributor).length || 0;
-      const totalMXI = userData?.reduce((sum, u) => sum + parseFloat(u.mxi_balance || '0'), 0) || 0;
+      const totalMXI = userData?.reduce((sum, u) => 
+        sum + 
+        parseFloat(u.mxi_purchased_directly || '0') + 
+        parseFloat(u.mxi_from_unified_commissions || '0') + 
+        parseFloat(u.mxi_from_challenges || '0') + 
+        parseFloat(u.mxi_vesting_locked || '0'), 0) || 0;
       const totalUSDT = userData?.reduce((sum, u) => sum + parseFloat(u.usdt_contributed || '0'), 0) || 0;
       const totalYieldGenerated = userData?.reduce((sum, u) => sum + parseFloat(u.accumulated_yield || '0'), 0) || 0;
 
@@ -377,21 +382,6 @@ export default function AdminDashboard() {
   const onRefresh = () => {
     setRefreshing(true);
     loadStats();
-  };
-
-  const handleLogout = async () => {
-    Alert.alert('Cerrar Sesión', '¿Estás seguro que deseas cerrar sesión?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Cerrar Sesión',
-        style: 'destructive',
-        onPress: async () => {
-          const { logout } = useAuth();
-          await logout();
-          router.replace('/(auth)/login');
-        },
-      },
-    ]);
   };
 
   const formatNumber = (num: number) => {
@@ -522,6 +512,16 @@ export default function AdminDashboard() {
           <View style={styles.quickActionsGrid}>
             <TouchableOpacity
               style={styles.actionButton}
+              onPress={() => router.push('/(tabs)/(admin)/user-management-advanced')}
+            >
+              <View style={[styles.actionIcon, { backgroundColor: colors.primary + '20' }]}>
+                <IconSymbol ios_icon_name="person.crop.circle.badge.checkmark" android_material_icon_name="manage_accounts" size={24} color={colors.primary} />
+              </View>
+              <Text style={styles.actionLabel}>Gestión Avanzada</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionButton}
               onPress={() => router.push('/(tabs)/(admin)/kyc-approvals')}
             >
               {stats && stats.pendingKYC > 0 && (
@@ -570,9 +570,9 @@ export default function AdminDashboard() {
               onPress={() => router.push('/(tabs)/(admin)/user-management')}
             >
               <View style={[styles.actionIcon, { backgroundColor: colors.primary + '20' }]}>
-                <IconSymbol ios_icon_name="person.crop.circle.badge.checkmark" android_material_icon_name="manage_accounts" size={24} color={colors.primary} />
+                <IconSymbol ios_icon_name="person.crop.circle" android_material_icon_name="person" size={24} color={colors.primary} />
               </View>
-              <Text style={styles.actionLabel}>Usuarios</Text>
+              <Text style={styles.actionLabel}>Usuarios Básico</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
