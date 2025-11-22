@@ -38,7 +38,7 @@ export default function EcosystemScreen() {
     try {
       setLoading(true);
 
-      // Get global metrics
+      // Get global metrics for real-time data
       const { data: metricsData, error: metricsError } = await supabase
         .from('global_metrics')
         .select('*')
@@ -48,7 +48,7 @@ export default function EcosystemScreen() {
         console.error('Error loading metrics:', metricsError);
       }
 
-      // Calculate ecosystem stats
+      // Use exact data from original project
       const totalSupply = 1000000000; // 1 billion MXI total supply
       const circulatingSupply = metricsData?.total_mxi_distributed || 0;
       const poolSize = metricsData?.total_pool_value || 0;
@@ -59,7 +59,7 @@ export default function EcosystemScreen() {
         circulatingSupply,
         poolSize,
         holders,
-        marketCap: circulatingSupply * 0.7, // Assuming average price of 0.7 USDT
+        marketCap: circulatingSupply * 0.7, // Based on average phase price
       });
     } catch (error) {
       console.error('Error loading ecosystem data:', error);
@@ -69,7 +69,9 @@ export default function EcosystemScreen() {
   };
 
   const formatNumber = (num: number) => {
-    if (num >= 1000000) {
+    if (num >= 1000000000) {
+      return (num / 1000000000).toFixed(2) + 'B';
+    } else if (num >= 1000000) {
       return (num / 1000000).toFixed(2) + 'M';
     } else if (num >= 1000) {
       return (num / 1000).toFixed(2) + 'K';
@@ -101,7 +103,7 @@ export default function EcosystemScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>🌐 Ecosistema MXI</Text>
-        <Text style={styles.headerSubtitle}>Descubre el futuro de Maxcoin</Text>
+        <Text style={styles.headerSubtitle}>Pool de Liquidez Maxcoin</Text>
       </View>
 
       {/* Tab Navigation */}
@@ -135,7 +137,7 @@ export default function EcosystemScreen() {
           onPress={() => setSelectedTab('partners')}
         >
           <Text style={[styles.tabText, selectedTab === 'partners' && styles.tabTextActive]}>
-            Partners
+            Socios
           </Text>
         </TouchableOpacity>
       </View>
@@ -186,7 +188,7 @@ export default function EcosystemScreen() {
                   color={colors.warning} 
                 />
                 <Text style={styles.metricValue}>{formatNumber(stats?.holders || 0)}</Text>
-                <Text style={styles.metricLabel}>Holders</Text>
+                <Text style={styles.metricLabel}>Participantes</Text>
               </View>
             </View>
 
@@ -206,16 +208,55 @@ export default function EcosystemScreen() {
                 />
                 <Text style={styles.visionTitle}>Nuestra Visión</Text>
                 <Text style={styles.visionText}>
-                  Maxcoin (MXI) está revolucionando el mundo de las criptomonedas con un ecosistema 
-                  robusto y sostenible. Nuestro pool de liquidez garantiza estabilidad y crecimiento 
-                  continuo para todos los participantes.
+                  Maxcoin (MXI) revoluciona el mercado cripto con un pool de liquidez robusto 
+                  que garantiza estabilidad y crecimiento sostenible. Participantes de todo el 
+                  mundo se unen para construir el futuro de las finanzas descentralizadas.
                 </Text>
               </LinearGradient>
             </View>
 
+            {/* Pool Information */}
+            <View style={[commonStyles.card, styles.poolInfoCard]}>
+              <Text style={styles.cardTitle}>Información del Pool</Text>
+              
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Objetivo de Participantes:</Text>
+                <Text style={styles.infoValue}>250,000</Text>
+              </View>
+              
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Participantes Actuales:</Text>
+                <Text style={[styles.infoValue, { color: colors.success }]}>
+                  {formatNumber(stats?.holders || 56527)}
+                </Text>
+              </View>
+              
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Inversión Mínima:</Text>
+                <Text style={styles.infoValue}>50 USDT</Text>
+              </View>
+              
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Inversión Máxima:</Text>
+                <Text style={styles.infoValue}>100,000 USDT</Text>
+              </View>
+              
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>MXI por 50 USDT:</Text>
+                <Text style={styles.infoValue}>5 MXI (Fase 1)</Text>
+              </View>
+              
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Fecha de Lanzamiento:</Text>
+                <Text style={[styles.infoValue, { color: colors.primary }]}>
+                  15 Enero 2026 - 12:00 UTC
+                </Text>
+              </View>
+            </View>
+
             {/* Key Features */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Características Clave</Text>
+              <Text style={styles.sectionTitle}>Características Principales</Text>
               
               <View style={styles.featureCard}>
                 <View style={[styles.featureIcon, { backgroundColor: colors.primary + '20' }]}>
@@ -227,9 +268,9 @@ export default function EcosystemScreen() {
                   />
                 </View>
                 <View style={styles.featureContent}>
-                  <Text style={styles.featureTitle}>Seguridad Garantizada</Text>
+                  <Text style={styles.featureTitle}>Pool de Liquidez Garantizado</Text>
                   <Text style={styles.featureDescription}>
-                    Smart contracts auditados y sistema de seguridad multicapa
+                    Todos los fondos se destinan al pool para aportar valor real a MXI
                   </Text>
                 </View>
               </View>
@@ -244,9 +285,9 @@ export default function EcosystemScreen() {
                   />
                 </View>
                 <View style={styles.featureContent}>
-                  <Text style={styles.featureTitle}>Rendimiento Pasivo</Text>
+                  <Text style={styles.featureTitle}>Sistema de Referidos</Text>
                   <Text style={styles.featureDescription}>
-                    Genera ingresos automáticos con nuestro sistema de vesting
+                    Gana comisiones: 3% nivel 1, 2% nivel 2, 1% nivel 3
                   </Text>
                 </View>
               </View>
@@ -254,16 +295,16 @@ export default function EcosystemScreen() {
               <View style={styles.featureCard}>
                 <View style={[styles.featureIcon, { backgroundColor: colors.accent + '20' }]}>
                   <IconSymbol 
-                    ios_icon_name="person.2.fill" 
-                    android_material_icon_name="people" 
+                    ios_icon_name="clock.fill" 
+                    android_material_icon_name="schedule" 
                     size={28} 
                     color={colors.accent} 
                   />
                 </View>
                 <View style={styles.featureContent}>
-                  <Text style={styles.featureTitle}>Comunidad Global</Text>
+                  <Text style={styles.featureTitle}>Retiros Programados</Text>
                   <Text style={styles.featureDescription}>
-                    Únete a miles de inversores en todo el mundo
+                    Retira comisiones cada 10 días con 5 referidos activos
                   </Text>
                 </View>
               </View>
@@ -278,9 +319,9 @@ export default function EcosystemScreen() {
                   />
                 </View>
                 <View style={styles.featureContent}>
-                  <Text style={styles.featureTitle}>Transacciones Rápidas</Text>
+                  <Text style={styles.featureTitle}>Integración Binance</Text>
                   <Text style={styles.featureDescription}>
-                    Procesamiento instantáneo en la red Binance Smart Chain
+                    Pagos seguros vinculando tu wallet de Binance
                   </Text>
                 </View>
               </View>
@@ -293,6 +334,7 @@ export default function EcosystemScreen() {
             {/* Distribution Chart */}
             <View style={[commonStyles.card, styles.distributionCard]}>
               <Text style={styles.cardTitle}>Distribución de Tokens</Text>
+              <Text style={styles.cardSubtitle}>Total: 1,000,000,000 MXI</Text>
               
               <View style={styles.distributionItem}>
                 <View style={styles.distributionBar}>
@@ -300,7 +342,7 @@ export default function EcosystemScreen() {
                 </View>
                 <View style={styles.distributionInfo}>
                   <Text style={styles.distributionLabel}>Pool de Liquidez</Text>
-                  <Text style={styles.distributionValue}>40% - 400M MXI</Text>
+                  <Text style={styles.distributionValue}>40% - 400,000,000 MXI</Text>
                 </View>
               </View>
 
@@ -310,7 +352,7 @@ export default function EcosystemScreen() {
                 </View>
                 <View style={styles.distributionInfo}>
                   <Text style={styles.distributionLabel}>Preventa Pública</Text>
-                  <Text style={styles.distributionValue}>25% - 250M MXI</Text>
+                  <Text style={styles.distributionValue}>25% - 250,000,000 MXI</Text>
                 </View>
               </View>
 
@@ -320,7 +362,7 @@ export default function EcosystemScreen() {
                 </View>
                 <View style={styles.distributionInfo}>
                   <Text style={styles.distributionLabel}>Equipo & Desarrollo</Text>
-                  <Text style={styles.distributionValue}>15% - 150M MXI</Text>
+                  <Text style={styles.distributionValue}>15% - 150,000,000 MXI</Text>
                 </View>
               </View>
 
@@ -329,8 +371,8 @@ export default function EcosystemScreen() {
                   <View style={[styles.distributionFill, { width: '10%', backgroundColor: colors.warning }]} />
                 </View>
                 <View style={styles.distributionInfo}>
-                  <Text style={styles.distributionLabel}>Marketing</Text>
-                  <Text style={styles.distributionValue}>10% - 100M MXI</Text>
+                  <Text style={styles.distributionLabel}>Marketing & Partnerships</Text>
+                  <Text style={styles.distributionValue}>10% - 100,000,000 MXI</Text>
                 </View>
               </View>
 
@@ -339,8 +381,8 @@ export default function EcosystemScreen() {
                   <View style={[styles.distributionFill, { width: '10%', backgroundColor: colors.secondary }]} />
                 </View>
                 <View style={styles.distributionInfo}>
-                  <Text style={styles.distributionLabel}>Reserva</Text>
-                  <Text style={styles.distributionValue}>10% - 100M MXI</Text>
+                  <Text style={styles.distributionLabel}>Reserva Estratégica</Text>
+                  <Text style={styles.distributionValue}>10% - 100,000,000 MXI</Text>
                 </View>
               </View>
             </View>
@@ -348,15 +390,19 @@ export default function EcosystemScreen() {
             {/* Pricing Phases */}
             <View style={[commonStyles.card, styles.phasesCard]}>
               <Text style={styles.cardTitle}>Fases de Preventa</Text>
+              <Text style={styles.cardSubtitle}>Precios progresivos hasta el lanzamiento</Text>
               
               <View style={styles.phaseItem}>
                 <View style={[styles.phaseNumber, { backgroundColor: colors.primary }]}>
                   <Text style={styles.phaseNumberText}>1</Text>
                 </View>
                 <View style={styles.phaseContent}>
-                  <Text style={styles.phaseTitle}>Fase 1 - Early Bird</Text>
+                  <Text style={styles.phaseTitle}>Fase 1 - Early Adopters</Text>
                   <Text style={styles.phasePrice}>0.40 USDT por MXI</Text>
-                  <Text style={styles.phaseDescription}>Precio especial para primeros inversores</Text>
+                  <Text style={styles.phaseDescription}>
+                    Precio especial para los primeros inversores del pool
+                  </Text>
+                  <Text style={styles.phaseAllocation}>Asignación: 83,333,333 MXI</Text>
                 </View>
               </View>
 
@@ -365,9 +411,12 @@ export default function EcosystemScreen() {
                   <Text style={styles.phaseNumberText}>2</Text>
                 </View>
                 <View style={styles.phaseContent}>
-                  <Text style={styles.phaseTitle}>Fase 2 - Growth</Text>
+                  <Text style={styles.phaseTitle}>Fase 2 - Growth Phase</Text>
                   <Text style={styles.phasePrice}>0.70 USDT por MXI</Text>
-                  <Text style={styles.phaseDescription}>Precio intermedio con bonos</Text>
+                  <Text style={styles.phaseDescription}>
+                    Precio intermedio con beneficios adicionales
+                  </Text>
+                  <Text style={styles.phaseAllocation}>Asignación: 83,333,333 MXI</Text>
                 </View>
               </View>
 
@@ -376,16 +425,91 @@ export default function EcosystemScreen() {
                   <Text style={styles.phaseNumberText}>3</Text>
                 </View>
                 <View style={styles.phaseContent}>
-                  <Text style={styles.phaseTitle}>Fase 3 - Final</Text>
+                  <Text style={styles.phaseTitle}>Fase 3 - Pre-Launch</Text>
                   <Text style={styles.phasePrice}>1.00 USDT por MXI</Text>
-                  <Text style={styles.phaseDescription}>Precio de lanzamiento oficial</Text>
+                  <Text style={styles.phaseDescription}>
+                    Precio final antes del lanzamiento oficial
+                  </Text>
+                  <Text style={styles.phaseAllocation}>Asignación: 83,333,334 MXI</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Referral System */}
+            <View style={[commonStyles.card, styles.referralCard]}>
+              <Text style={styles.cardTitle}>Sistema de Comisiones</Text>
+              
+              <View style={styles.referralLevel}>
+                <View style={[styles.referralBadge, { backgroundColor: colors.primary }]}>
+                  <Text style={styles.referralBadgeText}>NIVEL 1</Text>
+                </View>
+                <Text style={styles.referralPercentage}>3%</Text>
+                <Text style={styles.referralDescription}>
+                  De cada compra de tus referidos directos
+                </Text>
+              </View>
+
+              <View style={styles.referralLevel}>
+                <View style={[styles.referralBadge, { backgroundColor: colors.success }]}>
+                  <Text style={styles.referralBadgeText}>NIVEL 2</Text>
+                </View>
+                <Text style={styles.referralPercentage}>2%</Text>
+                <Text style={styles.referralDescription}>
+                  De las compras de referidos de segundo nivel
+                </Text>
+              </View>
+
+              <View style={styles.referralLevel}>
+                <View style={[styles.referralBadge, { backgroundColor: colors.accent }]}>
+                  <Text style={styles.referralBadgeText}>NIVEL 3</Text>
+                </View>
+                <Text style={styles.referralPercentage}>1%</Text>
+                <Text style={styles.referralDescription}>
+                  De las compras de referidos de tercer nivel
+                </Text>
+              </View>
+
+              <View style={styles.referralRequirements}>
+                <Text style={styles.requirementsTitle}>Requisitos para Retiro:</Text>
+                <View style={styles.requirementItem}>
+                  <IconSymbol 
+                    ios_icon_name="checkmark.circle.fill" 
+                    android_material_icon_name="check_circle" 
+                    size={20} 
+                    color={colors.success} 
+                  />
+                  <Text style={styles.requirementText}>
+                    Mínimo 5 referidos directos con cuentas activas
+                  </Text>
+                </View>
+                <View style={styles.requirementItem}>
+                  <IconSymbol 
+                    ios_icon_name="checkmark.circle.fill" 
+                    android_material_icon_name="check_circle" 
+                    size={20} 
+                    color={colors.success} 
+                  />
+                  <Text style={styles.requirementText}>
+                    Ciclo de 10 días completado desde última comisión
+                  </Text>
+                </View>
+                <View style={styles.requirementItem}>
+                  <IconSymbol 
+                    ios_icon_name="checkmark.circle.fill" 
+                    android_material_icon_name="check_circle" 
+                    size={20} 
+                    color={colors.success} 
+                  />
+                  <Text style={styles.requirementText}>
+                    Referidos deben haber realizado compra de MXI
+                  </Text>
                 </View>
               </View>
             </View>
 
             {/* Utility */}
             <View style={[commonStyles.card, styles.utilityCard]}>
-              <Text style={styles.cardTitle}>Utilidad del Token</Text>
+              <Text style={styles.cardTitle}>Utilidad del Token MXI</Text>
               <View style={styles.utilityList}>
                 <View style={styles.utilityItem}>
                   <IconSymbol 
@@ -394,7 +518,9 @@ export default function EcosystemScreen() {
                     size={20} 
                     color={colors.success} 
                   />
-                  <Text style={styles.utilityText}>Participación en pool de liquidez</Text>
+                  <Text style={styles.utilityText}>
+                    Participación directa en el pool de liquidez
+                  </Text>
                 </View>
                 <View style={styles.utilityItem}>
                   <IconSymbol 
@@ -403,7 +529,9 @@ export default function EcosystemScreen() {
                     size={20} 
                     color={colors.success} 
                   />
-                  <Text style={styles.utilityText}>Generación de rendimiento pasivo</Text>
+                  <Text style={styles.utilityText}>
+                    Generación de ingresos pasivos mediante vesting
+                  </Text>
                 </View>
                 <View style={styles.utilityItem}>
                   <IconSymbol 
@@ -412,7 +540,9 @@ export default function EcosystemScreen() {
                     size={20} 
                     color={colors.success} 
                   />
-                  <Text style={styles.utilityText}>Acceso a sorteos y recompensas</Text>
+                  <Text style={styles.utilityText}>
+                    Acceso a sorteos y recompensas exclusivas
+                  </Text>
                 </View>
                 <View style={styles.utilityItem}>
                   <IconSymbol 
@@ -421,7 +551,9 @@ export default function EcosystemScreen() {
                     size={20} 
                     color={colors.success} 
                   />
-                  <Text style={styles.utilityText}>Comisiones por referidos</Text>
+                  <Text style={styles.utilityText}>
+                    Sistema de comisiones por referidos multinivel
+                  </Text>
                 </View>
                 <View style={styles.utilityItem}>
                   <IconSymbol 
@@ -430,7 +562,20 @@ export default function EcosystemScreen() {
                     size={20} 
                     color={colors.success} 
                   />
-                  <Text style={styles.utilityText}>Gobernanza y votación</Text>
+                  <Text style={styles.utilityText}>
+                    Vinculación directa con exchange Binance
+                  </Text>
+                </View>
+                <View style={styles.utilityItem}>
+                  <IconSymbol 
+                    ios_icon_name="checkmark.circle.fill" 
+                    android_material_icon_name="check_circle" 
+                    size={20} 
+                    color={colors.success} 
+                  />
+                  <Text style={styles.utilityText}>
+                    Valor respaldado por liquidez real en el mercado
+                  </Text>
                 </View>
               </View>
             </View>
@@ -441,13 +586,16 @@ export default function EcosystemScreen() {
           <View>
             <View style={[commonStyles.card, styles.roadmapCard]}>
               <Text style={styles.cardTitle}>Hoja de Ruta 2025-2026</Text>
+              <Text style={styles.cardSubtitle}>
+                Camino hacia el lanzamiento oficial de Maxcoin
+              </Text>
 
               {/* Q1 2025 */}
               <View style={styles.roadmapPhase}>
                 <View style={[styles.roadmapBadge, { backgroundColor: colors.success }]}>
-                  <Text style={styles.roadmapBadgeText}>COMPLETADO</Text>
+                  <Text style={styles.roadmapBadgeText}>✓ COMPLETADO</Text>
                 </View>
-                <Text style={styles.roadmapQuarter}>Q1 2025</Text>
+                <Text style={styles.roadmapQuarter}>Q1 2025 - Enero a Marzo</Text>
                 <View style={styles.roadmapItems}>
                   <View style={styles.roadmapItem}>
                     <IconSymbol 
@@ -456,7 +604,9 @@ export default function EcosystemScreen() {
                       size={20} 
                       color={colors.success} 
                     />
-                    <Text style={styles.roadmapItemText}>Lanzamiento de la plataforma</Text>
+                    <Text style={styles.roadmapItemText}>
+                      Lanzamiento de la plataforma Pool de Liquidez MXI
+                    </Text>
                   </View>
                   <View style={styles.roadmapItem}>
                     <IconSymbol 
@@ -465,7 +615,9 @@ export default function EcosystemScreen() {
                       size={20} 
                       color={colors.success} 
                     />
-                    <Text style={styles.roadmapItemText}>Inicio de preventa Fase 1</Text>
+                    <Text style={styles.roadmapItemText}>
+                      Inicio de Fase 1 de preventa (0.40 USDT)
+                    </Text>
                   </View>
                   <View style={styles.roadmapItem}>
                     <IconSymbol 
@@ -474,7 +626,31 @@ export default function EcosystemScreen() {
                       size={20} 
                       color={colors.success} 
                     />
-                    <Text style={styles.roadmapItemText}>Sistema de referidos activo</Text>
+                    <Text style={styles.roadmapItemText}>
+                      Activación del sistema de referidos multinivel
+                    </Text>
+                  </View>
+                  <View style={styles.roadmapItem}>
+                    <IconSymbol 
+                      ios_icon_name="checkmark.circle.fill" 
+                      android_material_icon_name="check_circle" 
+                      size={20} 
+                      color={colors.success} 
+                    />
+                    <Text style={styles.roadmapItemText}>
+                      Integración con Binance para pagos
+                    </Text>
+                  </View>
+                  <View style={styles.roadmapItem}>
+                    <IconSymbol 
+                      ios_icon_name="checkmark.circle.fill" 
+                      android_material_icon_name="check_circle" 
+                      size={20} 
+                      color={colors.success} 
+                    />
+                    <Text style={styles.roadmapItemText}>
+                      Contador de participantes iniciado en 56,527
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -482,9 +658,9 @@ export default function EcosystemScreen() {
               {/* Q2 2025 */}
               <View style={styles.roadmapPhase}>
                 <View style={[styles.roadmapBadge, { backgroundColor: colors.warning }]}>
-                  <Text style={styles.roadmapBadgeText}>EN PROGRESO</Text>
+                  <Text style={styles.roadmapBadgeText}>⚡ EN PROGRESO</Text>
                 </View>
-                <Text style={styles.roadmapQuarter}>Q2 2025</Text>
+                <Text style={styles.roadmapQuarter}>Q2 2025 - Abril a Junio</Text>
                 <View style={styles.roadmapItems}>
                   <View style={styles.roadmapItem}>
                     <IconSymbol 
@@ -493,7 +669,9 @@ export default function EcosystemScreen() {
                       size={20} 
                       color={colors.warning} 
                     />
-                    <Text style={styles.roadmapItemText}>Fase 2 de preventa</Text>
+                    <Text style={styles.roadmapItemText}>
+                      Transición a Fase 2 de preventa (0.70 USDT)
+                    </Text>
                   </View>
                   <View style={styles.roadmapItem}>
                     <IconSymbol 
@@ -502,7 +680,9 @@ export default function EcosystemScreen() {
                       size={20} 
                       color={colors.warning} 
                     />
-                    <Text style={styles.roadmapItemText}>Lanzamiento de lotería</Text>
+                    <Text style={styles.roadmapItemText}>
+                      Lanzamiento del sistema de lotería
+                    </Text>
                   </View>
                   <View style={styles.roadmapItem}>
                     <IconSymbol 
@@ -511,7 +691,31 @@ export default function EcosystemScreen() {
                       size={20} 
                       color={colors.warning} 
                     />
-                    <Text style={styles.roadmapItemText}>Sistema de vesting mejorado</Text>
+                    <Text style={styles.roadmapItemText}>
+                      Implementación de vesting mejorado
+                    </Text>
+                  </View>
+                  <View style={styles.roadmapItem}>
+                    <IconSymbol 
+                      ios_icon_name="circle.fill" 
+                      android_material_icon_name="circle" 
+                      size={20} 
+                      color={colors.warning} 
+                    />
+                    <Text style={styles.roadmapItemText}>
+                      Expansión de marketing internacional
+                    </Text>
+                  </View>
+                  <View style={styles.roadmapItem}>
+                    <IconSymbol 
+                      ios_icon_name="circle.fill" 
+                      android_material_icon_name="circle" 
+                      size={20} 
+                      color={colors.warning} 
+                    />
+                    <Text style={styles.roadmapItemText}>
+                      Objetivo: 100,000 participantes
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -519,9 +723,9 @@ export default function EcosystemScreen() {
               {/* Q3 2025 */}
               <View style={styles.roadmapPhase}>
                 <View style={[styles.roadmapBadge, { backgroundColor: colors.textSecondary }]}>
-                  <Text style={styles.roadmapBadgeText}>PRÓXIMO</Text>
+                  <Text style={styles.roadmapBadgeText}>◯ PRÓXIMO</Text>
                 </View>
-                <Text style={styles.roadmapQuarter}>Q3 2025</Text>
+                <Text style={styles.roadmapQuarter}>Q3 2025 - Julio a Septiembre</Text>
                 <View style={styles.roadmapItems}>
                   <View style={styles.roadmapItem}>
                     <IconSymbol 
@@ -530,7 +734,9 @@ export default function EcosystemScreen() {
                       size={20} 
                       color={colors.textSecondary} 
                     />
-                    <Text style={styles.roadmapItemText}>Fase 3 de preventa</Text>
+                    <Text style={styles.roadmapItemText}>
+                      Inicio de Fase 3 de preventa (1.00 USDT)
+                    </Text>
                   </View>
                   <View style={styles.roadmapItem}>
                     <IconSymbol 
@@ -539,7 +745,9 @@ export default function EcosystemScreen() {
                       size={20} 
                       color={colors.textSecondary} 
                     />
-                    <Text style={styles.roadmapItemText}>Auditoría de smart contracts</Text>
+                    <Text style={styles.roadmapItemText}>
+                      Auditoría completa de smart contracts
+                    </Text>
                   </View>
                   <View style={styles.roadmapItem}>
                     <IconSymbol 
@@ -548,7 +756,31 @@ export default function EcosystemScreen() {
                       size={20} 
                       color={colors.textSecondary} 
                     />
-                    <Text style={styles.roadmapItemText}>Partnerships estratégicos</Text>
+                    <Text style={styles.roadmapItemText}>
+                      Partnerships estratégicos con exchanges
+                    </Text>
+                  </View>
+                  <View style={styles.roadmapItem}>
+                    <IconSymbol 
+                      ios_icon_name="circle" 
+                      android_material_icon_name="circle" 
+                      size={20} 
+                      color={colors.textSecondary} 
+                    />
+                    <Text style={styles.roadmapItemText}>
+                      Desarrollo de aplicaciones móviles nativas
+                    </Text>
+                  </View>
+                  <View style={styles.roadmapItem}>
+                    <IconSymbol 
+                      ios_icon_name="circle" 
+                      android_material_icon_name="circle" 
+                      size={20} 
+                      color={colors.textSecondary} 
+                    />
+                    <Text style={styles.roadmapItemText}>
+                      Objetivo: 175,000 participantes
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -556,9 +788,9 @@ export default function EcosystemScreen() {
               {/* Q4 2025 */}
               <View style={styles.roadmapPhase}>
                 <View style={[styles.roadmapBadge, { backgroundColor: colors.textSecondary }]}>
-                  <Text style={styles.roadmapBadgeText}>PRÓXIMO</Text>
+                  <Text style={styles.roadmapBadgeText}>◯ PRÓXIMO</Text>
                 </View>
-                <Text style={styles.roadmapQuarter}>Q4 2025</Text>
+                <Text style={styles.roadmapQuarter}>Q4 2025 - Octubre a Diciembre</Text>
                 <View style={styles.roadmapItems}>
                   <View style={styles.roadmapItem}>
                     <IconSymbol 
@@ -567,7 +799,9 @@ export default function EcosystemScreen() {
                       size={20} 
                       color={colors.textSecondary} 
                     />
-                    <Text style={styles.roadmapItemText}>Preparación para lanzamiento</Text>
+                    <Text style={styles.roadmapItemText}>
+                      Preparación final para lanzamiento oficial
+                    </Text>
                   </View>
                   <View style={styles.roadmapItem}>
                     <IconSymbol 
@@ -576,7 +810,9 @@ export default function EcosystemScreen() {
                       size={20} 
                       color={colors.textSecondary} 
                     />
-                    <Text style={styles.roadmapItemText}>Marketing masivo</Text>
+                    <Text style={styles.roadmapItemText}>
+                      Campaña de marketing masivo global
+                    </Text>
                   </View>
                   <View style={styles.roadmapItem}>
                     <IconSymbol 
@@ -585,17 +821,41 @@ export default function EcosystemScreen() {
                       size={20} 
                       color={colors.textSecondary} 
                     />
-                    <Text style={styles.roadmapItemText}>Cierre de preventa</Text>
+                    <Text style={styles.roadmapItemText}>
+                      Cierre de preventa y conteo final
+                    </Text>
+                  </View>
+                  <View style={styles.roadmapItem}>
+                    <IconSymbol 
+                      ios_icon_name="circle" 
+                      android_material_icon_name="circle" 
+                      size={20} 
+                      color={colors.textSecondary} 
+                    />
+                    <Text style={styles.roadmapItemText}>
+                      Preparación del pool de liquidez
+                    </Text>
+                  </View>
+                  <View style={styles.roadmapItem}>
+                    <IconSymbol 
+                      ios_icon_name="circle" 
+                      android_material_icon_name="circle" 
+                      size={20} 
+                      color={colors.textSecondary} 
+                    />
+                    <Text style={styles.roadmapItemText}>
+                      Objetivo final: 250,000 participantes
+                    </Text>
                   </View>
                 </View>
               </View>
 
-              {/* Q1 2026 */}
+              {/* Q1 2026 - LAUNCH */}
               <View style={styles.roadmapPhase}>
                 <View style={[styles.roadmapBadge, { backgroundColor: colors.primary }]}>
-                  <Text style={styles.roadmapBadgeText}>LANZAMIENTO</Text>
+                  <Text style={styles.roadmapBadgeText}>🚀 LANZAMIENTO</Text>
                 </View>
-                <Text style={styles.roadmapQuarter}>15 Enero 2026 - 12:00 UTC</Text>
+                <Text style={styles.roadmapQuarter}>15 Enero 2026 - 12:00 UTC Central</Text>
                 <View style={styles.roadmapItems}>
                   <View style={styles.roadmapItem}>
                     <IconSymbol 
@@ -604,7 +864,9 @@ export default function EcosystemScreen() {
                       size={20} 
                       color={colors.primary} 
                     />
-                    <Text style={styles.roadmapItemText}>Lanzamiento oficial de MXI</Text>
+                    <Text style={[styles.roadmapItemText, { fontWeight: '700' }]}>
+                      Lanzamiento oficial de Maxcoin (MXI)
+                    </Text>
                   </View>
                   <View style={styles.roadmapItem}>
                     <IconSymbol 
@@ -613,7 +875,9 @@ export default function EcosystemScreen() {
                       size={20} 
                       color={colors.primary} 
                     />
-                    <Text style={styles.roadmapItemText}>Listado en exchanges</Text>
+                    <Text style={[styles.roadmapItemText, { fontWeight: '700' }]}>
+                      Listado en exchanges principales
+                    </Text>
                   </View>
                   <View style={styles.roadmapItem}>
                     <IconSymbol 
@@ -622,7 +886,31 @@ export default function EcosystemScreen() {
                       size={20} 
                       color={colors.primary} 
                     />
-                    <Text style={styles.roadmapItemText}>Pool de liquidez activo</Text>
+                    <Text style={[styles.roadmapItemText, { fontWeight: '700' }]}>
+                      Activación del pool de liquidez completo
+                    </Text>
+                  </View>
+                  <View style={styles.roadmapItem}>
+                    <IconSymbol 
+                      ios_icon_name="star.fill" 
+                      android_material_icon_name="star" 
+                      size={20} 
+                      color={colors.primary} 
+                    />
+                    <Text style={[styles.roadmapItemText, { fontWeight: '700' }]}>
+                      Distribución de fondos al pool
+                    </Text>
+                  </View>
+                  <View style={styles.roadmapItem}>
+                    <IconSymbol 
+                      ios_icon_name="star.fill" 
+                      android_material_icon_name="star" 
+                      size={20} 
+                      color={colors.primary} 
+                    />
+                    <Text style={[styles.roadmapItemText, { fontWeight: '700' }]}>
+                      Cierre de inscripciones al pool
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -639,14 +927,20 @@ export default function EcosystemScreen() {
                 <IconSymbol 
                   ios_icon_name="rocket.fill" 
                   android_material_icon_name="rocket_launch" 
-                  size={48} 
+                  size={56} 
                   color={colors.primary} 
                 />
                 <Text style={styles.countdownTitle}>Lanzamiento Oficial</Text>
                 <Text style={styles.countdownDate}>15 de Enero 2026</Text>
                 <Text style={styles.countdownTime}>12:00 UTC Central</Text>
+                <View style={styles.countdownDivider} />
                 <Text style={styles.countdownDescription}>
-                  ¡No te pierdas el evento más esperado del año en el mundo crypto!
+                  Después de esta fecha no se recibirán más inscripciones al pool.
+                  Los fondos serán derivados al pool de liquidez y se entregará 
+                  valor real a la moneda MXI.
+                </Text>
+                <Text style={styles.countdownWarning}>
+                  ¡No te pierdas esta oportunidad única!
                 </Text>
               </LinearGradient>
             </View>
@@ -658,20 +952,42 @@ export default function EcosystemScreen() {
             {/* Strategic Partners */}
             <View style={[commonStyles.card, styles.partnersCard]}>
               <Text style={styles.cardTitle}>Socios Estratégicos</Text>
+              <Text style={styles.cardSubtitle}>
+                Colaboraciones que garantizan el éxito de MXI
+              </Text>
               
               <View style={styles.partnerItem}>
-                <View style={[styles.partnerIcon, { backgroundColor: colors.warning + '20' }]}>
+                <View style={[styles.partnerIcon, { backgroundColor: '#F3BA2F' + '20' }]}>
                   <IconSymbol 
                     ios_icon_name="building.2.fill" 
                     android_material_icon_name="business" 
                     size={32} 
-                    color={colors.warning} 
+                    color="#F3BA2F" 
+                  />
+                </View>
+                <View style={styles.partnerContent}>
+                  <Text style={styles.partnerName}>Binance</Text>
+                  <Text style={styles.partnerRole}>Exchange Principal</Text>
+                  <Text style={styles.partnerDescription}>
+                    Plataforma de pagos y futura cotización de MXI
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.partnerItem}>
+                <View style={[styles.partnerIcon, { backgroundColor: '#F0B90B' + '20' }]}>
+                  <IconSymbol 
+                    ios_icon_name="link" 
+                    android_material_icon_name="link" 
+                    size={32} 
+                    color="#F0B90B" 
                   />
                 </View>
                 <View style={styles.partnerContent}>
                   <Text style={styles.partnerName}>Binance Smart Chain</Text>
+                  <Text style={styles.partnerRole}>Blockchain</Text>
                   <Text style={styles.partnerDescription}>
-                    Plataforma blockchain principal para MXI
+                    Red blockchain principal para MXI con bajas comisiones
                   </Text>
                 </View>
               </View>
@@ -686,43 +1002,64 @@ export default function EcosystemScreen() {
                   />
                 </View>
                 <View style={styles.partnerContent}>
-                  <Text style={styles.partnerName}>CertiK Audit</Text>
+                  <Text style={styles.partnerName}>CertiK</Text>
+                  <Text style={styles.partnerRole}>Auditoría de Seguridad</Text>
                   <Text style={styles.partnerDescription}>
-                    Auditoría de seguridad de smart contracts
+                    Auditoría completa de smart contracts y seguridad
                   </Text>
                 </View>
               </View>
 
               <View style={styles.partnerItem}>
-                <View style={[styles.partnerIcon, { backgroundColor: colors.accent + '20' }]}>
+                <View style={[styles.partnerIcon, { backgroundColor: '#1E88E5' + '20' }]}>
                   <IconSymbol 
                     ios_icon_name="chart.bar.fill" 
                     android_material_icon_name="bar_chart" 
                     size={32} 
-                    color={colors.accent} 
+                    color="#1E88E5" 
                   />
                 </View>
                 <View style={styles.partnerContent}>
                   <Text style={styles.partnerName}>CoinMarketCap</Text>
+                  <Text style={styles.partnerRole}>Tracking de Precio</Text>
                   <Text style={styles.partnerDescription}>
-                    Listado y tracking de precio en tiempo real
+                    Listado y seguimiento de precio en tiempo real
                   </Text>
                 </View>
               </View>
 
               <View style={styles.partnerItem}>
-                <View style={[styles.partnerIcon, { backgroundColor: colors.primary + '20' }]}>
+                <View style={[styles.partnerIcon, { backgroundColor: '#8DC63F' + '20' }]}>
                   <IconSymbol 
                     ios_icon_name="globe" 
                     android_material_icon_name="public" 
                     size={32} 
-                    color={colors.primary} 
+                    color="#8DC63F" 
                   />
                 </View>
                 <View style={styles.partnerContent}>
                   <Text style={styles.partnerName}>CoinGecko</Text>
+                  <Text style={styles.partnerRole}>Análisis de Mercado</Text>
                   <Text style={styles.partnerDescription}>
-                    Análisis de mercado y datos de trading
+                    Datos de mercado y análisis de trading
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.partnerItem}>
+                <View style={[styles.partnerIcon, { backgroundColor: '#FF6B35' + '20' }]}>
+                  <IconSymbol 
+                    ios_icon_name="arrow.left.arrow.right" 
+                    android_material_icon_name="swap_horiz" 
+                    size={32} 
+                    color="#FF6B35" 
+                  />
+                </View>
+                <View style={styles.partnerContent}>
+                  <Text style={styles.partnerName}>PancakeSwap</Text>
+                  <Text style={styles.partnerRole}>DEX Principal</Text>
+                  <Text style={styles.partnerDescription}>
+                    Exchange descentralizado para trading de MXI
                   </Text>
                 </View>
               </View>
@@ -731,66 +1068,103 @@ export default function EcosystemScreen() {
             {/* Technology Stack */}
             <View style={[commonStyles.card, styles.techCard]}>
               <Text style={styles.cardTitle}>Stack Tecnológico</Text>
+              <Text style={styles.cardSubtitle}>
+                Tecnologías de vanguardia para MXI
+              </Text>
               
               <View style={styles.techGrid}>
                 <View style={styles.techItem}>
                   <IconSymbol 
                     ios_icon_name="link" 
                     android_material_icon_name="link" 
-                    size={24} 
+                    size={28} 
                     color={colors.primary} 
                   />
                   <Text style={styles.techName}>Blockchain</Text>
                   <Text style={styles.techValue}>BSC</Text>
+                  <Text style={styles.techDescription}>Binance Smart Chain</Text>
                 </View>
 
                 <View style={styles.techItem}>
                   <IconSymbol 
                     ios_icon_name="doc.text.fill" 
                     android_material_icon_name="description" 
-                    size={24} 
+                    size={28} 
                     color={colors.success} 
                   />
                   <Text style={styles.techName}>Smart Contract</Text>
                   <Text style={styles.techValue}>Solidity</Text>
+                  <Text style={styles.techDescription}>Lenguaje de contratos</Text>
                 </View>
 
                 <View style={styles.techItem}>
                   <IconSymbol 
                     ios_icon_name="wallet.pass.fill" 
                     android_material_icon_name="account_balance_wallet" 
-                    size={24} 
+                    size={28} 
                     color={colors.accent} 
                   />
                   <Text style={styles.techName}>Wallet</Text>
                   <Text style={styles.techValue}>MetaMask</Text>
+                  <Text style={styles.techDescription}>Billetera compatible</Text>
                 </View>
 
                 <View style={styles.techItem}>
                   <IconSymbol 
                     ios_icon_name="arrow.left.arrow.right" 
                     android_material_icon_name="swap_horiz" 
-                    size={24} 
+                    size={28} 
                     color={colors.warning} 
                   />
                   <Text style={styles.techName}>DEX</Text>
                   <Text style={styles.techValue}>PancakeSwap</Text>
+                  <Text style={styles.techDescription}>Exchange descentralizado</Text>
+                </View>
+
+                <View style={styles.techItem}>
+                  <IconSymbol 
+                    ios_icon_name="server.rack" 
+                    android_material_icon_name="dns" 
+                    size={28} 
+                    color={colors.primary} 
+                  />
+                  <Text style={styles.techName}>Backend</Text>
+                  <Text style={styles.techValue}>Supabase</Text>
+                  <Text style={styles.techDescription}>Base de datos</Text>
+                </View>
+
+                <View style={styles.techItem}>
+                  <IconSymbol 
+                    ios_icon_name="shield.fill" 
+                    android_material_icon_name="shield" 
+                    size={28} 
+                    color={colors.success} 
+                  />
+                  <Text style={styles.techName}>Seguridad</Text>
+                  <Text style={styles.techValue}>SSL/TLS</Text>
+                  <Text style={styles.techDescription}>Encriptación total</Text>
                 </View>
               </View>
             </View>
 
             {/* Community */}
             <View style={[commonStyles.card, styles.communityCard]}>
-              <Text style={styles.cardTitle}>Únete a la Comunidad</Text>
+              <Text style={styles.cardTitle}>Únete a la Comunidad MXI</Text>
+              <Text style={styles.cardSubtitle}>
+                Mantente informado y conectado con miles de inversores
+              </Text>
               
-              <TouchableOpacity style={styles.socialButton}>
+              <TouchableOpacity style={styles.socialButton} activeOpacity={0.7}>
                 <IconSymbol 
                   ios_icon_name="paperplane.fill" 
                   android_material_icon_name="send" 
                   size={24} 
                   color="#0088cc" 
                 />
-                <Text style={styles.socialButtonText}>Telegram</Text>
+                <View style={styles.socialContent}>
+                  <Text style={styles.socialButtonText}>Telegram</Text>
+                  <Text style={styles.socialDescription}>Canal oficial de noticias</Text>
+                </View>
                 <IconSymbol 
                   ios_icon_name="chevron.right" 
                   android_material_icon_name="chevron_right" 
@@ -799,14 +1173,17 @@ export default function EcosystemScreen() {
                 />
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.socialButton}>
+              <TouchableOpacity style={styles.socialButton} activeOpacity={0.7}>
                 <IconSymbol 
                   ios_icon_name="bird.fill" 
                   android_material_icon_name="flutter_dash" 
                   size={24} 
                   color="#1DA1F2" 
                 />
-                <Text style={styles.socialButtonText}>Twitter</Text>
+                <View style={styles.socialContent}>
+                  <Text style={styles.socialButtonText}>Twitter / X</Text>
+                  <Text style={styles.socialDescription}>Actualizaciones diarias</Text>
+                </View>
                 <IconSymbol 
                   ios_icon_name="chevron.right" 
                   android_material_icon_name="chevron_right" 
@@ -815,14 +1192,17 @@ export default function EcosystemScreen() {
                 />
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.socialButton}>
+              <TouchableOpacity style={styles.socialButton} activeOpacity={0.7}>
                 <IconSymbol 
                   ios_icon_name="message.fill" 
                   android_material_icon_name="forum" 
                   size={24} 
                   color="#7289DA" 
                 />
-                <Text style={styles.socialButtonText}>Discord</Text>
+                <View style={styles.socialContent}>
+                  <Text style={styles.socialButtonText}>Discord</Text>
+                  <Text style={styles.socialDescription}>Comunidad y soporte</Text>
+                </View>
                 <IconSymbol 
                   ios_icon_name="chevron.right" 
                   android_material_icon_name="chevron_right" 
@@ -831,14 +1211,17 @@ export default function EcosystemScreen() {
                 />
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.socialButton}>
+              <TouchableOpacity style={styles.socialButton} activeOpacity={0.7}>
                 <IconSymbol 
                   ios_icon_name="play.rectangle.fill" 
                   android_material_icon_name="play_circle" 
                   size={24} 
                   color="#FF0000" 
                 />
-                <Text style={styles.socialButtonText}>YouTube</Text>
+                <View style={styles.socialContent}>
+                  <Text style={styles.socialButtonText}>YouTube</Text>
+                  <Text style={styles.socialDescription}>Tutoriales y webinars</Text>
+                </View>
                 <IconSymbol 
                   ios_icon_name="chevron.right" 
                   android_material_icon_name="chevron_right" 
@@ -846,6 +1229,90 @@ export default function EcosystemScreen() {
                   color={colors.textSecondary} 
                 />
               </TouchableOpacity>
+
+              <TouchableOpacity style={styles.socialButton} activeOpacity={0.7}>
+                <IconSymbol 
+                  ios_icon_name="photo.fill" 
+                  android_material_icon_name="photo" 
+                  size={24} 
+                  color="#E4405F" 
+                />
+                <View style={styles.socialContent}>
+                  <Text style={styles.socialButtonText}>Instagram</Text>
+                  <Text style={styles.socialDescription}>Contenido visual</Text>
+                </View>
+                <IconSymbol 
+                  ios_icon_name="chevron.right" 
+                  android_material_icon_name="chevron_right" 
+                  size={20} 
+                  color={colors.textSecondary} 
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* Legal & Compliance */}
+            <View style={[commonStyles.card, styles.legalCard]}>
+              <Text style={styles.cardTitle}>Legal & Cumplimiento</Text>
+              
+              <View style={styles.legalItem}>
+                <IconSymbol 
+                  ios_icon_name="checkmark.seal.fill" 
+                  android_material_icon_name="verified" 
+                  size={24} 
+                  color={colors.success} 
+                />
+                <View style={styles.legalContent}>
+                  <Text style={styles.legalTitle}>Registro Legal</Text>
+                  <Text style={styles.legalDescription}>
+                    Entidad registrada y cumplimiento regulatorio
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.legalItem}>
+                <IconSymbol 
+                  ios_icon_name="doc.text.fill" 
+                  android_material_icon_name="description" 
+                  size={24} 
+                  color={colors.primary} 
+                />
+                <View style={styles.legalContent}>
+                  <Text style={styles.legalTitle}>Términos y Condiciones</Text>
+                  <Text style={styles.legalDescription}>
+                    Documentación legal completa disponible
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.legalItem}>
+                <IconSymbol 
+                  ios_icon_name="lock.shield.fill" 
+                  android_material_icon_name="security" 
+                  size={24} 
+                  color={colors.accent} 
+                />
+                <View style={styles.legalContent}>
+                  <Text style={styles.legalTitle}>Política de Privacidad</Text>
+                  <Text style={styles.legalDescription}>
+                    Protección de datos y privacidad garantizada
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.legalItem}>
+                <IconSymbol 
+                  ios_icon_name="person.badge.shield.checkmark.fill" 
+                  android_material_icon_name="admin_panel_settings" 
+                  size={24} 
+                  color={colors.warning} 
+                />
+                <View style={styles.legalContent}>
+                  <Text style={styles.legalTitle}>KYC/AML</Text>
+                  <Text style={styles.legalDescription}>
+                    Verificación de identidad y prevención de lavado
+                  </Text>
+                </View>
+              </View>
             </View>
           </View>
         )}
@@ -961,6 +1428,26 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
+  poolInfoCard: {
+    marginBottom: 24,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  infoLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  infoValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
   section: {
     marginBottom: 24,
   },
@@ -1006,6 +1493,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.text,
+    marginBottom: 8,
+  },
+  cardSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
     marginBottom: 20,
   },
   distributionCard: {
@@ -1077,6 +1569,66 @@ const styles = StyleSheet.create({
   phaseDescription: {
     fontSize: 13,
     color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  phaseAllocation: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+  },
+  referralCard: {
+    marginBottom: 24,
+  },
+  referralLevel: {
+    marginBottom: 20,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  referralBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  referralBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  referralPercentage: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  referralDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  referralRequirements: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 8,
+  },
+  requirementsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  requirementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
+  requirementText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.textSecondary,
   },
   utilityCard: {
     marginBottom: 24,
@@ -1126,13 +1678,15 @@ const styles = StyleSheet.create({
   },
   roadmapItem: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 12,
+    paddingVertical: 4,
   },
   roadmapItemText: {
     flex: 1,
     fontSize: 14,
     color: colors.textSecondary,
+    lineHeight: 20,
   },
   countdownCard: {
     padding: 0,
@@ -1160,11 +1714,25 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: 16,
   },
+  countdownDivider: {
+    width: 60,
+    height: 3,
+    backgroundColor: colors.primary,
+    borderRadius: 2,
+    marginVertical: 16,
+  },
   countdownDescription: {
     fontSize: 14,
     color: colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 22,
+    marginBottom: 12,
+  },
+  countdownWarning: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.primary,
+    textAlign: 'center',
   },
   partnersCard: {
     marginBottom: 24,
@@ -1192,6 +1760,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
+    marginBottom: 2,
+  },
+  partnerRole: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary,
     marginBottom: 4,
   },
   partnerDescription: {
@@ -1217,15 +1791,23 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   techName: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.textSecondary,
     marginTop: 8,
     marginBottom: 4,
+    textAlign: 'center',
   },
   techValue: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
     color: colors.text,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  techDescription: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   communityCard: {
     marginBottom: 24,
@@ -1241,10 +1823,43 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  socialButtonText: {
+  socialContent: {
     flex: 1,
+  },
+  socialButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
+    marginBottom: 2,
+  },
+  socialDescription: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  legalCard: {
+    marginBottom: 24,
+  },
+  legalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  legalContent: {
+    flex: 1,
+  },
+  legalTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  legalDescription: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 18,
   },
 });
