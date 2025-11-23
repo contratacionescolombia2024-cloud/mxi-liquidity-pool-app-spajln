@@ -40,38 +40,43 @@ export default function KYCVerificationScreen() {
   const [documentBackUrl, setDocumentBackUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log('=== KYC VERIFICATION SCREEN MOUNTED ===');
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] === KYC VERIFICATION SCREEN MOUNTED ===`);
     loadKYCData();
     requestPermissions();
   }, []);
 
   const requestPermissions = async () => {
     try {
-      console.log('Requesting media library permissions...');
+      const timestamp = new Date().toISOString();
+      console.log(`[${timestamp}] Requesting media library permissions...`);
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      console.log('Permission status:', status);
+      console.log(`[${timestamp}] Permission status:`, status);
       
       if (status !== 'granted') {
         Alert.alert(
-          'Permission Required',
-          'Please grant camera roll permissions to upload documents.'
+          'Permiso Requerido',
+          'Por favor otorga permisos de galería para subir documentos.'
         );
       }
     } catch (error) {
-      console.error('Error requesting permissions:', error);
+      const timestamp = new Date().toISOString();
+      console.error(`[${timestamp}] Error requesting permissions:`, error);
     }
   };
 
   const loadKYCData = async () => {
     if (!user) {
-      console.log('No user found, skipping KYC data load');
+      const timestamp = new Date().toISOString();
+      console.log(`[${timestamp}] No user found, skipping KYC data load`);
       return;
     }
     
     setLoading(true);
     try {
-      console.log('=== LOADING KYC DATA ===');
-      console.log('User ID:', user.id);
+      const timestamp = new Date().toISOString();
+      console.log(`[${timestamp}] === LOADING KYC DATA ===`);
+      console.log(`[${timestamp}] User ID:`, user.id);
       
       const { data, error } = await supabase
         .from('kyc_verifications')
@@ -82,12 +87,12 @@ export default function KYCVerificationScreen() {
         .maybeSingle();
 
       if (error) {
-        console.error('Error loading KYC data:', error);
-        console.error('Error details:', JSON.stringify(error, null, 2));
+        console.error(`[${timestamp}] Error loading KYC data:`, error);
+        console.error(`[${timestamp}] Error details:`, JSON.stringify(error, null, 2));
       }
 
       if (data) {
-        console.log('KYC data loaded successfully:', data);
+        console.log(`[${timestamp}] KYC data loaded successfully:`, data);
         setKycData(data);
         setFullName(data.full_name || '');
         setDocumentType(data.document_type || 'national_id');
@@ -95,10 +100,11 @@ export default function KYCVerificationScreen() {
         setDocumentFrontUrl(data.document_front_url);
         setDocumentBackUrl(data.document_back_url);
       } else {
-        console.log('No existing KYC data found for user');
+        console.log(`[${timestamp}] No existing KYC data found for user`);
       }
     } catch (error) {
-      console.error('Exception loading KYC data:', error);
+      const timestamp = new Date().toISOString();
+      console.error(`[${timestamp}] Exception loading KYC data:`, error);
     } finally {
       setLoading(false);
     }
@@ -106,7 +112,8 @@ export default function KYCVerificationScreen() {
 
   const pickImage = async (side: 'front' | 'back') => {
     try {
-      console.log(`=== PICKING IMAGE FOR ${side.toUpperCase()} ===`);
+      const timestamp = new Date().toISOString();
+      console.log(`[${timestamp}] === PICKING IMAGE FOR ${side.toUpperCase()} ===`);
       
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -115,12 +122,12 @@ export default function KYCVerificationScreen() {
         quality: 0.8,
       });
 
-      console.log('Image picker result:', result);
+      console.log(`[${timestamp}] Image picker result:`, result);
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
-        console.log(`Image selected for ${side}:`, asset.uri);
-        console.log('Image size:', asset.width, 'x', asset.height);
+        console.log(`[${timestamp}] Image selected for ${side}:`, asset.uri);
+        console.log(`[${timestamp}] Image size:`, asset.width, 'x', asset.height);
         
         if (side === 'front') {
           setDocumentFrontUri(asset.uri);
@@ -131,18 +138,20 @@ export default function KYCVerificationScreen() {
         // Upload immediately after selection
         await uploadImage(asset.uri, side);
       } else {
-        console.log('Image picker canceled');
+        console.log(`[${timestamp}] Image picker canceled`);
       }
     } catch (error) {
-      console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image. Please try again.');
+      const timestamp = new Date().toISOString();
+      console.error(`[${timestamp}] Error picking image:`, error);
+      Alert.alert('Error', 'Error al seleccionar imagen. Por favor intenta de nuevo.');
     }
   };
 
   const uploadImage = async (uri: string, side: 'front' | 'back') => {
     if (!user) {
-      console.error('No user found for upload');
-      Alert.alert('Error', 'You must be logged in to upload documents');
+      const timestamp = new Date().toISOString();
+      console.error(`[${timestamp}] No user found for upload`);
+      Alert.alert('Error', 'Debes estar autenticado para subir documentos');
       return;
     }
 
@@ -150,17 +159,18 @@ export default function KYCVerificationScreen() {
     setUploading(true);
 
     try {
-      console.log(`=== UPLOADING ${side.toUpperCase()} IMAGE ===`);
-      console.log('URI:', uri);
-      console.log('User ID:', user.id);
+      const timestamp = new Date().toISOString();
+      console.log(`[${timestamp}] === UPLOADING ${side.toUpperCase()} IMAGE ===`);
+      console.log(`[${timestamp}] URI:`, uri);
+      console.log(`[${timestamp}] User ID:`, user.id);
       
       // Get file extension
       const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
       const fileName = `${user.id}/${side}_${Date.now()}.${fileExt}`;
-      console.log('Target filename:', fileName);
+      console.log(`[${timestamp}] Target filename:`, fileName);
 
       // Fetch the image as a blob
-      console.log('Fetching image as blob...');
+      console.log(`[${timestamp}] Fetching image as blob...`);
       const response = await fetch(uri);
       
       if (!response.ok) {
@@ -168,12 +178,12 @@ export default function KYCVerificationScreen() {
       }
       
       const blob = await response.blob();
-      console.log('Blob created successfully');
-      console.log('Blob size:', blob.size, 'bytes');
-      console.log('Blob type:', blob.type);
+      console.log(`[${timestamp}] Blob created successfully`);
+      console.log(`[${timestamp}] Blob size:`, blob.size, 'bytes');
+      console.log(`[${timestamp}] Blob type:`, blob.type);
 
       // Upload to Supabase Storage
-      console.log('Uploading to Supabase storage bucket: kyc-documents');
+      console.log(`[${timestamp}] Uploading to Supabase storage bucket: kyc-documents`);
       const { data, error } = await supabase.storage
         .from('kyc-documents')
         .upload(fileName, blob, {
@@ -182,56 +192,104 @@ export default function KYCVerificationScreen() {
         });
 
       if (error) {
-        console.error('Storage upload error:', error);
-        console.error('Error details:', JSON.stringify(error, null, 2));
+        console.error(`[${timestamp}] Storage upload error:`, error);
+        console.error(`[${timestamp}] Error details:`, JSON.stringify(error, null, 2));
         throw new Error(error.message || 'Failed to upload to storage');
       }
 
-      console.log('Upload successful!');
-      console.log('Upload data:', data);
+      console.log(`[${timestamp}] Upload successful!`);
+      console.log(`[${timestamp}] Upload data:`, data);
 
       // Get public URL
       const { data: urlData } = supabase.storage
         .from('kyc-documents')
         .getPublicUrl(fileName);
 
-      console.log('Public URL generated:', urlData.publicUrl);
+      console.log(`[${timestamp}] Public URL generated:`, urlData.publicUrl);
 
       if (side === 'front') {
         setDocumentFrontUrl(urlData.publicUrl);
-        console.log('Front document URL set:', urlData.publicUrl);
+        console.log(`[${timestamp}] Front document URL set:`, urlData.publicUrl);
       } else {
         setDocumentBackUrl(urlData.publicUrl);
-        console.log('Back document URL set:', urlData.publicUrl);
+        console.log(`[${timestamp}] Back document URL set:`, urlData.publicUrl);
       }
 
-      Alert.alert('Success', `Document ${side} uploaded successfully!`);
+      Alert.alert('Éxito', `Documento ${side === 'front' ? 'frontal' : 'trasero'} subido exitosamente!`);
     } catch (error: any) {
-      console.error(`=== UPLOAD ERROR FOR ${side.toUpperCase()} ===`);
-      console.error('Error:', error);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
-      Alert.alert('Upload Error', error.message || 'Failed to upload document. Please try again.');
+      const timestamp = new Date().toISOString();
+      console.error(`[${timestamp}] === UPLOAD ERROR FOR ${side.toUpperCase()} ===`);
+      console.error(`[${timestamp}] Error:`, error);
+      console.error(`[${timestamp}] Error message:`, error.message);
+      console.error(`[${timestamp}] Error stack:`, error.stack);
+      Alert.alert('Error de Subida', error.message || 'Error al subir documento. Por favor intenta de nuevo.');
     } finally {
       setUploading(false);
     }
   };
 
-  const performSubmit = async () => {
-    console.log('=== PERFORMING KYC SUBMIT ===');
-    setSubmitting(true);
+  // DRASTIC FIX: Simplified submit function with direct execution
+  const handleSubmit = async () => {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] ========================================`);
+    console.log(`[${timestamp}] === KYC SUBMIT BUTTON PRESSED ===`);
+    console.log(`[${timestamp}] ========================================`);
     
-    try {
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
+    // Prevent double submission
+    if (submitting) {
+      console.log(`[${timestamp}] Already submitting, ignoring duplicate press`);
+      return;
+    }
 
-      console.log('User ID:', user.id);
-      console.log('Full Name:', fullName);
-      console.log('Document Type:', documentType);
-      console.log('Document Number:', documentNumber);
-      console.log('Front URL:', documentFrontUrl);
-      console.log('Back URL:', documentBackUrl);
+    if (!user) {
+      console.error(`[${timestamp}] ERROR: No user found`);
+      Alert.alert('Error', 'Usuario no autenticado');
+      return;
+    }
+
+    console.log(`[${timestamp}] User authenticated:`, user.id);
+    console.log(`[${timestamp}] User email:`, user.email);
+
+    // Validation
+    console.log(`[${timestamp}] === STARTING VALIDATION ===`);
+    console.log(`[${timestamp}] Full name:`, fullName);
+    console.log(`[${timestamp}] Document type:`, documentType);
+    console.log(`[${timestamp}] Document number:`, documentNumber);
+    console.log(`[${timestamp}] Front URL:`, documentFrontUrl);
+    console.log(`[${timestamp}] Back URL:`, documentBackUrl);
+    
+    if (!fullName.trim()) {
+      console.log(`[${timestamp}] VALIDATION FAILED: Full name is empty`);
+      Alert.alert('Error', 'Por favor ingresa tu nombre completo');
+      return;
+    }
+
+    if (!documentNumber.trim()) {
+      console.log(`[${timestamp}] VALIDATION FAILED: Document number is empty`);
+      Alert.alert('Error', 'Por favor ingresa tu número de documento');
+      return;
+    }
+
+    if (!documentFrontUrl) {
+      console.log(`[${timestamp}] VALIDATION FAILED: Front document not uploaded`);
+      Alert.alert('Error', 'Por favor sube el frente de tu documento de identidad');
+      return;
+    }
+
+    if (!documentBackUrl && documentType !== 'passport') {
+      console.log(`[${timestamp}] VALIDATION FAILED: Back document not uploaded (required for non-passport)`);
+      Alert.alert('Error', 'Por favor sube el reverso de tu documento de identidad');
+      return;
+    }
+
+    console.log(`[${timestamp}] === VALIDATION PASSED ===`);
+
+    // Set submitting state immediately
+    setSubmitting(true);
+    console.log(`[${timestamp}] Submitting state set to TRUE`);
+
+    try {
+      console.log(`[${timestamp}] === STARTING DATABASE INSERT ===`);
 
       // Create KYC record
       const kycRecord = {
@@ -245,8 +303,8 @@ export default function KYCVerificationScreen() {
         submitted_at: new Date().toISOString(),
       };
 
-      console.log('KYC record to insert:', JSON.stringify(kycRecord, null, 2));
-      console.log('Inserting into kyc_verifications table...');
+      console.log(`[${timestamp}] KYC record to insert:`, JSON.stringify(kycRecord, null, 2));
+      console.log(`[${timestamp}] Calling supabase.from('kyc_verifications').insert()...`);
 
       const { data: insertedData, error: insertError } = await supabase
         .from('kyc_verifications')
@@ -254,122 +312,77 @@ export default function KYCVerificationScreen() {
         .select()
         .single();
 
+      console.log(`[${timestamp}] Insert operation completed`);
+
       if (insertError) {
-        console.error('=== INSERT ERROR ===');
-        console.error('Error code:', insertError.code);
-        console.error('Error message:', insertError.message);
-        console.error('Error details:', JSON.stringify(insertError, null, 2));
-        throw new Error(insertError.message || 'Failed to insert KYC verification');
+        console.error(`[${timestamp}] === INSERT ERROR ===`);
+        console.error(`[${timestamp}] Error code:`, insertError.code);
+        console.error(`[${timestamp}] Error message:`, insertError.message);
+        console.error(`[${timestamp}] Error details:`, JSON.stringify(insertError, null, 2));
+        console.error(`[${timestamp}] Error hint:`, insertError.hint);
+        throw new Error(insertError.message || 'Error al insertar verificación KYC');
       }
 
-      console.log('=== INSERT SUCCESS ===');
-      console.log('Inserted data:', JSON.stringify(insertedData, null, 2));
+      console.log(`[${timestamp}] === INSERT SUCCESS ===`);
+      console.log(`[${timestamp}] Inserted data:`, JSON.stringify(insertedData, null, 2));
 
       // Update user's KYC status
-      console.log('Updating user KYC status to pending...');
+      console.log(`[${timestamp}] === UPDATING USER KYC STATUS ===`);
+      console.log(`[${timestamp}] Updating user ${user.id} kyc_status to 'pending'...`);
+      
       const { error: updateError } = await supabase
         .from('users')
         .update({ kyc_status: 'pending' })
         .eq('id', user.id);
 
       if (updateError) {
-        console.error('User update error:', updateError);
-        console.error('Error details:', JSON.stringify(updateError, null, 2));
+        console.error(`[${timestamp}] User update error:`, updateError);
+        console.error(`[${timestamp}] Error details:`, JSON.stringify(updateError, null, 2));
         // Don't fail the whole operation if this fails
       } else {
-        console.log('User KYC status updated successfully');
+        console.log(`[${timestamp}] User KYC status updated successfully`);
       }
 
       // Update local user state
-      console.log('Updating local user context...');
+      console.log(`[${timestamp}] Updating local user context...`);
       await updateUser({ kycStatus: 'pending' });
+      console.log(`[${timestamp}] Local user context updated`);
 
-      console.log('=== KYC SUBMIT COMPLETE ===');
+      console.log(`[${timestamp}] === KYC SUBMIT COMPLETE ===`);
 
+      // Show success message
       Alert.alert(
-        'KYC Submitted Successfully',
-        'Your KYC verification has been submitted and is under review. You will be notified once it has been processed (typically within 24-48 hours).',
+        'KYC Enviado Exitosamente',
+        'Tu verificación KYC ha sido enviada y está bajo revisión. Serás notificado una vez que haya sido procesada (típicamente dentro de 24-48 horas).',
         [
           {
             text: 'OK',
             onPress: () => {
-              console.log('User acknowledged success, navigating back');
+              console.log(`[${timestamp}] User acknowledged success, navigating back`);
               router.back();
             },
           },
         ]
       );
     } catch (error: any) {
-      console.error('=== KYC SUBMIT ERROR ===');
-      console.error('Error:', error);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
+      const timestamp = new Date().toISOString();
+      console.error(`[${timestamp}] ========================================`);
+      console.error(`[${timestamp}] === KYC SUBMIT ERROR ===`);
+      console.error(`[${timestamp}] ========================================`);
+      console.error(`[${timestamp}] Error:`, error);
+      console.error(`[${timestamp}] Error message:`, error.message);
+      console.error(`[${timestamp}] Error stack:`, error.stack);
+      console.error(`[${timestamp}] Error name:`, error.name);
       
       Alert.alert(
-        'Submission Error',
-        error.message || 'Failed to submit KYC verification. Please try again or contact support if the problem persists.'
+        'Error de Envío',
+        error.message || 'Error al enviar verificación KYC. Por favor intenta de nuevo o contacta soporte si el problema persiste.'
       );
     } finally {
       setSubmitting(false);
+      const timestamp = new Date().toISOString();
+      console.log(`[${timestamp}] Submitting state set to FALSE`);
     }
-  };
-
-  const handleSubmit = async () => {
-    console.log('=== KYC SUBMIT BUTTON PRESSED ===');
-    
-    if (!user) {
-      console.error('No user found');
-      Alert.alert('Error', 'User not authenticated');
-      return;
-    }
-
-    // Validation
-    console.log('Validating form data...');
-    
-    if (!fullName.trim()) {
-      console.log('Validation failed: Full name is empty');
-      Alert.alert('Error', 'Please enter your full name');
-      return;
-    }
-
-    if (!documentNumber.trim()) {
-      console.log('Validation failed: Document number is empty');
-      Alert.alert('Error', 'Please enter your document number');
-      return;
-    }
-
-    if (!documentFrontUrl) {
-      console.log('Validation failed: Front document not uploaded');
-      Alert.alert('Error', 'Please upload the front of your ID document');
-      return;
-    }
-
-    if (!documentBackUrl && documentType !== 'passport') {
-      console.log('Validation failed: Back document not uploaded (required for non-passport)');
-      Alert.alert('Error', 'Please upload the back of your ID document');
-      return;
-    }
-
-    console.log('Validation passed, showing confirmation dialog');
-
-    Alert.alert(
-      'Submit KYC Verification',
-      'By submitting this KYC verification, you confirm that all information provided is accurate and truthful. Your submission will be reviewed within 24-48 hours.',
-      [
-        { 
-          text: 'Cancel', 
-          style: 'cancel',
-          onPress: () => console.log('User canceled submission')
-        },
-        {
-          text: 'Submit',
-          onPress: () => {
-            console.log('User confirmed submission');
-            performSubmit();
-          },
-        },
-      ]
-    );
   };
 
   if (!user) {
@@ -377,7 +390,7 @@ export default function KYCVerificationScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading user data...</Text>
+          <Text style={styles.loadingText}>Cargando datos de usuario...</Text>
         </View>
       </SafeAreaView>
     );
@@ -418,14 +431,14 @@ export default function KYCVerificationScreen() {
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <IconSymbol name="chevron.left" size={24} color={colors.primary} />
           </TouchableOpacity>
-          <Text style={styles.title}>KYC Verification</Text>
-          <Text style={styles.subtitle}>Complete your identity verification</Text>
+          <Text style={styles.title}>Verificación KYC</Text>
+          <Text style={styles.subtitle}>Completa tu verificación de identidad</Text>
         </View>
 
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Loading KYC data...</Text>
+            <Text style={styles.loadingText}>Cargando datos KYC...</Text>
           </View>
         ) : (
           <>
@@ -437,18 +450,18 @@ export default function KYCVerificationScreen() {
                   color={getStatusColor(user.kycStatus)}
                 />
                 <View style={styles.statusInfo}>
-                  <Text style={styles.statusLabel}>Verification Status</Text>
+                  <Text style={styles.statusLabel}>Estado de Verificación</Text>
                   <Text style={[styles.statusValue, { color: getStatusColor(user.kycStatus) }]}>
-                    {user.kycStatus === 'not_submitted' ? 'Not Submitted' :
-                     user.kycStatus === 'pending' ? 'Under Review' :
-                     user.kycStatus === 'approved' ? 'Approved' : 'Rejected'}
+                    {user.kycStatus === 'not_submitted' ? 'No Enviado' :
+                     user.kycStatus === 'pending' ? 'En Revisión' :
+                     user.kycStatus === 'approved' ? 'Aprobado' : 'Rechazado'}
                   </Text>
                 </View>
               </View>
 
               {user.kycStatus === 'approved' && user.kycVerifiedAt && (
                 <Text style={styles.statusDate}>
-                  Verified on {new Date(user.kycVerifiedAt).toLocaleDateString()}
+                  Verificado el {new Date(user.kycVerifiedAt).toLocaleDateString()}
                 </Text>
               )}
 
@@ -456,7 +469,7 @@ export default function KYCVerificationScreen() {
                 <View style={styles.pendingNotice}>
                   <IconSymbol name="info.circle" size={18} color={colors.warning} />
                   <Text style={styles.pendingText}>
-                    Your KYC verification is being reviewed. This typically takes 24-48 hours.
+                    Tu verificación KYC está siendo revisada. Esto típicamente toma 24-48 horas.
                   </Text>
                 </View>
               )}
@@ -465,7 +478,7 @@ export default function KYCVerificationScreen() {
                 <View style={styles.rejectionNotice}>
                   <IconSymbol name="exclamationmark.triangle" size={18} color={colors.error} />
                   <Text style={styles.rejectionText}>
-                    Rejection Reason: {kycData.rejection_reason}
+                    Razón de Rechazo: {kycData.rejection_reason}
                   </Text>
                 </View>
               )}
@@ -476,29 +489,30 @@ export default function KYCVerificationScreen() {
                 <View style={[commonStyles.card, styles.infoCard]}>
                   <IconSymbol name="info.circle.fill" size={20} color={colors.primary} />
                   <View style={styles.infoContent}>
-                    <Text style={styles.infoTitle}>Why KYC is Required:</Text>
+                    <Text style={styles.infoTitle}>Por qué se requiere KYC:</Text>
                     <Text style={styles.infoText}>
-                      - KYC verification is mandatory for all withdrawals{'\n'}
-                      - Helps prevent fraud and money laundering{'\n'}
-                      - Ensures compliance with financial regulations{'\n'}
-                      - Protects your account and funds{'\n'}
-                      - One-time verification process
+                      - La verificación KYC es obligatoria para todos los retiros{'\n'}
+                      - Ayuda a prevenir fraude y lavado de dinero{'\n'}
+                      - Asegura cumplimiento con regulaciones financieras{'\n'}
+                      - Protege tu cuenta y fondos{'\n'}
+                      - Proceso de verificación único
                     </Text>
                   </View>
                 </View>
 
                 <View style={[commonStyles.card, styles.formCard]}>
-                  <Text style={styles.formTitle}>Personal Information</Text>
+                  <Text style={styles.formTitle}>Información Personal</Text>
 
                   <View style={styles.inputContainer}>
-                    <Text style={commonStyles.label}>Full Legal Name</Text>
+                    <Text style={commonStyles.label}>Nombre Legal Completo</Text>
                     <TextInput
                       style={commonStyles.input}
-                      placeholder="Enter your full name as on ID"
+                      placeholder="Ingresa tu nombre completo como aparece en tu ID"
                       placeholderTextColor={colors.textSecondary}
                       value={fullName}
                       onChangeText={(text) => {
-                        console.log('Full name changed:', text);
+                        const timestamp = new Date().toISOString();
+                        console.log(`[${timestamp}] Full name changed:`, text);
                         setFullName(text);
                       }}
                       autoCapitalize="words"
@@ -507,7 +521,7 @@ export default function KYCVerificationScreen() {
                   </View>
 
                   <View style={styles.inputContainer}>
-                    <Text style={commonStyles.label}>Document Type</Text>
+                    <Text style={commonStyles.label}>Tipo de Documento</Text>
                     <View style={styles.documentTypeContainer}>
                       <TouchableOpacity
                         style={[
@@ -515,7 +529,8 @@ export default function KYCVerificationScreen() {
                           documentType === 'national_id' && styles.documentTypeButtonActive,
                         ]}
                         onPress={() => {
-                          console.log('Document type changed to: national_id');
+                          const timestamp = new Date().toISOString();
+                          console.log(`[${timestamp}] Document type changed to: national_id`);
                           setDocumentType('national_id');
                         }}
                         disabled={submitting}
@@ -531,7 +546,7 @@ export default function KYCVerificationScreen() {
                             documentType === 'national_id' && styles.documentTypeTextActive,
                           ]}
                         >
-                          National ID
+                          Cédula
                         </Text>
                       </TouchableOpacity>
 
@@ -541,7 +556,8 @@ export default function KYCVerificationScreen() {
                           documentType === 'passport' && styles.documentTypeButtonActive,
                         ]}
                         onPress={() => {
-                          console.log('Document type changed to: passport');
+                          const timestamp = new Date().toISOString();
+                          console.log(`[${timestamp}] Document type changed to: passport`);
                           setDocumentType('passport');
                         }}
                         disabled={submitting}
@@ -557,7 +573,7 @@ export default function KYCVerificationScreen() {
                             documentType === 'passport' && styles.documentTypeTextActive,
                           ]}
                         >
-                          Passport
+                          Pasaporte
                         </Text>
                       </TouchableOpacity>
 
@@ -567,7 +583,8 @@ export default function KYCVerificationScreen() {
                           documentType === 'drivers_license' && styles.documentTypeButtonActive,
                         ]}
                         onPress={() => {
-                          console.log('Document type changed to: drivers_license');
+                          const timestamp = new Date().toISOString();
+                          console.log(`[${timestamp}] Document type changed to: drivers_license`);
                           setDocumentType('drivers_license');
                         }}
                         disabled={submitting}
@@ -583,21 +600,22 @@ export default function KYCVerificationScreen() {
                             documentType === 'drivers_license' && styles.documentTypeTextActive,
                           ]}
                         >
-                          Driver&apos;s License
+                          Licencia
                         </Text>
                       </TouchableOpacity>
                     </View>
                   </View>
 
                   <View style={styles.inputContainer}>
-                    <Text style={commonStyles.label}>Document Number</Text>
+                    <Text style={commonStyles.label}>Número de Documento</Text>
                     <TextInput
                       style={commonStyles.input}
-                      placeholder="Enter your document number"
+                      placeholder="Ingresa tu número de documento"
                       placeholderTextColor={colors.textSecondary}
                       value={documentNumber}
                       onChangeText={(text) => {
-                        console.log('Document number changed:', text);
+                        const timestamp = new Date().toISOString();
+                        console.log(`[${timestamp}] Document number changed:`, text);
                         setDocumentNumber(text);
                       }}
                       autoCapitalize="characters"
@@ -606,9 +624,9 @@ export default function KYCVerificationScreen() {
                   </View>
 
                   <View style={styles.inputContainer}>
-                    <Text style={commonStyles.label}>Document Front *</Text>
+                    <Text style={commonStyles.label}>Documento Frontal *</Text>
                     <Text style={styles.uploadHint}>
-                      Upload a clear photo of the front of your ID document
+                      Sube una foto clara del frente de tu documento de identidad
                     </Text>
                     <TouchableOpacity
                       style={styles.uploadButton}
@@ -618,7 +636,7 @@ export default function KYCVerificationScreen() {
                       {uploadingFront ? (
                         <View style={styles.uploadContent}>
                           <ActivityIndicator color={colors.primary} />
-                          <Text style={styles.uploadText}>Uploading...</Text>
+                          <Text style={styles.uploadText}>Subiendo...</Text>
                         </View>
                       ) : documentFrontUri || documentFrontUrl ? (
                         <View style={styles.uploadedContainer}>
@@ -628,13 +646,13 @@ export default function KYCVerificationScreen() {
                           />
                           <View style={styles.uploadedOverlay}>
                             <IconSymbol name="checkmark.circle.fill" size={32} color={colors.success} />
-                            <Text style={styles.uploadedText}>Tap to change</Text>
+                            <Text style={styles.uploadedText}>Toca para cambiar</Text>
                           </View>
                         </View>
                       ) : (
                         <View style={styles.uploadContent}>
                           <IconSymbol name="photo" size={32} color={colors.primary} />
-                          <Text style={styles.uploadText}>Tap to upload front</Text>
+                          <Text style={styles.uploadText}>Toca para subir frente</Text>
                         </View>
                       )}
                     </TouchableOpacity>
@@ -642,9 +660,9 @@ export default function KYCVerificationScreen() {
 
                   {documentType !== 'passport' && (
                     <View style={styles.inputContainer}>
-                      <Text style={commonStyles.label}>Document Back *</Text>
+                      <Text style={commonStyles.label}>Documento Trasero *</Text>
                       <Text style={styles.uploadHint}>
-                        Upload a clear photo of the back of your ID document
+                        Sube una foto clara del reverso de tu documento de identidad
                       </Text>
                       <TouchableOpacity
                         style={styles.uploadButton}
@@ -654,7 +672,7 @@ export default function KYCVerificationScreen() {
                         {uploadingBack ? (
                           <View style={styles.uploadContent}>
                             <ActivityIndicator color={colors.primary} />
-                            <Text style={styles.uploadText}>Uploading...</Text>
+                            <Text style={styles.uploadText}>Subiendo...</Text>
                           </View>
                         ) : documentBackUri || documentBackUrl ? (
                           <View style={styles.uploadedContainer}>
@@ -664,13 +682,13 @@ export default function KYCVerificationScreen() {
                             />
                             <View style={styles.uploadedOverlay}>
                               <IconSymbol name="checkmark.circle.fill" size={32} color={colors.success} />
-                              <Text style={styles.uploadedText}>Tap to change</Text>
+                              <Text style={styles.uploadedText}>Toca para cambiar</Text>
                             </View>
                           </View>
                         ) : (
                           <View style={styles.uploadContent}>
                             <IconSymbol name="photo" size={32} color={colors.primary} />
-                            <Text style={styles.uploadText}>Tap to upload back</Text>
+                            <Text style={styles.uploadText}>Toca para subir reverso</Text>
                           </View>
                         )}
                       </TouchableOpacity>
@@ -689,12 +707,12 @@ export default function KYCVerificationScreen() {
                     {submitting ? (
                       <>
                         <ActivityIndicator color="#fff" />
-                        <Text style={styles.buttonText}>Submitting...</Text>
+                        <Text style={styles.buttonText}>Enviando...</Text>
                       </>
                     ) : (
                       <>
                         <IconSymbol name="checkmark.circle.fill" size={20} color="#fff" />
-                        <Text style={styles.buttonText}>Submit KYC Verification</Text>
+                        <Text style={styles.buttonText}>Enviar Verificación KYC</Text>
                       </>
                     )}
                   </TouchableOpacity>
@@ -703,11 +721,11 @@ export default function KYCVerificationScreen() {
                 <View style={[commonStyles.card, styles.securityCard]}>
                   <IconSymbol name="lock.shield.fill" size={24} color={colors.success} />
                   <View style={styles.securityContent}>
-                    <Text style={styles.securityTitle}>Your Data is Secure</Text>
+                    <Text style={styles.securityTitle}>Tus Datos están Seguros</Text>
                     <Text style={styles.securityText}>
-                      All personal information and documents are encrypted and stored securely. We comply with
-                      international data protection regulations and will never share your
-                      information with third parties without your consent.
+                      Toda la información personal y documentos están encriptados y almacenados de forma segura. 
+                      Cumplimos con regulaciones internacionales de protección de datos y nunca compartiremos tu
+                      información con terceros sin tu consentimiento.
                     </Text>
                   </View>
                 </View>
@@ -717,10 +735,10 @@ export default function KYCVerificationScreen() {
             {user.kycStatus === 'approved' && (
               <View style={[commonStyles.card, styles.successCard]}>
                 <IconSymbol name="checkmark.seal.fill" size={48} color={colors.success} />
-                <Text style={styles.successTitle}>KYC Verified!</Text>
+                <Text style={styles.successTitle}>¡KYC Verificado!</Text>
                 <Text style={styles.successText}>
-                  Your identity has been successfully verified. You can now withdraw your funds
-                  once you meet all other requirements.
+                  Tu identidad ha sido verificada exitosamente. Ahora puedes retirar tus fondos
+                  una vez que cumplas con todos los demás requisitos.
                 </Text>
               </View>
             )}
