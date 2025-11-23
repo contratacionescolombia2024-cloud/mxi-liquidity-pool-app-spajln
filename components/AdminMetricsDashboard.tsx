@@ -116,7 +116,7 @@ export function AdminMetricsDashboard() {
       const activeUsers = usersData?.filter(u => u.is_active_contributor && !u.is_blocked).length || 0;
       const blockedUsers = usersData?.filter(u => u.is_blocked).length || 0;
 
-      // Calculate actual MXI sold (from direct purchases)
+      // Calculate actual MXI sold (from direct purchases) - THIS IS THE REAL VALUE
       const totalMxiSold = usersData?.reduce((sum, u) => sum + parseFloat(u.mxi_purchased_directly?.toString() || '0'), 0) || 0;
       const totalMxiDistributed = usersData?.reduce((sum, u) => sum + parseFloat(u.mxi_balance?.toString() || '0'), 0) || 0;
       const totalUsdtContributed = usersData?.reduce((sum, u) => sum + parseFloat(u.usdt_contributed?.toString() || '0'), 0) || 0;
@@ -156,16 +156,35 @@ export function AdminMetricsDashboard() {
       const totalCommissions = commissionsData?.length || 0;
       const totalCommissionAmount = commissionsData?.reduce((sum, c) => sum + parseFloat(c.amount?.toString() || '0'), 0) || 0;
 
-      // Get metrics data
+      // Get metrics data for dates only
       const { data: metricsData, error: metricsError } = await supabase
         .from('metrics')
-        .select('*')
+        .select('pool_close_date')
         .single();
 
       if (metricsError) throw metricsError;
 
       const presaleEndDate = new Date(metricsData?.pool_close_date || '2026-02-15T12:00:00Z');
       const phaseInfo = calculatePhaseInfo(presaleEndDate);
+
+      // Calculate phase distribution based on current phase and actual MXI sold
+      let phase1Sold = 0;
+      let phase2Sold = 0;
+      let phase3Sold = 0;
+
+      // Distribute MXI sold across phases based on current phase
+      if (phaseInfo.currentPhase === 1) {
+        phase1Sold = totalMxiSold;
+      } else if (phaseInfo.currentPhase === 2) {
+        // Assume phase 1 is complete (8.33M) and rest is in phase 2
+        phase1Sold = Math.min(totalMxiSold, 8333333);
+        phase2Sold = Math.max(0, totalMxiSold - 8333333);
+      } else {
+        // Phase 3
+        phase1Sold = 8333333;
+        phase2Sold = 8333333;
+        phase3Sold = Math.max(0, totalMxiSold - 16666666);
+      }
 
       setMetrics({
         totalUsers,
@@ -180,9 +199,9 @@ export function AdminMetricsDashboard() {
         averageUsdtPerUser,
         currentPhase: phaseInfo.currentPhase,
         currentPrice: phaseInfo.currentPrice,
-        phase1Sold: parseFloat(metricsData?.phase_1_tokens_sold?.toString() || '0'),
-        phase2Sold: parseFloat(metricsData?.phase_2_tokens_sold?.toString() || '0'),
-        phase3Sold: parseFloat(metricsData?.phase_3_tokens_sold?.toString() || '0'),
+        phase1Sold,
+        phase2Sold,
+        phase3Sold,
         totalTokensSold: totalMxiSold, // Use actual MXI sold from users
         phase1StartDate: phaseInfo.phase1StartDate,
         phase1EndDate: phaseInfo.phase1EndDate,
@@ -410,7 +429,7 @@ export function AdminMetricsDashboard() {
 
       {/* Enhanced Presale Metrics */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>🚀 Estadísticas de Preventa</Text>
+        <Text style={styles.sectionTitle}>🚀 Estadísticas de Preventa (Datos Reales)</Text>
         
         {/* Main Presale Card */}
         <View style={styles.presaleMainCard}>

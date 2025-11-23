@@ -91,23 +91,64 @@ export default function HomeScreen() {
     console.log('Loading home screen data...');
     setCurrentYield(getCurrentYield());
     
-    // Load metrics data
-    const { data: metricsData, error: metricsError } = await supabase
-      .from('metrics')
-      .select('*')
-      .single();
+    // Load REAL metrics data from actual user purchases
+    const { data: usersData, error: usersError } = await supabase
+      .from('users')
+      .select('mxi_purchased_directly');
     
-    if (metricsError) {
-      console.error('Error loading metrics:', metricsError);
-    } else if (metricsData) {
-      console.log('Metrics loaded:', metricsData);
+    if (usersError) {
+      console.error('Error loading users data:', usersError);
+    } else if (usersData) {
+      // Calculate REAL MXI sold from actual user purchases
+      const totalMxiSold = usersData.reduce((sum, u) => sum + parseFloat(u.mxi_purchased_directly?.toString() || '0'), 0);
+      
+      console.log('Real MXI sold from users:', totalMxiSold);
+      
+      // Determine current phase based on date
+      const presaleStartDate = new Date('2024-11-01T00:00:00Z');
+      const presaleEndDate = new Date('2026-02-15T12:00:00Z');
+      const now = new Date();
+      
+      const totalDuration = presaleEndDate.getTime() - presaleStartDate.getTime();
+      const phaseDuration = totalDuration / 3;
+      
+      const phase1End = new Date(presaleStartDate.getTime() + phaseDuration);
+      const phase2End = new Date(phase1End.getTime() + phaseDuration);
+      
+      let currentPhase = 1;
+      let currentPrice = 0.40;
+      
+      if (now >= phase2End) {
+        currentPhase = 3;
+        currentPrice = 1.00;
+      } else if (now >= phase1End) {
+        currentPhase = 2;
+        currentPrice = 0.70;
+      }
+      
+      // Distribute MXI sold across phases
+      let phase1Sold = 0;
+      let phase2Sold = 0;
+      let phase3Sold = 0;
+      
+      if (currentPhase === 1) {
+        phase1Sold = totalMxiSold;
+      } else if (currentPhase === 2) {
+        phase1Sold = Math.min(totalMxiSold, 8333333);
+        phase2Sold = Math.max(0, totalMxiSold - 8333333);
+      } else {
+        phase1Sold = 8333333;
+        phase2Sold = 8333333;
+        phase3Sold = Math.max(0, totalMxiSold - 16666666);
+      }
+      
       setPhaseData({
-        totalTokensSold: parseFloat(metricsData.total_tokens_sold || '0'),
-        currentPhase: metricsData.current_phase || 1,
-        currentPriceUsdt: parseFloat(metricsData.current_price_usdt || '0'),
-        phase1TokensSold: parseFloat(metricsData.phase_1_tokens_sold || '0'),
-        phase2TokensSold: parseFloat(metricsData.phase_2_tokens_sold || '0'),
-        phase3TokensSold: parseFloat(metricsData.phase_3_tokens_sold || '0'),
+        totalTokensSold: totalMxiSold,
+        currentPhase,
+        currentPriceUsdt: currentPrice,
+        phase1TokensSold: phase1Sold,
+        phase2TokensSold: phase2Sold,
+        phase3TokensSold: phase3Sold,
       });
     }
 
@@ -541,10 +582,10 @@ export default function HomeScreen() {
         {/* Vesting Counter - POSITIONED BELOW MXI BALANCE */}
         <VestingCounter />
 
-        {/* MXI Sold Display - ONLY SHOW MXI SOLD, NOT USER COUNT */}
+        {/* MXI Sold Display - SHOWING REAL DATA */}
         {phaseData && (
           <View style={[commonStyles.card, styles.statsCard]}>
-            <Text style={styles.statsTitle}>Estadísticas de Pre-Venta</Text>
+            <Text style={styles.statsTitle}>📊 Estadísticas de Pre-Venta (Datos Reales)</Text>
             <View style={styles.statsRow}>
               <View style={styles.statItem}>
                 <IconSymbol ios_icon_name="chart.bar.fill" android_material_icon_name="bar_chart" size={24} color={colors.primary} />
@@ -553,9 +594,29 @@ export default function HomeScreen() {
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
-                <IconSymbol ios_icon_name="person.2.fill" android_material_icon_name="people" size={24} color={colors.success} />
-                <Text style={styles.statValue}>{user.activeReferrals}</Text>
-                <Text style={styles.statLabel}>Referidos Activos</Text>
+                <IconSymbol ios_icon_name="tag.fill" android_material_icon_name="local_offer" size={24} color={colors.success} />
+                <Text style={styles.statValue}>Fase {phaseData.currentPhase}</Text>
+                <Text style={styles.statLabel}>${phaseData.currentPriceUsdt.toFixed(2)} USDT</Text>
+              </View>
+            </View>
+            <View style={styles.progressSection}>
+              <View style={styles.progressHeader}>
+                <Text style={styles.progressLabel}>Progreso Total</Text>
+                <Text style={styles.progressPercentage}>
+                  {((phaseData.totalTokensSold / 25000000) * 100).toFixed(4)}%
+                </Text>
+              </View>
+              <View style={styles.progressBarContainer}>
+                <View 
+                  style={[
+                    styles.progressBar, 
+                    { width: `${Math.min((phaseData.totalTokensSold / 25000000) * 100, 100)}%` }
+                  ]} 
+                />
+              </View>
+              <View style={styles.progressFooter}>
+                <Text style={styles.progressText}>{formatNumber(phaseData.totalTokensSold)} MXI</Text>
+                <Text style={styles.progressText}>25,000,000 MXI</Text>
               </View>
             </View>
           </View>
@@ -1172,6 +1233,7 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 16,
   },
   statItem: {
     flex: 1,
@@ -1192,6 +1254,46 @@ const styles = StyleSheet.create({
     width: 1,
     height: 60,
     backgroundColor: colors.border,
+  },
+  progressSection: {
+    marginTop: 8,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  progressLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  progressPercentage: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  progressBarContainer: {
+    height: 8,
+    backgroundColor: colors.border,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 4,
+  },
+  progressFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  progressText: {
+    fontSize: 10,
+    color: colors.textSecondary,
   },
   adminCard: {
     backgroundColor: colors.highlight,
