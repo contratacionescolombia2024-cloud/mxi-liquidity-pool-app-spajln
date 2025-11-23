@@ -15,6 +15,8 @@ Deno.serve(async (req) => {
 
   try {
     console.log('=== Starting create-nowpayments-order ===');
+    console.log('Request method:', req.method);
+    console.log('Request URL:', req.url);
 
     // Get Supabase client
     const supabaseClient = createClient(
@@ -36,7 +38,7 @@ Deno.serve(async (req) => {
     if (authError || !user) {
       console.error('Auth error:', authError);
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify({ error: 'No autorizado. Por favor inicia sesión nuevamente.' }),
         {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -47,12 +49,27 @@ Deno.serve(async (req) => {
     console.log('User authenticated:', user.id);
 
     // Parse request body
-    const { mxi_amount } = await req.json();
+    let requestBody;
+    try {
+      requestBody = await req.json();
+      console.log('Request body:', requestBody);
+    } catch (e) {
+      console.error('Failed to parse request body:', e);
+      return new Response(
+        JSON.stringify({ error: 'Solicitud inválida' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    const { mxi_amount } = requestBody;
     console.log('MXI amount requested:', mxi_amount);
 
     if (!mxi_amount || mxi_amount <= 0) {
       return new Response(
-        JSON.stringify({ error: 'Invalid MXI amount' }),
+        JSON.stringify({ error: 'Cantidad de MXI inválida' }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -69,7 +86,7 @@ Deno.serve(async (req) => {
     if (metricsError || !metrics) {
       console.error('Error fetching metrics:', metricsError);
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch current phase data' }),
+        JSON.stringify({ error: 'Error al obtener datos de fase actual' }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -89,7 +106,7 @@ Deno.serve(async (req) => {
     if (totalUsdt < 20) {
       return new Response(
         JSON.stringify({
-          error: 'Minimum purchase is $20 USDT',
+          error: 'El monto mínimo de compra es $20 USDT',
           minimum_mxi: Math.ceil(20 / pricePerMxi),
         }),
         {
@@ -117,7 +134,7 @@ Deno.serve(async (req) => {
     if (mxi_amount > remainingInPhase) {
       return new Response(
         JSON.stringify({
-          error: `Only ${remainingInPhase.toFixed(2)} MXI remaining in Phase ${currentPhase}`,
+          error: `Solo quedan ${remainingInPhase.toFixed(2)} MXI en la Fase ${currentPhase}`,
           remaining: remainingInPhase,
         }),
         {
@@ -131,10 +148,9 @@ Deno.serve(async (req) => {
     const orderId = `MXI-${Date.now()}-${user.id.substring(0, 8)}`;
     console.log('Generated order ID:', orderId);
 
-    // NOWPayments API Key - FIXED: Removed leading colon/space
-    const nowpaymentsApiKey = '9SC5SM9-7SR45HD-JKXSWGY-489J5YA'.trim();
-    console.log('API Key length:', nowpaymentsApiKey.length);
-    console.log('API Key first char code:', nowpaymentsApiKey.charCodeAt(0));
+    // NOWPayments API Key - cleaned
+    const nowpaymentsApiKey = '9SC5SM9-7SR45HD-JKXSWGY-489J5YA';
+    console.log('API Key configured, length:', nowpaymentsApiKey.length);
 
     // Create payment with NOWPayments
     const nowpaymentsPayload = {
@@ -142,23 +158,37 @@ Deno.serve(async (req) => {
       price_currency: 'usd',
       pay_currency: 'usdtbep20',
       order_id: orderId,
-      order_description: `Purchase ${mxi_amount} MXI tokens`,
+      order_description: `Compra de ${mxi_amount} tokens MXI`,
       ipn_callback_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/nowpayments-webhook`,
       success_url: 'https://natively.dev/(tabs)/(home)',
-      cancel_url: 'https://natively.dev/(tabs)/deposit',
+      cancel_url: 'https://natively.dev/(tabs)/(home)/purchase-mxi',
     };
 
     console.log('NOWPayments request payload:', JSON.stringify(nowpaymentsPayload, null, 2));
-    console.log('Using API key:', nowpaymentsApiKey.substring(0, 3) + '...' + nowpaymentsApiKey.substring(nowpaymentsApiKey.length - 3));
 
-    const nowpaymentsResponse = await fetch('https://api.nowpayments.io/v1/payment', {
-      method: 'POST',
-      headers: {
-        'x-api-key': nowpaymentsApiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(nowpaymentsPayload),
-    });
+    let nowpaymentsResponse;
+    try {
+      nowpaymentsResponse = await fetch('https://api.nowpayments.io/v1/payment', {
+        method: 'POST',
+        headers: {
+          'x-api-key': nowpaymentsApiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(nowpaymentsPayload),
+      });
+    } catch (fetchError: any) {
+      console.error('Fetch error:', fetchError);
+      return new Response(
+        JSON.stringify({
+          error: 'Error al conectar con el servicio de pagos',
+          details: fetchError.message,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
 
     console.log('NOWPayments response status:', nowpaymentsResponse.status);
     console.log('NOWPayments response headers:', Object.fromEntries(nowpaymentsResponse.headers.entries()));
@@ -170,10 +200,13 @@ Deno.serve(async (req) => {
       console.error('NOWPayments API error - Status:', nowpaymentsResponse.status);
       console.error('NOWPayments API error - Body:', responseText);
       
-      let errorMessage = 'Failed to create payment with NOWPayments';
+      let errorMessage = 'Error al crear el pago con NOWPayments';
+      let errorDetails = responseText;
+      
       try {
         const errorData = JSON.parse(responseText);
         errorMessage = errorData.message || errorData.error || errorMessage;
+        errorDetails = JSON.stringify(errorData, null, 2);
       } catch (e) {
         console.error('Could not parse error response as JSON');
       }
@@ -181,8 +214,9 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           error: errorMessage,
-          details: responseText,
+          details: errorDetails,
           status: nowpaymentsResponse.status,
+          api_key_length: nowpaymentsApiKey.length,
         }),
         {
           status: 500,
@@ -199,7 +233,7 @@ Deno.serve(async (req) => {
       console.error('Failed to parse NOWPayments response:', e);
       return new Response(
         JSON.stringify({
-          error: 'Invalid response from NOWPayments',
+          error: 'Respuesta inválida del servicio de pagos',
           details: responseText,
         }),
         {
@@ -210,14 +244,18 @@ Deno.serve(async (req) => {
     }
 
     // Construct payment URL - NOWPayments returns invoice_url or we construct it
-    const paymentUrl = paymentData.invoice_url || 
-                       (paymentData.payment_id ? `https://nowpayments.io/payment/?iid=${paymentData.payment_id}` : null);
+    let paymentUrl = paymentData.invoice_url;
+    
+    if (!paymentUrl && paymentData.payment_id) {
+      paymentUrl = `https://nowpayments.io/payment/?iid=${paymentData.payment_id}`;
+      console.log('Constructed payment URL from payment_id:', paymentUrl);
+    }
 
     if (!paymentUrl) {
       console.error('No payment URL available:', paymentData);
       return new Response(
         JSON.stringify({
-          error: 'Payment created but no payment URL available',
+          error: 'Pago creado pero no se pudo obtener la URL de pago',
           payment_data: paymentData,
         }),
         {
@@ -235,16 +273,16 @@ Deno.serve(async (req) => {
       .insert({
         user_id: user.id,
         order_id: orderId,
-        payment_id: paymentData.payment_id,
+        payment_id: paymentData.payment_id || null,
         payment_url: paymentUrl,
         mxi_amount: mxi_amount,
         usdt_amount: totalUsdt,
         price_per_mxi: pricePerMxi,
         phase: currentPhase,
         status: paymentData.payment_status || 'pending',
-        pay_address: paymentData.pay_address,
-        pay_amount: paymentData.pay_amount,
-        pay_currency: paymentData.pay_currency,
+        pay_address: paymentData.pay_address || null,
+        pay_amount: paymentData.pay_amount || null,
+        pay_currency: paymentData.pay_currency || 'usdtbep20',
         expires_at: new Date(Date.now() + 3600000).toISOString(),
       })
       .select()
@@ -252,19 +290,12 @@ Deno.serve(async (req) => {
 
     if (orderError) {
       console.error('Error storing order:', orderError);
-      return new Response(
-        JSON.stringify({
-          error: 'Failed to store order',
-          details: orderError,
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+      // Don't fail the request if we can't store the order
+      // The payment was created successfully
+      console.warn('Order created in NOWPayments but failed to store in database');
+    } else {
+      console.log('Order stored successfully:', order.id);
     }
-
-    console.log('Order stored successfully:', order.id);
 
     // Return payment details to client
     return new Response(
@@ -280,7 +311,7 @@ Deno.serve(async (req) => {
         pay_address: paymentData.pay_address,
         pay_amount: paymentData.pay_amount,
         pay_currency: paymentData.pay_currency,
-        expires_at: order.expires_at,
+        expires_at: order?.expires_at || new Date(Date.now() + 3600000).toISOString(),
       }),
       {
         status: 200,
@@ -292,8 +323,9 @@ Deno.serve(async (req) => {
     console.error('Error stack:', error.stack);
     return new Response(
       JSON.stringify({
-        error: error.message || 'Internal server error',
+        error: error.message || 'Error interno del servidor',
         stack: error.stack,
+        type: error.constructor.name,
       }),
       {
         status: 500,

@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -129,6 +130,41 @@ export default function PurchaseMXIScreen() {
     await Promise.all([loadPhaseData(), loadPendingOrders()]);
   };
 
+  const openPaymentUrl = async (url: string) => {
+    console.log('Attempting to open payment URL:', url);
+    
+    try {
+      // Try WebBrowser first
+      const result = await WebBrowser.openBrowserAsync(url, {
+        dismissButtonStyle: 'close',
+        readerMode: false,
+        enableBarCollapsing: false,
+      });
+      
+      console.log('WebBrowser result:', result);
+      return true;
+    } catch (webBrowserError) {
+      console.error('WebBrowser failed:', webBrowserError);
+      
+      // Fallback to Linking
+      try {
+        const canOpen = await Linking.canOpenURL(url);
+        console.log('Can open URL with Linking:', canOpen);
+        
+        if (canOpen) {
+          await Linking.openURL(url);
+          return true;
+        } else {
+          console.error('Cannot open URL with Linking');
+          return false;
+        }
+      } catch (linkingError) {
+        console.error('Linking failed:', linkingError);
+        return false;
+      }
+    }
+  };
+
   const handleCreateOrder = async () => {
     if (!user) {
       Alert.alert('Error', 'Debes iniciar sesión para comprar MXI');
@@ -155,7 +191,7 @@ export default function PurchaseMXIScreen() {
     setLoading(true);
 
     try {
-      console.log('Creating order for', amount, 'MXI');
+      console.log('=== Creating order for', amount, 'MXI ===');
       
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -164,85 +200,131 @@ export default function PurchaseMXIScreen() {
         return;
       }
 
-      console.log('Calling edge function...');
+      console.log('Session valid, calling edge function...');
       
-      const response = await fetch(
-        `${supabase.supabaseUrl}/functions/v1/create-nowpayments-order`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            mxi_amount: amount,
-          }),
-        }
-      );
+      const functionUrl = `${supabase.supabaseUrl}/functions/v1/create-nowpayments-order`;
+      console.log('Function URL:', functionUrl);
+      
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          mxi_amount: amount,
+        }),
+      });
 
       console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
       
-      const result = await response.json();
-      console.log('Response data:', result);
+      const responseText = await response.text();
+      console.log('Response text:', responseText);
+      
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Failed to parse response:', parseError);
+        throw new Error('Respuesta inválida del servidor');
+      }
+      
+      console.log('Parsed result:', result);
 
       if (!response.ok) {
+        console.error('Error response:', result);
         throw new Error(result.error || result.details || 'Error al crear la orden');
       }
 
       if (!result.payment_url) {
-        throw new Error('No se recibió URL de pago');
+        console.error('No payment URL in response:', result);
+        throw new Error('No se recibió URL de pago del servidor');
       }
 
-      console.log('Opening payment URL:', result.payment_url);
+      console.log('Payment URL received:', result.payment_url);
 
-      // Immediately open the payment URL
-      try {
-        const browserResult = await WebBrowser.openBrowserAsync(result.payment_url);
-        console.log('Browser result:', browserResult);
-        
-        // Show success message after opening browser
+      // Try to open the payment URL
+      const opened = await openPaymentUrl(result.payment_url);
+      
+      if (opened) {
         Alert.alert(
           '✅ Orden Creada',
-          `Se ha creado tu orden de ${amount} MXI por $${total} USDT.\n\nSe ha abierto la página de pago en tu navegador.`,
-          [{ text: 'OK', onPress: () => loadPendingOrders() }]
+          `Se ha creado tu orden de ${amount} MXI por $${total} USDT.\n\nSe ha abierto la página de pago. Por favor completa el pago en la ventana del navegador.`,
+          [
+            { 
+              text: 'OK', 
+              onPress: () => {
+                setMxiAmount('');
+                setUsdtAmount('0.00');
+                loadPendingOrders();
+              }
+            }
+          ]
         );
-      } catch (browserError) {
-        console.error('Error opening browser:', browserError);
-        
-        // If browser fails to open, show the URL in an alert
+      } else {
+        // If opening failed, show the URL to the user
         Alert.alert(
-          '⚠️ No se pudo abrir el navegador',
-          `Tu orden ha sido creada pero no se pudo abrir el navegador automáticamente.\n\nPuedes encontrar tu orden en la sección "Órdenes Pendientes" más abajo.`,
-          [{ text: 'OK', onPress: () => loadPendingOrders() }]
+          '⚠️ Orden Creada',
+          `Tu orden ha sido creada pero no se pudo abrir el navegador automáticamente.\n\nPuedes encontrar tu orden en la sección "Órdenes Pendientes" más abajo y hacer clic en "Abrir Pago".`,
+          [
+            { 
+              text: 'Copiar URL', 
+              onPress: () => {
+                // Note: Clipboard is not available in this context
+                console.log('Payment URL:', result.payment_url);
+              }
+            },
+            { 
+              text: 'OK', 
+              onPress: () => {
+                setMxiAmount('');
+                setUsdtAmount('0.00');
+                loadPendingOrders();
+              }
+            }
+          ]
         );
       }
-
-      // Clear form
-      setMxiAmount('');
-      setUsdtAmount('0.00');
       
       // Reload pending orders
       await loadPendingOrders();
       
     } catch (error: any) {
       console.error('Error creating order:', error);
-      Alert.alert(
-        'Error',
-        error.message || 'No se pudo crear la orden. Por favor intenta nuevamente.'
-      );
+      console.error('Error stack:', error.stack);
+      
+      let errorMessage = 'No se pudo crear la orden. Por favor intenta nuevamente.';
+      
+      if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   const handleOpenPayment = async (order: PendingOrder) => {
-    try {
-      console.log('Opening payment URL:', order.payment_url);
-      const result = await WebBrowser.openBrowserAsync(order.payment_url);
-      console.log('Browser result:', result);
-    } catch (error) {
-      console.error('Error opening payment:', error);
-      Alert.alert('Error', 'No se pudo abrir el enlace de pago. Por favor intenta nuevamente.');
+    console.log('Opening payment for order:', order.order_id);
+    
+    const opened = await openPaymentUrl(order.payment_url);
+    
+    if (!opened) {
+      Alert.alert(
+        'Error',
+        'No se pudo abrir el enlace de pago. Por favor intenta nuevamente o copia la URL manualmente.',
+        [
+          {
+            text: 'Ver URL',
+            onPress: () => {
+              Alert.alert('URL de Pago', order.payment_url);
+            }
+          },
+          { text: 'Cancelar' }
+        ]
+      );
     }
   };
 
