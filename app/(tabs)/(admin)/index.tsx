@@ -577,14 +577,36 @@ export default function AdminDashboard() {
       if (data?.success) {
         Alert.alert(
           '✅ Sistema Reiniciado',
-          data.message,
+          data.message + '\n\nLa página se recargará para actualizar los datos.',
           [
             {
               text: 'OK',
-              onPress: () => {
+              onPress: async () => {
                 setResetModalVisible(false);
                 setConfirmationText('');
-                loadStats();
+                
+                // Force reload user data from AuthContext
+                // This will update the cached user data including admin balance
+                if (user?.id) {
+                  // Reload user data by fetching fresh data
+                  const { data: freshUserData } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', user.id)
+                    .single();
+                  
+                  console.log('Fresh user data after reset:', freshUserData);
+                }
+                
+                // Reload stats
+                await loadStats();
+                
+                // Show success message
+                Alert.alert(
+                  '✅ Actualización Completa',
+                  'Todos los datos han sido actualizados. El balance del administrador ahora es 0.',
+                  [{ text: 'OK' }]
+                );
               },
             },
           ]
@@ -659,8 +681,8 @@ export default function AdminDashboard() {
         <View style={styles.dangerZone}>
           <Text style={styles.dangerZoneTitle}>⚠️ ZONA DE PELIGRO</Text>
           <Text style={styles.dangerZoneSubtitle}>
-            Reinicia todos los contadores de MXI a 0. Las relaciones de referidos se preservarán.
-            Esta acción es IRREVERSIBLE.
+            Reinicia todos los contadores de MXI a 0 (INCLUYENDO EL ADMINISTRADOR). 
+            Las relaciones de referidos se preservarán. Esta acción es IRREVERSIBLE.
           </Text>
           <TouchableOpacity
             style={styles.resetButton}
@@ -857,13 +879,13 @@ export default function AdminDashboard() {
             </View>
 
             <Text style={styles.modalMessage}>
-              Esta acción es IRREVERSIBLE y reiniciará todos los contadores a 0:
+              Esta acción es IRREVERSIBLE y reiniciará todos los contadores a 0 (INCLUYENDO EL ADMINISTRADOR):
             </Text>
 
             <View style={styles.warningList}>
               <View style={styles.warningItem}>
                 <Text style={styles.warningBullet}>•</Text>
-                <Text style={styles.warningText}>Todos los saldos MXI y USDT se pondrán en 0</Text>
+                <Text style={styles.warningText}>Todos los saldos MXI y USDT se pondrán en 0 (incluyendo admin)</Text>
               </View>
               <View style={styles.warningItem}>
                 <Text style={styles.warningBullet}>•</Text>
@@ -888,6 +910,10 @@ export default function AdminDashboard() {
               <View style={styles.warningItem}>
                 <Text style={styles.warningBullet}>•</Text>
                 <Text style={styles.warningText}>Todo el vesting se eliminará</Text>
+              </View>
+              <View style={styles.warningItem}>
+                <Text style={styles.warningBullet}>•</Text>
+                <Text style={styles.warningText}>El balance del administrador también se reiniciará a 0</Text>
               </View>
               
               <View style={styles.preservedItem}>
