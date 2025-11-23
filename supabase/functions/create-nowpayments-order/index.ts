@@ -185,9 +185,9 @@ Deno.serve(async (req) => {
     transactionId = transaction.id;
     console.log('Transaction history created:', transactionId);
 
-    // NOWPayments API credentials
-    const nowpaymentsApiKey = '9SC5SM9-7SR45HD-JKXSWGY-489J5YA';
-    const nowpaymentsPublicKey = '8f1694be-d30a-47d5-bc90-c3eb24d43a7a';
+    // NOWPayments API credentials - UPDATED
+    const nowpaymentsApiKey = '7QB99E2-JCE4H3A-QNC2GS3-1T5QDS9';
+    const nowpaymentsPublicKey = 'b3e7e5cb-ccf0-4a5c-abbb-1c7bc02afe37';
 
     // Create invoice payload exactly as specified
     const invoicePayload = {

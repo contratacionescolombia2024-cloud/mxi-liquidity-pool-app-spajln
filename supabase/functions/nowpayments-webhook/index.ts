@@ -33,8 +33,8 @@ Deno.serve(async (req) => {
       processed: false,
     });
 
-    // Verify webhook signature (if configured)
-    const ipnSecret = '8f1694be-d30a-47d5-bc90-c3eb24d43a7a';
+    // Verify webhook signature (if configured) - UPDATED PUBLIC KEY
+    const ipnSecret = 'b3e7e5cb-ccf0-4a5c-abbb-1c7bc02afe37';
     if (ipnSecret) {
       const receivedSignature = req.headers.get('x-nowpayments-sig');
       // Implement signature verification here if needed
