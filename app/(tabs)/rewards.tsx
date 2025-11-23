@@ -20,7 +20,7 @@ interface RewardStats {
   totalMxiEarned: number;
   fromCommissions: number;
   fromVesting: number;
-  fromLottery: number;
+  fromBonus: number;
   activeReferrals: number;
   totalReferrals: number;
 }
@@ -72,7 +72,7 @@ export default function RewardsScreen() {
         totalMxiEarned: parseFloat(userData.mxi_balance || '0'),
         fromCommissions: parseFloat(userData.mxi_from_unified_commissions || '0'),
         fromVesting: parseFloat(userData.accumulated_yield || '0'),
-        fromLottery: 0, // TODO: Add lottery winnings tracking
+        fromBonus: 0, // TODO: Add bonus winnings tracking
         activeReferrals: userData.active_referrals || 0,
         totalReferrals: referralsData?.length || 0,
       });
@@ -155,8 +155,8 @@ export default function RewardsScreen() {
                 size={16} 
                 color={colors.accent} 
               />
-              <Text style={styles.breakdownLabel}>Lotería</Text>
-              <Text style={styles.breakdownValue}>{formatNumber(stats?.fromLottery || 0)}</Text>
+              <Text style={styles.breakdownLabel}>Bonus</Text>
+              <Text style={styles.breakdownValue}>{formatNumber(stats?.fromBonus || 0)}</Text>
             </View>
           </View>
         </View>
@@ -165,7 +165,7 @@ export default function RewardsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Programas de Recompensas</Text>
           
-          {/* Lottery */}
+          {/* Bonus de Participación */}
           <TouchableOpacity
             style={styles.rewardCard}
             onPress={() => router.push('/(tabs)/(home)/lottery')}
@@ -179,7 +179,7 @@ export default function RewardsScreen() {
               />
             </View>
             <View style={styles.rewardInfo}>
-              <Text style={styles.rewardTitle}>Lotería MXI</Text>
+              <Text style={styles.rewardTitle}>Bonus de Participación</Text>
               <Text style={styles.rewardDescription}>Participa en sorteos semanales y gana grandes premios</Text>
               <View style={styles.rewardBadge}>
                 <Text style={styles.rewardBadgeText}>🔥 Activo</Text>
@@ -329,7 +329,7 @@ export default function RewardsScreen() {
               <View style={styles.tipNumber}>
                 <Text style={styles.tipNumberText}>2</Text>
               </View>
-              <Text style={styles.tipText}>Participa regularmente en la lotería para aumentar tus chances</Text>
+              <Text style={styles.tipText}>Participa regularmente en el bonus de participación para aumentar tus chances</Text>
             </View>
             <View style={styles.tipItem}>
               <View style={styles.tipNumber}>

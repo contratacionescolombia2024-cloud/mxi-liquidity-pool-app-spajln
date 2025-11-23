@@ -47,7 +47,7 @@ interface AvailableBalances {
   total: number;
 }
 
-export default function BonusMXIScreen() {
+export default function BonusParticipacionScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -77,14 +77,14 @@ export default function BonusMXIScreen() {
   }, []);
 
   const initializeScreen = async () => {
-    console.log('Initializing Bonus MXI screen...');
+    console.log('Initializing Bonus de Participación screen...');
     try {
       await loadAvailableBalances();
       await loadLotteryData();
       setupRealtimeSubscription();
     } catch (error) {
       console.error('Error initializing screen:', error);
-      Alert.alert('Error', 'Failed to load lottery data. Please try again.');
+      Alert.alert('Error', 'Failed to load bonus data. Please try again.');
     }
   };
 
@@ -126,7 +126,7 @@ export default function BonusMXIScreen() {
 
   const setupRealtimeSubscription = async () => {
     if (channelRef.current?.state === 'subscribed') {
-      console.log('Already subscribed to lottery updates');
+      console.log('Already subscribed to bonus updates');
       return;
     }
 
@@ -138,11 +138,11 @@ export default function BonusMXIScreen() {
 
     channel
       .on('broadcast', { event: 'INSERT' }, () => {
-        console.log('Bonus MXI round created');
+        console.log('Bonus de Participación round created');
         loadLotteryData();
       })
       .on('broadcast', { event: 'UPDATE' }, () => {
-        console.log('Bonus MXI round updated');
+        console.log('Bonus de Participación round updated');
         loadLotteryData();
       })
       .subscribe();
@@ -150,7 +150,7 @@ export default function BonusMXIScreen() {
 
   const loadLotteryData = async () => {
     try {
-      console.log('Loading lottery data...');
+      console.log('Loading bonus data...');
       setLoading(true);
 
       // Get current round
@@ -207,7 +207,7 @@ export default function BonusMXIScreen() {
       }
     } catch (error) {
       console.error('Exception loading bonus data:', error);
-      Alert.alert('Error', 'Failed to load lottery. Please try again.');
+      Alert.alert('Error', 'Failed to load bonus. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -339,7 +339,7 @@ export default function BonusMXIScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Bonus MXI</Text>
+          <Text style={styles.headerTitle}>Bonus de Participación</Text>
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.loadingContainer}>
@@ -357,7 +357,7 @@ export default function BonusMXIScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Bonus MXI</Text>
+          <Text style={styles.headerTitle}>Bonus de Participación</Text>
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.emptyContainer}>
@@ -379,7 +379,7 @@ export default function BonusMXIScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Bonus MXI</Text>
+        <Text style={styles.headerTitle}>Bonus de Participación</Text>
         <View style={{ width: 40 }} />
       </View>
 
