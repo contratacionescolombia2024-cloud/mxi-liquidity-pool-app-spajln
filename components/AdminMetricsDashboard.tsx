@@ -30,6 +30,13 @@ interface AppMetrics {
   phase2Sold: number;
   phase3Sold: number;
   totalTokensSold: number;
+  phase1StartDate: Date;
+  phase1EndDate: Date;
+  phase2StartDate: Date;
+  phase2EndDate: Date;
+  phase3StartDate: Date;
+  phase3EndDate: Date;
+  presaleEndDate: Date;
 }
 
 export function AdminMetricsDashboard() {
@@ -41,14 +48,59 @@ export function AdminMetricsDashboard() {
     loadMetrics();
   }, []);
 
+  const calculatePhaseInfo = (presaleEndDate: Date) => {
+    // Presale start date - using a fixed date for consistency
+    const presaleStartDate = new Date('2024-11-01T00:00:00Z');
+    const endDate = new Date(presaleEndDate);
+    
+    // Calculate total duration in milliseconds
+    const totalDuration = endDate.getTime() - presaleStartDate.getTime();
+    const phaseDuration = totalDuration / 3;
+    
+    // Calculate phase dates
+    const phase1Start = presaleStartDate;
+    const phase1End = new Date(presaleStartDate.getTime() + phaseDuration);
+    const phase2Start = phase1End;
+    const phase2End = new Date(phase2Start.getTime() + phaseDuration);
+    const phase3Start = phase2End;
+    const phase3End = endDate;
+    
+    // Determine current phase based on current time
+    const now = new Date();
+    let currentPhase = 1;
+    let currentPrice = 0.40;
+    
+    if (now >= phase3Start) {
+      currentPhase = 3;
+      currentPrice = 1.00;
+    } else if (now >= phase2Start) {
+      currentPhase = 2;
+      currentPrice = 0.70;
+    } else {
+      currentPhase = 1;
+      currentPrice = 0.40;
+    }
+    
+    return {
+      currentPhase,
+      currentPrice,
+      phase1StartDate: phase1Start,
+      phase1EndDate: phase1End,
+      phase2StartDate: phase2Start,
+      phase2EndDate: phase2End,
+      phase3StartDate: phase3Start,
+      phase3EndDate: phase3End,
+    };
+  };
+
   const loadMetrics = async () => {
     try {
       setLoading(true);
 
-      // Get user statistics
+      // Get user statistics with actual MXI purchased
       const { data: usersData, error: usersError } = await supabase
         .from('users')
-        .select('id, mxi_balance, usdt_contributed, is_active_contributor, is_blocked');
+        .select('id, mxi_purchased_directly, mxi_balance, usdt_contributed, is_active_contributor, is_blocked');
 
       if (usersError) throw usersError;
 
@@ -56,8 +108,10 @@ export function AdminMetricsDashboard() {
       const activeUsers = usersData?.filter(u => u.is_active_contributor && !u.is_blocked).length || 0;
       const blockedUsers = usersData?.filter(u => u.is_blocked).length || 0;
 
-      const totalMxiDistributed = usersData?.reduce((sum, u) => sum + parseFloat(u.mxi_balance.toString()), 0) || 0;
-      const totalUsdtContributed = usersData?.reduce((sum, u) => sum + parseFloat(u.usdt_contributed.toString()), 0) || 0;
+      // Calculate actual MXI sold (from direct purchases)
+      const totalMxiSold = usersData?.reduce((sum, u) => sum + parseFloat(u.mxi_purchased_directly?.toString() || '0'), 0) || 0;
+      const totalMxiDistributed = usersData?.reduce((sum, u) => sum + parseFloat(u.mxi_balance?.toString() || '0'), 0) || 0;
+      const totalUsdtContributed = usersData?.reduce((sum, u) => sum + parseFloat(u.usdt_contributed?.toString() || '0'), 0) || 0;
 
       const averageMxiPerUser = totalUsers > 0 ? totalMxiDistributed / totalUsers : 0;
       const averageUsdtPerUser = totalUsers > 0 ? totalUsdtContributed / totalUsers : 0;
@@ -75,7 +129,7 @@ export function AdminMetricsDashboard() {
         .select('id, amount');
 
       const totalCommissions = commissionsData?.length || 0;
-      const totalCommissionAmount = commissionsData?.reduce((sum, c) => sum + parseFloat(c.amount.toString()), 0) || 0;
+      const totalCommissionAmount = commissionsData?.reduce((sum, c) => sum + parseFloat(c.amount?.toString() || '0'), 0) || 0;
 
       // Get metrics data
       const { data: metricsData, error: metricsError } = await supabase
@@ -84,6 +138,9 @@ export function AdminMetricsDashboard() {
         .single();
 
       if (metricsError) throw metricsError;
+
+      const presaleEndDate = new Date(metricsData?.pool_close_date || '2026-02-15T12:00:00Z');
+      const phaseInfo = calculatePhaseInfo(presaleEndDate);
 
       setMetrics({
         totalUsers,
@@ -96,12 +153,19 @@ export function AdminMetricsDashboard() {
         totalCommissionAmount,
         averageMxiPerUser,
         averageUsdtPerUser,
-        currentPhase: metricsData?.current_phase || 1,
-        currentPrice: parseFloat(metricsData?.current_price_usdt?.toString() || '0.30'),
+        currentPhase: phaseInfo.currentPhase,
+        currentPrice: phaseInfo.currentPrice,
         phase1Sold: parseFloat(metricsData?.phase_1_tokens_sold?.toString() || '0'),
         phase2Sold: parseFloat(metricsData?.phase_2_tokens_sold?.toString() || '0'),
         phase3Sold: parseFloat(metricsData?.phase_3_tokens_sold?.toString() || '0'),
-        totalTokensSold: parseFloat(metricsData?.total_tokens_sold?.toString() || '0'),
+        totalTokensSold: totalMxiSold, // Use actual MXI sold from users
+        phase1StartDate: phaseInfo.phase1StartDate,
+        phase1EndDate: phaseInfo.phase1EndDate,
+        phase2StartDate: phaseInfo.phase2StartDate,
+        phase2EndDate: phaseInfo.phase2EndDate,
+        phase3StartDate: phaseInfo.phase3StartDate,
+        phase3EndDate: phaseInfo.phase3EndDate,
+        presaleEndDate,
       });
 
     } catch (error) {
@@ -115,6 +179,24 @@ export function AdminMetricsDashboard() {
   const onRefresh = () => {
     setRefreshing(true);
     loadMetrics();
+  };
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  };
+
+  const formatDateTime = (date: Date) => {
+    return date.toLocaleString('es-ES', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   if (loading && !metrics) {
@@ -238,51 +320,189 @@ export function AdminMetricsDashboard() {
         </View>
       </View>
 
-      {/* Presale Metrics */}
+      {/* Enhanced Presale Metrics */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>🚀 Preventa</Text>
+        <Text style={styles.sectionTitle}>🚀 Estadísticas de Preventa</Text>
         
-        <View style={styles.phaseCard}>
-          <View style={styles.phaseHeader}>
-            <Text style={styles.phaseTitle}>Fase Actual: {metrics.currentPhase}</Text>
-            <Text style={styles.phasePrice}>${metrics.currentPrice.toFixed(2)} USDT</Text>
+        {/* Main Presale Card */}
+        <View style={styles.presaleMainCard}>
+          <View style={styles.presaleHeader}>
+            <View>
+              <Text style={styles.presaleTitle}>Fase Actual: {metrics.currentPhase}</Text>
+              <Text style={styles.presaleSubtitle}>Precio: ${metrics.currentPrice.toFixed(2)} USDT</Text>
+            </View>
+            <View style={styles.phaseBadge}>
+              <Text style={styles.phaseBadgeText}>FASE {metrics.currentPhase}</Text>
+            </View>
           </View>
           
-          <View style={styles.phaseProgress}>
-            <View style={styles.progressBar}>
+          <View style={styles.presaleStats}>
+            <View style={styles.presaleStatRow}>
+              <Text style={styles.presaleStatLabel}>MXI Vendidos (Real)</Text>
+              <Text style={styles.presaleStatValue}>{metrics.totalTokensSold.toLocaleString()} MXI</Text>
+            </View>
+            <View style={styles.presaleStatRow}>
+              <Text style={styles.presaleStatLabel}>Meta Total Preventa</Text>
+              <Text style={styles.presaleStatValue}>25,000,000 MXI</Text>
+            </View>
+            <View style={styles.presaleStatRow}>
+              <Text style={styles.presaleStatLabel}>Progreso General</Text>
+              <Text style={styles.presaleStatValue}>
+                {((metrics.totalTokensSold / 25000000) * 100).toFixed(2)}%
+              </Text>
+            </View>
+            <View style={styles.presaleStatRow}>
+              <Text style={styles.presaleStatLabel}>Finalización Preventa</Text>
+              <Text style={styles.presaleStatValue}>{formatDateTime(metrics.presaleEndDate)}</Text>
+            </View>
+          </View>
+          
+          <View style={styles.progressBar}>
+            <View 
+              style={[
+                styles.progressFill, 
+                { 
+                  width: `${Math.min((metrics.totalTokensSold / 25000000) * 100, 100)}%`,
+                  backgroundColor: colors.primary 
+                }
+              ]} 
+            />
+          </View>
+        </View>
+
+        {/* Phase Details Cards */}
+        <Text style={styles.phasesSubtitle}>📅 Detalles por Fase</Text>
+        <View style={styles.phasesDetailGrid}>
+          {/* Phase 1 */}
+          <View style={[styles.phaseDetailCard, { 
+            backgroundColor: metrics.currentPhase === 1 ? colors.success + '25' : colors.card,
+            borderColor: metrics.currentPhase === 1 ? colors.success : colors.border,
+            borderWidth: 2,
+          }]}>
+            <View style={styles.phaseDetailHeader}>
+              <Text style={styles.phaseDetailTitle}>Fase 1</Text>
+              {metrics.currentPhase === 1 && (
+                <View style={[styles.phaseActiveBadge, { backgroundColor: colors.success }]}>
+                  <Text style={styles.phaseActiveBadgeText}>ACTIVA</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.phaseDetailPrice}>$0.40 USDT</Text>
+            <View style={styles.phaseDetailDates}>
+              <Text style={styles.phaseDetailDateLabel}>Inicio:</Text>
+              <Text style={styles.phaseDetailDateValue}>{formatDate(metrics.phase1StartDate)}</Text>
+            </View>
+            <View style={styles.phaseDetailDates}>
+              <Text style={styles.phaseDetailDateLabel}>Fin:</Text>
+              <Text style={styles.phaseDetailDateValue}>{formatDate(metrics.phase1EndDate)}</Text>
+            </View>
+            <View style={styles.phaseDetailStats}>
+              <Text style={styles.phaseDetailStatsLabel}>Vendidos:</Text>
+              <Text style={styles.phaseDetailStatsValue}>{metrics.phase1Sold.toLocaleString()} MXI</Text>
+            </View>
+            <View style={styles.phaseDetailStats}>
+              <Text style={styles.phaseDetailStatsLabel}>Meta:</Text>
+              <Text style={styles.phaseDetailStatsValue}>8,333,333 MXI</Text>
+            </View>
+            <View style={styles.phaseProgressBar}>
               <View 
                 style={[
-                  styles.progressFill, 
+                  styles.phaseProgressFill, 
                   { 
-                    width: `${(metrics.totalTokensSold / 25000000) * 100}%`,
-                    backgroundColor: colors.primary 
+                    width: `${Math.min((metrics.phase1Sold / 8333333) * 100, 100)}%`,
+                    backgroundColor: colors.success 
                   }
                 ]} 
               />
             </View>
-            <Text style={styles.progressText}>
-              {metrics.totalTokensSold.toLocaleString()} / 25,000,000 MXI
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.phasesGrid}>
-          <View style={[styles.phaseSmallCard, { backgroundColor: colors.success + '15' }]}>
-            <Text style={styles.phaseSmallTitle}>Fase 1</Text>
-            <Text style={styles.phaseSmallValue}>{metrics.phase1Sold.toLocaleString()}</Text>
-            <Text style={styles.phaseSmallLabel}>$0.30 USDT</Text>
           </View>
 
-          <View style={[styles.phaseSmallCard, { backgroundColor: colors.warning + '15' }]}>
-            <Text style={styles.phaseSmallTitle}>Fase 2</Text>
-            <Text style={styles.phaseSmallValue}>{metrics.phase2Sold.toLocaleString()}</Text>
-            <Text style={styles.phaseSmallLabel}>$0.60 USDT</Text>
+          {/* Phase 2 */}
+          <View style={[styles.phaseDetailCard, { 
+            backgroundColor: metrics.currentPhase === 2 ? colors.warning + '25' : colors.card,
+            borderColor: metrics.currentPhase === 2 ? colors.warning : colors.border,
+            borderWidth: 2,
+          }]}>
+            <View style={styles.phaseDetailHeader}>
+              <Text style={styles.phaseDetailTitle}>Fase 2</Text>
+              {metrics.currentPhase === 2 && (
+                <View style={[styles.phaseActiveBadge, { backgroundColor: colors.warning }]}>
+                  <Text style={styles.phaseActiveBadgeText}>ACTIVA</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.phaseDetailPrice}>$0.70 USDT</Text>
+            <View style={styles.phaseDetailDates}>
+              <Text style={styles.phaseDetailDateLabel}>Inicio:</Text>
+              <Text style={styles.phaseDetailDateValue}>{formatDate(metrics.phase2StartDate)}</Text>
+            </View>
+            <View style={styles.phaseDetailDates}>
+              <Text style={styles.phaseDetailDateLabel}>Fin:</Text>
+              <Text style={styles.phaseDetailDateValue}>{formatDate(metrics.phase2EndDate)}</Text>
+            </View>
+            <View style={styles.phaseDetailStats}>
+              <Text style={styles.phaseDetailStatsLabel}>Vendidos:</Text>
+              <Text style={styles.phaseDetailStatsValue}>{metrics.phase2Sold.toLocaleString()} MXI</Text>
+            </View>
+            <View style={styles.phaseDetailStats}>
+              <Text style={styles.phaseDetailStatsLabel}>Meta:</Text>
+              <Text style={styles.phaseDetailStatsValue}>8,333,333 MXI</Text>
+            </View>
+            <View style={styles.phaseProgressBar}>
+              <View 
+                style={[
+                  styles.phaseProgressFill, 
+                  { 
+                    width: `${Math.min((metrics.phase2Sold / 8333333) * 100, 100)}%`,
+                    backgroundColor: colors.warning 
+                  }
+                ]} 
+              />
+            </View>
           </View>
 
-          <View style={[styles.phaseSmallCard, { backgroundColor: colors.error + '15' }]}>
-            <Text style={styles.phaseSmallTitle}>Fase 3</Text>
-            <Text style={styles.phaseSmallValue}>{metrics.phase3Sold.toLocaleString()}</Text>
-            <Text style={styles.phaseSmallLabel}>$0.90 USDT</Text>
+          {/* Phase 3 */}
+          <View style={[styles.phaseDetailCard, { 
+            backgroundColor: metrics.currentPhase === 3 ? colors.error + '25' : colors.card,
+            borderColor: metrics.currentPhase === 3 ? colors.error : colors.border,
+            borderWidth: 2,
+          }]}>
+            <View style={styles.phaseDetailHeader}>
+              <Text style={styles.phaseDetailTitle}>Fase 3</Text>
+              {metrics.currentPhase === 3 && (
+                <View style={[styles.phaseActiveBadge, { backgroundColor: colors.error }]}>
+                  <Text style={styles.phaseActiveBadgeText}>ACTIVA</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.phaseDetailPrice}>$1.00 USDT</Text>
+            <View style={styles.phaseDetailDates}>
+              <Text style={styles.phaseDetailDateLabel}>Inicio:</Text>
+              <Text style={styles.phaseDetailDateValue}>{formatDate(metrics.phase3StartDate)}</Text>
+            </View>
+            <View style={styles.phaseDetailDates}>
+              <Text style={styles.phaseDetailDateLabel}>Fin:</Text>
+              <Text style={styles.phaseDetailDateValue}>{formatDate(metrics.phase3EndDate)}</Text>
+            </View>
+            <View style={styles.phaseDetailStats}>
+              <Text style={styles.phaseDetailStatsLabel}>Vendidos:</Text>
+              <Text style={styles.phaseDetailStatsValue}>{metrics.phase3Sold.toLocaleString()} MXI</Text>
+            </View>
+            <View style={styles.phaseDetailStats}>
+              <Text style={styles.phaseDetailStatsLabel}>Meta:</Text>
+              <Text style={styles.phaseDetailStatsValue}>8,333,334 MXI</Text>
+            </View>
+            <View style={styles.phaseProgressBar}>
+              <View 
+                style={[
+                  styles.phaseProgressFill, 
+                  { 
+                    width: `${Math.min((metrics.phase3Sold / 8333334) * 100, 100)}%`,
+                    backgroundColor: colors.error 
+                  }
+                ]} 
+              />
+            </View>
           </View>
         </View>
       </View>
@@ -295,7 +515,7 @@ export function AdminMetricsDashboard() {
           <Text style={styles.summaryValue}>${metrics.totalUsdtContributed.toFixed(2)} USDT</Text>
         </View>
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Tokens Vendidos:</Text>
+          <Text style={styles.summaryLabel}>Tokens Vendidos (Real):</Text>
           <Text style={styles.summaryValue}>{metrics.totalTokensSold.toLocaleString()} MXI</Text>
         </View>
         <View style={styles.summaryRow}>
@@ -307,6 +527,10 @@ export function AdminMetricsDashboard() {
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Comisiones Pagadas:</Text>
           <Text style={styles.summaryValue}>${metrics.totalCommissionAmount.toFixed(2)} USDT</Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Fase Actual:</Text>
+          <Text style={styles.summaryValue}>Fase {metrics.currentPhase} (${metrics.currentPrice.toFixed(2)} USDT)</Text>
         </View>
       </View>
     </ScrollView>
@@ -381,32 +605,60 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
   },
-  phaseCard: {
+  presaleMainCard: {
     backgroundColor: colors.card,
     borderRadius: 16,
     padding: 20,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: colors.primary,
   },
-  phaseHeader: {
+  presaleHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  presaleTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  presaleSubtitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  phaseBadge: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  phaseBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#000',
+  },
+  presaleStats: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  presaleStatRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
   },
-  phaseTitle: {
-    fontSize: 18,
+  presaleStatLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  presaleStatValue: {
+    fontSize: 14,
     fontWeight: '700',
     color: colors.text,
-  },
-  phasePrice: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  phaseProgress: {
-    gap: 8,
   },
   progressBar: {
     height: 12,
@@ -418,35 +670,89 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 6,
   },
-  progressText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  phasesGrid: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  phaseSmallCard: {
-    flex: 1,
-    borderRadius: 12,
-    padding: 12,
-    alignItems: 'center',
-    gap: 4,
-  },
-  phaseSmallTitle: {
-    fontSize: 12,
+  phasesSubtitle: {
+    fontSize: 16,
     fontWeight: '600',
     color: colors.text,
+    marginBottom: 12,
   },
-  phaseSmallValue: {
-    fontSize: 16,
+  phasesDetailGrid: {
+    gap: 12,
+  },
+  phaseDetailCard: {
+    borderRadius: 16,
+    padding: 16,
+    gap: 8,
+  },
+  phaseDetailHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  phaseDetailTitle: {
+    fontSize: 18,
     fontWeight: '700',
     color: colors.text,
   },
-  phaseSmallLabel: {
+  phaseActiveBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  phaseActiveBadgeText: {
     fontSize: 10,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  phaseDetailPrice: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.primary,
+    marginBottom: 8,
+  },
+  phaseDetailDates: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  phaseDetailDateLabel: {
+    fontSize: 13,
     color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  phaseDetailDateValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  phaseDetailStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  phaseDetailStatsLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  phaseDetailStatsValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  phaseProgressBar: {
+    height: 8,
+    backgroundColor: colors.border,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginTop: 8,
+  },
+  phaseProgressFill: {
+    height: '100%',
+    borderRadius: 4,
   },
   summaryCard: {
     backgroundColor: colors.card,
