@@ -46,7 +46,8 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
     setActionType('');
   };
 
-  const handleAddMxiNoCommission = async () => {
+  // ========== BALANCE GENERAL ==========
+  const handleAddBalanceGeneralNoCommission = async () => {
     const amount = parseFloat(mxiAmount);
     if (isNaN(amount) || amount <= 0) {
       Alert.alert('Error', 'Por favor ingresa un monto válido');
@@ -58,7 +59,7 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No authenticated');
 
-      const { data, error } = await supabase.rpc('admin_add_mxi_no_commission', {
+      const { data, error } = await supabase.rpc('admin_add_balance_general_no_commission', {
         p_user_id: userId,
         p_admin_id: user.id,
         p_amount: amount,
@@ -67,25 +68,24 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
       if (error) throw error;
 
       if (data?.success) {
-        Alert.alert('✅ Éxito', `${amount} MXI añadido sin generar comisión`);
+        Alert.alert('✅ Éxito', data.message);
         closeModal();
         onUpdate();
       } else {
-        Alert.alert('❌ Error', data?.error || 'Error al añadir MXI');
+        Alert.alert('❌ Error', data?.error || 'Error al añadir balance');
       }
     } catch (error: any) {
-      console.error('Error adding MXI:', error);
-      Alert.alert('❌ Error', error.message || 'Error al añadir MXI');
+      console.error('Error adding balance:', error);
+      Alert.alert('❌ Error', error.message || 'Error al añadir balance');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddMxiWithCommission = async () => {
-    const mxi = parseFloat(mxiAmount);
-    
-    if (isNaN(mxi) || mxi <= 0) {
-      Alert.alert('Error', 'Por favor ingresa un monto válido de MXI');
+  const handleAddBalanceGeneralWithCommission = async () => {
+    const amount = parseFloat(mxiAmount);
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('Error', 'Por favor ingresa un monto válido');
       return;
     }
 
@@ -94,35 +94,30 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No authenticated');
 
-      // Calculate USDT equivalent based on current phase price
-      // For now, we'll use Phase 1 price (0.40 USDT per MXI)
-      const usdtEquivalent = mxi * 0.40;
-
-      const { data, error } = await supabase.rpc('admin_add_mxi_with_commission', {
+      const { data, error } = await supabase.rpc('admin_add_balance_general_with_commission', {
         p_user_id: userId,
         p_admin_id: user.id,
-        p_amount: mxi,
-        p_usdt_equivalent: usdtEquivalent,
+        p_amount: amount,
       });
 
       if (error) throw error;
 
       if (data?.success) {
-        Alert.alert('✅ Éxito', `${mxi} MXI añadido con generación de comisión`);
+        Alert.alert('✅ Éxito', data.message);
         closeModal();
         onUpdate();
       } else {
-        Alert.alert('❌ Error', data?.error || 'Error al añadir MXI');
+        Alert.alert('❌ Error', data?.error || 'Error al añadir balance');
       }
     } catch (error: any) {
-      console.error('Error adding MXI with commission:', error);
-      Alert.alert('❌ Error', error.message || 'Error al añadir MXI');
+      console.error('Error adding balance with commission:', error);
+      Alert.alert('❌ Error', error.message || 'Error al añadir balance');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRemoveMxiNoCommission = async () => {
+  const handleSubtractBalanceGeneral = async () => {
     const amount = parseFloat(mxiAmount);
     if (isNaN(amount) || amount <= 0) {
       Alert.alert('Error', 'Por favor ingresa un monto válido');
@@ -130,12 +125,12 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
     }
 
     Alert.alert(
-      '⚠️ Confirmar Eliminación',
-      `¿Estás seguro de querer eliminar ${amount} MXI sin afectar comisiones?`,
+      '⚠️ Confirmar Resta',
+      `¿Estás seguro de restar ${amount} MXI del balance general?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Eliminar',
+          text: 'Restar',
           style: 'destructive',
           onPress: async () => {
             setLoading(true);
@@ -143,7 +138,7 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
               const { data: { user } } = await supabase.auth.getUser();
               if (!user) throw new Error('No authenticated');
 
-              const { data, error } = await supabase.rpc('admin_remove_mxi_no_commission', {
+              const { data, error } = await supabase.rpc('admin_subtract_balance_general', {
                 p_user_id: userId,
                 p_admin_id: user.id,
                 p_amount: amount,
@@ -152,15 +147,15 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
               if (error) throw error;
 
               if (data?.success) {
-                Alert.alert('✅ Éxito', `${amount} MXI eliminado sin afectar comisiones`);
+                Alert.alert('✅ Éxito', data.message);
                 closeModal();
                 onUpdate();
               } else {
-                Alert.alert('❌ Error', data?.error || 'Error al eliminar MXI');
+                Alert.alert('❌ Error', data?.error || 'Error al restar balance');
               }
             } catch (error: any) {
-              console.error('Error removing MXI:', error);
-              Alert.alert('❌ Error', error.message || 'Error al eliminar MXI');
+              console.error('Error subtracting balance:', error);
+              Alert.alert('❌ Error', error.message || 'Error al restar balance');
             } finally {
               setLoading(false);
             }
@@ -170,7 +165,43 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
     );
   };
 
-  const handleRemoveMxiWithCommissionReversal = async () => {
+  // ========== VESTING ==========
+  const handleAddBalanceVesting = async () => {
+    const amount = parseFloat(mxiAmount);
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('Error', 'Por favor ingresa un monto válido');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No authenticated');
+
+      const { data, error } = await supabase.rpc('admin_add_balance_vesting', {
+        p_user_id: userId,
+        p_admin_id: user.id,
+        p_amount: amount,
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        Alert.alert('✅ Éxito', data.message);
+        closeModal();
+        onUpdate();
+      } else {
+        Alert.alert('❌ Error', data?.error || 'Error al añadir balance vesting');
+      }
+    } catch (error: any) {
+      console.error('Error adding vesting balance:', error);
+      Alert.alert('❌ Error', error.message || 'Error al añadir balance vesting');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubtractBalanceVesting = async () => {
     const amount = parseFloat(mxiAmount);
     if (isNaN(amount) || amount <= 0) {
       Alert.alert('Error', 'Por favor ingresa un monto válido');
@@ -178,12 +209,12 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
     }
 
     Alert.alert(
-      '⚠️ Confirmar Eliminación con Reversión',
-      `¿Estás seguro de querer eliminar ${amount} MXI y revertir las comisiones generadas?\n\nEsto afectará a los referidores del usuario.`,
+      '⚠️ Confirmar Resta',
+      `¿Estás seguro de restar ${amount} MXI del balance vesting?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Eliminar y Revertir',
+          text: 'Restar',
           style: 'destructive',
           onPress: async () => {
             setLoading(true);
@@ -191,7 +222,7 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
               const { data: { user } } = await supabase.auth.getUser();
               if (!user) throw new Error('No authenticated');
 
-              const { data, error } = await supabase.rpc('admin_remove_mxi_with_commission_reversal', {
+              const { data, error } = await supabase.rpc('admin_subtract_balance_vesting', {
                 p_user_id: userId,
                 p_admin_id: user.id,
                 p_amount: amount,
@@ -200,15 +231,15 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
               if (error) throw error;
 
               if (data?.success) {
-                Alert.alert('✅ Éxito', `${amount} MXI eliminado con reversión de comisiones`);
+                Alert.alert('✅ Éxito', data.message);
                 closeModal();
                 onUpdate();
               } else {
-                Alert.alert('❌ Error', data?.error || 'Error al eliminar MXI');
+                Alert.alert('❌ Error', data?.error || 'Error al restar balance vesting');
               }
             } catch (error: any) {
-              console.error('Error removing MXI with reversal:', error);
-              Alert.alert('❌ Error', error.message || 'Error al eliminar MXI');
+              console.error('Error subtracting vesting balance:', error);
+              Alert.alert('❌ Error', error.message || 'Error al restar balance vesting');
             } finally {
               setLoading(false);
             }
@@ -218,7 +249,92 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
     );
   };
 
-  const handleLinkReferral = async () => {
+  // ========== TORNEOS ==========
+  const handleAddBalanceTournament = async () => {
+    const amount = parseFloat(mxiAmount);
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('Error', 'Por favor ingresa un monto válido');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No authenticated');
+
+      const { data, error } = await supabase.rpc('admin_add_balance_tournament', {
+        p_user_id: userId,
+        p_admin_id: user.id,
+        p_amount: amount,
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        Alert.alert('✅ Éxito', data.message);
+        closeModal();
+        onUpdate();
+      } else {
+        Alert.alert('❌ Error', data?.error || 'Error al añadir balance de torneos');
+      }
+    } catch (error: any) {
+      console.error('Error adding tournament balance:', error);
+      Alert.alert('❌ Error', error.message || 'Error al añadir balance de torneos');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubtractBalanceTournament = async () => {
+    const amount = parseFloat(mxiAmount);
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('Error', 'Por favor ingresa un monto válido');
+      return;
+    }
+
+    Alert.alert(
+      '⚠️ Confirmar Resta',
+      `¿Estás seguro de restar ${amount} MXI del balance de torneos?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Restar',
+          style: 'destructive',
+          onPress: async () => {
+            setLoading(true);
+            try {
+              const { data: { user } } = await supabase.auth.getUser();
+              if (!user) throw new Error('No authenticated');
+
+              const { data, error } = await supabase.rpc('admin_subtract_balance_tournament', {
+                p_user_id: userId,
+                p_admin_id: user.id,
+                p_amount: amount,
+              });
+
+              if (error) throw error;
+
+              if (data?.success) {
+                Alert.alert('✅ Éxito', data.message);
+                closeModal();
+                onUpdate();
+              } else {
+                Alert.alert('❌ Error', data?.error || 'Error al restar balance de torneos');
+              }
+            } catch (error: any) {
+              console.error('Error subtracting tournament balance:', error);
+              Alert.alert('❌ Error', error.message || 'Error al restar balance de torneos');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // ========== REFERRAL LINKING ==========
+  const handleLinkReferralByCode = async () => {
     if (!referralEmail || !referralCode) {
       Alert.alert('Error', 'Por favor completa todos los campos');
       return;
@@ -229,16 +345,16 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No authenticated');
 
-      const { data, error } = await supabase.rpc('admin_link_referral_to_email', {
+      const { data, error } = await supabase.rpc('admin_link_referral_by_code', {
         p_admin_id: user.id,
-        p_referred_email: referralEmail,
+        p_user_email: referralEmail,
         p_referrer_code: referralCode,
       });
 
       if (error) throw error;
 
       if (data?.success) {
-        Alert.alert('✅ Éxito', 'Referido vinculado exitosamente');
+        Alert.alert('✅ Éxito', data.message);
         closeModal();
         onUpdate();
       } else {
@@ -252,55 +368,15 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
     }
   };
 
-  const handleAddBalanceToReferral = async () => {
-    const mxi = parseFloat(mxiAmount) || 0;
-    
-    if (!referralEmail) {
-      Alert.alert('Error', 'Por favor ingresa el correo del referido');
-      return;
-    }
-
-    if (mxi === 0) {
-      Alert.alert('Error', 'Por favor ingresa un monto de MXI');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No authenticated');
-
-      const { data, error } = await supabase.rpc('admin_add_balance_to_referral', {
-        p_admin_id: user.id,
-        p_referral_email: referralEmail,
-        p_mxi_amount: mxi,
-        p_usdt_amount: 0, // USDT removed, keeping for backward compatibility
-      });
-
-      if (error) throw error;
-
-      if (data?.success) {
-        Alert.alert('✅ Éxito', 'Saldo MXI añadido al referido exitosamente');
-        closeModal();
-        onUpdate();
-      } else {
-        Alert.alert('❌ Error', data?.error || 'Error al añadir saldo');
-      }
-    } catch (error: any) {
-      console.error('Error adding balance to referral:', error);
-      Alert.alert('❌ Error', error.message || 'Error al añadir saldo');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const renderModalContent = () => {
     switch (actionType) {
-      case 'add_mxi_no_commission':
+      // ========== BALANCE GENERAL ==========
+      case 'add_balance_general_no_commission':
         return (
           <View>
-            <Text style={styles.modalTitle}>Añadir MXI sin Comisión</Text>
-            <Text style={styles.modalSubtitle}>Usuario: {userName}</Text>
+            <Text style={styles.modalTitle}>➕ Sumar Saldo Balance General</Text>
+            <Text style={styles.modalSubtitle}>Sin generar comisión de referido</Text>
+            <Text style={styles.modalUser}>Usuario: {userName}</Text>
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Cantidad de MXI</Text>
               <TextInput
@@ -314,7 +390,7 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
             </View>
             <TouchableOpacity
               style={[buttonStyles.primary, loading && buttonStyles.disabled]}
-              onPress={handleAddMxiNoCommission}
+              onPress={handleAddBalanceGeneralNoCommission}
               disabled={loading}
             >
               {loading ? (
@@ -326,13 +402,14 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
           </View>
         );
 
-      case 'add_mxi_with_commission':
+      case 'add_balance_general_with_commission':
         return (
           <View>
-            <Text style={styles.modalTitle}>Añadir MXI con Comisión</Text>
-            <Text style={styles.modalSubtitle}>Usuario: {userName}</Text>
+            <Text style={styles.modalTitle}>➕ Aumentar Saldo Generando Comisión</Text>
+            <Text style={styles.modalSubtitle}>Se generarán comisiones para referidores</Text>
+            <Text style={styles.modalUser}>Usuario: {userName}</Text>
             <Text style={styles.modalNote}>
-              💡 Las comisiones se calcularán automáticamente basadas en la cantidad de MXI comprados
+              💡 Comisiones: Nivel 1 (5%), Nivel 2 (2%), Nivel 3 (1%)
             </Text>
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Cantidad de MXI</Text>
@@ -347,28 +424,29 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
             </View>
             <TouchableOpacity
               style={[buttonStyles.primary, loading && buttonStyles.disabled]}
-              onPress={handleAddMxiWithCommission}
+              onPress={handleAddBalanceGeneralWithCommission}
               disabled={loading}
             >
               {loading ? (
                 <ActivityIndicator color="#000" />
               ) : (
-                <Text style={buttonStyles.primaryText}>Añadir MXI</Text>
+                <Text style={buttonStyles.primaryText}>Añadir MXI con Comisión</Text>
               )}
             </TouchableOpacity>
           </View>
         );
 
-      case 'remove_mxi_no_commission':
+      case 'subtract_balance_general':
         return (
           <View>
-            <Text style={styles.modalTitle}>Quitar MXI sin Afectar Comisiones</Text>
-            <Text style={styles.modalSubtitle}>Usuario: {userName}</Text>
+            <Text style={styles.modalTitle}>➖ Restar Saldo Balance General</Text>
+            <Text style={styles.modalSubtitle}>Restar del balance principal del usuario</Text>
+            <Text style={styles.modalUser}>Usuario: {userName}</Text>
             <Text style={[styles.modalNote, { backgroundColor: colors.error + '20', borderLeftColor: colors.error }]}>
-              ⚠️ Esta acción eliminará MXI del usuario sin afectar las comisiones de sus referidores
+              ⚠️ Esta acción restará MXI del balance general del usuario
             </Text>
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Cantidad de MXI a Quitar</Text>
+              <Text style={styles.inputLabel}>Cantidad de MXI a Restar</Text>
               <TextInput
                 style={styles.input}
                 value={mxiAmount}
@@ -380,28 +458,64 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
             </View>
             <TouchableOpacity
               style={[buttonStyles.primary, { backgroundColor: colors.error }, loading && buttonStyles.disabled]}
-              onPress={handleRemoveMxiNoCommission}
+              onPress={handleSubtractBalanceGeneral}
               disabled={loading}
             >
               {loading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={[buttonStyles.primaryText, { color: '#fff' }]}>Quitar MXI</Text>
+                <Text style={[buttonStyles.primaryText, { color: '#fff' }]}>Restar MXI</Text>
               )}
             </TouchableOpacity>
           </View>
         );
 
-      case 'remove_mxi_with_commission':
+      // ========== VESTING ==========
+      case 'add_balance_vesting':
         return (
           <View>
-            <Text style={styles.modalTitle}>Quitar MXI y Revertir Comisiones</Text>
-            <Text style={styles.modalSubtitle}>Usuario: {userName}</Text>
-            <Text style={[styles.modalNote, { backgroundColor: colors.error + '20', borderLeftColor: colors.error }]}>
-              ⚠️ Esta acción eliminará MXI del usuario Y revertirá las comisiones generadas a sus referidores
+            <Text style={styles.modalTitle}>➕ Aumentar Saldo Vesting</Text>
+            <Text style={styles.modalSubtitle}>Añadir al balance de vesting bloqueado</Text>
+            <Text style={styles.modalUser}>Usuario: {userName}</Text>
+            <Text style={styles.modalNote}>
+              🔒 Este saldo estará bloqueado hasta la fecha de lanzamiento
             </Text>
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Cantidad de MXI a Quitar</Text>
+              <Text style={styles.inputLabel}>Cantidad de MXI</Text>
+              <TextInput
+                style={styles.input}
+                value={mxiAmount}
+                onChangeText={setMxiAmount}
+                keyboardType="decimal-pad"
+                placeholder="0.00"
+                placeholderTextColor={colors.textSecondary}
+              />
+            </View>
+            <TouchableOpacity
+              style={[buttonStyles.primary, loading && buttonStyles.disabled]}
+              onPress={handleAddBalanceVesting}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#000" />
+              ) : (
+                <Text style={buttonStyles.primaryText}>Añadir a Vesting</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        );
+
+      case 'subtract_balance_vesting':
+        return (
+          <View>
+            <Text style={styles.modalTitle}>➖ Restar Saldo Vesting</Text>
+            <Text style={styles.modalSubtitle}>Restar del balance de vesting bloqueado</Text>
+            <Text style={styles.modalUser}>Usuario: {userName}</Text>
+            <Text style={[styles.modalNote, { backgroundColor: colors.error + '20', borderLeftColor: colors.error }]}>
+              ⚠️ Esta acción restará MXI del balance vesting del usuario
+            </Text>
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Cantidad de MXI a Restar</Text>
               <TextInput
                 style={styles.input}
                 value={mxiAmount}
@@ -413,30 +527,104 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
             </View>
             <TouchableOpacity
               style={[buttonStyles.primary, { backgroundColor: colors.error }, loading && buttonStyles.disabled]}
-              onPress={handleRemoveMxiWithCommissionReversal}
+              onPress={handleSubtractBalanceVesting}
               disabled={loading}
             >
               {loading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={[buttonStyles.primaryText, { color: '#fff' }]}>Quitar MXI y Revertir</Text>
+                <Text style={[buttonStyles.primaryText, { color: '#fff' }]}>Restar de Vesting</Text>
               )}
             </TouchableOpacity>
           </View>
         );
 
-      case 'link_referral':
+      // ========== TORNEOS ==========
+      case 'add_balance_tournament':
         return (
           <View>
-            <Text style={styles.modalTitle}>Vincular Referido</Text>
+            <Text style={styles.modalTitle}>➕ Aumentar Saldo Torneo</Text>
+            <Text style={styles.modalSubtitle}>Añadir al balance de torneos/retos</Text>
+            <Text style={styles.modalUser}>Usuario: {userName}</Text>
+            <Text style={styles.modalNote}>
+              🏆 Este saldo puede usarse para participar en torneos
+            </Text>
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Correo del Referido</Text>
+              <Text style={styles.inputLabel}>Cantidad de MXI</Text>
+              <TextInput
+                style={styles.input}
+                value={mxiAmount}
+                onChangeText={setMxiAmount}
+                keyboardType="decimal-pad"
+                placeholder="0.00"
+                placeholderTextColor={colors.textSecondary}
+              />
+            </View>
+            <TouchableOpacity
+              style={[buttonStyles.primary, loading && buttonStyles.disabled]}
+              onPress={handleAddBalanceTournament}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#000" />
+              ) : (
+                <Text style={buttonStyles.primaryText}>Añadir a Torneos</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        );
+
+      case 'subtract_balance_tournament':
+        return (
+          <View>
+            <Text style={styles.modalTitle}>➖ Restar Saldo Torneo</Text>
+            <Text style={styles.modalSubtitle}>Restar del balance de torneos/retos</Text>
+            <Text style={styles.modalUser}>Usuario: {userName}</Text>
+            <Text style={[styles.modalNote, { backgroundColor: colors.error + '20', borderLeftColor: colors.error }]}>
+              ⚠️ Esta acción restará MXI del balance de torneos del usuario
+            </Text>
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Cantidad de MXI a Restar</Text>
+              <TextInput
+                style={styles.input}
+                value={mxiAmount}
+                onChangeText={setMxiAmount}
+                keyboardType="decimal-pad"
+                placeholder="0.00"
+                placeholderTextColor={colors.textSecondary}
+              />
+            </View>
+            <TouchableOpacity
+              style={[buttonStyles.primary, { backgroundColor: colors.error }, loading && buttonStyles.disabled]}
+              onPress={handleSubtractBalanceTournament}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={[buttonStyles.primaryText, { color: '#fff' }]}>Restar de Torneos</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        );
+
+      // ========== VINCULAR REFERIDO ==========
+      case 'link_referral_by_code':
+        return (
+          <View>
+            <Text style={styles.modalTitle}>🔗 Vincular Correo con Código de Referidor</Text>
+            <Text style={styles.modalSubtitle}>Asignar un referidor a un usuario existente</Text>
+            <Text style={styles.modalNote}>
+              💡 El usuario debe existir en el sistema y no tener referidor asignado
+            </Text>
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Correo del Usuario</Text>
               <TextInput
                 style={styles.input}
                 value={referralEmail}
                 onChangeText={setReferralEmail}
                 keyboardType="email-address"
-                placeholder="correo@ejemplo.com"
+                placeholder="usuario@ejemplo.com"
                 placeholderTextColor={colors.textSecondary}
                 autoCapitalize="none"
               />
@@ -454,54 +642,13 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
             </View>
             <TouchableOpacity
               style={[buttonStyles.primary, loading && buttonStyles.disabled]}
-              onPress={handleLinkReferral}
+              onPress={handleLinkReferralByCode}
               disabled={loading}
             >
               {loading ? (
                 <ActivityIndicator color="#000" />
               ) : (
                 <Text style={buttonStyles.primaryText}>Vincular Referido</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        );
-
-      case 'add_balance_to_referral':
-        return (
-          <View>
-            <Text style={styles.modalTitle}>Añadir Saldo MXI a Referido</Text>
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Correo del Referido</Text>
-              <TextInput
-                style={styles.input}
-                value={referralEmail}
-                onChangeText={setReferralEmail}
-                keyboardType="email-address"
-                placeholder="correo@ejemplo.com"
-                placeholderTextColor={colors.textSecondary}
-                autoCapitalize="none"
-              />
-            </View>
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Cantidad de MXI</Text>
-              <TextInput
-                style={styles.input}
-                value={mxiAmount}
-                onChangeText={setMxiAmount}
-                keyboardType="decimal-pad"
-                placeholder="0.00"
-                placeholderTextColor={colors.textSecondary}
-              />
-            </View>
-            <TouchableOpacity
-              style={[buttonStyles.primary, loading && buttonStyles.disabled]}
-              onPress={handleAddBalanceToReferral}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#000" />
-              ) : (
-                <Text style={buttonStyles.primaryText}>Añadir Saldo</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -514,86 +661,130 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
 
   return (
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Gestión Avanzada</Text>
+      <Text style={styles.sectionTitle}>⚙️ Gestión Completa de Saldos</Text>
       
-      <View style={styles.actionsGrid}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => openModal('add_mxi_no_commission')}
-        >
-          <IconSymbol 
-            ios_icon_name="plus.circle.fill" 
-            android_material_icon_name="add_circle" 
-            size={24} 
-            color={colors.primary} 
-          />
-          <Text style={styles.actionButtonText}>Añadir MXI{'\n'}Sin Comisión</Text>
-        </TouchableOpacity>
+      <View style={styles.categoryContainer}>
+        <Text style={styles.categoryTitle}>💰 Balance General</Text>
+        <View style={styles.actionsRow}>
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: colors.success + '20' }]}
+            onPress={() => openModal('add_balance_general_no_commission')}
+          >
+            <IconSymbol 
+              ios_icon_name="plus.circle.fill" 
+              android_material_icon_name="add_circle" 
+              size={20} 
+              color={colors.success} 
+            />
+            <Text style={styles.actionButtonText}>Sumar{'\n'}Sin Comisión</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => openModal('add_mxi_with_commission')}
-        >
-          <IconSymbol 
-            ios_icon_name="plus.circle.fill" 
-            android_material_icon_name="add_circle" 
-            size={24} 
-            color={colors.success} 
-          />
-          <Text style={styles.actionButtonText}>Añadir MXI{'\n'}Con Comisión</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: colors.primary + '20' }]}
+            onPress={() => openModal('add_balance_general_with_commission')}
+          >
+            <IconSymbol 
+              ios_icon_name="plus.circle.fill" 
+              android_material_icon_name="add_circle" 
+              size={20} 
+              color={colors.primary} 
+            />
+            <Text style={styles.actionButtonText}>Aumentar{'\n'}Con Comisión</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => openModal('remove_mxi_no_commission')}
-        >
-          <IconSymbol 
-            ios_icon_name="minus.circle.fill" 
-            android_material_icon_name="remove_circle" 
-            size={24} 
-            color={colors.error} 
-          />
-          <Text style={styles.actionButtonText}>Quitar MXI{'\n'}Sin Afectar</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: colors.error + '20' }]}
+            onPress={() => openModal('subtract_balance_general')}
+          >
+            <IconSymbol 
+              ios_icon_name="minus.circle.fill" 
+              android_material_icon_name="remove_circle" 
+              size={20} 
+              color={colors.error} 
+            />
+            <Text style={styles.actionButtonText}>Restar{'\n'}Balance</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => openModal('remove_mxi_with_commission')}
-        >
-          <IconSymbol 
-            ios_icon_name="minus.circle.fill" 
-            android_material_icon_name="remove_circle" 
-            size={24} 
-            color={colors.warning} 
-          />
-          <Text style={styles.actionButtonText}>Quitar MXI{'\n'}Con Reversión</Text>
-        </TouchableOpacity>
+      <View style={styles.categoryContainer}>
+        <Text style={styles.categoryTitle}>🔒 Vesting</Text>
+        <View style={styles.actionsRow}>
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: colors.accent + '20' }]}
+            onPress={() => openModal('add_balance_vesting')}
+          >
+            <IconSymbol 
+              ios_icon_name="plus.circle.fill" 
+              android_material_icon_name="add_circle" 
+              size={20} 
+              color={colors.accent} 
+            />
+            <Text style={styles.actionButtonText}>Aumentar{'\n'}Vesting</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => openModal('link_referral')}
-        >
-          <IconSymbol 
-            ios_icon_name="link.circle.fill" 
-            android_material_icon_name="link" 
-            size={24} 
-            color={colors.accent} 
-          />
-          <Text style={styles.actionButtonText}>Vincular{'\n'}Referido</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: colors.error + '20' }]}
+            onPress={() => openModal('subtract_balance_vesting')}
+          >
+            <IconSymbol 
+              ios_icon_name="minus.circle.fill" 
+              android_material_icon_name="remove_circle" 
+              size={20} 
+              color={colors.error} 
+            />
+            <Text style={styles.actionButtonText}>Restar{'\n'}Vesting</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => openModal('add_balance_to_referral')}
-        >
-          <IconSymbol 
-            ios_icon_name="dollarsign.circle.fill" 
-            android_material_icon_name="account_balance_wallet" 
-            size={24} 
-            color={colors.warning} 
-          />
-          <Text style={styles.actionButtonText}>Añadir Saldo{'\n'}a Referido</Text>
-        </TouchableOpacity>
+      <View style={styles.categoryContainer}>
+        <Text style={styles.categoryTitle}>🏆 Torneos</Text>
+        <View style={styles.actionsRow}>
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: colors.warning + '20' }]}
+            onPress={() => openModal('add_balance_tournament')}
+          >
+            <IconSymbol 
+              ios_icon_name="plus.circle.fill" 
+              android_material_icon_name="add_circle" 
+              size={20} 
+              color={colors.warning} 
+            />
+            <Text style={styles.actionButtonText}>Aumentar{'\n'}Torneo</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: colors.error + '20' }]}
+            onPress={() => openModal('subtract_balance_tournament')}
+          >
+            <IconSymbol 
+              ios_icon_name="minus.circle.fill" 
+              android_material_icon_name="remove_circle" 
+              size={20} 
+              color={colors.error} 
+            />
+            <Text style={styles.actionButtonText}>Restar{'\n'}Torneo</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.categoryContainer}>
+        <Text style={styles.categoryTitle}>🔗 Referidos</Text>
+        <View style={styles.actionsRow}>
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: colors.primary + '20', flex: 1 }]}
+            onPress={() => openModal('link_referral_by_code')}
+          >
+            <IconSymbol 
+              ios_icon_name="link.circle.fill" 
+              android_material_icon_name="link" 
+              size={20} 
+              color={colors.primary} 
+            />
+            <Text style={styles.actionButtonText}>Vincular Correo{'\n'}con Código</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <Modal
@@ -612,7 +803,7 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
                 color={colors.textSecondary} 
               />
             </TouchableOpacity>
-            <ScrollView>
+            <ScrollView showsVerticalScrollIndicator={false}>
               {renderModalContent()}
             </ScrollView>
           </View>
@@ -630,29 +821,41 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 16,
+    marginBottom: 20,
   },
-  actionsGrid: {
+  categoryContainer: {
+    marginBottom: 20,
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  categoryTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  actionsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 12,
   },
   actionButton: {
     flex: 1,
-    minWidth: '30%',
-    backgroundColor: colors.card,
     borderRadius: 12,
-    padding: 16,
+    padding: 12,
     alignItems: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
+    gap: 6,
+    minHeight: 80,
+    justifyContent: 'center',
   },
   actionButtonText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: colors.text,
     textAlign: 'center',
+    lineHeight: 14,
   },
   modalOverlay: {
     flex: 1,
@@ -682,7 +885,13 @@ const styles = StyleSheet.create({
   modalSubtitle: {
     fontSize: 14,
     color: colors.textSecondary,
-    marginBottom: 20,
+    marginBottom: 8,
+  },
+  modalUser: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+    marginBottom: 16,
   },
   modalNote: {
     fontSize: 13,
@@ -693,6 +902,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderLeftWidth: 4,
     borderLeftColor: colors.primary,
+    lineHeight: 18,
   },
   inputContainer: {
     marginBottom: 16,
