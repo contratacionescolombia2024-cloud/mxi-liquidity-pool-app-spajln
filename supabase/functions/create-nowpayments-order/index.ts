@@ -185,19 +185,22 @@ Deno.serve(async (req) => {
     transactionId = transaction.id;
     console.log('Transaction history created:', transactionId);
 
-    // NOWPayments API credentials - UPDATED
+    // NOWPayments API credentials
     const nowpaymentsApiKey = '7QB99E2-JCE4H3A-QNC2GS3-1T5QDS9';
-    const nowpaymentsPublicKey = 'b3e7e5cb-ccf0-4a5c-abbb-1c7bc02afe37';
+    
+    // Webhook URL - this is where NOWPayments will send payment status updates
+    const webhookUrl = 'https://ienxcoudewmbuuldyecb.supabase.co/functions/v1/nowpayments-webhook';
 
-    // Create invoice payload exactly as specified
+    // Create invoice payload with webhook callback
     const invoicePayload = {
       price_amount: totalUsdt,
       price_currency: 'usd',
-      pay_currency: 'usdt',
-      order_description: 'MXI Strategic Presale Payment',
-      public_key: nowpaymentsPublicKey,
-      success_url: 'https://tusitio.com/success',
-      cancel_url: 'https://tusitio.com/cancel',
+      pay_currency: 'usdttrc20',
+      ipn_callback_url: webhookUrl,
+      order_id: orderId,
+      order_description: `Compra de ${mxi_amount} MXI - Fase ${currentPhase}`,
+      success_url: 'https://natively.dev',
+      cancel_url: 'https://natively.dev',
     };
 
     console.log('NOWPayments invoice request payload:', JSON.stringify(invoicePayload, null, 2));
@@ -356,7 +359,7 @@ Deno.serve(async (req) => {
           phase: currentPhase,
           price_per_mxi: pricePerMxi,
           invoice_id: invoiceData.id,
-          order_id: invoiceData.order_id,
+          order_id: invoiceData.order_id || orderId,
         },
         updated_at: new Date().toISOString(),
       })
@@ -377,7 +380,7 @@ Deno.serve(async (req) => {
         status: 'waiting',
         pay_address: null,
         pay_amount: totalUsdt,
-        pay_currency: 'usdt',
+        pay_currency: 'usdttrc20',
         expires_at: new Date(Date.now() + 3600000).toISOString(),
       })
       .select()

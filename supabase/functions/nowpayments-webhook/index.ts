@@ -4,8 +4,36 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-nowpayments-sig',
 };
+
+// Function to verify HMAC signature
+async function verifySignature(payload: string, signature: string, secret: string): Promise<boolean> {
+  try {
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(secret),
+      { name: 'HMAC', hash: 'SHA-512' },
+      false,
+      ['sign']
+    );
+    
+    const signatureBuffer = await crypto.subtle.sign(
+      'HMAC',
+      key,
+      encoder.encode(payload)
+    );
+    
+    const hashArray = Array.from(new Uint8Array(signatureBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    
+    return hashHex === signature;
+  } catch (error) {
+    console.error('Error verifying signature:', error);
+    return false;
+  }
+}
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
@@ -14,39 +42,88 @@ Deno.serve(async (req) => {
   }
 
   try {
+    console.log('=== NOWPayments Webhook Received ===');
+    console.log('Headers:', Object.fromEntries(req.headers.entries()));
+
     // Create Supabase client with service role for webhook processing
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // Get raw body for signature verification
+    const rawBody = await req.text();
+    console.log('Raw body:', rawBody);
+
     // Parse webhook payload
-    const payload = await req.json();
-    console.log('Received NOWPayments webhook:', JSON.stringify(payload));
+    let payload;
+    try {
+      payload = JSON.parse(rawBody);
+      console.log('Parsed payload:', JSON.stringify(payload, null, 2));
+    } catch (e) {
+      console.error('Failed to parse webhook payload:', e);
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON payload' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Verify webhook signature
+    const webhookSecret = Deno.env.get('NOWPAYMENTS_WEBHOOK_SECRET') || '7QB99E2-JCE4H3A-QNC2GS3-1T5QDS9';
+    const receivedSignature = req.headers.get('x-nowpayments-sig');
+    
+    console.log('Webhook secret configured:', !!webhookSecret);
+    console.log('Received signature:', receivedSignature);
+
+    if (receivedSignature) {
+      const isValid = await verifySignature(rawBody, receivedSignature, webhookSecret);
+      console.log('Signature verification result:', isValid);
+      
+      if (!isValid) {
+        console.error('Invalid webhook signature');
+        return new Response(
+          JSON.stringify({ error: 'Invalid signature' }),
+          {
+            status: 401,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+    } else {
+      console.warn('No signature provided in webhook request');
+    }
 
     // Log webhook for debugging
-    await supabaseClient.from('nowpayments_webhook_logs').insert({
-      payment_id: payload.payment_id,
-      order_id: payload.order_id,
+    const { error: logError } = await supabaseClient.from('nowpayments_webhook_logs').insert({
+      payment_id: payload.payment_id || null,
+      order_id: payload.order_id || null,
       payload: payload,
-      status: payload.payment_status,
+      status: payload.payment_status || payload.status || 'unknown',
       processed: false,
     });
 
-    // Verify webhook signature (if configured) - UPDATED PUBLIC KEY
-    const ipnSecret = 'b3e7e5cb-ccf0-4a5c-abbb-1c7bc02afe37';
-    if (ipnSecret) {
-      const receivedSignature = req.headers.get('x-nowpayments-sig');
-      // Implement signature verification here if needed
-      // For now, we'll proceed without it
+    if (logError) {
+      console.error('Error logging webhook:', logError);
     }
 
     const paymentId = payload.payment_id;
     const orderId = payload.order_id;
-    const paymentStatus = payload.payment_status;
-    const actuallyPaid = parseFloat(payload.actually_paid || '0');
-    const payCurrency = payload.pay_currency;
-    const outcomeAmount = parseFloat(payload.outcome_amount || '0');
+    const paymentStatus = payload.payment_status || payload.status;
+    const actuallyPaid = parseFloat(payload.actually_paid || payload.outcome_amount || '0');
+    const payCurrency = payload.pay_currency || payload.currency || '';
+    const outcomeAmount = parseFloat(payload.outcome_amount || payload.actually_paid || '0');
+
+    console.log('Payment details:', {
+      paymentId,
+      orderId,
+      paymentStatus,
+      actuallyPaid,
+      payCurrency,
+      outcomeAmount,
+    });
 
     // Find the order in database
     const { data: order, error: orderError } = await supabaseClient
@@ -74,6 +151,8 @@ Deno.serve(async (req) => {
       );
     }
 
+    console.log('Order found:', order.id);
+
     // Update order status
     await supabaseClient
       .from('nowpayments_orders')
@@ -95,21 +174,39 @@ Deno.serve(async (req) => {
       })
       .eq('order_id', orderId);
 
-    // Process payment if finished
-    if (paymentStatus === 'finished') {
-      console.log('Processing finished payment:', orderId);
+    console.log('Order and transaction history updated with status:', paymentStatus);
 
-      // Verify payment details
-      if (payCurrency.toLowerCase() !== 'usdtbep20') {
+    // Process payment if finished or confirmed
+    if (paymentStatus === 'finished' || paymentStatus === 'confirmed') {
+      console.log('Processing finished/confirmed payment:', orderId);
+
+      // Check if already processed to avoid double-processing
+      if (order.status === 'confirmed' || order.status === 'finished') {
+        console.log('Payment already processed, skipping');
+        return new Response(
+          JSON.stringify({
+            success: true,
+            status: paymentStatus,
+            message: 'Payment already processed',
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      // Verify payment currency (accept both usdttrc20 and usdt)
+      const normalizedCurrency = payCurrency.toLowerCase().replace(/[^a-z]/g, '');
+      if (!normalizedCurrency.includes('usdt')) {
         console.error('Invalid payment currency:', payCurrency);
         
-        // Update transaction history as failed
         await supabaseClient
           .from('transaction_history')
           .update({
             status: 'failed',
             error_message: 'Moneda de pago inválida',
-            error_details: { expected: 'usdtbep20', received: payCurrency },
+            error_details: { expected: 'USDT', received: payCurrency },
             updated_at: new Date().toISOString(),
           })
           .eq('order_id', orderId);
@@ -131,17 +228,23 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Verify amount (allow small variance for network fees)
+      // Verify amount (allow small variance for network fees - 5%)
       const expectedAmount = parseFloat(order.usdt_amount.toString());
       const variance = Math.abs(actuallyPaid - expectedAmount) / expectedAmount;
+
+      console.log('Amount verification:', {
+        expected: expectedAmount,
+        actual: actuallyPaid,
+        variance: variance * 100 + '%',
+      });
 
       if (variance > 0.05) {
         console.error('Payment amount mismatch:', {
           expected: expectedAmount,
           actual: actuallyPaid,
+          variance: variance * 100 + '%',
         });
 
-        // Update transaction history as failed
         await supabaseClient
           .from('transaction_history')
           .update({
@@ -179,7 +282,6 @@ Deno.serve(async (req) => {
       if (userError || !user) {
         console.error('User not found:', order.user_id, userError);
         
-        // Update transaction history as failed
         await supabaseClient
           .from('transaction_history')
           .update({
@@ -207,6 +309,8 @@ Deno.serve(async (req) => {
         );
       }
 
+      console.log('User found:', user.id);
+
       const mxiAmount = parseFloat(order.mxi_amount.toString());
       const usdtAmount = parseFloat(order.usdt_amount.toString());
 
@@ -215,10 +319,17 @@ Deno.serve(async (req) => {
       const newMxiPurchased = parseFloat(user.mxi_purchased_directly?.toString() || '0') + mxiAmount;
       const newUsdtContributed = parseFloat(user.usdt_contributed.toString()) + usdtAmount;
 
-      // Calculate yield rate (0.005% per hour)
+      // Calculate yield rate (0.005% per hour = 0.00005 per hour)
       const yieldRatePerHour = mxiAmount * 0.00005;
       const yieldRatePerMinute = yieldRatePerHour / 60;
       const newYieldRate = parseFloat(user.yield_rate_per_minute?.toString() || '0') + yieldRatePerMinute;
+
+      console.log('Updating user balances:', {
+        newMxiBalance,
+        newMxiPurchased,
+        newUsdtContributed,
+        newYieldRate,
+      });
 
       await supabaseClient
         .from('users')
@@ -233,6 +344,8 @@ Deno.serve(async (req) => {
         })
         .eq('id', order.user_id);
 
+      console.log('User balances updated');
+
       // Create contribution record
       await supabaseClient.from('contributions').insert({
         user_id: order.user_id,
@@ -241,6 +354,8 @@ Deno.serve(async (req) => {
         transaction_type: 'initial',
         status: 'completed',
       });
+
+      console.log('Contribution record created');
 
       // Update metrics
       const { data: metrics } = await supabaseClient.from('metrics').select('*').single();
@@ -252,6 +367,14 @@ Deno.serve(async (req) => {
         const newTotalSold = parseFloat(metrics.total_tokens_sold.toString()) + mxiAmount;
         const newTotalUsdt = parseFloat(metrics.total_usdt_contributed.toString()) + usdtAmount;
 
+        console.log('Updating metrics:', {
+          phaseField,
+          currentPhaseSold,
+          newPhaseSold,
+          newTotalSold,
+          newTotalUsdt,
+        });
+
         await supabaseClient
           .from('metrics')
           .update({
@@ -261,10 +384,13 @@ Deno.serve(async (req) => {
             updated_at: new Date().toISOString(),
           })
           .eq('id', metrics.id);
+
+        console.log('Metrics updated');
       }
 
       // Process referral commissions (5%, 2%, 1%)
       if (user.referred_by) {
+        console.log('Processing referral commissions for user:', user.id);
         const commissionRates = [0.05, 0.02, 0.01]; // 5%, 2%, 1%
         let currentReferrer = user.referred_by;
 
@@ -277,6 +403,12 @@ Deno.serve(async (req) => {
 
           if (referrer) {
             const commissionAmount = mxiAmount * commissionRates[level - 1];
+
+            console.log(`Processing level ${level} commission:`, {
+              referrer: referrer.id,
+              commissionAmount,
+              rate: commissionRates[level - 1] * 100 + '%',
+            });
 
             // Update referrer balance
             const newReferrerBalance = parseFloat(referrer.mxi_balance.toString()) + commissionAmount;
@@ -310,9 +442,12 @@ Deno.serve(async (req) => {
               status: 'available',
             });
 
+            console.log(`Level ${level} commission processed for referrer:`, referrer.id);
+
             // Move to next level
             currentReferrer = referrer.referred_by;
           } else {
+            console.log(`No referrer found at level ${level}`);
             break;
           }
         }
@@ -347,6 +482,8 @@ Deno.serve(async (req) => {
 
       console.log('Payment processed successfully:', orderId);
     } else if (paymentStatus === 'failed' || paymentStatus === 'expired' || paymentStatus === 'cancelled') {
+      console.log('Payment failed/expired/cancelled:', orderId);
+      
       // Update transaction history as failed/expired/cancelled
       await supabaseClient
         .from('transaction_history')
@@ -356,6 +493,14 @@ Deno.serve(async (req) => {
           updated_at: new Date().toISOString(),
         })
         .eq('order_id', orderId);
+
+      // Mark webhook as processed
+      await supabaseClient
+        .from('nowpayments_webhook_logs')
+        .update({
+          processed: true,
+        })
+        .eq('payment_id', paymentId);
     }
 
     return new Response(
@@ -370,6 +515,7 @@ Deno.serve(async (req) => {
     );
   } catch (error: any) {
     console.error('Error in nowpayments-webhook:', error);
+    console.error('Error stack:', error.stack);
     return new Response(
       JSON.stringify({
         error: error.message || 'Internal server error',
