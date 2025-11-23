@@ -214,11 +214,35 @@ export default function PurchaseMXIScreen() {
 
       if (error) {
         console.error('Edge function error:', error);
-        throw new Error(error.message || 'No se pudo generar el pago. Intenta nuevamente.');
+        
+        // Provide more specific error messages
+        let errorMessage = 'No se pudo generar el pago. Intenta nuevamente.';
+        
+        if (error.message) {
+          if (error.message.includes('No autorizado')) {
+            errorMessage = 'Tu sesión ha expirado. Por favor inicia sesión nuevamente.';
+          } else if (error.message.includes('monto mínimo')) {
+            errorMessage = error.message;
+          } else if (error.message.includes('Solo quedan')) {
+            errorMessage = error.message;
+          } else if (error.message.includes('servicio de pagos')) {
+            errorMessage = 'Error al conectar con el servicio de pagos. Por favor intenta nuevamente en unos momentos.';
+          } else {
+            errorMessage = error.message;
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
 
       if (!data || !data.invoice_url) {
         console.error('No invoice URL in response:', data);
+        
+        // Check if there's an error in the data
+        if (data && data.error) {
+          throw new Error(data.error);
+        }
+        
         throw new Error('No se pudo generar el pago. Intenta nuevamente.');
       }
 
@@ -230,7 +254,7 @@ export default function PurchaseMXIScreen() {
       if (opened) {
         Alert.alert(
           '✅ Orden Creada',
-          `Se ha creado tu orden de ${amount} MXI por $${total} USDT.\n\nSe ha abierto la página de pago de NOWPayments. Por favor completa el pago en la ventana del navegador.`,
+          `Se ha creado tu orden de ${amount} MXI por $${total} USDT.\n\nSe ha abierto la página de pago de NOWPayments. Por favor completa el pago en la ventana del navegador.\n\n💡 Consejo: Puedes encontrar esta orden en "Órdenes Pendientes" si necesitas volver a abrir el enlace de pago.`,
           [
             { 
               text: 'Ver Historial', 
@@ -249,7 +273,7 @@ export default function PurchaseMXIScreen() {
       } else {
         Alert.alert(
           '⚠️ Orden Creada',
-          `Tu orden ha sido creada pero no se pudo abrir el navegador automáticamente.\n\nPuedes encontrar tu orden en "Órdenes Pendientes" o en el "Historial de Transacciones".`,
+          `Tu orden ha sido creada pero no se pudo abrir el navegador automáticamente.\n\nPuedes encontrar tu orden en "Órdenes Pendientes" abajo o en el "Historial de Transacciones" para completar el pago.`,
           [
             { 
               text: 'Ver Historial', 
@@ -630,7 +654,7 @@ export default function PurchaseMXIScreen() {
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>•</Text>
               <Text style={styles.infoText}>
-                Los pagos se procesan con NOWPayments en USDT
+                Los pagos se procesan con NOWPayments en USDT (Tron TRC20)
               </Text>
             </View>
             <View style={styles.infoItem}>
