@@ -180,8 +180,8 @@ export default function PurchaseMXIScreen() {
     }
 
     // Validation: Check minimum amount
-    if (total < 20) {
-      Alert.alert('Monto Mínimo', 'El monto mínimo de compra es $20 USDT');
+    if (total < 3) {
+      Alert.alert('Monto Mínimo', 'El monto mínimo de compra es $3 USDT');
       return;
     }
 
@@ -484,6 +484,33 @@ export default function PurchaseMXIScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
+        {/* New Multi-Currency Payment Button */}
+        <TouchableOpacity
+          style={styles.multiCurrencyButton}
+          onPress={() => router.push('/(tabs)/(home)/payment-flow')}
+        >
+          <View style={styles.multiCurrencyContent}>
+            <IconSymbol
+              ios_icon_name="sparkles"
+              android_material_icon_name="auto_awesome"
+              size={24}
+              color="#fff"
+            />
+            <View style={styles.multiCurrencyText}>
+              <Text style={styles.multiCurrencyTitle}>🆕 Pago Multi-Moneda</Text>
+              <Text style={styles.multiCurrencySubtitle}>
+                Paga con BTC, ETH, USDT y más criptomonedas
+              </Text>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron_right"
+              size={20}
+              color="#fff"
+            />
+          </View>
+        </TouchableOpacity>
+
         {/* Phase Information */}
         <View style={[commonStyles.card, styles.phaseCard]}>
           <View style={styles.phaseHeader}>
@@ -550,7 +577,7 @@ export default function PurchaseMXIScreen() {
           <TouchableOpacity
             style={[styles.purchaseButton, loading && styles.purchaseButtonDisabled]}
             onPress={handleCreateOrder}
-            disabled={loading || !mxiAmount || parseFloat(usdtAmount) < 20}
+            disabled={loading || !mxiAmount || parseFloat(usdtAmount) < 3}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
@@ -562,14 +589,14 @@ export default function PurchaseMXIScreen() {
                   size={20}
                   color="#fff"
                 />
-                <Text style={styles.purchaseButtonText}>Pagar con USDT ETH (NOWPayments)</Text>
+                <Text style={styles.purchaseButtonText}>Pagar con USDT ETH (Rápido)</Text>
               </React.Fragment>
             )}
           </TouchableOpacity>
 
           <View style={styles.purchaseNotes}>
             <Text style={styles.minPurchaseNote}>
-              * Monto mínimo: $20 USDT ({Math.ceil(20 / phaseData.currentPriceUsdt)} MXI)
+              * Monto mínimo: $3 USDT ({Math.ceil(3 / phaseData.currentPriceUsdt)} MXI)
             </Text>
             <Text style={styles.minPurchaseNote}>
               * Monto máximo: $500,000 USDT por transacción
@@ -815,6 +842,35 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 20,
     paddingBottom: 120,
+  },
+  multiCurrencyButton: {
+    marginBottom: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})`,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  multiCurrencyContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: colors.primary,
+    gap: 12,
+  },
+  multiCurrencyText: {
+    flex: 1,
+  },
+  multiCurrencyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  multiCurrencySubtitle: {
+    fontSize: 13,
+    color: '#fff',
+    opacity: 0.9,
   },
   phaseCard: {
     marginBottom: 16,
