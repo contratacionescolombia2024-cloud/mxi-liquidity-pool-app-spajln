@@ -562,7 +562,7 @@ export default function PurchaseMXIScreen() {
                   size={20}
                   color="#fff"
                 />
-                <Text style={styles.purchaseButtonText}>Pagar con USDT (NOWPayments)</Text>
+                <Text style={styles.purchaseButtonText}>Pagar con USDT ETH (NOWPayments)</Text>
               </React.Fragment>
             )}
           </TouchableOpacity>
@@ -654,7 +654,7 @@ export default function PurchaseMXIScreen() {
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>•</Text>
               <Text style={styles.infoText}>
-                Los pagos se procesan con NOWPayments en USDT (Tron TRC20)
+                Los pagos se procesan con NOWPayments en USDT (Ethereum ERC20)
               </Text>
             </View>
             <View style={styles.infoItem}>
@@ -685,6 +685,12 @@ export default function PurchaseMXIScreen() {
               <Text style={styles.infoBullet}>•</Text>
               <Text style={styles.infoText}>
                 Puedes ver todas tus transacciones en el historial
+              </Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoBullet}>•</Text>
+              <Text style={styles.infoText}>
+                Red de pago: Ethereum (ERC20) - Asegúrate de usar la red correcta
               </Text>
             </View>
           </View>

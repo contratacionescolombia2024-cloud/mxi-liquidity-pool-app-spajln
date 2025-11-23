@@ -196,17 +196,22 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Verify payment currency (accept both usdttrc20 and usdt)
+      // Verify payment currency - UPDATED TO ACCEPT USDT ETH
       const normalizedCurrency = payCurrency.toLowerCase().replace(/[^a-z]/g, '');
-      if (!normalizedCurrency.includes('usdt')) {
-        console.error('Invalid payment currency:', payCurrency);
+      
+      // Accept both usdteth and usdt (generic) - reject trc20 variants
+      const isValidCurrency = normalizedCurrency.includes('usdteth') || 
+                             (normalizedCurrency.includes('usdt') && !normalizedCurrency.includes('trc'));
+      
+      if (!isValidCurrency) {
+        console.error('Invalid payment currency:', payCurrency, 'normalized:', normalizedCurrency);
         
         await supabaseClient
           .from('transaction_history')
           .update({
             status: 'failed',
-            error_message: 'Moneda de pago inválida',
-            error_details: { expected: 'USDT', received: payCurrency },
+            error_message: 'Moneda de pago inválida - se requiere USDT ETH',
+            error_details: { expected: 'USDT ETH (ERC20)', received: payCurrency },
             updated_at: new Date().toISOString(),
           })
           .eq('order_id', orderId);
@@ -214,19 +219,21 @@ Deno.serve(async (req) => {
         await supabaseClient
           .from('nowpayments_webhook_logs')
           .update({
-            error: 'Invalid payment currency',
+            error: 'Invalid payment currency - expected USDT ETH',
             processed: true,
           })
           .eq('payment_id', paymentId);
 
         return new Response(
-          JSON.stringify({ error: 'Invalid payment currency' }),
+          JSON.stringify({ error: 'Invalid payment currency - expected USDT ETH' }),
           {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           }
         );
       }
+
+      console.log('Payment currency validated:', payCurrency);
 
       // Verify amount (allow small variance for network fees - 5%)
       const expectedAmount = parseFloat(order.usdt_amount.toString());

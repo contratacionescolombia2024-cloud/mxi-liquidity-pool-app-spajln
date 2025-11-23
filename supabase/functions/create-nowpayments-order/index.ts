@@ -166,6 +166,7 @@ Deno.serve(async (req) => {
         metadata: {
           phase: currentPhase,
           price_per_mxi: pricePerMxi,
+          pay_currency: 'usdteth',
         },
       })
       .select()
@@ -191,11 +192,11 @@ Deno.serve(async (req) => {
     // Webhook URL - this is where NOWPayments will send payment status updates
     const webhookUrl = 'https://ienxcoudewmbuuldyecb.supabase.co/functions/v1/nowpayments-webhook';
 
-    // Create invoice payload with webhook callback
+    // Create invoice payload with webhook callback - CHANGED TO USDT ETH
     const invoicePayload = {
       price_amount: totalUsdt,
       price_currency: 'usd',
-      pay_currency: 'usdttrc20',
+      pay_currency: 'usdteth', // CHANGED FROM usdttrc20 TO usdteth (USDT on Ethereum ERC20)
       ipn_callback_url: webhookUrl,
       order_id: orderId,
       order_description: `Compra de ${mxi_amount} MXI - Fase ${currentPhase}`,
@@ -360,12 +361,13 @@ Deno.serve(async (req) => {
           price_per_mxi: pricePerMxi,
           invoice_id: invoiceData.id,
           order_id: invoiceData.order_id || orderId,
+          pay_currency: 'usdteth',
         },
         updated_at: new Date().toISOString(),
       })
       .eq('id', transactionId);
 
-    // Store order in nowpayments_orders table
+    // Store order in nowpayments_orders table - CHANGED TO USDT ETH
     const { data: order, error: orderError } = await supabaseClient
       .from('nowpayments_orders')
       .insert({
@@ -380,7 +382,7 @@ Deno.serve(async (req) => {
         status: 'waiting',
         pay_address: null,
         pay_amount: totalUsdt,
-        pay_currency: 'usdttrc20',
+        pay_currency: 'usdteth', // CHANGED FROM usdttrc20 TO usdteth
         expires_at: new Date(Date.now() + 3600000).toISOString(),
       })
       .select()
@@ -406,6 +408,7 @@ Deno.serve(async (req) => {
         usdt_amount: totalUsdt,
         price_per_mxi: pricePerMxi,
         phase: currentPhase,
+        pay_currency: 'usdteth',
         expires_at: order?.expires_at || new Date(Date.now() + 3600000).toISOString(),
       }),
       {
