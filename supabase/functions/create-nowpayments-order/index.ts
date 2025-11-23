@@ -186,11 +186,36 @@ Deno.serve(async (req) => {
     transactionId = transaction.id;
     console.log('Transaction history created:', transactionId);
 
-    // NOWPayments API credentials
-    const nowpaymentsApiKey = '7QB99E2-JCE4H3A-QNC2GS3-1T5QDS9';
+    // SECURITY FIX: Get API key from environment variable
+    const nowpaymentsApiKey = Deno.env.get('NOWPAYMENTS_API_KEY');
+    
+    if (!nowpaymentsApiKey) {
+      console.error('NOWPAYMENTS_API_KEY environment variable is not set');
+      
+      // Update transaction as failed
+      await supabaseClient
+        .from('transaction_history')
+        .update({
+          status: 'failed',
+          error_message: 'Error de configuración del servidor',
+          error_details: { message: 'API key not configured' },
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', transactionId);
+
+      return new Response(
+        JSON.stringify({
+          error: 'Error de configuración del servidor. Por favor contacta al soporte.',
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
     
     // Webhook URL - this is where NOWPayments will send payment status updates
-    const webhookUrl = 'https://ienxcoudewmbuuldyecb.supabase.co/functions/v1/nowpayments-webhook';
+    const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/nowpayments-webhook`;
 
     // Create invoice payload with webhook callback - CHANGED TO USDT ETH
     const invoicePayload = {

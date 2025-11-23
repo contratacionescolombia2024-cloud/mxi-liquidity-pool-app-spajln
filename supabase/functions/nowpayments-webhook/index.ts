@@ -71,19 +71,20 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verify webhook signature
-    const webhookSecret = Deno.env.get('NOWPAYMENTS_WEBHOOK_SECRET') || '7QB99E2-JCE4H3A-QNC2GS3-1T5QDS9';
+    // SECURITY FIX: Get webhook secret from environment variable
+    const webhookSecret = Deno.env.get('NOWPAYMENTS_WEBHOOK_SECRET');
     const receivedSignature = req.headers.get('x-nowpayments-sig');
     
     console.log('Webhook secret configured:', !!webhookSecret);
     console.log('Received signature:', receivedSignature);
 
-    if (receivedSignature) {
+    // Verify signature if both secret and signature are present
+    if (webhookSecret && receivedSignature) {
       const isValid = await verifySignature(rawBody, receivedSignature, webhookSecret);
       console.log('Signature verification result:', isValid);
       
       if (!isValid) {
-        console.error('Invalid webhook signature');
+        console.error('Invalid webhook signature - possible security breach attempt');
         return new Response(
           JSON.stringify({ error: 'Invalid signature' }),
           {
@@ -92,8 +93,12 @@ Deno.serve(async (req) => {
           }
         );
       }
-    } else {
-      console.warn('No signature provided in webhook request');
+      console.log('Webhook signature verified successfully');
+    } else if (!webhookSecret) {
+      console.warn('NOWPAYMENTS_WEBHOOK_SECRET not configured - webhook signature verification disabled');
+      console.warn('This is a security risk in production. Please configure the webhook secret.');
+    } else if (!receivedSignature) {
+      console.warn('No signature provided in webhook request - this may indicate an issue with NOWPayments configuration');
     }
 
     // Log webhook for debugging
