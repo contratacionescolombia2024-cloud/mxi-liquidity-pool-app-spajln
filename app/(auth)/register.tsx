@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
+import { supabase } from '@/lib/supabase';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -77,6 +78,19 @@ export default function RegisterScreen() {
       password,
       referralCode: referralCode || undefined,
     });
+
+    if (result.success && result.userId) {
+      // Save terms acceptance timestamp
+      const { error: termsError } = await supabase
+        .from('users')
+        .update({ terms_accepted_at: new Date().toISOString() })
+        .eq('id', result.userId);
+
+      if (termsError) {
+        console.error('Error saving terms acceptance:', termsError);
+      }
+    }
+
     setLoading(false);
 
     if (result.success) {

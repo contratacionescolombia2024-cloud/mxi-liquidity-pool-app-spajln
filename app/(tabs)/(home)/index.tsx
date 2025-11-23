@@ -66,7 +66,6 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [currentYield, setCurrentYield] = useState(0);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [poolMembers, setPoolMembers] = useState(56527);
   const [phaseData, setPhaseData] = useState<PhaseData | null>(null);
   const [referralMetrics, setReferralMetrics] = useState<ReferralMetrics | null>(null);
   const [challengeMetrics, setChallengeMetrics] = useState<ChallengeMetrics | null>(null);
@@ -102,7 +101,6 @@ export default function HomeScreen() {
       console.error('Error loading metrics:', metricsError);
     } else if (metricsData) {
       console.log('Metrics loaded:', metricsData);
-      setPoolMembers(metricsData.total_members);
       setPhaseData({
         totalTokensSold: parseFloat(metricsData.total_tokens_sold || '0'),
         currentPhase: metricsData.current_phase || 1,
@@ -543,6 +541,26 @@ export default function HomeScreen() {
         {/* Vesting Counter - POSITIONED BELOW MXI BALANCE */}
         <VestingCounter />
 
+        {/* MXI Sold Display - ONLY SHOW MXI SOLD, NOT USER COUNT */}
+        {phaseData && (
+          <View style={[commonStyles.card, styles.statsCard]}>
+            <Text style={styles.statsTitle}>Estadísticas de Pre-Venta</Text>
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <IconSymbol ios_icon_name="chart.bar.fill" android_material_icon_name="bar_chart" size={24} color={colors.primary} />
+                <Text style={styles.statValue}>{formatNumber(phaseData.totalTokensSold)}</Text>
+                <Text style={styles.statLabel}>MXI Vendidos</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <IconSymbol ios_icon_name="person.2.fill" android_material_icon_name="people" size={24} color={colors.success} />
+                <Text style={styles.statValue}>{user.activeReferrals}</Text>
+                <Text style={styles.statLabel}>Referidos Activos</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Referral Metrics */}
         {loadingMetrics ? (
           <View style={[commonStyles.card, styles.loadingCard]}>
@@ -786,23 +804,6 @@ export default function HomeScreen() {
             onClaim={handleClaimYield}
           />
         )}
-
-        <View style={[commonStyles.card, styles.statsCard]}>
-          <Text style={styles.statsTitle}>Estadísticas del Pool</Text>
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <IconSymbol ios_icon_name="person.3.fill" android_material_icon_name="group" size={24} color={colors.primary} />
-              <Text style={styles.statValue}>{poolMembers.toLocaleString()}</Text>
-              <Text style={styles.statLabel}>Miembros</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <IconSymbol ios_icon_name="person.2.fill" android_material_icon_name="people" size={24} color={colors.success} />
-              <Text style={styles.statValue}>{user.activeReferrals}</Text>
-              <Text style={styles.statLabel}>Referidos Activos</Text>
-            </View>
-          </View>
-        </View>
 
         {isAdmin && (
           <TouchableOpacity

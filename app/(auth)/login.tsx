@@ -32,7 +32,6 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(false);
   const [rememberPassword, setRememberPassword] = useState(false);
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
 
   // Load saved credentials on mount
@@ -78,14 +77,6 @@ export default function LoginScreen() {
     
     if (!email || !password) {
       Alert.alert('Error', 'Por favor completa todos los campos');
-      return;
-    }
-
-    if (!acceptedTerms) {
-      Alert.alert(
-        'Términos y Condiciones Requeridos',
-        'Debes aceptar los Términos y Condiciones para iniciar sesión'
-      );
       return;
     }
 
@@ -238,37 +229,6 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Terms and Conditions Acceptance */}
-          <View style={styles.termsContainer}>
-            <TouchableOpacity
-              style={styles.checkboxContainer}
-              onPress={() => setAcceptedTerms(!acceptedTerms)}
-              disabled={loading}
-            >
-              <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
-                {acceptedTerms && (
-                  <IconSymbol
-                    ios_icon_name="checkmark"
-                    android_material_icon_name="check"
-                    size={16}
-                    color="#fff"
-                  />
-                )}
-              </View>
-              <View style={styles.termsTextContainer}>
-                <Text style={styles.termsText}>
-                  He leído y acepto los{' '}
-                  <Text
-                    style={styles.termsLink}
-                    onPress={() => setShowTermsModal(true)}
-                  >
-                    Términos y Condiciones
-                  </Text>
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-
           {needsVerification && (
             <View style={styles.verificationBox}>
               <IconSymbol 
@@ -310,6 +270,14 @@ export default function LoginScreen() {
             disabled={loading}
           >
             <Text style={buttonStyles.outlineText}>Crear Cuenta</Text>
+          </TouchableOpacity>
+
+          {/* Link to view terms */}
+          <TouchableOpacity
+            style={styles.termsLinkContainer}
+            onPress={() => setShowTermsModal(true)}
+          >
+            <Text style={styles.termsLinkText}>Ver Términos y Condiciones</Text>
           </TouchableOpacity>
         </View>
 
@@ -530,19 +498,10 @@ Los usuarios aceptan que las recompensas otorgadas son promocionales, digitales 
           </ScrollView>
           <View style={styles.modalFooter}>
             <TouchableOpacity
-              style={[buttonStyles.primary, styles.acceptButton]}
-              onPress={() => {
-                setAcceptedTerms(true);
-                setShowTermsModal(false);
-              }}
-            >
-              <Text style={buttonStyles.primaryText}>✓ Aceptar Términos</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[buttonStyles.outline, styles.closeButton]}
+              style={[buttonStyles.primary, styles.closeButton]}
               onPress={() => setShowTermsModal(false)}
             >
-              <Text style={buttonStyles.outlineText}>Cerrar</Text>
+              <Text style={buttonStyles.primaryText}>Cerrar</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -640,22 +599,6 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '600',
   },
-  termsContainer: {
-    marginBottom: 20,
-  },
-  termsTextContainer: {
-    flex: 1,
-  },
-  termsText: {
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
-  },
-  termsLink: {
-    color: colors.primary,
-    fontWeight: '600',
-    textDecorationLine: 'underline',
-  },
   verificationBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -700,6 +643,16 @@ const styles = StyleSheet.create({
   },
   registerButton: {
     marginBottom: 16,
+  },
+  termsLinkContainer: {
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  termsLinkText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
   footer: {
     marginTop: 32,
@@ -747,10 +700,6 @@ const styles = StyleSheet.create({
     padding: 20,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    gap: 12,
-  },
-  acceptButton: {
-    marginBottom: 0,
   },
   closeButton: {
     marginBottom: 0,
