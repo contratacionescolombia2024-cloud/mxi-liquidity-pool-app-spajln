@@ -246,6 +246,18 @@ export default function GameLobbyScreen() {
           <Text style={styles.gameName}>{session.tournament_games.name}</Text>
           <Text style={styles.sessionCode}>{session.session_code}</Text>
           
+          <View style={styles.playerCountBadge}>
+            <IconSymbol 
+              ios_icon_name="person.3.fill" 
+              android_material_icon_name="groups" 
+              size={20} 
+              color={colors.primary} 
+            />
+            <Text style={styles.playerCountText}>
+              Torneo de {session.num_players} Jugadores
+            </Text>
+          </View>
+          
           <View style={styles.statsRow}>
             <View style={styles.stat}>
               <Text style={styles.statLabel}>Premio (90%)</Text>
@@ -393,7 +405,22 @@ const styles = StyleSheet.create({
   sessionCode: {
     fontSize: 14,
     color: colors.textSecondary,
+    marginBottom: 12,
+  },
+  playerCountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.primary + '20',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
     marginBottom: 16,
+  },
+  playerCountText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary,
   },
   statsRow: {
     flexDirection: 'row',

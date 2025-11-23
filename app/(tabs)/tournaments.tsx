@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -43,6 +44,9 @@ export default function TournamentsScreen() {
   const [loading, setLoading] = useState(true);
   const [availableMXI, setAvailableMXI] = useState(0);
   const [joining, setJoining] = useState(false);
+  const [showPlayerSelector, setShowPlayerSelector] = useState(false);
+  const [selectedGame, setSelectedGame] = useState<TournamentGame | null>(null);
+  const [selectedPlayerCount, setSelectedPlayerCount] = useState<number>(3);
 
   useEffect(() => {
     console.log('[Tournaments] Mounted - User:', user?.id);
@@ -95,32 +99,70 @@ export default function TournamentsScreen() {
       return;
     }
 
-    // Confirm
+    // Check if there are waiting sessions
+    const { data: sessions } = await supabase
+      .from('game_sessions')
+      .select('id, num_players, (game_participants(count))')
+      .eq('game_id', game.id)
+      .eq('status', 'waiting')
+      .order('created_at', { ascending: true });
+
+    console.log('[Tournaments] Found sessions:', sessions?.length);
+
+    // Check if any session has space
+    let hasAvailableSession = false;
+    if (sessions && sessions.length > 0) {
+      for (const session of sessions) {
+        const count = (session as any).game_participants?.[0]?.count || 0;
+        if (count < session.num_players) {
+          hasAvailableSession = true;
+          break;
+        }
+      }
+    }
+
+    // If no available session, show player count selector
+    if (!hasAvailableSession) {
+      setSelectedGame(game);
+      setSelectedPlayerCount(3);
+      setShowPlayerSelector(true);
+    } else {
+      // Join existing session
+      confirmJoin(game, null);
+    }
+  };
+
+  const confirmJoin = (game: TournamentGame, playerCount: number | null) => {
+    const message = playerCount 
+      ? `¿Crear torneo de ${playerCount} jugadores por ${game.entry_fee} MXI?\n\n🏆 Premio: 90% del pool\n👥 ${playerCount} jugadores`
+      : `¿Participar por ${game.entry_fee} MXI?\n\n🏆 Premio: 90% del pool\n👥 ${game.min_players}-${game.max_players} jugadores`;
+
     Alert.alert(
       game.name,
-      `¿Participar por ${game.entry_fee} MXI?\n\n🏆 Premio: 90% del pool\n👥 ${game.min_players}-${game.max_players} jugadores`,
+      message,
       [
         { text: 'Cancelar', style: 'cancel' },
         { 
           text: 'Participar', 
-          onPress: () => executeJoin(game)
+          onPress: () => executeJoin(game, playerCount)
         }
       ]
     );
   };
 
-  const executeJoin = async (game: TournamentGame) => {
+  const executeJoin = async (game: TournamentGame, playerCount: number | null) => {
     setJoining(true);
+    setShowPlayerSelector(false);
     
     try {
-      console.log('[Tournaments] EXECUTE JOIN START');
+      console.log('[Tournaments] EXECUTE JOIN START - Player count:', playerCount);
       
       // 1. Find or create session
       let sessionId: string | null = null;
       
       const { data: sessions } = await supabase
         .from('game_sessions')
-        .select('id, (game_participants(count))')
+        .select('id, num_players, (game_participants(count))')
         .eq('game_id', game.id)
         .eq('status', 'waiting')
         .order('created_at', { ascending: true });
@@ -131,7 +173,7 @@ export default function TournamentsScreen() {
       if (sessions && sessions.length > 0) {
         for (const session of sessions) {
           const count = (session as any).game_participants?.[0]?.count || 0;
-          if (count < game.max_players) {
+          if (count < session.num_players) {
             sessionId = session.id;
             break;
           }
@@ -140,13 +182,13 @@ export default function TournamentsScreen() {
 
       // Create new session if needed
       if (!sessionId) {
-        console.log('[Tournaments] Creating new session');
+        console.log('[Tournaments] Creating new session with', playerCount || game.min_players, 'players');
         const { data: newSession, error: createError } = await supabase
           .from('game_sessions')
           .insert({
             game_id: game.id,
             session_code: `${game.game_type.toUpperCase()}-${Date.now().toString(36)}`,
-            num_players: game.min_players,
+            num_players: playerCount || game.min_players,
             status: 'waiting',
             total_pool: 0,
             prize_amount: 0
@@ -156,7 +198,7 @@ export default function TournamentsScreen() {
 
         if (createError) throw createError;
         sessionId = newSession.id;
-        console.log('[Tournaments] Created session:', sessionId);
+        console.log('[Tournaments] Created session:', sessionId, 'with', newSession.num_players, 'players');
       }
 
       // 2. Get player number
@@ -384,6 +426,95 @@ export default function TournamentsScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Player Count Selector Modal */}
+      <Modal
+        visible={showPlayerSelector}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowPlayerSelector(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Seleccionar Jugadores</Text>
+              <TouchableOpacity 
+                onPress={() => setShowPlayerSelector(false)}
+                style={styles.modalCloseButton}
+              >
+                <IconSymbol 
+                  ios_icon_name="xmark.circle.fill" 
+                  android_material_icon_name="cancel" 
+                  size={28} 
+                  color={colors.textSecondary} 
+                />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalDescription}>
+              Como primer jugador, elige cuántos jugadores participarán en este torneo:
+            </Text>
+
+            <View style={styles.playerOptions}>
+              {[3, 4, 5].map((count) => (
+                <TouchableOpacity
+                  key={count}
+                  style={[
+                    styles.playerOption,
+                    selectedPlayerCount === count && styles.playerOptionSelected
+                  ]}
+                  onPress={() => setSelectedPlayerCount(count)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[
+                    styles.playerOptionIcon,
+                    selectedPlayerCount === count && styles.playerOptionIconSelected
+                  ]}>
+                    <IconSymbol 
+                      ios_icon_name="person.3.fill" 
+                      android_material_icon_name="groups" 
+                      size={32} 
+                      color={selectedPlayerCount === count ? colors.background : colors.primary} 
+                    />
+                  </View>
+                  <Text style={[
+                    styles.playerOptionText,
+                    selectedPlayerCount === count && styles.playerOptionTextSelected
+                  ]}>
+                    {count} Jugadores
+                  </Text>
+                  <Text style={[
+                    styles.playerOptionSubtext,
+                    selectedPlayerCount === count && styles.playerOptionSubtextSelected
+                  ]}>
+                    Premio: {selectedGame ? (selectedGame.entry_fee * count * 0.9).toFixed(2) : 0} MXI
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              style={[buttonStyles.primary, styles.confirmButton]}
+              onPress={() => {
+                if (selectedGame) {
+                  confirmJoin(selectedGame, selectedPlayerCount);
+                }
+              }}
+            >
+              <Text style={buttonStyles.primaryText}>
+                Crear Torneo de {selectedPlayerCount} Jugadores
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[buttonStyles.secondary, styles.cancelButton]}
+              onPress={() => setShowPlayerSelector(false)}
+            >
+              <Text style={buttonStyles.secondaryText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -544,5 +675,96 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalDescription: {
+    fontSize: 15,
+    color: colors.textSecondary,
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  playerOptions: {
+    gap: 12,
+    marginBottom: 24,
+  },
+  playerOption: {
+    backgroundColor: colors.background,
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  playerOptionSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  playerOptionIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.primary + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  playerOptionIconSelected: {
+    backgroundColor: colors.background + '30',
+  },
+  playerOptionText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  playerOptionTextSelected: {
+    color: colors.background,
+  },
+  playerOptionSubtext: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  playerOptionSubtextSelected: {
+    color: colors.background + 'CC',
+  },
+  confirmButton: {
+    marginBottom: 12,
+  },
+  cancelButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
 });
