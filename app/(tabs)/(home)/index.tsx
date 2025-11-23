@@ -104,9 +104,15 @@ export default function HomeScreen() {
       
       console.log('Real MXI sold from users:', totalMxiSold);
       
-      // Determine current phase based on date - STARTING TODAY
+      // Get presale dates from database
+      const { data: metricsData } = await supabase
+        .from('metrics')
+        .select('pool_close_date')
+        .single();
+      
+      // FIXED: Use actual presale start date (today) and end date from database
       const presaleStartDate = new Date(); // Start NOW
-      const presaleEndDate = new Date('2025-02-15T12:00:00Z');
+      const presaleEndDate = new Date(metricsData?.pool_close_date || '2026-02-15T12:00:00Z');
       const now = new Date();
       
       const totalDuration = presaleEndDate.getTime() - presaleStartDate.getTime();

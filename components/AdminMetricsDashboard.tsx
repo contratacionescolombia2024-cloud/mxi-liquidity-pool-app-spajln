@@ -57,18 +57,17 @@ export function AdminMetricsDashboard() {
     loadMetrics();
   }, []);
 
-  const calculatePhaseInfo = (presaleEndDate: Date) => {
-    // Presale starts NOW (today)
-    const presaleStartDate = new Date();
+  const calculatePhaseInfo = (presaleStartDate: Date, presaleEndDate: Date) => {
+    const startDate = new Date(presaleStartDate);
     const endDate = new Date(presaleEndDate);
     
     // Calculate total duration in milliseconds
-    const totalDuration = endDate.getTime() - presaleStartDate.getTime();
+    const totalDuration = endDate.getTime() - startDate.getTime();
     const phaseDuration = totalDuration / 3;
     
     // Calculate phase dates
-    const phase1Start = presaleStartDate;
-    const phase1End = new Date(presaleStartDate.getTime() + phaseDuration);
+    const phase1Start = startDate;
+    const phase1End = new Date(startDate.getTime() + phaseDuration);
     const phase2Start = phase1End;
     const phase2End = new Date(phase2Start.getTime() + phaseDuration);
     const phase3Start = phase2End;
@@ -99,7 +98,6 @@ export function AdminMetricsDashboard() {
       phase2EndDate: phase2End,
       phase3StartDate: phase3Start,
       phase3EndDate: phase3End,
-      presaleStartDate,
     };
   };
 
@@ -158,7 +156,7 @@ export function AdminMetricsDashboard() {
       const totalCommissions = commissionsData?.length || 0;
       const totalCommissionAmount = commissionsData?.reduce((sum, c) => sum + parseFloat(c.amount?.toString() || '0'), 0) || 0;
 
-      // Get metrics data for dates only
+      // Get metrics data for dates
       const { data: metricsData, error: metricsError } = await supabase
         .from('metrics')
         .select('pool_close_date')
@@ -166,8 +164,10 @@ export function AdminMetricsDashboard() {
 
       if (metricsError) throw metricsError;
 
-      const presaleEndDate = new Date(metricsData?.pool_close_date || '2025-02-15T12:00:00Z');
-      const phaseInfo = calculatePhaseInfo(presaleEndDate);
+      // FIXED: Use the actual presale start date (today) and end date from database
+      const presaleStartDate = new Date(); // Start NOW
+      const presaleEndDate = new Date(metricsData?.pool_close_date || '2026-02-15T12:00:00Z');
+      const phaseInfo = calculatePhaseInfo(presaleStartDate, presaleEndDate);
 
       // Calculate phase distribution based on current phase and actual MXI sold
       let phase1Sold = 0;
@@ -212,7 +212,7 @@ export function AdminMetricsDashboard() {
         phase3StartDate: phaseInfo.phase3StartDate,
         phase3EndDate: phaseInfo.phase3EndDate,
         presaleEndDate,
-        presaleStartDate: phaseInfo.presaleStartDate,
+        presaleStartDate,
         totalVestingLocked,
         totalVestingReleased,
         totalVestingPending,
