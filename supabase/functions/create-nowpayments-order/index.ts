@@ -184,27 +184,27 @@ Deno.serve(async (req) => {
     transactionId = transaction.id;
     console.log('Transaction history created:', transactionId);
 
-    // NOWPayments API Key - cleaned
+    // NOWPayments API Key and Public Key
     const nowpaymentsApiKey = '9SC5SM9-7SR45HD-JKXSWGY-489J5YA';
+    const nowpaymentsPublicKey = '8f1694be-d30a-47d5-bc90-c3eb24d43a7a';
     console.log('API Key configured, length:', nowpaymentsApiKey.length);
 
-    // Create payment with NOWPayments
+    // Create invoice with NOWPayments using /v1/invoice endpoint
     const nowpaymentsPayload = {
       price_amount: totalUsdt,
       price_currency: 'usd',
-      pay_currency: 'usdtbep20',
-      order_id: orderId,
-      order_description: `Compra de ${mxi_amount} tokens MXI`,
-      ipn_callback_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/nowpayments-webhook`,
+      pay_currency: 'usdt',
+      order_description: 'MXI Strategic Presale',
+      public_key: nowpaymentsPublicKey,
       success_url: 'https://natively.dev/(tabs)/(home)',
       cancel_url: 'https://natively.dev/(tabs)/(home)/purchase-mxi',
     };
 
-    console.log('NOWPayments request payload:', JSON.stringify(nowpaymentsPayload, null, 2));
+    console.log('NOWPayments invoice request payload:', JSON.stringify(nowpaymentsPayload, null, 2));
 
     let nowpaymentsResponse;
     try {
-      nowpaymentsResponse = await fetch('https://api.nowpayments.io/v1/payment', {
+      nowpaymentsResponse = await fetch('https://api.nowpayments.io/v1/invoice', {
         method: 'POST',
         headers: {
           'x-api-key': nowpaymentsApiKey,
@@ -283,10 +283,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    let paymentData;
+    let invoiceData;
     try {
-      paymentData = JSON.parse(responseText);
-      console.log('NOWPayments response data:', JSON.stringify(paymentData, null, 2));
+      invoiceData = JSON.parse(responseText);
+      console.log('NOWPayments invoice response data:', JSON.stringify(invoiceData, null, 2));
     } catch (e) {
       console.error('Failed to parse NOWPayments response:', e);
       
@@ -313,16 +313,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Construct payment URL - NOWPayments returns invoice_url or we construct it
-    let paymentUrl = paymentData.invoice_url;
+    // Extract invoice URL from response
+    const invoiceUrl = invoiceData.invoice_url;
     
-    if (!paymentUrl && paymentData.payment_id) {
-      paymentUrl = `https://nowpayments.io/payment/?iid=${paymentData.payment_id}`;
-      console.log('Constructed payment URL from payment_id:', paymentUrl);
-    }
-
-    if (!paymentUrl) {
-      console.error('No payment URL available:', paymentData);
+    if (!invoiceUrl) {
+      console.error('No invoice URL in response:', invoiceData);
       
       // Update transaction as failed
       await supabaseClient
@@ -330,15 +325,15 @@ Deno.serve(async (req) => {
         .update({
           status: 'failed',
           error_message: 'No se pudo obtener la URL de pago',
-          error_details: paymentData,
+          error_details: invoiceData,
           updated_at: new Date().toISOString(),
         })
         .eq('id', transactionId);
 
       return new Response(
         JSON.stringify({
-          error: 'Pago creado pero no se pudo obtener la URL de pago',
-          payment_data: paymentData,
+          error: 'No se pudo obtener la URL de pago del servidor',
+          invoice_data: invoiceData,
         }),
         {
           status: 500,
@@ -347,21 +342,20 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('Payment URL:', paymentUrl);
+    console.log('Invoice URL received:', invoiceUrl);
 
-    // Update transaction history with payment details
+    // Update transaction history with invoice details
     await supabaseClient
       .from('transaction_history')
       .update({
-        payment_id: paymentData.payment_id || null,
-        payment_url: paymentUrl,
-        status: paymentData.payment_status || 'waiting',
+        payment_id: invoiceData.id || null,
+        payment_url: invoiceUrl,
+        status: 'waiting',
         metadata: {
           phase: currentPhase,
           price_per_mxi: pricePerMxi,
-          pay_address: paymentData.pay_address,
-          pay_amount: paymentData.pay_amount,
-          pay_currency: paymentData.pay_currency,
+          invoice_id: invoiceData.id,
+          order_id: invoiceData.order_id,
         },
         updated_at: new Date().toISOString(),
       })
@@ -373,16 +367,16 @@ Deno.serve(async (req) => {
       .insert({
         user_id: user.id,
         order_id: orderId,
-        payment_id: paymentData.payment_id || null,
-        payment_url: paymentUrl,
+        payment_id: invoiceData.id || null,
+        payment_url: invoiceUrl,
         mxi_amount: mxi_amount,
         usdt_amount: totalUsdt,
         price_per_mxi: pricePerMxi,
         phase: currentPhase,
-        status: paymentData.payment_status || 'pending',
-        pay_address: paymentData.pay_address || null,
-        pay_amount: paymentData.pay_amount || null,
-        pay_currency: paymentData.pay_currency || 'usdtbep20',
+        status: 'waiting',
+        pay_address: null,
+        pay_amount: totalUsdt,
+        pay_currency: 'usdt',
         expires_at: new Date(Date.now() + 3600000).toISOString(),
       })
       .select()
@@ -391,26 +385,23 @@ Deno.serve(async (req) => {
     if (orderError) {
       console.error('Error storing order:', orderError);
       // Don't fail the request if we can't store the order
-      // The payment was created successfully and transaction history is updated
-      console.warn('Order created in NOWPayments but failed to store in nowpayments_orders table');
+      // The invoice was created successfully and transaction history is updated
+      console.warn('Invoice created in NOWPayments but failed to store in nowpayments_orders table');
     } else {
       console.log('Order stored successfully:', order.id);
     }
 
-    // Return payment details to client
+    // Return invoice details to client
     return new Response(
       JSON.stringify({
         success: true,
         order_id: orderId,
-        payment_id: paymentData.payment_id,
-        payment_url: paymentUrl,
+        invoice_id: invoiceData.id,
+        invoice_url: invoiceUrl,
         mxi_amount: mxi_amount,
         usdt_amount: totalUsdt,
         price_per_mxi: pricePerMxi,
         phase: currentPhase,
-        pay_address: paymentData.pay_address,
-        pay_amount: paymentData.pay_amount,
-        pay_currency: paymentData.pay_currency,
         expires_at: order?.expires_at || new Date(Date.now() + 3600000).toISOString(),
       }),
       {
