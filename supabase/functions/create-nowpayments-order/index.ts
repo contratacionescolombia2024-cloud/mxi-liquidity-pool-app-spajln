@@ -107,12 +107,12 @@ Deno.serve(async (req) => {
 
     console.log('Price calculation:', { currentPhase, pricePerMxi, totalUsdt });
 
-    // Validate minimum purchase (equivalent to $20 USDT)
-    if (totalUsdt < 20) {
+    // Validate minimum purchase (changed to $1 USDT for testing)
+    if (totalUsdt < 1) {
       return new Response(
         JSON.stringify({
-          error: 'El monto mínimo de compra es $20 USDT',
-          minimum_mxi: Math.ceil(20 / pricePerMxi),
+          error: 'El monto mínimo de compra es $1 USDT (modo prueba)',
+          minimum_mxi: Math.ceil(1 / pricePerMxi),
         }),
         {
           status: 400,
