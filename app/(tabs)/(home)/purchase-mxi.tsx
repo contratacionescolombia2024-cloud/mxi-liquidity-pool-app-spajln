@@ -201,70 +201,31 @@ export default function PurchaseMXIScreen() {
 
       console.log('Session valid, calling edge function...');
       
-      const functionUrl = `${supabase.supabaseUrl}/functions/v1/create-nowpayments-order`;
-      console.log('Function URL:', functionUrl);
-      
-      const response = await fetch(functionUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          mxi_amount: amount,
-        }),
+      const { data, error } = await supabase.functions.invoke('create-nowpayments-order', {
+        body: { mxi_amount: amount },
       });
 
-      console.log('Response status:', response.status);
-      
-      const responseText = await response.text();
-      console.log('Response text:', responseText);
-      
-      let result;
-      try {
-        result = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('Failed to parse response:', parseError);
-        throw new Error('Respuesta inválida del servidor');
-      }
-      
-      console.log('Parsed result:', result);
+      console.log('Edge function response:', { data, error });
 
-      if (!response.ok) {
-        console.error('Error response:', result);
-        
-        // Show detailed error with option to view transaction history
-        Alert.alert(
-          '❌ Error al Crear Orden',
-          result.error || 'No se pudo crear la orden de pago',
-          [
-            {
-              text: 'Ver Historial',
-              onPress: () => router.push('/(tabs)/(home)/transaction-history'),
-            },
-            {
-              text: 'Reintentar',
-              onPress: () => handleCreateOrder(),
-            },
-            { text: 'Cancelar', style: 'cancel' },
-          ]
-        );
-        return;
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message || 'Error al crear la orden');
       }
 
-      if (!result.payment_url) {
-        console.error('No payment URL in response:', result);
+      if (!data || !data.invoice_url) {
+        console.error('No invoice URL in response:', data);
         throw new Error('No se recibió URL de pago del servidor');
       }
 
-      console.log('Payment URL received:', result.payment_url);
+      console.log('Invoice URL received:', data.invoice_url);
 
-      const opened = await openPaymentUrl(result.payment_url);
+      // Open the payment URL
+      const opened = await openPaymentUrl(data.invoice_url);
       
       if (opened) {
         Alert.alert(
           '✅ Orden Creada',
-          `Se ha creado tu orden de ${amount} MXI por $${total} USDT.\n\nSe ha abierto la página de pago. Por favor completa el pago en la ventana del navegador.`,
+          `Se ha creado tu orden de ${amount} MXI por $${total} USDT.\n\nSe ha abierto la página de pago de NOWPayments. Por favor completa el pago en la ventana del navegador.`,
           [
             { 
               text: 'Ver Historial', 
@@ -309,7 +270,7 @@ export default function PurchaseMXIScreen() {
       
       Alert.alert(
         '❌ Error',
-        error.message || 'No se pudo crear la orden. Por favor intenta nuevamente.',
+        error.message || 'No se pudo generar el pago. Intente nuevamente.',
         [
           {
             text: 'Ver Historial',
@@ -553,7 +514,7 @@ export default function PurchaseMXIScreen() {
             <Text style={styles.totalLabel}>Total a Pagar</Text>
             <View style={styles.totalAmount}>
               <Text style={styles.totalValue}>${usdtAmount}</Text>
-              <Text style={styles.totalCurrency}>USDT BEP20</Text>
+              <Text style={styles.totalCurrency}>USDT</Text>
             </View>
           </View>
 
@@ -664,7 +625,7 @@ export default function PurchaseMXIScreen() {
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>•</Text>
               <Text style={styles.infoText}>
-                Los pagos se procesan con NOWPayments en USDT BEP20
+                Los pagos se procesan con NOWPayments en USDT
               </Text>
             </View>
             <View style={styles.infoItem}>
