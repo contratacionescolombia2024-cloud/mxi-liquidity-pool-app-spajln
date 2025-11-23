@@ -37,6 +37,9 @@ interface UserDetails {
   is_blocked: boolean;
   referral_code: string;
   referred_by: string | null;
+  referrer_name: string | null;
+  referrer_email: string | null;
+  referrer_code: string | null;
   yield_rate_per_minute: number;
   accumulated_yield: number;
   total_referrals: number;
@@ -82,10 +85,18 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
     try {
       setLoading(true);
 
-      // Load user details with aggregated data
+      // Load user details with referrer information
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('*')
+        .select(`
+          *,
+          referrer:users!users_referred_by_fkey(
+            id,
+            name,
+            email,
+            referral_code
+          )
+        `)
         .eq('id', userId)
         .single();
 
@@ -105,8 +116,13 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
 
       const totalCommissionAmount = commissionsData?.reduce((sum, c) => sum + parseFloat(c.amount.toString()), 0) || 0;
 
+      const referrerData = userData.referrer as any;
+
       setUserDetails({
         ...userData,
+        referrer_name: referrerData?.name || null,
+        referrer_email: referrerData?.email || null,
+        referrer_code: referrerData?.referral_code || null,
         total_referrals: referralsData?.length || 0,
         total_commissions: commissionsData?.length || 0,
         total_commission_amount: totalCommissionAmount,
@@ -178,6 +194,8 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
     if (type === 'edit_commission' && item) {
       setInputValue(item.amount.toString());
       setInputValue2(item.status);
+    } else if (type === 'update_referrer' && userDetails) {
+      setInputValue(userDetails.referrer_code || '');
     }
     
     setModalVisible(true);
@@ -251,6 +269,36 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
     } catch (error: any) {
       console.error('Error in balance operation:', error);
       Alert.alert('❌ Error', error.message || 'Error en la operación');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateReferrer = async () => {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No authenticated');
+
+      const { data, error } = await supabase.rpc('admin_update_user_referrer', {
+        p_admin_id: user.id,
+        p_user_id: userId,
+        p_referrer_code: inputValue.trim() || null,
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        Alert.alert('✅ Éxito', data.message);
+        closeModal();
+        await loadUserDetails();
+        onUpdate();
+      } else {
+        Alert.alert('❌ Error', data?.error || 'Error al actualizar referidor');
+      }
+    } catch (error: any) {
+      console.error('Error updating referrer:', error);
+      Alert.alert('❌ Error', error.message || 'Error al actualizar referidor');
     } finally {
       setLoading(false);
     }
@@ -401,6 +449,45 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
           </View>
         );
 
+      case 'update_referrer':
+        return (
+          <View>
+            <Text style={styles.modalTitle}>🔗 Actualizar Referidor</Text>
+            <Text style={styles.modalSubtitle}>
+              Ingresa el código del nuevo referidor o deja vacío para remover
+            </Text>
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Código del Referidor</Text>
+              <TextInput
+                style={styles.input}
+                value={inputValue}
+                onChangeText={setInputValue}
+                placeholder="MXI123456 (vacío para remover)"
+                placeholderTextColor={colors.textSecondary}
+                autoCapitalize="characters"
+              />
+            </View>
+            {userDetails?.referrer_code && (
+              <View style={styles.currentReferrerInfo}>
+                <Text style={styles.currentReferrerLabel}>Referidor Actual:</Text>
+                <Text style={styles.currentReferrerValue}>{userDetails.referrer_name}</Text>
+                <Text style={styles.currentReferrerCode}>{userDetails.referrer_code}</Text>
+              </View>
+            )}
+            <TouchableOpacity
+              style={[buttonStyles.primary, loading && buttonStyles.disabled]}
+              onPress={handleUpdateReferrer}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#000" />
+              ) : (
+                <Text style={buttonStyles.primaryText}>Actualizar</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        );
+
       case 'link_referral':
         return (
           <View>
@@ -488,6 +575,40 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
               </View>
             )}
           </View>
+        </View>
+
+        {/* Referrer Information */}
+        <View style={styles.referrerSection}>
+          <View style={styles.referrerHeader}>
+            <Text style={styles.referrerTitle}>👤 Información del Referidor</Text>
+            <TouchableOpacity
+              style={styles.editReferrerButton}
+              onPress={() => openModal('update_referrer')}
+            >
+              <IconSymbol ios_icon_name="pencil" android_material_icon_name="edit" size={16} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+          {userDetails.referrer_name ? (
+            <View style={styles.referrerInfo}>
+              <View style={styles.referrerRow}>
+                <Text style={styles.referrerLabel}>Nombre:</Text>
+                <Text style={styles.referrerValue}>{userDetails.referrer_name}</Text>
+              </View>
+              <View style={styles.referrerRow}>
+                <Text style={styles.referrerLabel}>Email:</Text>
+                <Text style={styles.referrerValue}>{userDetails.referrer_email}</Text>
+              </View>
+              <View style={styles.referrerRow}>
+                <Text style={styles.referrerLabel}>Código:</Text>
+                <Text style={[styles.referrerValue, styles.referrerCode]}>{userDetails.referrer_code}</Text>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.noReferrerInfo}>
+              <IconSymbol ios_icon_name="person.slash" android_material_icon_name="person_off" size={24} color={colors.textSecondary} />
+              <Text style={styles.noReferrerText}>Sin referidor asignado</Text>
+            </View>
+          )}
         </View>
 
         {/* Balance Summary */}
@@ -776,6 +897,67 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
   },
+  referrerSection: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  referrerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  referrerTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  editReferrerButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primary + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  referrerInfo: {
+    gap: 8,
+  },
+  referrerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  referrerLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  referrerValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  referrerCode: {
+    fontFamily: 'monospace',
+    color: colors.primary,
+  },
+  noReferrerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    backgroundColor: colors.card,
+    borderRadius: 8,
+  },
+  noReferrerText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+  },
   balanceSummary: {
     flexDirection: 'row',
     gap: 12,
@@ -1014,5 +1196,29 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     color: colors.text,
+  },
+  currentReferrerInfo: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  currentReferrerLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  currentReferrerValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 2,
+  },
+  currentReferrerCode: {
+    fontSize: 12,
+    color: colors.primary,
+    fontFamily: 'monospace',
   },
 });
