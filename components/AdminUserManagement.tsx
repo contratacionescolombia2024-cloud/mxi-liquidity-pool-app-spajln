@@ -85,22 +85,31 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
     try {
       setLoading(true);
 
-      // Load user details with referrer information
+      // Load user details first
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select(`
-          *,
-          referrer:users!users_referred_by_fkey(
-            id,
-            name,
-            email,
-            referral_code
-          )
-        `)
+        .select('*')
         .eq('id', userId)
         .single();
 
-      if (userError) throw userError;
+      if (userError) {
+        console.error('Error loading user:', userError);
+        throw userError;
+      }
+
+      // Load referrer information separately if referred_by exists
+      let referrerData = null;
+      if (userData.referred_by) {
+        const { data: refData, error: refError } = await supabase
+          .from('users')
+          .select('id, name, email, referral_code')
+          .eq('id', userData.referred_by)
+          .single();
+
+        if (!refError && refData) {
+          referrerData = refData;
+        }
+      }
 
       // Load referrals count
       const { data: referralsData, error: referralsError } = await supabase
@@ -116,8 +125,6 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
 
       const totalCommissionAmount = commissionsData?.reduce((sum, c) => sum + parseFloat(c.amount.toString()), 0) || 0;
 
-      const referrerData = userData.referrer as any;
-
       setUserDetails({
         ...userData,
         referrer_name: referrerData?.name || null,
@@ -131,55 +138,69 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
       // Load detailed commissions
       const { data: detailedCommissions, error: commError } = await supabase
         .from('commissions')
-        .select(`
-          id,
-          amount,
-          level,
-          status,
-          created_at,
-          from_user:users!commissions_from_user_id_fkey(name)
-        `)
+        .select('id, amount, level, status, created_at, from_user_id')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(10);
 
       if (!commError && detailedCommissions) {
-        setCommissions(detailedCommissions.map(c => ({
-          id: c.id,
-          amount: parseFloat(c.amount.toString()),
-          level: c.level,
-          status: c.status,
-          from_user_name: (c.from_user as any)?.name || 'Unknown',
-          created_at: c.created_at,
-        })));
+        // Load from_user names separately
+        const commissionsWithNames = await Promise.all(
+          detailedCommissions.map(async (c) => {
+            const { data: fromUser } = await supabase
+              .from('users')
+              .select('name')
+              .eq('id', c.from_user_id)
+              .single();
+
+            return {
+              id: c.id,
+              amount: parseFloat(c.amount.toString()),
+              level: c.level,
+              status: c.status,
+              from_user_name: fromUser?.name || 'Unknown',
+              created_at: c.created_at,
+            };
+          })
+        );
+
+        setCommissions(commissionsWithNames);
       }
 
       // Load detailed referrals
       const { data: detailedReferrals, error: refError } = await supabase
         .from('referrals')
-        .select(`
-          id,
-          level,
-          created_at,
-          referred:users!referrals_referred_id_fkey(name, is_active_contributor)
-        `)
+        .select('id, level, created_at, referred_id')
         .eq('referrer_id', userId)
         .order('created_at', { ascending: false })
         .limit(10);
 
       if (!refError && detailedReferrals) {
-        setReferrals(detailedReferrals.map(r => ({
-          id: r.id,
-          referred_name: (r.referred as any)?.name || 'Unknown',
-          level: r.level,
-          is_active: (r.referred as any)?.is_active_contributor || false,
-          created_at: r.created_at,
-        })));
+        // Load referred user names separately
+        const referralsWithNames = await Promise.all(
+          detailedReferrals.map(async (r) => {
+            const { data: referredUser } = await supabase
+              .from('users')
+              .select('name, is_active_contributor')
+              .eq('id', r.referred_id)
+              .single();
+
+            return {
+              id: r.id,
+              referred_name: referredUser?.name || 'Unknown',
+              level: r.level,
+              is_active: referredUser?.is_active_contributor || false,
+              created_at: r.created_at,
+            };
+          })
+        );
+
+        setReferrals(referralsWithNames);
       }
 
     } catch (error) {
       console.error('Error loading user details:', error);
-      Alert.alert('Error', 'Failed to load user details');
+      Alert.alert('Error', 'No se pudieron cargar los detalles del usuario. Por favor, intenta de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -547,6 +568,12 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>No se pudieron cargar los detalles del usuario</Text>
+        <TouchableOpacity
+          style={[buttonStyles.primary, { marginTop: 16 }]}
+          onPress={loadUserDetails}
+        >
+          <Text style={buttonStyles.primaryText}>Reintentar</Text>
+        </TouchableOpacity>
       </View>
     );
   }
