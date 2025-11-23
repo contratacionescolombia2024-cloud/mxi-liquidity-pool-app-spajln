@@ -191,11 +191,11 @@ Deno.serve(async (req) => {
     // Webhook URL - this is where NOWPayments will send payment status updates
     const webhookUrl = 'https://ienxcoudewmbuuldyecb.supabase.co/functions/v1/nowpayments-webhook';
 
-    // Create invoice payload with webhook callback
+    // Create invoice payload with webhook callback - CHANGED TO usdterc20 (USDT on Ethereum)
     const invoicePayload = {
       price_amount: totalUsdt,
       price_currency: 'usd',
-      pay_currency: 'usdttrc20',
+      pay_currency: 'usdterc20',
       ipn_callback_url: webhookUrl,
       order_id: orderId,
       order_description: `Compra de ${mxi_amount} MXI - Fase ${currentPhase}`,
@@ -380,7 +380,7 @@ Deno.serve(async (req) => {
         status: 'waiting',
         pay_address: null,
         pay_amount: totalUsdt,
-        pay_currency: 'usdttrc20',
+        pay_currency: 'usdterc20',
         expires_at: new Date(Date.now() + 3600000).toISOString(),
       })
       .select()
