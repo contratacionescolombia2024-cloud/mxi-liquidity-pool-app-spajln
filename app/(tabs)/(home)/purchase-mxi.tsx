@@ -155,6 +155,8 @@ export default function PurchaseMXIScreen() {
     setLoading(true);
 
     try {
+      console.log('Creating order for', amount, 'MXI');
+      
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         Alert.alert('Error', 'Sesión expirada. Por favor inicia sesión nuevamente');
@@ -162,6 +164,8 @@ export default function PurchaseMXIScreen() {
         return;
       }
 
+      console.log('Calling edge function...');
+      
       const response = await fetch(
         `${supabase.supabaseUrl}/functions/v1/create-nowpayments-order`,
         {
@@ -176,44 +180,56 @@ export default function PurchaseMXIScreen() {
         }
       );
 
+      console.log('Response status:', response.status);
+      
       const result = await response.json();
+      console.log('Response data:', result);
 
       if (!response.ok) {
-        throw new Error(result.error || 'Error al crear la orden');
+        throw new Error(result.error || result.details || 'Error al crear la orden');
       }
 
-      // Open payment URL in browser
-      Alert.alert(
-        '✅ Orden Creada',
-        `Se ha creado tu orden de ${amount} MXI por $${total} USDT.\n\nSerás redirigido a NOWPayments para completar el pago.`,
-        [
-          {
-            text: 'Abrir Pago',
-            onPress: async () => {
-              try {
-                await WebBrowser.openBrowserAsync(result.payment_url);
-                // Reload pending orders after opening payment
-                await loadPendingOrders();
-              } catch (error) {
-                console.error('Error opening browser:', error);
-                Alert.alert('Error', 'No se pudo abrir el navegador');
-              }
-            },
-          },
-          {
-            text: 'Cancelar',
-            style: 'cancel',
-            onPress: () => loadPendingOrders(),
-          },
-        ]
-      );
+      if (!result.payment_url) {
+        throw new Error('No se recibió URL de pago');
+      }
+
+      console.log('Opening payment URL:', result.payment_url);
+
+      // Immediately open the payment URL
+      try {
+        const browserResult = await WebBrowser.openBrowserAsync(result.payment_url);
+        console.log('Browser result:', browserResult);
+        
+        // Show success message after opening browser
+        Alert.alert(
+          '✅ Orden Creada',
+          `Se ha creado tu orden de ${amount} MXI por $${total} USDT.\n\nSe ha abierto la página de pago en tu navegador.`,
+          [{ text: 'OK', onPress: () => loadPendingOrders() }]
+        );
+      } catch (browserError) {
+        console.error('Error opening browser:', browserError);
+        
+        // If browser fails to open, show the URL in an alert
+        Alert.alert(
+          '⚠️ No se pudo abrir el navegador',
+          `Tu orden ha sido creada pero no se pudo abrir el navegador automáticamente.\n\nPuedes encontrar tu orden en la sección "Órdenes Pendientes" más abajo.`,
+          [{ text: 'OK', onPress: () => loadPendingOrders() }]
+        );
+      }
 
       // Clear form
       setMxiAmount('');
       setUsdtAmount('0.00');
+      
+      // Reload pending orders
+      await loadPendingOrders();
+      
     } catch (error: any) {
       console.error('Error creating order:', error);
-      Alert.alert('Error', error.message || 'No se pudo crear la orden');
+      Alert.alert(
+        'Error',
+        error.message || 'No se pudo crear la orden. Por favor intenta nuevamente.'
+      );
     } finally {
       setLoading(false);
     }
@@ -221,10 +237,12 @@ export default function PurchaseMXIScreen() {
 
   const handleOpenPayment = async (order: PendingOrder) => {
     try {
-      await WebBrowser.openBrowserAsync(order.payment_url);
+      console.log('Opening payment URL:', order.payment_url);
+      const result = await WebBrowser.openBrowserAsync(order.payment_url);
+      console.log('Browser result:', result);
     } catch (error) {
       console.error('Error opening payment:', error);
-      Alert.alert('Error', 'No se pudo abrir el enlace de pago');
+      Alert.alert('Error', 'No se pudo abrir el enlace de pago. Por favor intenta nuevamente.');
     }
   };
 
