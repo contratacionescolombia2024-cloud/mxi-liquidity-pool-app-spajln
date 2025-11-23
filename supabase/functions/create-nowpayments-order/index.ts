@@ -71,9 +71,10 @@ Deno.serve(async (req) => {
     const { mxi_amount } = requestBody;
     console.log('MXI amount requested:', mxi_amount);
 
+    // Validate amount
     if (!mxi_amount || mxi_amount <= 0) {
       return new Response(
-        JSON.stringify({ error: 'Cantidad de MXI inválida' }),
+        JSON.stringify({ error: 'Debes ingresar un monto válido.' }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -184,33 +185,33 @@ Deno.serve(async (req) => {
     transactionId = transaction.id;
     console.log('Transaction history created:', transactionId);
 
-    // NOWPayments API Key and Public Key
+    // NOWPayments API credentials
     const nowpaymentsApiKey = '9SC5SM9-7SR45HD-JKXSWGY-489J5YA';
     const nowpaymentsPublicKey = '8f1694be-d30a-47d5-bc90-c3eb24d43a7a';
-    console.log('API Key configured, length:', nowpaymentsApiKey.length);
 
-    // Create invoice with NOWPayments using /v1/invoice endpoint
-    const nowpaymentsPayload = {
+    // Create invoice payload exactly as specified
+    const invoicePayload = {
       price_amount: totalUsdt,
       price_currency: 'usd',
       pay_currency: 'usdt',
-      order_description: 'MXI Strategic Presale',
+      order_description: 'MXI Strategic Presale Payment',
       public_key: nowpaymentsPublicKey,
-      success_url: 'https://natively.dev/(tabs)/(home)',
-      cancel_url: 'https://natively.dev/(tabs)/(home)/purchase-mxi',
+      success_url: 'https://tusitio.com/success',
+      cancel_url: 'https://tusitio.com/cancel',
     };
 
-    console.log('NOWPayments invoice request payload:', JSON.stringify(nowpaymentsPayload, null, 2));
+    console.log('NOWPayments invoice request payload:', JSON.stringify(invoicePayload, null, 2));
 
+    // Call NOWPayments API
     let nowpaymentsResponse;
     try {
       nowpaymentsResponse = await fetch('https://api.nowpayments.io/v1/invoice', {
         method: 'POST',
         headers: {
-          'x-api-key': nowpaymentsApiKey,
           'Content-Type': 'application/json',
+          'x-api-key': nowpaymentsApiKey,
         },
-        body: JSON.stringify(nowpaymentsPayload),
+        body: JSON.stringify(invoicePayload),
       });
     } catch (fetchError: any) {
       console.error('Fetch error:', fetchError);
@@ -228,7 +229,7 @@ Deno.serve(async (req) => {
 
       return new Response(
         JSON.stringify({
-          error: 'Error al conectar con el servicio de pagos',
+          error: 'No se pudo generar el pago. Intenta nuevamente.',
           details: fetchError.message,
         }),
         {
@@ -248,8 +249,8 @@ Deno.serve(async (req) => {
       console.error('NOWPayments API error - Status:', nowpaymentsResponse.status);
       console.error('NOWPayments API error - Body:', responseText);
       
-      let errorMessage = 'Error al crear el pago con NOWPayments';
-      let errorDetails: any = { raw: responseText };
+      let errorMessage = 'No se pudo generar el pago. Intenta nuevamente.';
+      let errorDetails: any = { raw: responseText, status: nowpaymentsResponse.status };
       
       try {
         const errorData = JSON.parse(responseText);
@@ -274,7 +275,6 @@ Deno.serve(async (req) => {
         JSON.stringify({
           error: errorMessage,
           details: errorDetails,
-          status: nowpaymentsResponse.status,
         }),
         {
           status: 500,
@@ -283,6 +283,7 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Parse successful response
     let invoiceData;
     try {
       invoiceData = JSON.parse(responseText);
@@ -303,8 +304,8 @@ Deno.serve(async (req) => {
 
       return new Response(
         JSON.stringify({
-          error: 'Respuesta inválida del servicio de pagos',
-          details: responseText,
+          error: 'No se pudo generar el pago. Intenta nuevamente.',
+          details: 'Invalid response format',
         }),
         {
           status: 500,
@@ -332,7 +333,7 @@ Deno.serve(async (req) => {
 
       return new Response(
         JSON.stringify({
-          error: 'No se pudo obtener la URL de pago del servidor',
+          error: 'No se pudo generar el pago. Intenta nuevamente.',
           invoice_data: invoiceData,
         }),
         {
@@ -425,9 +426,10 @@ Deno.serve(async (req) => {
           .from('transaction_history')
           .update({
             status: 'failed',
-            error_message: error.message || 'Error interno del servidor',
+            error_message: 'Error interno del servidor',
             error_details: {
               type: error.constructor.name,
+              message: error.message,
               stack: error.stack,
             },
             updated_at: new Date().toISOString(),
@@ -440,9 +442,8 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        error: error.message || 'Error interno del servidor',
-        stack: error.stack,
-        type: error.constructor.name,
+        error: 'No se pudo generar el pago. Intenta nuevamente.',
+        details: error.message,
       }),
       {
         status: 500,

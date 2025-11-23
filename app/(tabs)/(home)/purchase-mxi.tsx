@@ -171,17 +171,21 @@ export default function PurchaseMXIScreen() {
     }
 
     const amount = parseFloat(mxiAmount);
+    const total = parseFloat(usdtAmount);
+
+    // Validation: Check if amount is valid
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Por favor ingresa una cantidad válida de MXI');
+      Alert.alert('Error', 'Debes ingresar un monto válido.');
       return;
     }
 
-    const total = parseFloat(usdtAmount);
+    // Validation: Check minimum amount
     if (total < 20) {
       Alert.alert('Monto Mínimo', 'El monto mínimo de compra es $20 USDT');
       return;
     }
 
+    // Validation: Check maximum amount
     if (total > 500000) {
       Alert.alert('Monto Máximo', 'El monto máximo de compra es $500,000 USDT por transacción');
       return;
@@ -191,6 +195,7 @@ export default function PurchaseMXIScreen() {
 
     try {
       console.log('=== Creating order for', amount, 'MXI ===');
+      console.log('Total USDT:', total);
       
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -209,12 +214,12 @@ export default function PurchaseMXIScreen() {
 
       if (error) {
         console.error('Edge function error:', error);
-        throw new Error(error.message || 'Error al crear la orden');
+        throw new Error(error.message || 'No se pudo generar el pago. Intenta nuevamente.');
       }
 
       if (!data || !data.invoice_url) {
         console.error('No invoice URL in response:', data);
-        throw new Error('No se recibió URL de pago del servidor');
+        throw new Error('No se pudo generar el pago. Intenta nuevamente.');
       }
 
       console.log('Invoice URL received:', data.invoice_url);
@@ -270,7 +275,7 @@ export default function PurchaseMXIScreen() {
       
       Alert.alert(
         '❌ Error',
-        error.message || 'No se pudo generar el pago. Intente nuevamente.',
+        error.message || 'No se pudo generar el pago. Intenta nuevamente.',
         [
           {
             text: 'Ver Historial',
