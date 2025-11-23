@@ -26,36 +26,13 @@ export default function ReferralsScreen() {
   const [loading, setLoading] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
-  const [mxiFromCommissions, setMxiFromCommissions] = useState(0);
 
   useEffect(() => {
     if (user && getCurrentYield) {
       const yield_value = getCurrentYield();
       setCurrentYield(yield_value);
     }
-    loadMxiFromCommissions();
   }, [user, getCurrentYield]);
-
-  const loadMxiFromCommissions = async () => {
-    if (!user) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('mxi_from_unified_commissions')
-        .eq('id', user.id)
-        .single();
-
-      if (error) {
-        console.error('Error loading MXI from commissions:', error);
-        return;
-      }
-
-      setMxiFromCommissions(parseFloat(data.mxi_from_unified_commissions?.toString() || '0'));
-    } catch (error) {
-      console.error('Exception loading MXI from commissions:', error);
-    }
-  };
 
   const handleCopyCode = async () => {
     if (!user?.referralCode) return;
@@ -79,6 +56,7 @@ export default function ReferralsScreen() {
     if (!user) return;
 
     const amount = parseFloat(withdrawAmount);
+    const mxiFromCommissions = user.mxiFromUnifiedCommissions || 0;
     
     // Validate amount
     if (isNaN(amount) || amount <= 0) {
@@ -141,7 +119,6 @@ export default function ReferralsScreen() {
               
               setWithdrawAmount('');
               setShowWithdrawModal(false);
-              await loadMxiFromCommissions();
             } catch (error: any) {
               console.error('Exception during withdrawal:', error);
               Alert.alert('Error', error.message || 'Ocurrió un error inesperado');
@@ -153,6 +130,9 @@ export default function ReferralsScreen() {
       ]
     );
   };
+
+  // Get commission balance from user context
+  const mxiFromCommissions = user?.mxiFromUnifiedCommissions || 0;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -204,7 +184,7 @@ export default function ReferralsScreen() {
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Total Earned</Text>
-              <Text style={styles.statValue}>{user?.mxiBalance.toFixed(4) || '0.0000'} MXI</Text>
+              <Text style={styles.statValue}>{mxiFromCommissions.toFixed(4)} MXI</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
@@ -327,7 +307,7 @@ export default function ReferralsScreen() {
             <View style={styles.referralItem}>
               <View style={styles.referralLevel}>
                 <Text style={styles.referralLevelText}>Level 1</Text>
-                <Text style={styles.referralRate}>3%</Text>
+                <Text style={styles.referralRate}>5%</Text>
               </View>
               <Text style={styles.referralCount}>{user?.referrals.level1 || 0} referrals</Text>
             </View>
@@ -365,7 +345,7 @@ export default function ReferralsScreen() {
           </View>
           <View style={styles.infoList}>
             <Text style={styles.infoItem}>• Share your referral code with friends</Text>
-            <Text style={styles.infoItem}>• Earn 3% in MXI from Level 1 referrals</Text>
+            <Text style={styles.infoItem}>• Earn 5% in MXI from Level 1 referrals</Text>
             <Text style={styles.infoItem}>• Earn 2% in MXI from Level 2 referrals</Text>
             <Text style={styles.infoItem}>• Earn 1% in MXI from Level 3 referrals</Text>
             <Text style={styles.infoItem}>• All commissions are credited directly in MXI</Text>

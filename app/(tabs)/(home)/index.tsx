@@ -179,21 +179,30 @@ export default function HomeScreen() {
       const level2Count = referrals?.filter(r => r.level === 2).length || 0;
       const level3Count = referrals?.filter(r => r.level === 3).length || 0;
 
-      // Get commission earnings by level
-      const { data: commissions, error: commError } = await supabase
-        .from('commissions')
-        .select('level, amount, status')
-        .eq('user_id', user.id);
+      // Get total commission earnings from user's mxi_from_unified_commissions
+      const totalEarnings = user.mxiFromUnifiedCommissions || 0;
 
-      if (commError) throw commError;
+      // Since we don't track individual level earnings in the new system,
+      // we'll estimate based on the commission rates (5%, 2%, 1%)
+      // This is an approximation for display purposes
+      const totalLevels = level1Count + level2Count + level3Count;
+      let level1Earnings = 0;
+      let level2Earnings = 0;
+      let level3Earnings = 0;
 
-      const level1Earnings = commissions?.filter(c => c.level === 1).reduce((sum, c) => sum + parseFloat(c.amount.toString()), 0) || 0;
-      const level2Earnings = commissions?.filter(c => c.level === 2).reduce((sum, c) => sum + parseFloat(c.amount.toString()), 0) || 0;
-      const level3Earnings = commissions?.filter(c => c.level === 3).reduce((sum, c) => sum + parseFloat(c.amount.toString()), 0) || 0;
-      const totalEarnings = level1Earnings + level2Earnings + level3Earnings;
+      if (totalLevels > 0) {
+        // Weighted distribution based on commission rates
+        const totalWeight = (level1Count * 5) + (level2Count * 2) + (level3Count * 1);
+        if (totalWeight > 0) {
+          level1Earnings = (totalEarnings * (level1Count * 5)) / totalWeight;
+          level2Earnings = (totalEarnings * (level2Count * 2)) / totalWeight;
+          level3Earnings = (totalEarnings * (level3Count * 1)) / totalWeight;
+        }
+      }
 
-      const pendingCommissions = commissions?.filter(c => c.status === 'pending').reduce((sum, c) => sum + parseFloat(c.amount.toString()), 0) || 0;
-      const availableToWithdraw = commissions?.filter(c => c.status === 'available').reduce((sum, c) => sum + parseFloat(c.amount.toString()), 0) || 0;
+      // All commissions are available immediately in the unified system
+      const availableToWithdraw = totalEarnings;
+      const pendingCommissions = 0;
 
       setReferralMetrics({
         level1Count,
