@@ -17,6 +17,8 @@ import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { AdminUserManagement } from '@/components/AdminUserManagement';
+import { AdminMetricsDashboard } from '@/components/AdminMetricsDashboard';
 
 interface UserData {
   id: string;
@@ -27,7 +29,6 @@ interface UserData {
   mxi_balance: number;
   usdt_contributed: number;
   is_active_contributor: boolean;
-  kyc_status: string;
   active_referrals: number;
   joined_date: string;
   referral_code: string;
@@ -44,53 +45,6 @@ interface UserData {
   blocked_reason: string | null;
 }
 
-interface Commission {
-  id: string;
-  amount: number;
-  level: number;
-  status: string;
-  from_user_id: string;
-  created_at: string;
-}
-
-interface Referral {
-  id: string;
-  referred_id: string;
-  level: number;
-  created_at: string;
-  referred_user_name: string;
-}
-
-interface DefaultSettings {
-  mxiPrice: number;
-  miningRatePerMinute: number;
-  minActiveReferrals: number;
-  withdrawalReleasePercentage: number;
-  withdrawalReleaseDays: number;
-  minPurchase: number;
-  maxPurchase: number;
-  currentPhase: number;
-  currentPriceUsdt: number;
-}
-
-type ActionType = 
-  | 'add_mxi' 
-  | 'remove_mxi' 
-  | 'add_usdt' 
-  | 'remove_usdt' 
-  | 'set_mxi_balance' 
-  | 'set_usdt_balance'
-  | 'set_active_referrals'
-  | 'set_yield_rate'
-  | 'set_accumulated_yield'
-  | 'add_commission'
-  | 'edit_commission'
-  | 'delete_referral'
-  | 'set_mxi_purchased'
-  | 'set_mxi_from_commissions'
-  | 'edit_user_data'
-  | null;
-
 export default function UserManagementScreen() {
   const router = useRouter();
   const { user } = useAuth();
@@ -98,76 +52,19 @@ export default function UserManagementScreen() {
   const [users, setUsers] = useState<UserData[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserData[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'kyc_approved' | 'blocked'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'blocked'>('all');
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
-  const [defaultSettings, setDefaultSettings] = useState<DefaultSettings | null>(null);
-  
-  // User details data
-  const [commissions, setCommissions] = useState<Commission[]>([]);
-  const [referrals, setReferrals] = useState<Referral[]>([]);
-  const [loadingDetails, setLoadingDetails] = useState(false);
-  
-  // Input modal states
-  const [inputModalVisible, setInputModalVisible] = useState(false);
-  const [inputValue, setInputValue] = useState('');
-  const [inputValue2, setInputValue2] = useState('');
-  const [currentAction, setCurrentAction] = useState<ActionType>(null);
+  const [showMetrics, setShowMetrics] = useState(false);
   const [processing, setProcessing] = useState(false);
-  const [selectedCommission, setSelectedCommission] = useState<Commission | null>(null);
-
-  // Edit user data modal
-  const [editDataModalVisible, setEditDataModalVisible] = useState(false);
-  const [editingField, setEditingField] = useState<string>('');
-  const [editingValue, setEditingValue] = useState<string>('');
 
   useEffect(() => {
-    loadDefaultSettings();
     loadUsers();
   }, []);
 
   useEffect(() => {
     filterUsers();
   }, [searchQuery, filterStatus, users]);
-
-  const loadDefaultSettings = async () => {
-    try {
-      const { data: settingsData, error: settingsError } = await supabase
-        .from('admin_settings')
-        .select('*');
-
-      if (settingsError) throw settingsError;
-
-      const { data: metricsData, error: metricsError } = await supabase
-        .from('metrics')
-        .select('*')
-        .single();
-
-      if (metricsError) throw metricsError;
-
-      const settings: any = {};
-      settingsData?.forEach((setting) => {
-        const value = setting.setting_value?.value ?? setting.setting_value;
-        settings[setting.setting_key] = value;
-      });
-
-      setDefaultSettings({
-        mxiPrice: parseFloat(settings.mxi_price?.toString() || '0.4'),
-        miningRatePerMinute: parseFloat(settings.mining_rate_per_minute?.toString() || '0.0001'),
-        minActiveReferrals: parseInt(settings.min_active_referrals?.toString() || '5'),
-        withdrawalReleasePercentage: parseFloat(settings.withdrawal_release_percentage?.toString() || '10'),
-        withdrawalReleaseDays: parseInt(settings.withdrawal_release_days?.toString() || '7'),
-        minPurchase: parseFloat(settings.min_purchase?.toString() || '20'),
-        maxPurchase: parseFloat(settings.max_purchase?.toString() || '40000'),
-        currentPhase: metricsData?.current_phase || 1,
-        currentPriceUsdt: parseFloat(metricsData?.current_price_usdt?.toString() || '0.4'),
-      });
-
-      console.log('Default settings loaded:', settings);
-    } catch (error) {
-      console.error('Error loading default settings:', error);
-    }
-  };
 
   const loadUsers = async () => {
     try {
@@ -195,8 +92,6 @@ export default function UserManagementScreen() {
       filtered = filtered.filter(u => u.is_active_contributor && !u.is_blocked);
     } else if (filterStatus === 'inactive') {
       filtered = filtered.filter(u => !u.is_active_contributor && !u.is_blocked);
-    } else if (filterStatus === 'kyc_approved') {
-      filtered = filtered.filter(u => u.kyc_status === 'approved' && !u.is_blocked);
     } else if (filterStatus === 'blocked') {
       filtered = filtered.filter(u => u.is_blocked);
     }
@@ -218,62 +113,18 @@ export default function UserManagementScreen() {
     console.log('User pressed:', userData.name, userData.id);
     setSelectedUser(userData);
     setDetailsModalVisible(true);
-    await loadUserDetails(userData.id);
-  };
-
-  const loadUserDetails = async (userId: string) => {
-    try {
-      setLoadingDetails(true);
-
-      const { data: commissionsData, error: commissionsError } = await supabase
-        .from('commissions')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-
-      if (commissionsError) throw commissionsError;
-      setCommissions(commissionsData || []);
-
-      const { data: referralsData, error: referralsError } = await supabase
-        .from('referrals')
-        .select(`
-          id,
-          referred_id,
-          level,
-          created_at,
-          referred:users!referrals_referred_id_fkey(name)
-        `)
-        .eq('referrer_id', userId)
-        .order('created_at', { ascending: false });
-
-      if (referralsError) throw referralsError;
-      
-      const mappedReferrals = (referralsData || []).map(r => ({
-        id: r.id,
-        referred_id: r.referred_id,
-        level: r.level,
-        created_at: r.created_at,
-        referred_user_name: (r.referred as any)?.name || 'Unknown',
-      }));
-      
-      setReferrals(mappedReferrals);
-    } catch (error) {
-      console.error('Error loading user details:', error);
-    } finally {
-      setLoadingDetails(false);
-    }
   };
 
   const handleBlockUser = async (userId: string, reason?: string) => {
     if (!user) return;
 
     Alert.alert(
-      '🚫 Block User Account',
-      'Are you sure you want to block this user? They will not be able to access their account or participate in any activities.',
+      '🚫 Bloquear Usuario',
+      '¿Estás seguro de bloquear este usuario? No podrá acceder a su cuenta.',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Block',
+          text: 'Bloquear',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -281,24 +132,21 @@ export default function UserManagementScreen() {
               const { data, error } = await supabase.rpc('block_user_account', {
                 p_user_id: userId,
                 p_admin_id: user.id,
-                p_reason: reason || 'Blocked by administrator'
+                p_reason: reason || 'Bloqueado por administrador'
               });
 
               if (error) throw error;
 
               if (data?.success) {
-                Alert.alert('✅ Success', 'User account blocked successfully');
+                Alert.alert('✅ Éxito', 'Usuario bloqueado exitosamente');
                 await loadUsers();
-                if (selectedUser?.id === userId) {
-                  const updatedUser = users.find(u => u.id === userId);
-                  if (updatedUser) setSelectedUser(updatedUser);
-                }
+                setDetailsModalVisible(false);
               } else {
-                Alert.alert('❌ Error', data?.error || 'Failed to block user');
+                Alert.alert('❌ Error', data?.error || 'Error al bloquear usuario');
               }
             } catch (error) {
               console.error('Error blocking user:', error);
-              Alert.alert('❌ Error', 'Failed to block user account');
+              Alert.alert('❌ Error', 'Error al bloquear usuario');
             } finally {
               setProcessing(false);
             }
@@ -312,12 +160,12 @@ export default function UserManagementScreen() {
     if (!user) return;
 
     Alert.alert(
-      '✅ Unblock User Account',
-      'Are you sure you want to unblock this user? They will regain access to their account.',
+      '✅ Desbloquear Usuario',
+      '¿Estás seguro de desbloquear este usuario?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Unblock',
+          text: 'Desbloquear',
           onPress: async () => {
             try {
               setProcessing(true);
@@ -329,18 +177,15 @@ export default function UserManagementScreen() {
               if (error) throw error;
 
               if (data?.success) {
-                Alert.alert('✅ Success', 'User account unblocked successfully');
+                Alert.alert('✅ Éxito', 'Usuario desbloqueado exitosamente');
                 await loadUsers();
-                if (selectedUser?.id === userId) {
-                  const updatedUser = users.find(u => u.id === userId);
-                  if (updatedUser) setSelectedUser(updatedUser);
-                }
+                setDetailsModalVisible(false);
               } else {
-                Alert.alert('❌ Error', data?.error || 'Failed to unblock user');
+                Alert.alert('❌ Error', data?.error || 'Error al desbloquear usuario');
               }
             } catch (error) {
               console.error('Error unblocking user:', error);
-              Alert.alert('❌ Error', 'Failed to unblock user account');
+              Alert.alert('❌ Error', 'Error al desbloquear usuario');
             } finally {
               setProcessing(false);
             }
@@ -348,555 +193,12 @@ export default function UserManagementScreen() {
         },
       ]
     );
-  };
-
-  const handleDeleteUser = async (userId: string) => {
-    if (!user) return;
-
-    Alert.alert(
-      '🗑️ Delete User Account',
-      'WARNING: This will permanently delete the user account and anonymize their data. This action cannot be undone. Are you absolutely sure?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setProcessing(true);
-              const { data, error } = await supabase.rpc('soft_delete_user_account', {
-                p_user_id: userId,
-                p_admin_id: user.id,
-                p_reason: 'Account deleted by administrator'
-              });
-
-              if (error) throw error;
-
-              if (data?.success) {
-                Alert.alert('✅ Success', `User account deleted successfully.\nOriginal email: ${data.original_email}`);
-                setDetailsModalVisible(false);
-                await loadUsers();
-              } else {
-                Alert.alert('❌ Error', data?.error || 'Failed to delete user');
-              }
-            } catch (error) {
-              console.error('Error deleting user:', error);
-              Alert.alert('❌ Error', 'Failed to delete user account');
-            } finally {
-              setProcessing(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const openEditDataModal = (field: string, currentValue: any) => {
-    setEditingField(field);
-    setEditingValue(currentValue?.toString() || '');
-    setEditDataModalVisible(true);
-  };
-
-  const handleSaveEditedData = async () => {
-    if (!selectedUser || !user || !editingField) return;
-
-    try {
-      setProcessing(true);
-      
-      const updates: any = {};
-      updates[editingField] = editingValue;
-
-      const { data, error } = await supabase.rpc('admin_update_user_data', {
-        p_user_id: selectedUser.id,
-        p_admin_id: user.id,
-        p_updates: updates
-      });
-
-      if (error) throw error;
-
-      if (data?.success) {
-        Alert.alert('✅ Success', 'User data updated successfully');
-        setEditDataModalVisible(false);
-        await loadUsers();
-        await loadUserDetails(selectedUser.id);
-        const updatedUser = users.find(u => u.id === selectedUser.id);
-        if (updatedUser) setSelectedUser(updatedUser);
-      } else {
-        Alert.alert('❌ Error', data?.error || 'Failed to update user data');
-      }
-    } catch (error) {
-      console.error('Error updating user data:', error);
-      Alert.alert('❌ Error', 'Failed to update user data');
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const openInputModal = (action: ActionType, commission?: Commission) => {
-    setCurrentAction(action);
-    setInputValue('');
-    setInputValue2('');
-    setSelectedCommission(commission || null);
-    
-    if (action === 'edit_commission' && commission) {
-      setInputValue(commission.amount.toString());
-      setInputValue2(commission.status);
-    }
-    
-    setInputModalVisible(true);
-  };
-
-  const closeInputModal = () => {
-    setInputModalVisible(false);
-    setInputValue('');
-    setInputValue2('');
-    setCurrentAction(null);
-    setSelectedCommission(null);
-  };
-
-  const handleInputSubmit = async () => {
-    if (!selectedUser || !currentAction) return;
-
-    setProcessing(true);
-
-    try {
-      switch (currentAction) {
-        case 'add_mxi':
-          await handleAddBalance('mxi', parseFloat(inputValue));
-          break;
-        case 'remove_mxi':
-          await handleRemoveBalance('mxi', parseFloat(inputValue));
-          break;
-        case 'add_usdt':
-          await handleAddBalance('usdt', parseFloat(inputValue));
-          break;
-        case 'remove_usdt':
-          await handleRemoveBalance('usdt', parseFloat(inputValue));
-          break;
-        case 'set_mxi_balance':
-          await handleSetBalance('mxi', parseFloat(inputValue));
-          break;
-        case 'set_usdt_balance':
-          await handleSetBalance('usdt', parseFloat(inputValue));
-          break;
-        case 'set_active_referrals':
-          await handleSetActiveReferrals(parseInt(inputValue));
-          break;
-        case 'set_yield_rate':
-          await handleSetYieldRate(parseFloat(inputValue));
-          break;
-        case 'set_accumulated_yield':
-          await handleSetAccumulatedYield(parseFloat(inputValue));
-          break;
-        case 'add_commission':
-          await handleAddCommission(parseFloat(inputValue), parseInt(inputValue2));
-          break;
-        case 'edit_commission':
-          await handleEditCommission();
-          break;
-        case 'set_mxi_purchased':
-          await handleSetMxiPurchased(parseFloat(inputValue));
-          break;
-        case 'set_mxi_from_commissions':
-          await handleSetMxiFromCommissions(parseFloat(inputValue));
-          break;
-      }
-      closeInputModal();
-    } catch (error) {
-      console.error('Error processing action:', error);
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const handleAddBalance = async (type: 'mxi' | 'usdt', amount: number) => {
-    if (!selectedUser || isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Please enter a valid positive number');
-      return;
-    }
-
-    try {
-      const field = type === 'mxi' ? 'mxi_balance' : 'usdt_contributed';
-      const currentValue = type === 'mxi' ? selectedUser.mxi_balance : selectedUser.usdt_contributed;
-      const newValue = parseFloat(currentValue.toString()) + amount;
-
-      const { error } = await supabase
-        .from('users')
-        .update({ [field]: newValue })
-        .eq('id', selectedUser.id);
-
-      if (error) throw error;
-
-      Alert.alert('✅ Success', `${amount} ${type.toUpperCase()} added successfully`);
-      await loadUsers();
-      await loadUserDetails(selectedUser.id);
-      
-      const updatedUser = users.find(u => u.id === selectedUser.id);
-      if (updatedUser) setSelectedUser(updatedUser);
-    } catch (error) {
-      console.error('Error adding balance:', error);
-      Alert.alert('❌ Error', 'Failed to add balance');
-    }
-  };
-
-  const handleRemoveBalance = async (type: 'mxi' | 'usdt', amount: number) => {
-    if (!selectedUser || !user || isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Please enter a valid positive number');
-      return;
-    }
-
-    try {
-      const { data, error } = await supabase.rpc('admin_remove_balance', {
-        p_user_id: selectedUser.id,
-        p_admin_id: user.id,
-        p_mxi_amount: type === 'mxi' ? amount : 0,
-        p_usdt_amount: type === 'usdt' ? amount : 0,
-      });
-
-      if (error) throw error;
-
-      if (data?.success) {
-        Alert.alert('✅ Success', `${amount} ${type.toUpperCase()} removed successfully`);
-        await loadUsers();
-        await loadUserDetails(selectedUser.id);
-        
-        const updatedUser = users.find(u => u.id === selectedUser.id);
-        if (updatedUser) setSelectedUser(updatedUser);
-      } else {
-        Alert.alert('❌ Error', data?.error || 'Failed to remove balance');
-      }
-    } catch (error) {
-      console.error('Error removing balance:', error);
-      Alert.alert('❌ Error', 'Failed to remove balance');
-    }
-  };
-
-  const handleSetBalance = async (type: 'mxi' | 'usdt', amount: number) => {
-    if (!selectedUser || isNaN(amount) || amount < 0) {
-      Alert.alert('Error', 'Please enter a valid number');
-      return;
-    }
-
-    try {
-      const field = type === 'mxi' ? 'mxi_balance' : 'usdt_contributed';
-
-      const { error } = await supabase
-        .from('users')
-        .update({ [field]: amount })
-        .eq('id', selectedUser.id);
-
-      if (error) throw error;
-
-      Alert.alert('✅ Success', `${type.toUpperCase()} balance set to ${amount}`);
-      await loadUsers();
-      await loadUserDetails(selectedUser.id);
-      
-      const updatedUser = users.find(u => u.id === selectedUser.id);
-      if (updatedUser) setSelectedUser(updatedUser);
-    } catch (error) {
-      console.error('Error setting balance:', error);
-      Alert.alert('❌ Error', 'Failed to set balance');
-    }
-  };
-
-  const handleSetActiveReferrals = async (count: number) => {
-    if (!selectedUser || isNaN(count) || count < 0) {
-      Alert.alert('Error', 'Please enter a valid number');
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('users')
-        .update({ active_referrals: count })
-        .eq('id', selectedUser.id);
-
-      if (error) throw error;
-
-      Alert.alert('✅ Success', `Active referrals set to ${count}`);
-      await loadUsers();
-      
-      const updatedUser = users.find(u => u.id === selectedUser.id);
-      if (updatedUser) setSelectedUser(updatedUser);
-    } catch (error) {
-      console.error('Error setting active referrals:', error);
-      Alert.alert('❌ Error', 'Failed to set active referrals');
-    }
-  };
-
-  const handleSetYieldRate = async (rate: number) => {
-    if (!selectedUser || isNaN(rate) || rate < 0) {
-      Alert.alert('Error', 'Please enter a valid number');
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('users')
-        .update({ yield_rate_per_minute: rate })
-        .eq('id', selectedUser.id);
-
-      if (error) throw error;
-
-      Alert.alert('✅ Success', `Yield rate set to ${rate} MXI/minute`);
-      await loadUsers();
-      
-      const updatedUser = users.find(u => u.id === selectedUser.id);
-      if (updatedUser) setSelectedUser(updatedUser);
-    } catch (error) {
-      console.error('Error setting yield rate:', error);
-      Alert.alert('❌ Error', 'Failed to set yield rate');
-    }
-  };
-
-  const handleSetAccumulatedYield = async (amount: number) => {
-    if (!selectedUser || isNaN(amount) || amount < 0) {
-      Alert.alert('Error', 'Please enter a valid number');
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('users')
-        .update({ accumulated_yield: amount })
-        .eq('id', selectedUser.id);
-
-      if (error) throw error;
-
-      Alert.alert('✅ Success', `Accumulated yield set to ${amount} MXI`);
-      await loadUsers();
-      
-      const updatedUser = users.find(u => u.id === selectedUser.id);
-      if (updatedUser) setSelectedUser(updatedUser);
-    } catch (error) {
-      console.error('Error setting accumulated yield:', error);
-      Alert.alert('❌ Error', 'Failed to set accumulated yield');
-    }
-  };
-
-  const handleAddCommission = async (amount: number, level: number) => {
-    if (!selectedUser || isNaN(amount) || amount <= 0 || isNaN(level) || level < 1 || level > 3) {
-      Alert.alert('Error', 'Please enter valid values (amount > 0, level 1-3)');
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('commissions')
-        .insert({
-          user_id: selectedUser.id,
-          from_user_id: selectedUser.id,
-          amount: amount,
-          level: level,
-          percentage: level === 1 ? 3 : level === 2 ? 2 : 1,
-          status: 'available',
-        });
-
-      if (error) throw error;
-
-      Alert.alert('✅ Success', `Commission of ${amount} USDT added`);
-      await loadUserDetails(selectedUser.id);
-    } catch (error) {
-      console.error('Error adding commission:', error);
-      Alert.alert('❌ Error', 'Failed to add commission');
-    }
-  };
-
-  const handleEditCommission = async () => {
-    if (!selectedCommission || !inputValue || !inputValue2) {
-      Alert.alert('Error', 'Please fill all fields');
-      return;
-    }
-
-    const amount = parseFloat(inputValue);
-    if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount');
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('commissions')
-        .update({
-          amount: amount,
-          status: inputValue2,
-        })
-        .eq('id', selectedCommission.id);
-
-      if (error) throw error;
-
-      Alert.alert('✅ Success', 'Commission updated successfully');
-      await loadUserDetails(selectedUser!.id);
-    } catch (error) {
-      console.error('Error editing commission:', error);
-      Alert.alert('❌ Error', 'Failed to edit commission');
-    }
-  };
-
-  const handleDeleteCommission = async (commissionId: string) => {
-    Alert.alert(
-      '🗑️ Delete Commission',
-      'Are you sure you want to delete this commission?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const { error } = await supabase
-                .from('commissions')
-                .delete()
-                .eq('id', commissionId);
-
-              if (error) throw error;
-
-              Alert.alert('✅ Success', 'Commission deleted successfully');
-              await loadUserDetails(selectedUser!.id);
-            } catch (error) {
-              console.error('Error deleting commission:', error);
-              Alert.alert('❌ Error', 'Failed to delete commission');
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleDeleteReferral = async (referralId: string) => {
-    Alert.alert(
-      '🗑️ Delete Referral',
-      'Are you sure you want to delete this referral?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const { error } = await supabase
-                .from('referrals')
-                .delete()
-                .eq('id', referralId);
-
-              if (error) throw error;
-
-              Alert.alert('✅ Success', 'Referral deleted successfully');
-              await loadUserDetails(selectedUser!.id);
-            } catch (error) {
-              console.error('Error deleting referral:', error);
-              Alert.alert('❌ Error', 'Failed to delete referral');
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleSetMxiPurchased = async (amount: number) => {
-    if (!selectedUser || isNaN(amount) || amount < 0) {
-      Alert.alert('Error', 'Please enter a valid number');
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('users')
-        .update({ mxi_purchased_directly: amount })
-        .eq('id', selectedUser.id);
-
-      if (error) throw error;
-
-      Alert.alert('✅ Success', `MXI Purchased set to ${amount}`);
-      await loadUsers();
-      
-      const updatedUser = users.find(u => u.id === selectedUser.id);
-      if (updatedUser) setSelectedUser(updatedUser);
-    } catch (error) {
-      console.error('Error setting MXI purchased:', error);
-      Alert.alert('❌ Error', 'Failed to set MXI purchased');
-    }
-  };
-
-  const handleSetMxiFromCommissions = async (amount: number) => {
-    if (!selectedUser || isNaN(amount) || amount < 0) {
-      Alert.alert('Error', 'Please enter a valid number');
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('users')
-        .update({ mxi_from_unified_commissions: amount })
-        .eq('id', selectedUser.id);
-
-      if (error) throw error;
-
-      Alert.alert('✅ Success', `MXI from Commissions set to ${amount}`);
-      await loadUsers();
-      
-      const updatedUser = users.find(u => u.id === selectedUser.id);
-      if (updatedUser) setSelectedUser(updatedUser);
-    } catch (error) {
-      console.error('Error setting MXI from commissions:', error);
-      Alert.alert('❌ Error', 'Failed to set MXI from commissions');
-    }
-  };
-
-  const handleToggleActiveStatus = async (userId: string, currentStatus: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('users')
-        .update({ is_active_contributor: !currentStatus })
-        .eq('id', userId);
-
-      if (error) throw error;
-
-      Alert.alert('✅ Success', 'User status updated successfully');
-      await loadUsers();
-      
-      const updatedUser = users.find(u => u.id === userId);
-      if (updatedUser) setSelectedUser(updatedUser);
-    } catch (error) {
-      console.error('Error updating status:', error);
-      Alert.alert('❌ Error', 'Failed to update user status');
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'approved': return colors.success;
-      case 'pending': return colors.warning;
-      case 'rejected': return colors.error;
-      case 'available': return colors.success;
-      case 'withdrawn': return colors.textSecondary;
-      default: return colors.textSecondary;
-    }
   };
 
   const formatDate = (dateString: string) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-  };
-
-  const getInputModalTitle = () => {
-    switch (currentAction) {
-      case 'add_mxi': return '💎 Add MXI';
-      case 'remove_mxi': return '💎 Remove MXI';
-      case 'add_usdt': return '💵 Add USDT';
-      case 'remove_usdt': return '💵 Remove USDT';
-      case 'set_mxi_balance': return '⚖️ Set MXI Balance';
-      case 'set_usdt_balance': return '⚖️ Set USDT Balance';
-      case 'set_active_referrals': return '👥 Set Active Referrals';
-      case 'set_yield_rate': return '📈 Set Yield Rate';
-      case 'set_accumulated_yield': return '💰 Set Accumulated Yield';
-      case 'add_commission': return '💸 Add Commission';
-      case 'edit_commission': return '✏️ Edit Commission';
-      case 'set_mxi_purchased': return '🛒 Set MXI Purchased';
-      case 'set_mxi_from_commissions': return '💰 Set MXI from Commissions';
-      default: return 'Enter Value';
-    }
+    return date.toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
   if (loading) {
@@ -904,7 +206,7 @@ export default function UserManagementScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading users...</Text>
+          <Text style={styles.loadingText}>Cargando usuarios...</Text>
         </View>
       </SafeAreaView>
     );
@@ -925,193 +227,196 @@ export default function UserManagementScreen() {
           />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.title}>👥 User Management</Text>
-          <Text style={styles.subtitle}>{filteredUsers.length} users</Text>
+          <Text style={styles.title}>👥 Gestión de Usuarios</Text>
+          <Text style={styles.subtitle}>{filteredUsers.length} usuarios</Text>
         </View>
+        <TouchableOpacity
+          style={styles.metricsButton}
+          onPress={() => setShowMetrics(!showMetrics)}
+        >
+          <IconSymbol 
+            ios_icon_name={showMetrics ? "list.bullet" : "chart.bar.fill"} 
+            android_material_icon_name={showMetrics ? "list" : "bar_chart"} 
+            size={24} 
+            color={colors.primary} 
+          />
+        </TouchableOpacity>
       </View>
 
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBox}>
-          <IconSymbol 
-            ios_icon_name="magnifyingglass" 
-            android_material_icon_name="search" 
-            size={20} 
-            color={colors.textSecondary} 
-          />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search by name, email, ID, or referral code..."
-            placeholderTextColor={colors.textSecondary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
+      {showMetrics ? (
+        <AdminMetricsDashboard />
+      ) : (
+        <>
+          <View style={styles.searchContainer}>
+            <View style={styles.searchBox}>
               <IconSymbol 
-                ios_icon_name="xmark.circle.fill" 
-                android_material_icon_name="cancel" 
+                ios_icon_name="magnifyingglass" 
+                android_material_icon_name="search" 
                 size={20} 
                 color={colors.textSecondary} 
               />
-            </TouchableOpacity>
-          )}
-        </View>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Buscar por nombre, email, ID o código..."
+                placeholderTextColor={colors.textSecondary}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <IconSymbol 
+                    ios_icon_name="xmark.circle.fill" 
+                    android_material_icon_name="cancel" 
+                    size={20} 
+                    color={colors.textSecondary} 
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
-          <TouchableOpacity
-            style={[styles.filterButton, filterStatus === 'all' && styles.filterButtonActive]}
-            onPress={() => setFilterStatus('all')}
-          >
-            <Text style={[styles.filterButtonText, filterStatus === 'all' && styles.filterButtonTextActive]}>
-              All Users
-            </Text>
-          </TouchableOpacity>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
+              <TouchableOpacity
+                style={[styles.filterButton, filterStatus === 'all' && styles.filterButtonActive]}
+                onPress={() => setFilterStatus('all')}
+              >
+                <Text style={[styles.filterButtonText, filterStatus === 'all' && styles.filterButtonTextActive]}>
+                  Todos
+                </Text>
+              </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.filterButton, filterStatus === 'active' && styles.filterButtonActive]}
-            onPress={() => setFilterStatus('active')}
-          >
-            <Text style={[styles.filterButtonText, filterStatus === 'active' && styles.filterButtonTextActive]}>
-              Active
-            </Text>
-          </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.filterButton, filterStatus === 'active' && styles.filterButtonActive]}
+                onPress={() => setFilterStatus('active')}
+              >
+                <Text style={[styles.filterButtonText, filterStatus === 'active' && styles.filterButtonTextActive]}>
+                  Activos
+                </Text>
+              </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.filterButton, filterStatus === 'inactive' && styles.filterButtonActive]}
-            onPress={() => setFilterStatus('inactive')}
-          >
-            <Text style={[styles.filterButtonText, filterStatus === 'inactive' && styles.filterButtonTextActive]}>
-              Inactive
-            </Text>
-          </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.filterButton, filterStatus === 'inactive' && styles.filterButtonActive]}
+                onPress={() => setFilterStatus('inactive')}
+              >
+                <Text style={[styles.filterButtonText, filterStatus === 'inactive' && styles.filterButtonTextActive]}>
+                  Inactivos
+                </Text>
+              </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.filterButton, filterStatus === 'kyc_approved' && styles.filterButtonActive]}
-            onPress={() => setFilterStatus('kyc_approved')}
-          >
-            <Text style={[styles.filterButtonText, filterStatus === 'kyc_approved' && styles.filterButtonTextActive]}>
-              KYC Approved
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.filterButton, filterStatus === 'blocked' && styles.filterButtonActive]}
-            onPress={() => setFilterStatus('blocked')}
-          >
-            <Text style={[styles.filterButtonText, filterStatus === 'blocked' && styles.filterButtonTextActive]}>
-              🚫 Blocked
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {filteredUsers.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <IconSymbol 
-              ios_icon_name="person.slash" 
-              android_material_icon_name="person_off" 
-              size={64} 
-              color={colors.textSecondary} 
-            />
-            <Text style={styles.emptyText}>No users found</Text>
-            <Text style={styles.emptySubtext}>Try adjusting your search or filters</Text>
+              <TouchableOpacity
+                style={[styles.filterButton, filterStatus === 'blocked' && styles.filterButtonActive]}
+                onPress={() => setFilterStatus('blocked')}
+              >
+                <Text style={[styles.filterButtonText, filterStatus === 'blocked' && styles.filterButtonTextActive]}>
+                  🚫 Bloqueados
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
           </View>
-        ) : (
-          filteredUsers.map((userData) => (
-            <TouchableOpacity
-              key={userData.id}
-              style={[
-                commonStyles.card, 
-                styles.userCard,
-                userData.is_blocked && styles.blockedUserCard
-              ]}
-              onPress={() => handleUserPress(userData)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.userCardHeader}>
-                <View style={styles.userInfo}>
-                  <View style={[
-                    styles.userAvatar,
-                    userData.is_blocked && styles.blockedUserAvatar
-                  ]}>
-                    <IconSymbol 
-                      ios_icon_name={userData.is_blocked ? "person.slash" : userData.is_active_contributor ? "person.fill" : "person"} 
-                      android_material_icon_name={userData.is_blocked ? "person_off" : userData.is_active_contributor ? "person" : "person_outline"}
-                      size={24} 
-                      color={userData.is_blocked ? colors.error : userData.is_active_contributor ? colors.primary : colors.textSecondary} 
-                    />
-                  </View>
-                  <View style={styles.userDetails}>
-                    <Text style={styles.userName}>{userData.name}</Text>
-                    <Text style={styles.userEmail}>{userData.email}</Text>
-                    <Text style={styles.userCode}>Code: {userData.referral_code}</Text>
-                  </View>
-                </View>
-                <View style={styles.userBadges}>
-                  {userData.is_blocked && (
-                    <View style={[styles.statusBadge, { backgroundColor: colors.error + '20' }]}>
-                      <Text style={[styles.statusBadgeText, { color: colors.error }]}>BLOCKED</Text>
-                    </View>
-                  )}
-                  {!userData.is_blocked && userData.is_active_contributor && (
-                    <View style={[styles.statusBadge, { backgroundColor: colors.success + '20' }]}>
-                      <Text style={[styles.statusBadgeText, { color: colors.success }]}>Active</Text>
-                    </View>
-                  )}
-                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(userData.kyc_status || 'pending') + '20' }]}>
-                    <Text style={[styles.statusBadgeText, { color: getStatusColor(userData.kyc_status || 'pending') }]}>
-                      {userData.kyc_status ? userData.kyc_status.toUpperCase() : 'N/A'}
-                    </Text>
-                  </View>
-                </View>
-              </View>
 
-              <View style={styles.userStats}>
-                <View style={styles.userStat}>
-                  <IconSymbol 
-                    ios_icon_name="bitcoinsign.circle" 
-                    android_material_icon_name="currency_bitcoin" 
-                    size={16} 
-                    color={colors.primary} 
-                  />
-                  <Text style={styles.userStatValue}>{parseFloat(userData.mxi_balance.toString()).toFixed(2)} MXI</Text>
-                </View>
-                <View style={styles.userStat}>
-                  <IconSymbol 
-                    ios_icon_name="dollarsign.circle" 
-                    android_material_icon_name="attach_money" 
-                    size={16} 
-                    color={colors.success} 
-                  />
-                  <Text style={styles.userStatValue}>${parseFloat(userData.usdt_contributed.toString()).toFixed(2)}</Text>
-                </View>
-                <View style={styles.userStat}>
-                  <IconSymbol 
-                    ios_icon_name="person.2" 
-                    android_material_icon_name="group" 
-                    size={16} 
-                    color={colors.warning} 
-                  />
-                  <Text style={styles.userStatValue}>{userData.active_referrals} refs</Text>
-                </View>
-              </View>
-
-              <View style={styles.userFooter}>
-                <Text style={styles.userJoinDate}>Joined {formatDate(userData.joined_date)}</Text>
+          <ScrollView contentContainerStyle={styles.scrollContent}>
+            {filteredUsers.length === 0 ? (
+              <View style={styles.emptyContainer}>
                 <IconSymbol 
-                  ios_icon_name="chevron.right" 
-                  android_material_icon_name="chevron_right" 
-                  size={16} 
+                  ios_icon_name="person.slash" 
+                  android_material_icon_name="person_off" 
+                  size={64} 
                   color={colors.textSecondary} 
                 />
+                <Text style={styles.emptyText}>No se encontraron usuarios</Text>
+                <Text style={styles.emptySubtext}>Intenta ajustar tu búsqueda o filtros</Text>
               </View>
-            </TouchableOpacity>
-          ))
-        )}
-      </ScrollView>
+            ) : (
+              filteredUsers.map((userData) => (
+                <TouchableOpacity
+                  key={userData.id}
+                  style={[
+                    commonStyles.card, 
+                    styles.userCard,
+                    userData.is_blocked && styles.blockedUserCard
+                  ]}
+                  onPress={() => handleUserPress(userData)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.userCardHeader}>
+                    <View style={styles.userInfo}>
+                      <View style={[
+                        styles.userAvatar,
+                        userData.is_blocked && styles.blockedUserAvatar
+                      ]}>
+                        <IconSymbol 
+                          ios_icon_name={userData.is_blocked ? "person.slash" : userData.is_active_contributor ? "person.fill" : "person"} 
+                          android_material_icon_name={userData.is_blocked ? "person_off" : userData.is_active_contributor ? "person" : "person_outline"}
+                          size={24} 
+                          color={userData.is_blocked ? colors.error : userData.is_active_contributor ? colors.primary : colors.textSecondary} 
+                        />
+                      </View>
+                      <View style={styles.userDetails}>
+                        <Text style={styles.userName}>{userData.name}</Text>
+                        <Text style={styles.userEmail}>{userData.email}</Text>
+                        <Text style={styles.userCode}>Código: {userData.referral_code}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.userBadges}>
+                      {userData.is_blocked && (
+                        <View style={[styles.statusBadge, { backgroundColor: colors.error + '20' }]}>
+                          <Text style={[styles.statusBadgeText, { color: colors.error }]}>BLOQUEADO</Text>
+                        </View>
+                      )}
+                      {!userData.is_blocked && userData.is_active_contributor && (
+                        <View style={[styles.statusBadge, { backgroundColor: colors.success + '20' }]}>
+                          <Text style={[styles.statusBadgeText, { color: colors.success }]}>Activo</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
 
-      {/* User Details Modal - Simplified version with key actions */}
+                  <View style={styles.userStats}>
+                    <View style={styles.userStat}>
+                      <IconSymbol 
+                        ios_icon_name="bitcoinsign.circle" 
+                        android_material_icon_name="currency_bitcoin" 
+                        size={16} 
+                        color={colors.primary} 
+                      />
+                      <Text style={styles.userStatValue}>{parseFloat(userData.mxi_balance.toString()).toFixed(2)} MXI</Text>
+                    </View>
+                    <View style={styles.userStat}>
+                      <IconSymbol 
+                        ios_icon_name="dollarsign.circle" 
+                        android_material_icon_name="attach_money" 
+                        size={16} 
+                        color={colors.success} 
+                      />
+                      <Text style={styles.userStatValue}>${parseFloat(userData.usdt_contributed.toString()).toFixed(2)}</Text>
+                    </View>
+                    <View style={styles.userStat}>
+                      <IconSymbol 
+                        ios_icon_name="person.2" 
+                        android_material_icon_name="group" 
+                        size={16} 
+                        color={colors.warning} 
+                      />
+                      <Text style={styles.userStatValue}>{userData.active_referrals} refs</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.userFooter}>
+                    <Text style={styles.userJoinDate}>Unido {formatDate(userData.joined_date)}</Text>
+                    <IconSymbol 
+                      ios_icon_name="chevron.right" 
+                      android_material_icon_name="chevron_right" 
+                      size={16} 
+                      color={colors.textSecondary} 
+                    />
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
+          </ScrollView>
+        </>
+      )}
+
+      {/* User Details Modal */}
       <Modal
         visible={detailsModalVisible}
         animationType="slide"
@@ -1128,134 +433,51 @@ export default function UserManagementScreen() {
                 color={colors.textSecondary} 
               />
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>User Details</Text>
+            <Text style={styles.modalTitle}>Detalles del Usuario</Text>
             <View style={{ width: 32 }} />
           </View>
 
           {selectedUser && (
             <ScrollView contentContainerStyle={styles.modalContent}>
-              <View style={styles.userInfoSection}>
-                <Text style={styles.sectionTitle}>{selectedUser.name}</Text>
-                <Text style={styles.sectionSubtitle}>{selectedUser.email}</Text>
+              <AdminUserManagement
+                userId={selectedUser.id}
+                userName={selectedUser.name}
+                userEmail={selectedUser.email}
+                onUpdate={loadUsers}
+              />
+
+              {/* Block/Unblock Actions */}
+              <View style={styles.dangerZone}>
+                <Text style={styles.dangerZoneTitle}>⚠️ Zona de Peligro</Text>
+                {selectedUser.is_blocked ? (
+                  <TouchableOpacity
+                    style={[buttonStyles.primary, { backgroundColor: colors.success }]}
+                    onPress={() => handleUnblockUser(selectedUser.id)}
+                    disabled={processing}
+                  >
+                    {processing ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={buttonStyles.primaryText}>Desbloquear Usuario</Text>
+                    )}
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={[buttonStyles.primary, { backgroundColor: colors.error }]}
+                    onPress={() => handleBlockUser(selectedUser.id)}
+                    disabled={processing}
+                  >
+                    {processing ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={buttonStyles.primaryText}>Bloquear Usuario</Text>
+                    )}
+                  </TouchableOpacity>
+                )}
               </View>
-
-              <View style={styles.actionButtonsGrid}>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => openInputModal('add_mxi')}
-                >
-                  <IconSymbol ios_icon_name="plus.circle" android_material_icon_name="add_circle" size={24} color={colors.primary} />
-                  <Text style={styles.actionButtonText}>Add MXI</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => openInputModal('remove_mxi')}
-                >
-                  <IconSymbol ios_icon_name="minus.circle" android_material_icon_name="remove_circle" size={24} color={colors.error} />
-                  <Text style={styles.actionButtonText}>Remove MXI</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => openInputModal('add_usdt')}
-                >
-                  <IconSymbol ios_icon_name="plus.circle" android_material_icon_name="add_circle" size={24} color={colors.success} />
-                  <Text style={styles.actionButtonText}>Add USDT</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => openInputModal('remove_usdt')}
-                >
-                  <IconSymbol ios_icon_name="minus.circle" android_material_icon_name="remove_circle" size={24} color={colors.warning} />
-                  <Text style={styles.actionButtonText}>Remove USDT</Text>
-                </TouchableOpacity>
-              </View>
-
-              {selectedUser.is_blocked ? (
-                <TouchableOpacity
-                  style={[buttonStyles.primary, { backgroundColor: colors.success }]}
-                  onPress={() => handleUnblockUser(selectedUser.id)}
-                  disabled={processing}
-                >
-                  {processing ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={buttonStyles.primaryText}>Unblock User</Text>
-                  )}
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={[buttonStyles.primary, { backgroundColor: colors.error }]}
-                  onPress={() => handleBlockUser(selectedUser.id)}
-                  disabled={processing}
-                >
-                  {processing ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={buttonStyles.primaryText}>Block User</Text>
-                  )}
-                </TouchableOpacity>
-              )}
             </ScrollView>
           )}
         </SafeAreaView>
-      </Modal>
-
-      {/* Input Modal */}
-      <Modal
-        visible={inputModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={closeInputModal}
-      >
-        <View style={styles.inputModalOverlay}>
-          <View style={styles.inputModalContent}>
-            <Text style={styles.inputModalTitle}>{getInputModalTitle()}</Text>
-            
-            <TextInput
-              style={styles.input}
-              value={inputValue}
-              onChangeText={setInputValue}
-              keyboardType="decimal-pad"
-              placeholder="Enter amount"
-              placeholderTextColor={colors.textSecondary}
-            />
-
-            {currentAction === 'add_commission' && (
-              <TextInput
-                style={styles.input}
-                value={inputValue2}
-                onChangeText={setInputValue2}
-                keyboardType="number-pad"
-                placeholder="Enter level (1-3)"
-                placeholderTextColor={colors.textSecondary}
-              />
-            )}
-
-            <View style={styles.inputModalButtons}>
-              <TouchableOpacity
-                style={[buttonStyles.secondary, { flex: 1 }]}
-                onPress={closeInputModal}
-              >
-                <Text style={buttonStyles.secondaryText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[buttonStyles.primary, { flex: 1 }]}
-                onPress={handleInputSubmit}
-                disabled={processing}
-              >
-                {processing ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={buttonStyles.primaryText}>Submit</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -1304,6 +526,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+  metricsButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   searchContainer: {
     padding: 16,
@@ -1481,73 +711,18 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 100,
   },
-  userInfoSection: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  sectionSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  actionButtonsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 24,
-  },
-  actionButton: {
-    width: '48%',
-    backgroundColor: colors.card,
-    borderRadius: 12,
+  dangerZone: {
+    marginTop: 24,
     padding: 16,
-    alignItems: 'center',
-    gap: 8,
+    backgroundColor: colors.error + '10',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.error + '30',
   },
-  actionButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  inputModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  inputModalContent: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 24,
-    width: '100%',
-    maxWidth: 400,
-  },
-  inputModalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  input: {
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 16,
+  dangerZoneTitle: {
     fontSize: 16,
-    color: colors.text,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 16,
-  },
-  inputModalButtons: {
-    flexDirection: 'row',
-    gap: 12,
+    fontWeight: '700',
+    color: colors.error,
+    marginBottom: 12,
   },
 });

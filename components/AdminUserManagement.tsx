@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -22,33 +22,177 @@ interface AdminUserManagementProps {
   onUpdate: () => void;
 }
 
-export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: AdminUserManagementProps) {
-  const [modalVisible, setModalVisible] = useState(false);
-  const [actionType, setActionType] = useState<string>('');
-  const [loading, setLoading] = useState(false);
-  
-  // Input states
-  const [mxiAmount, setMxiAmount] = useState('');
-  const [referralEmail, setReferralEmail] = useState('');
-  const [referralCode, setReferralCode] = useState('');
+interface UserDetails {
+  id: string;
+  name: string;
+  email: string;
+  mxi_balance: number;
+  usdt_contributed: number;
+  mxi_purchased_directly: number;
+  mxi_from_unified_commissions: number;
+  mxi_from_challenges: number;
+  mxi_vesting_locked: number;
+  active_referrals: number;
+  is_active_contributor: boolean;
+  is_blocked: boolean;
+  referral_code: string;
+  referred_by: string | null;
+  yield_rate_per_minute: number;
+  accumulated_yield: number;
+  total_referrals: number;
+  total_commissions: number;
+  total_commission_amount: number;
+}
 
-  const openModal = (action: string) => {
-    setActionType(action);
+interface Commission {
+  id: string;
+  amount: number;
+  level: number;
+  status: string;
+  from_user_name: string;
+  created_at: string;
+}
+
+interface Referral {
+  id: string;
+  referred_name: string;
+  level: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: AdminUserManagementProps) {
+  const [loading, setLoading] = useState(false);
+  const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
+  const [commissions, setCommissions] = useState<Commission[]>([]);
+  const [referrals, setReferrals] = useState<Referral[]>([]);
+  
+  // Modal states
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalType, setModalType] = useState<string>('');
+  const [inputValue, setInputValue] = useState('');
+  const [inputValue2, setInputValue2] = useState('');
+  const [selectedItem, setSelectedItem] = useState<any>(null);
+
+  useEffect(() => {
+    loadUserDetails();
+  }, [userId]);
+
+  const loadUserDetails = async () => {
+    try {
+      setLoading(true);
+
+      // Load user details with aggregated data
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (userError) throw userError;
+
+      // Load referrals count
+      const { data: referralsData, error: referralsError } = await supabase
+        .from('referrals')
+        .select('id')
+        .eq('referrer_id', userId);
+
+      // Load commissions
+      const { data: commissionsData, error: commissionsError } = await supabase
+        .from('commissions')
+        .select('id, amount')
+        .eq('user_id', userId);
+
+      const totalCommissionAmount = commissionsData?.reduce((sum, c) => sum + parseFloat(c.amount.toString()), 0) || 0;
+
+      setUserDetails({
+        ...userData,
+        total_referrals: referralsData?.length || 0,
+        total_commissions: commissionsData?.length || 0,
+        total_commission_amount: totalCommissionAmount,
+      });
+
+      // Load detailed commissions
+      const { data: detailedCommissions, error: commError } = await supabase
+        .from('commissions')
+        .select(`
+          id,
+          amount,
+          level,
+          status,
+          created_at,
+          from_user:users!commissions_from_user_id_fkey(name)
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (!commError && detailedCommissions) {
+        setCommissions(detailedCommissions.map(c => ({
+          id: c.id,
+          amount: parseFloat(c.amount.toString()),
+          level: c.level,
+          status: c.status,
+          from_user_name: (c.from_user as any)?.name || 'Unknown',
+          created_at: c.created_at,
+        })));
+      }
+
+      // Load detailed referrals
+      const { data: detailedReferrals, error: refError } = await supabase
+        .from('referrals')
+        .select(`
+          id,
+          level,
+          created_at,
+          referred:users!referrals_referred_id_fkey(name, is_active_contributor)
+        `)
+        .eq('referrer_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (!refError && detailedReferrals) {
+        setReferrals(detailedReferrals.map(r => ({
+          id: r.id,
+          referred_name: (r.referred as any)?.name || 'Unknown',
+          level: r.level,
+          is_active: (r.referred as any)?.is_active_contributor || false,
+          created_at: r.created_at,
+        })));
+      }
+
+    } catch (error) {
+      console.error('Error loading user details:', error);
+      Alert.alert('Error', 'Failed to load user details');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openModal = (type: string, item?: any) => {
+    setModalType(type);
+    setSelectedItem(item || null);
+    setInputValue('');
+    setInputValue2('');
+    
+    if (type === 'edit_commission' && item) {
+      setInputValue(item.amount.toString());
+      setInputValue2(item.status);
+    }
+    
     setModalVisible(true);
-    // Reset inputs
-    setMxiAmount('');
-    setReferralEmail('');
-    setReferralCode('');
   };
 
   const closeModal = () => {
     setModalVisible(false);
-    setActionType('');
+    setModalType('');
+    setInputValue('');
+    setInputValue2('');
+    setSelectedItem(null);
   };
 
-  // ========== BALANCE GENERAL ==========
-  const handleAddBalanceGeneralNoCommission = async () => {
-    const amount = parseFloat(mxiAmount);
+  const handleBalanceOperation = async (operation: string) => {
+    const amount = parseFloat(inputValue);
     if (isNaN(amount) || amount <= 0) {
       Alert.alert('Error', 'Por favor ingresa un monto válido');
       return;
@@ -59,283 +203,61 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No authenticated');
 
-      const { data, error } = await supabase.rpc('admin_add_balance_general_no_commission', {
+      let rpcFunction = '';
+      let params: any = {
         p_user_id: userId,
         p_admin_id: user.id,
         p_amount: amount,
-      });
+      };
+
+      switch (operation) {
+        case 'add_balance_no_commission':
+          rpcFunction = 'admin_add_balance_general_no_commission';
+          break;
+        case 'add_balance_with_commission':
+          rpcFunction = 'admin_add_balance_general_with_commission';
+          break;
+        case 'subtract_balance_general':
+          rpcFunction = 'admin_subtract_balance_general';
+          break;
+        case 'add_vesting':
+          rpcFunction = 'admin_add_balance_vesting';
+          break;
+        case 'subtract_vesting':
+          rpcFunction = 'admin_subtract_balance_vesting';
+          break;
+        case 'add_tournament':
+          rpcFunction = 'admin_add_balance_tournament';
+          break;
+        case 'subtract_tournament':
+          rpcFunction = 'admin_subtract_balance_tournament';
+          break;
+        default:
+          throw new Error('Invalid operation');
+      }
+
+      const { data, error } = await supabase.rpc(rpcFunction, params);
 
       if (error) throw error;
 
       if (data?.success) {
         Alert.alert('✅ Éxito', data.message);
         closeModal();
+        await loadUserDetails();
         onUpdate();
       } else {
-        Alert.alert('❌ Error', data?.error || 'Error al añadir balance');
+        Alert.alert('❌ Error', data?.error || 'Error en la operación');
       }
     } catch (error: any) {
-      console.error('Error adding balance:', error);
-      Alert.alert('❌ Error', error.message || 'Error al añadir balance');
+      console.error('Error in balance operation:', error);
+      Alert.alert('❌ Error', error.message || 'Error en la operación');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddBalanceGeneralWithCommission = async () => {
-    const amount = parseFloat(mxiAmount);
-    if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Por favor ingresa un monto válido');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No authenticated');
-
-      const { data, error } = await supabase.rpc('admin_add_balance_general_with_commission', {
-        p_user_id: userId,
-        p_admin_id: user.id,
-        p_amount: amount,
-      });
-
-      if (error) throw error;
-
-      if (data?.success) {
-        Alert.alert('✅ Éxito', data.message);
-        closeModal();
-        onUpdate();
-      } else {
-        Alert.alert('❌ Error', data?.error || 'Error al añadir balance');
-      }
-    } catch (error: any) {
-      console.error('Error adding balance with commission:', error);
-      Alert.alert('❌ Error', error.message || 'Error al añadir balance');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubtractBalanceGeneral = async () => {
-    const amount = parseFloat(mxiAmount);
-    if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Por favor ingresa un monto válido');
-      return;
-    }
-
-    Alert.alert(
-      '⚠️ Confirmar Resta',
-      `¿Estás seguro de restar ${amount} MXI del balance general?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Restar',
-          style: 'destructive',
-          onPress: async () => {
-            setLoading(true);
-            try {
-              const { data: { user } } = await supabase.auth.getUser();
-              if (!user) throw new Error('No authenticated');
-
-              const { data, error } = await supabase.rpc('admin_subtract_balance_general', {
-                p_user_id: userId,
-                p_admin_id: user.id,
-                p_amount: amount,
-              });
-
-              if (error) throw error;
-
-              if (data?.success) {
-                Alert.alert('✅ Éxito', data.message);
-                closeModal();
-                onUpdate();
-              } else {
-                Alert.alert('❌ Error', data?.error || 'Error al restar balance');
-              }
-            } catch (error: any) {
-              console.error('Error subtracting balance:', error);
-              Alert.alert('❌ Error', error.message || 'Error al restar balance');
-            } finally {
-              setLoading(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  // ========== VESTING ==========
-  const handleAddBalanceVesting = async () => {
-    const amount = parseFloat(mxiAmount);
-    if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Por favor ingresa un monto válido');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No authenticated');
-
-      const { data, error } = await supabase.rpc('admin_add_balance_vesting', {
-        p_user_id: userId,
-        p_admin_id: user.id,
-        p_amount: amount,
-      });
-
-      if (error) throw error;
-
-      if (data?.success) {
-        Alert.alert('✅ Éxito', data.message);
-        closeModal();
-        onUpdate();
-      } else {
-        Alert.alert('❌ Error', data?.error || 'Error al añadir balance vesting');
-      }
-    } catch (error: any) {
-      console.error('Error adding vesting balance:', error);
-      Alert.alert('❌ Error', error.message || 'Error al añadir balance vesting');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubtractBalanceVesting = async () => {
-    const amount = parseFloat(mxiAmount);
-    if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Por favor ingresa un monto válido');
-      return;
-    }
-
-    Alert.alert(
-      '⚠️ Confirmar Resta',
-      `¿Estás seguro de restar ${amount} MXI del balance vesting?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Restar',
-          style: 'destructive',
-          onPress: async () => {
-            setLoading(true);
-            try {
-              const { data: { user } } = await supabase.auth.getUser();
-              if (!user) throw new Error('No authenticated');
-
-              const { data, error } = await supabase.rpc('admin_subtract_balance_vesting', {
-                p_user_id: userId,
-                p_admin_id: user.id,
-                p_amount: amount,
-              });
-
-              if (error) throw error;
-
-              if (data?.success) {
-                Alert.alert('✅ Éxito', data.message);
-                closeModal();
-                onUpdate();
-              } else {
-                Alert.alert('❌ Error', data?.error || 'Error al restar balance vesting');
-              }
-            } catch (error: any) {
-              console.error('Error subtracting vesting balance:', error);
-              Alert.alert('❌ Error', error.message || 'Error al restar balance vesting');
-            } finally {
-              setLoading(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  // ========== TORNEOS ==========
-  const handleAddBalanceTournament = async () => {
-    const amount = parseFloat(mxiAmount);
-    if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Por favor ingresa un monto válido');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No authenticated');
-
-      const { data, error } = await supabase.rpc('admin_add_balance_tournament', {
-        p_user_id: userId,
-        p_admin_id: user.id,
-        p_amount: amount,
-      });
-
-      if (error) throw error;
-
-      if (data?.success) {
-        Alert.alert('✅ Éxito', data.message);
-        closeModal();
-        onUpdate();
-      } else {
-        Alert.alert('❌ Error', data?.error || 'Error al añadir balance de torneos');
-      }
-    } catch (error: any) {
-      console.error('Error adding tournament balance:', error);
-      Alert.alert('❌ Error', error.message || 'Error al añadir balance de torneos');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubtractBalanceTournament = async () => {
-    const amount = parseFloat(mxiAmount);
-    if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Por favor ingresa un monto válido');
-      return;
-    }
-
-    Alert.alert(
-      '⚠️ Confirmar Resta',
-      `¿Estás seguro de restar ${amount} MXI del balance de torneos?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Restar',
-          style: 'destructive',
-          onPress: async () => {
-            setLoading(true);
-            try {
-              const { data: { user } } = await supabase.auth.getUser();
-              if (!user) throw new Error('No authenticated');
-
-              const { data, error } = await supabase.rpc('admin_subtract_balance_tournament', {
-                p_user_id: userId,
-                p_admin_id: user.id,
-                p_amount: amount,
-              });
-
-              if (error) throw error;
-
-              if (data?.success) {
-                Alert.alert('✅ Éxito', data.message);
-                closeModal();
-                onUpdate();
-              } else {
-                Alert.alert('❌ Error', data?.error || 'Error al restar balance de torneos');
-              }
-            } catch (error: any) {
-              console.error('Error subtracting tournament balance:', error);
-              Alert.alert('❌ Error', error.message || 'Error al restar balance de torneos');
-            } finally {
-              setLoading(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  // ========== REFERRAL LINKING ==========
-  const handleLinkReferralByCode = async () => {
-    if (!referralEmail || !referralCode) {
+  const handleLinkReferral = async () => {
+    if (!inputValue || !inputValue2) {
       Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
@@ -347,8 +269,8 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
 
       const { data, error } = await supabase.rpc('admin_link_referral_by_code', {
         p_admin_id: user.id,
-        p_user_email: referralEmail,
-        p_referrer_code: referralCode,
+        p_user_email: inputValue,
+        p_referrer_code: inputValue2,
       });
 
       if (error) throw error;
@@ -356,6 +278,7 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
       if (data?.success) {
         Alert.alert('✅ Éxito', data.message);
         closeModal();
+        await loadUserDetails();
         onUpdate();
       } else {
         Alert.alert('❌ Error', data?.error || 'Error al vincular referido');
@@ -368,124 +291,97 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
     }
   };
 
+  const handleDeleteCommission = async (commissionId: string) => {
+    Alert.alert(
+      '🗑️ Eliminar Comisión',
+      '¿Estás seguro de eliminar esta comisión?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              const { error } = await supabase
+                .from('commissions')
+                .delete()
+                .eq('id', commissionId);
+
+              if (error) throw error;
+
+              Alert.alert('✅ Éxito', 'Comisión eliminada');
+              await loadUserDetails();
+              onUpdate();
+            } catch (error) {
+              console.error('Error deleting commission:', error);
+              Alert.alert('❌ Error', 'Error al eliminar comisión');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteReferral = async (referralId: string) => {
+    Alert.alert(
+      '🗑️ Eliminar Referido',
+      '¿Estás seguro de eliminar este referido?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              const { error } = await supabase
+                .from('referrals')
+                .delete()
+                .eq('id', referralId);
+
+              if (error) throw error;
+
+              Alert.alert('✅ Éxito', 'Referido eliminado');
+              await loadUserDetails();
+              onUpdate();
+            } catch (error) {
+              console.error('Error deleting referral:', error);
+              Alert.alert('❌ Error', 'Error al eliminar referido');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const renderModalContent = () => {
-    switch (actionType) {
-      // ========== BALANCE GENERAL ==========
-      case 'add_balance_general_no_commission':
-        return (
-          <View>
-            <Text style={styles.modalTitle}>➕ Sumar Saldo Balance General</Text>
-            <Text style={styles.modalSubtitle}>Sin generar comisión de referido</Text>
-            <Text style={styles.modalUser}>Usuario: {userName}</Text>
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Cantidad de MXI</Text>
-              <TextInput
-                style={styles.input}
-                value={mxiAmount}
-                onChangeText={setMxiAmount}
-                keyboardType="decimal-pad"
-                placeholder="0.00"
-                placeholderTextColor={colors.textSecondary}
-              />
-            </View>
-            <TouchableOpacity
-              style={[buttonStyles.primary, loading && buttonStyles.disabled]}
-              onPress={handleAddBalanceGeneralNoCommission}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#000" />
-              ) : (
-                <Text style={buttonStyles.primaryText}>Añadir MXI</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        );
-
-      case 'add_balance_general_with_commission':
-        return (
-          <View>
-            <Text style={styles.modalTitle}>➕ Aumentar Saldo Generando Comisión</Text>
-            <Text style={styles.modalSubtitle}>Se generarán comisiones para referidores</Text>
-            <Text style={styles.modalUser}>Usuario: {userName}</Text>
-            <Text style={styles.modalNote}>
-              💡 Comisiones: Nivel 1 (5%), Nivel 2 (2%), Nivel 3 (1%)
-            </Text>
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Cantidad de MXI</Text>
-              <TextInput
-                style={styles.input}
-                value={mxiAmount}
-                onChangeText={setMxiAmount}
-                keyboardType="decimal-pad"
-                placeholder="0.00"
-                placeholderTextColor={colors.textSecondary}
-              />
-            </View>
-            <TouchableOpacity
-              style={[buttonStyles.primary, loading && buttonStyles.disabled]}
-              onPress={handleAddBalanceGeneralWithCommission}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#000" />
-              ) : (
-                <Text style={buttonStyles.primaryText}>Añadir MXI con Comisión</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        );
-
+    switch (modalType) {
+      case 'add_balance_no_commission':
+      case 'add_balance_with_commission':
       case 'subtract_balance_general':
+      case 'add_vesting':
+      case 'subtract_vesting':
+      case 'add_tournament':
+      case 'subtract_tournament':
         return (
           <View>
-            <Text style={styles.modalTitle}>➖ Restar Saldo Balance General</Text>
-            <Text style={styles.modalSubtitle}>Restar del balance principal del usuario</Text>
-            <Text style={styles.modalUser}>Usuario: {userName}</Text>
-            <Text style={[styles.modalNote, { backgroundColor: colors.error + '20', borderLeftColor: colors.error }]}>
-              ⚠️ Esta acción restará MXI del balance general del usuario
+            <Text style={styles.modalTitle}>
+              {modalType.includes('add') ? '➕ Añadir' : '➖ Restar'} Saldo
             </Text>
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Cantidad de MXI a Restar</Text>
-              <TextInput
-                style={styles.input}
-                value={mxiAmount}
-                onChangeText={setMxiAmount}
-                keyboardType="decimal-pad"
-                placeholder="0.00"
-                placeholderTextColor={colors.textSecondary}
-              />
-            </View>
-            <TouchableOpacity
-              style={[buttonStyles.primary, { backgroundColor: colors.error }, loading && buttonStyles.disabled]}
-              onPress={handleSubtractBalanceGeneral}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={[buttonStyles.primaryText, { color: '#fff' }]}>Restar MXI</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        );
-
-      // ========== VESTING ==========
-      case 'add_balance_vesting':
-        return (
-          <View>
-            <Text style={styles.modalTitle}>➕ Aumentar Saldo Vesting</Text>
-            <Text style={styles.modalSubtitle}>Añadir al balance de vesting bloqueado</Text>
-            <Text style={styles.modalUser}>Usuario: {userName}</Text>
-            <Text style={styles.modalNote}>
-              🔒 Este saldo estará bloqueado hasta la fecha de lanzamiento
+            <Text style={styles.modalSubtitle}>
+              {modalType.includes('vesting') ? 'Vesting' : modalType.includes('tournament') ? 'Torneo' : 'Balance General'}
             </Text>
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Cantidad de MXI</Text>
               <TextInput
                 style={styles.input}
-                value={mxiAmount}
-                onChangeText={setMxiAmount}
+                value={inputValue}
+                onChangeText={setInputValue}
                 keyboardType="decimal-pad"
                 placeholder="0.00"
                 placeholderTextColor={colors.textSecondary}
@@ -493,136 +389,28 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
             </View>
             <TouchableOpacity
               style={[buttonStyles.primary, loading && buttonStyles.disabled]}
-              onPress={handleAddBalanceVesting}
+              onPress={() => handleBalanceOperation(modalType)}
               disabled={loading}
             >
               {loading ? (
                 <ActivityIndicator color="#000" />
               ) : (
-                <Text style={buttonStyles.primaryText}>Añadir a Vesting</Text>
+                <Text style={buttonStyles.primaryText}>Confirmar</Text>
               )}
             </TouchableOpacity>
           </View>
         );
 
-      case 'subtract_balance_vesting':
+      case 'link_referral':
         return (
           <View>
-            <Text style={styles.modalTitle}>➖ Restar Saldo Vesting</Text>
-            <Text style={styles.modalSubtitle}>Restar del balance de vesting bloqueado</Text>
-            <Text style={styles.modalUser}>Usuario: {userName}</Text>
-            <Text style={[styles.modalNote, { backgroundColor: colors.error + '20', borderLeftColor: colors.error }]}>
-              ⚠️ Esta acción restará MXI del balance vesting del usuario
-            </Text>
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Cantidad de MXI a Restar</Text>
-              <TextInput
-                style={styles.input}
-                value={mxiAmount}
-                onChangeText={setMxiAmount}
-                keyboardType="decimal-pad"
-                placeholder="0.00"
-                placeholderTextColor={colors.textSecondary}
-              />
-            </View>
-            <TouchableOpacity
-              style={[buttonStyles.primary, { backgroundColor: colors.error }, loading && buttonStyles.disabled]}
-              onPress={handleSubtractBalanceVesting}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={[buttonStyles.primaryText, { color: '#fff' }]}>Restar de Vesting</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        );
-
-      // ========== TORNEOS ==========
-      case 'add_balance_tournament':
-        return (
-          <View>
-            <Text style={styles.modalTitle}>➕ Aumentar Saldo Torneo</Text>
-            <Text style={styles.modalSubtitle}>Añadir al balance de torneos/retos</Text>
-            <Text style={styles.modalUser}>Usuario: {userName}</Text>
-            <Text style={styles.modalNote}>
-              🏆 Este saldo puede usarse para participar en torneos
-            </Text>
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Cantidad de MXI</Text>
-              <TextInput
-                style={styles.input}
-                value={mxiAmount}
-                onChangeText={setMxiAmount}
-                keyboardType="decimal-pad"
-                placeholder="0.00"
-                placeholderTextColor={colors.textSecondary}
-              />
-            </View>
-            <TouchableOpacity
-              style={[buttonStyles.primary, loading && buttonStyles.disabled]}
-              onPress={handleAddBalanceTournament}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#000" />
-              ) : (
-                <Text style={buttonStyles.primaryText}>Añadir a Torneos</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        );
-
-      case 'subtract_balance_tournament':
-        return (
-          <View>
-            <Text style={styles.modalTitle}>➖ Restar Saldo Torneo</Text>
-            <Text style={styles.modalSubtitle}>Restar del balance de torneos/retos</Text>
-            <Text style={styles.modalUser}>Usuario: {userName}</Text>
-            <Text style={[styles.modalNote, { backgroundColor: colors.error + '20', borderLeftColor: colors.error }]}>
-              ⚠️ Esta acción restará MXI del balance de torneos del usuario
-            </Text>
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Cantidad de MXI a Restar</Text>
-              <TextInput
-                style={styles.input}
-                value={mxiAmount}
-                onChangeText={setMxiAmount}
-                keyboardType="decimal-pad"
-                placeholder="0.00"
-                placeholderTextColor={colors.textSecondary}
-              />
-            </View>
-            <TouchableOpacity
-              style={[buttonStyles.primary, { backgroundColor: colors.error }, loading && buttonStyles.disabled]}
-              onPress={handleSubtractBalanceTournament}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={[buttonStyles.primaryText, { color: '#fff' }]}>Restar de Torneos</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        );
-
-      // ========== VINCULAR REFERIDO ==========
-      case 'link_referral_by_code':
-        return (
-          <View>
-            <Text style={styles.modalTitle}>🔗 Vincular Correo con Código de Referidor</Text>
-            <Text style={styles.modalSubtitle}>Asignar un referidor a un usuario existente</Text>
-            <Text style={styles.modalNote}>
-              💡 El usuario debe existir en el sistema y no tener referidor asignado
-            </Text>
+            <Text style={styles.modalTitle}>🔗 Vincular Referido</Text>
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Correo del Usuario</Text>
               <TextInput
                 style={styles.input}
-                value={referralEmail}
-                onChangeText={setReferralEmail}
+                value={inputValue}
+                onChangeText={setInputValue}
                 keyboardType="email-address"
                 placeholder="usuario@ejemplo.com"
                 placeholderTextColor={colors.textSecondary}
@@ -633,8 +421,8 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
               <Text style={styles.inputLabel}>Código del Referidor</Text>
               <TextInput
                 style={styles.input}
-                value={referralCode}
-                onChangeText={setReferralCode}
+                value={inputValue2}
+                onChangeText={setInputValue2}
                 placeholder="MXI123456"
                 placeholderTextColor={colors.textSecondary}
                 autoCapitalize="characters"
@@ -642,13 +430,13 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
             </View>
             <TouchableOpacity
               style={[buttonStyles.primary, loading && buttonStyles.disabled]}
-              onPress={handleLinkReferralByCode}
+              onPress={handleLinkReferral}
               disabled={loading}
             >
               {loading ? (
                 <ActivityIndicator color="#000" />
               ) : (
-                <Text style={buttonStyles.primaryText}>Vincular Referido</Text>
+                <Text style={buttonStyles.primaryText}>Vincular</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -659,134 +447,240 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
     }
   };
 
+  if (loading && !userDetails) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Cargando detalles...</Text>
+      </View>
+    );
+  }
+
+  if (!userDetails) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>No se pudieron cargar los detalles del usuario</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>⚙️ Gestión Completa de Saldos</Text>
-      
-      <View style={styles.categoryContainer}>
-        <Text style={styles.categoryTitle}>💰 Balance General</Text>
-        <View style={styles.actionsRow}>
+      <Text style={styles.sectionTitle}>⚙️ Gestión Completa de Usuario</Text>
+
+      {/* User Overview Card */}
+      <View style={styles.overviewCard}>
+        <View style={styles.overviewHeader}>
+          <View>
+            <Text style={styles.overviewName}>{userDetails.name}</Text>
+            <Text style={styles.overviewEmail}>{userDetails.email}</Text>
+            <Text style={styles.overviewCode}>Código: {userDetails.referral_code}</Text>
+          </View>
+          <View style={styles.statusBadges}>
+            {userDetails.is_blocked && (
+              <View style={[styles.badge, { backgroundColor: colors.error + '20' }]}>
+                <Text style={[styles.badgeText, { color: colors.error }]}>BLOQUEADO</Text>
+              </View>
+            )}
+            {userDetails.is_active_contributor && (
+              <View style={[styles.badge, { backgroundColor: colors.success + '20' }]}>
+                <Text style={[styles.badgeText, { color: colors.success }]}>ACTIVO</Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Balance Summary */}
+        <View style={styles.balanceSummary}>
+          <View style={styles.balanceItem}>
+            <Text style={styles.balanceLabel}>Balance Total</Text>
+            <Text style={styles.balanceValue}>{parseFloat(userDetails.mxi_balance.toString()).toFixed(2)} MXI</Text>
+          </View>
+          <View style={styles.balanceItem}>
+            <Text style={styles.balanceLabel}>USDT Contribuido</Text>
+            <Text style={styles.balanceValue}>${parseFloat(userDetails.usdt_contributed.toString()).toFixed(2)}</Text>
+          </View>
+        </View>
+
+        {/* Detailed Balances */}
+        <View style={styles.detailedBalances}>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>💰 MXI Comprado</Text>
+            <Text style={styles.detailValue}>{parseFloat(userDetails.mxi_purchased_directly.toString()).toFixed(2)}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>💸 MXI Comisiones</Text>
+            <Text style={styles.detailValue}>{parseFloat(userDetails.mxi_from_unified_commissions.toString()).toFixed(2)}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>🏆 MXI Retos</Text>
+            <Text style={styles.detailValue}>{parseFloat(userDetails.mxi_from_challenges.toString()).toFixed(2)}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>🔒 MXI Vesting</Text>
+            <Text style={styles.detailValue}>{parseFloat(userDetails.mxi_vesting_locked.toString()).toFixed(2)}</Text>
+          </View>
+        </View>
+
+        {/* Referral Stats */}
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <IconSymbol ios_icon_name="person.2.fill" android_material_icon_name="group" size={20} color={colors.primary} />
+            <Text style={styles.statValue}>{userDetails.total_referrals}</Text>
+            <Text style={styles.statLabel}>Referidos</Text>
+          </View>
+          <View style={styles.statItem}>
+            <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={20} color={colors.success} />
+            <Text style={styles.statValue}>{userDetails.active_referrals}</Text>
+            <Text style={styles.statLabel}>Activos</Text>
+          </View>
+          <View style={styles.statItem}>
+            <IconSymbol ios_icon_name="dollarsign.circle.fill" android_material_icon_name="attach_money" size={20} color={colors.warning} />
+            <Text style={styles.statValue}>{userDetails.total_commissions}</Text>
+            <Text style={styles.statLabel}>Comisiones</Text>
+          </View>
+          <View style={styles.statItem}>
+            <IconSymbol ios_icon_name="chart.line.uptrend.xyaxis" android_material_icon_name="trending_up" size={20} color={colors.accent} />
+            <Text style={styles.statValue}>${userDetails.total_commission_amount.toFixed(2)}</Text>
+            <Text style={styles.statLabel}>Total</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Quick Actions */}
+      <View style={styles.section}>
+        <Text style={styles.sectionSubtitle}>💰 Gestión de Saldos</Text>
+        <View style={styles.actionsGrid}>
           <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: colors.success + '20' }]}
-            onPress={() => openModal('add_balance_general_no_commission')}
+            style={[styles.actionCard, { backgroundColor: colors.success + '15' }]}
+            onPress={() => openModal('add_balance_no_commission')}
           >
-            <IconSymbol 
-              ios_icon_name="plus.circle.fill" 
-              android_material_icon_name="add_circle" 
-              size={20} 
-              color={colors.success} 
-            />
-            <Text style={styles.actionButtonText}>Sumar{'\n'}Sin Comisión</Text>
+            <IconSymbol ios_icon_name="plus.circle.fill" android_material_icon_name="add_circle" size={24} color={colors.success} />
+            <Text style={styles.actionText}>Añadir{'\n'}Sin Comisión</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: colors.primary + '20' }]}
-            onPress={() => openModal('add_balance_general_with_commission')}
-          >
-            <IconSymbol 
-              ios_icon_name="plus.circle.fill" 
-              android_material_icon_name="add_circle" 
-              size={20} 
-              color={colors.primary} 
-            />
-            <Text style={styles.actionButtonText}>Aumentar{'\n'}Con Comisión</Text>
+            style={[styles.actionCard, { backgroundColor: colors.primary + '15' }]}
+            onPress={() => openModal('add_balance_with_commission')}
+            >
+            <IconSymbol ios_icon_name="plus.circle.fill" android_material_icon_name="add_circle" size={24} color={colors.primary} />
+            <Text style={styles.actionText}>Añadir{'\n'}Con Comisión</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: colors.error + '20' }]}
+            style={[styles.actionCard, { backgroundColor: colors.error + '15' }]}
             onPress={() => openModal('subtract_balance_general')}
           >
-            <IconSymbol 
-              ios_icon_name="minus.circle.fill" 
-              android_material_icon_name="remove_circle" 
-              size={20} 
-              color={colors.error} 
-            />
-            <Text style={styles.actionButtonText}>Restar{'\n'}Balance</Text>
+            <IconSymbol ios_icon_name="minus.circle.fill" android_material_icon_name="remove_circle" size={24} color={colors.error} />
+            <Text style={styles.actionText}>Restar{'\n'}Balance</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionCard, { backgroundColor: colors.accent + '15' }]}
+            onPress={() => openModal('add_vesting')}
+          >
+            <IconSymbol ios_icon_name="lock.fill" android_material_icon_name="lock" size={24} color={colors.accent} />
+            <Text style={styles.actionText}>Añadir{'\n'}Vesting</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      <View style={styles.categoryContainer}>
-        <Text style={styles.categoryTitle}>🔒 Vesting</Text>
-        <View style={styles.actionsRow}>
+      {/* Referrals Section */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionSubtitle}>👥 Referidos ({referrals.length})</Text>
           <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: colors.accent + '20' }]}
-            onPress={() => openModal('add_balance_vesting')}
+            style={styles.addButton}
+            onPress={() => openModal('link_referral')}
           >
-            <IconSymbol 
-              ios_icon_name="plus.circle.fill" 
-              android_material_icon_name="add_circle" 
-              size={20} 
-              color={colors.accent} 
-            />
-            <Text style={styles.actionButtonText}>Aumentar{'\n'}Vesting</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: colors.error + '20' }]}
-            onPress={() => openModal('subtract_balance_vesting')}
-          >
-            <IconSymbol 
-              ios_icon_name="minus.circle.fill" 
-              android_material_icon_name="remove_circle" 
-              size={20} 
-              color={colors.error} 
-            />
-            <Text style={styles.actionButtonText}>Restar{'\n'}Vesting</Text>
+            <IconSymbol ios_icon_name="plus" android_material_icon_name="add" size={16} color={colors.primary} />
           </TouchableOpacity>
         </View>
+        {referrals.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>No hay referidos</Text>
+          </View>
+        ) : (
+          <View style={styles.listContainer}>
+            {referrals.map((referral, index) => (
+              <View key={index} style={styles.listItem}>
+                <View style={styles.listItemContent}>
+                  <View style={styles.listItemHeader}>
+                    <Text style={styles.listItemTitle}>{referral.referred_name}</Text>
+                    <View style={[styles.levelBadge, { backgroundColor: colors.primary + '20' }]}>
+                      <Text style={[styles.levelBadgeText, { color: colors.primary }]}>Nivel {referral.level}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.listItemFooter}>
+                    <Text style={styles.listItemDate}>
+                      {new Date(referral.created_at).toLocaleDateString()}
+                    </Text>
+                    {referral.is_active && (
+                      <View style={[styles.statusDot, { backgroundColor: colors.success }]} />
+                    )}
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={styles.deleteButton}
+                  onPress={() => handleDeleteReferral(referral.id)}
+                >
+                  <IconSymbol ios_icon_name="trash" android_material_icon_name="delete" size={18} color={colors.error} />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
       </View>
 
-      <View style={styles.categoryContainer}>
-        <Text style={styles.categoryTitle}>🏆 Torneos</Text>
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: colors.warning + '20' }]}
-            onPress={() => openModal('add_balance_tournament')}
-          >
-            <IconSymbol 
-              ios_icon_name="plus.circle.fill" 
-              android_material_icon_name="add_circle" 
-              size={20} 
-              color={colors.warning} 
-            />
-            <Text style={styles.actionButtonText}>Aumentar{'\n'}Torneo</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: colors.error + '20' }]}
-            onPress={() => openModal('subtract_balance_tournament')}
-          >
-            <IconSymbol 
-              ios_icon_name="minus.circle.fill" 
-              android_material_icon_name="remove_circle" 
-              size={20} 
-              color={colors.error} 
-            />
-            <Text style={styles.actionButtonText}>Restar{'\n'}Torneo</Text>
-          </TouchableOpacity>
-        </View>
+      {/* Commissions Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionSubtitle}>💸 Comisiones ({commissions.length})</Text>
+        {commissions.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>No hay comisiones</Text>
+          </View>
+        ) : (
+          <View style={styles.listContainer}>
+            {commissions.map((commission, index) => (
+              <View key={index} style={styles.listItem}>
+                <View style={styles.listItemContent}>
+                  <View style={styles.listItemHeader}>
+                    <Text style={styles.listItemTitle}>${commission.amount.toFixed(2)} USDT</Text>
+                    <View style={[
+                      styles.statusBadge,
+                      { backgroundColor: commission.status === 'available' ? colors.success + '20' : colors.textSecondary + '20' }
+                    ]}>
+                      <Text style={[
+                        styles.statusBadgeText,
+                        { color: commission.status === 'available' ? colors.success : colors.textSecondary }
+                      ]}>
+                        {commission.status.toUpperCase()}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.listItemSubtitle}>De: {commission.from_user_name}</Text>
+                  <View style={styles.listItemFooter}>
+                    <Text style={styles.listItemDate}>
+                      {new Date(commission.created_at).toLocaleDateString()}
+                    </Text>
+                    <View style={[styles.levelBadge, { backgroundColor: colors.warning + '20' }]}>
+                      <Text style={[styles.levelBadgeText, { color: colors.warning }]}>Nivel {commission.level}</Text>
+                    </View>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={styles.deleteButton}
+                  onPress={() => handleDeleteCommission(commission.id)}
+                >
+                  <IconSymbol ios_icon_name="trash" android_material_icon_name="delete" size={18} color={colors.error} />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
       </View>
 
-      <View style={styles.categoryContainer}>
-        <Text style={styles.categoryTitle}>🔗 Referidos</Text>
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: colors.primary + '20', flex: 1 }]}
-            onPress={() => openModal('link_referral_by_code')}
-          >
-            <IconSymbol 
-              ios_icon_name="link.circle.fill" 
-              android_material_icon_name="link" 
-              size={20} 
-              color={colors.primary} 
-            />
-            <Text style={styles.actionButtonText}>Vincular Correo{'\n'}con Código</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
+      {/* Modal */}
       <Modal
         visible={modalVisible}
         transparent
@@ -796,12 +690,7 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <TouchableOpacity style={styles.closeButton} onPress={closeModal}>
-              <IconSymbol 
-                ios_icon_name="xmark.circle.fill" 
-                android_material_icon_name="cancel" 
-                size={28} 
-                color={colors.textSecondary} 
-              />
+              <IconSymbol ios_icon_name="xmark.circle.fill" android_material_icon_name="cancel" size={28} color={colors.textSecondary} />
             </TouchableOpacity>
             <ScrollView showsVerticalScrollIndicator={false}>
               {renderModalContent()}
@@ -817,45 +706,266 @@ const styles = StyleSheet.create({
   container: {
     marginVertical: 16,
   },
+  loadingContainer: {
+    padding: 40,
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  errorContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  errorText: {
+    fontSize: 14,
+    color: colors.error,
+    textAlign: 'center',
+  },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 20,
+    marginBottom: 16,
   },
-  categoryContainer: {
-    marginBottom: 20,
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 16,
+  overviewCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  categoryTitle: {
+  overviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  overviewName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  overviewEmail: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  overviewCode: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontFamily: 'monospace',
+  },
+  statusBadges: {
+    gap: 6,
+    alignItems: 'flex-end',
+  },
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  balanceSummary: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  balanceItem: {
+    flex: 1,
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 12,
+  },
+  balanceLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  balanceValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  detailedBalances: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  detailLabel: {
+    fontSize: 13,
+    color: colors.text,
+  },
+  detailValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+    fontFamily: 'monospace',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  statItem: {
+    flex: 1,
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+    gap: 4,
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  statLabel: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  section: {
+    marginBottom: 16,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sectionSubtitle: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
     marginBottom: 12,
   },
-  actionsRow: {
+  addButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primary + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionsGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
   },
-  actionButton: {
-    flex: 1,
+  actionCard: {
+    width: '48%',
     borderRadius: 12,
-    padding: 12,
+    padding: 16,
     alignItems: 'center',
-    gap: 6,
-    minHeight: 80,
+    gap: 8,
+    minHeight: 90,
     justifyContent: 'center',
   },
-  actionButtonText: {
-    fontSize: 11,
+  actionText: {
+    fontSize: 12,
     fontWeight: '600',
     color: colors.text,
     textAlign: 'center',
-    lineHeight: 14,
+    lineHeight: 16,
+  },
+  listContainer: {
+    gap: 8,
+  },
+  listItem: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 12,
+  },
+  listItemContent: {
+    flex: 1,
+    gap: 6,
+  },
+  listItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  listItemTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  listItemSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  listItemFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  listItemDate: {
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
+  levelBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  levelBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  deleteButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.error + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyState: {
+    padding: 32,
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: colors.textSecondary,
   },
   modalOverlay: {
     flex: 1,
@@ -885,24 +995,7 @@ const styles = StyleSheet.create({
   modalSubtitle: {
     fontSize: 14,
     color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  modalUser: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
     marginBottom: 16,
-  },
-  modalNote: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    backgroundColor: colors.primary + '20',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
-    lineHeight: 18,
   },
   inputContainer: {
     marginBottom: 16,
