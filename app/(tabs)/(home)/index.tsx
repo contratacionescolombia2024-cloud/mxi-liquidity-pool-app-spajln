@@ -104,9 +104,9 @@ export default function HomeScreen() {
       
       console.log('Real MXI sold from users:', totalMxiSold);
       
-      // Determine current phase based on date
-      const presaleStartDate = new Date('2024-11-01T00:00:00Z');
-      const presaleEndDate = new Date('2026-02-15T12:00:00Z');
+      // Determine current phase based on date - STARTING TODAY
+      const presaleStartDate = new Date(); // Start NOW
+      const presaleEndDate = new Date('2025-02-15T12:00:00Z');
       const now = new Date();
       
       const totalDuration = presaleEndDate.getTime() - presaleStartDate.getTime();

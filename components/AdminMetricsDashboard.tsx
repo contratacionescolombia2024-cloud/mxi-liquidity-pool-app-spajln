@@ -37,6 +37,7 @@ interface AppMetrics {
   phase3StartDate: Date;
   phase3EndDate: Date;
   presaleEndDate: Date;
+  presaleStartDate: Date;
   // Vesting metrics
   totalVestingLocked: number;
   totalVestingReleased: number;
@@ -57,8 +58,8 @@ export function AdminMetricsDashboard() {
   }, []);
 
   const calculatePhaseInfo = (presaleEndDate: Date) => {
-    // Presale start date - using a fixed date for consistency
-    const presaleStartDate = new Date('2024-11-01T00:00:00Z');
+    // Presale starts NOW (today)
+    const presaleStartDate = new Date();
     const endDate = new Date(presaleEndDate);
     
     // Calculate total duration in milliseconds
@@ -98,6 +99,7 @@ export function AdminMetricsDashboard() {
       phase2EndDate: phase2End,
       phase3StartDate: phase3Start,
       phase3EndDate: phase3End,
+      presaleStartDate,
     };
   };
 
@@ -164,7 +166,7 @@ export function AdminMetricsDashboard() {
 
       if (metricsError) throw metricsError;
 
-      const presaleEndDate = new Date(metricsData?.pool_close_date || '2026-02-15T12:00:00Z');
+      const presaleEndDate = new Date(metricsData?.pool_close_date || '2025-02-15T12:00:00Z');
       const phaseInfo = calculatePhaseInfo(presaleEndDate);
 
       // Calculate phase distribution based on current phase and actual MXI sold
@@ -210,6 +212,7 @@ export function AdminMetricsDashboard() {
         phase3StartDate: phaseInfo.phase3StartDate,
         phase3EndDate: phaseInfo.phase3EndDate,
         presaleEndDate,
+        presaleStartDate: phaseInfo.presaleStartDate,
         totalVestingLocked,
         totalVestingReleased,
         totalVestingPending,
@@ -461,6 +464,10 @@ export function AdminMetricsDashboard() {
             <View style={styles.presaleStatRow}>
               <Text style={styles.presaleStatLabel}>Valor Recaudado</Text>
               <Text style={styles.presaleStatValue}>${metrics.totalUsdtContributed.toFixed(2)} USDT</Text>
+            </View>
+            <View style={styles.presaleStatRow}>
+              <Text style={styles.presaleStatLabel}>Inicio Preventa</Text>
+              <Text style={styles.presaleStatValue}>{formatDateTime(metrics.presaleStartDate)}</Text>
             </View>
             <View style={styles.presaleStatRow}>
               <Text style={styles.presaleStatLabel}>Finalización Preventa</Text>
