@@ -86,6 +86,98 @@ export default function TransactionHistoryScreen() {
     }
   };
 
+  const cancelTransaction = async (transaction: Transaction) => {
+    Alert.alert(
+      'Cancelar Transacción',
+      '¿Estás seguro de que deseas cancelar esta transacción pendiente?',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Sí, Cancelar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('transaction_history')
+                .update({
+                  status: 'cancelled',
+                  error_message: 'Cancelado por el usuario',
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', transaction.id);
+
+              if (error) throw error;
+
+              Alert.alert('✅ Cancelado', 'La transacción ha sido cancelada');
+              await loadTransactions();
+            } catch (error) {
+              console.error('Error cancelling transaction:', error);
+              Alert.alert('Error', 'No se pudo cancelar la transacción');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const checkTransactionStatus = async (transaction: Transaction) => {
+    if (!transaction.payment_id) {
+      Alert.alert(
+        'Sin ID de Pago',
+        'Esta transacción no tiene un ID de pago válido. Es probable que la creación del pago haya fallado.',
+        [
+          {
+            text: 'Cancelar Transacción',
+            onPress: () => cancelTransaction(transaction),
+          },
+          { text: 'OK' },
+        ]
+      );
+      return;
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const response = await fetch(
+        `${supabase.supabaseUrl}/functions/v1/check-nowpayments-status?order_id=${transaction.order_id}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        }
+      );
+
+      const result = await response.json();
+
+      if (result.success) {
+        if (result.status === 'confirmed' || result.status === 'finished') {
+          Alert.alert(
+            '✅ Pago Confirmado',
+            'Tu pago ha sido confirmado. Tu saldo ha sido actualizado.',
+            [{ text: 'OK', onPress: () => loadTransactions() }]
+          );
+        } else if (result.status === 'failed' || result.status === 'expired') {
+          Alert.alert(
+            '❌ Pago Fallido',
+            `El pago ha ${result.status === 'failed' ? 'fallado' : 'expirado'}. Puedes intentar crear una nueva orden.`,
+            [{ text: 'OK', onPress: () => loadTransactions() }]
+          );
+        } else {
+          Alert.alert(
+            'Estado del Pago',
+            `Estado actual: ${getStatusText(result.status)}\n\nEl pago aún está siendo procesado.`
+          );
+        }
+      }
+    } catch (error) {
+      console.error('Error checking status:', error);
+      Alert.alert('Error', 'No se pudo verificar el estado del pago');
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'confirmed':
@@ -339,19 +431,48 @@ export default function TransactionHistoryScreen() {
 
                 <View style={styles.transactionFooter}>
                   <Text style={styles.transactionDate}>{formatDate(transaction.created_at)}</Text>
-                  {transaction.payment_url && ['pending', 'waiting', 'confirming'].includes(transaction.status) && (
-                    <TouchableOpacity
-                      style={styles.payButton}
-                      onPress={() => openPaymentUrl(transaction.payment_url)}
-                    >
-                      <IconSymbol
-                        ios_icon_name="arrow.up.right.square"
-                        android_material_icon_name="open_in_new"
-                        size={16}
-                        color={colors.primary}
-                      />
-                      <Text style={styles.payButtonText}>Pagar</Text>
-                    </TouchableOpacity>
+                  
+                  {['pending', 'waiting', 'confirming'].includes(transaction.status) && (
+                    <View style={styles.actionButtons}>
+                      {transaction.payment_url && (
+                        <TouchableOpacity
+                          style={styles.payButton}
+                          onPress={() => openPaymentUrl(transaction.payment_url)}
+                        >
+                          <IconSymbol
+                            ios_icon_name="arrow.up.right.square"
+                            android_material_icon_name="open_in_new"
+                            size={16}
+                            color={colors.primary}
+                          />
+                          <Text style={styles.payButtonText}>Pagar</Text>
+                        </TouchableOpacity>
+                      )}
+                      <TouchableOpacity
+                        style={styles.checkButton}
+                        onPress={() => checkTransactionStatus(transaction)}
+                      >
+                        <IconSymbol
+                          ios_icon_name="arrow.clockwise"
+                          android_material_icon_name="refresh"
+                          size={16}
+                          color={colors.accent}
+                        />
+                        <Text style={styles.checkButtonText}>Verificar</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.cancelButton}
+                        onPress={() => cancelTransaction(transaction)}
+                      >
+                        <IconSymbol
+                          ios_icon_name="xmark.circle"
+                          android_material_icon_name="cancel"
+                          size={16}
+                          color={colors.error}
+                        />
+                        <Text style={styles.cancelButtonText}>Cancelar</Text>
+                      </TouchableOpacity>
+                    </View>
                   )}
                 </View>
 
@@ -551,9 +672,6 @@ const styles = StyleSheet.create({
     maxWidth: '60%',
   },
   transactionFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: colors.border,
@@ -561,20 +679,59 @@ const styles = StyleSheet.create({
   transactionDate: {
     fontSize: 11,
     color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
   },
   payButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
     backgroundColor: colors.highlight,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: 6,
   },
   payButtonText: {
     fontSize: 12,
     fontWeight: '600',
     color: colors.primary,
+  },
+  checkButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: colors.accent + '20',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  checkButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.accent,
+  },
+  cancelButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: colors.error + '20',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  cancelButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.error,
   },
   errorContainer: {
     flexDirection: 'row',

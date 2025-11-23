@@ -13,6 +13,9 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  let transactionId: string | null = null;
+  let userId: string | null = null;
+
   try {
     console.log('=== Starting create-nowpayments-order ===');
     console.log('Request method:', req.method);
@@ -46,6 +49,7 @@ Deno.serve(async (req) => {
       );
     }
 
+    userId = user.id;
     console.log('User authenticated:', user.id);
 
     // Parse request body
@@ -148,6 +152,38 @@ Deno.serve(async (req) => {
     const orderId = `MXI-${Date.now()}-${user.id.substring(0, 8)}`;
     console.log('Generated order ID:', orderId);
 
+    // Create transaction history entry FIRST
+    const { data: transaction, error: transactionError } = await supabaseClient
+      .from('transaction_history')
+      .insert({
+        user_id: user.id,
+        transaction_type: 'nowpayments_order',
+        order_id: orderId,
+        mxi_amount: mxi_amount,
+        usdt_amount: totalUsdt,
+        status: 'pending',
+        metadata: {
+          phase: currentPhase,
+          price_per_mxi: pricePerMxi,
+        },
+      })
+      .select()
+      .single();
+
+    if (transactionError) {
+      console.error('Error creating transaction history:', transactionError);
+      return new Response(
+        JSON.stringify({ error: 'Error al crear registro de transacción' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    transactionId = transaction.id;
+    console.log('Transaction history created:', transactionId);
+
     // NOWPayments API Key - cleaned
     const nowpaymentsApiKey = '9SC5SM9-7SR45HD-JKXSWGY-489J5YA';
     console.log('API Key configured, length:', nowpaymentsApiKey.length);
@@ -178,6 +214,18 @@ Deno.serve(async (req) => {
       });
     } catch (fetchError: any) {
       console.error('Fetch error:', fetchError);
+      
+      // Update transaction as failed
+      await supabaseClient
+        .from('transaction_history')
+        .update({
+          status: 'failed',
+          error_message: 'Error al conectar con el servicio de pagos',
+          error_details: { message: fetchError.message },
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', transactionId);
+
       return new Response(
         JSON.stringify({
           error: 'Error al conectar con el servicio de pagos',
@@ -201,22 +249,32 @@ Deno.serve(async (req) => {
       console.error('NOWPayments API error - Body:', responseText);
       
       let errorMessage = 'Error al crear el pago con NOWPayments';
-      let errorDetails = responseText;
+      let errorDetails: any = { raw: responseText };
       
       try {
         const errorData = JSON.parse(responseText);
         errorMessage = errorData.message || errorData.error || errorMessage;
-        errorDetails = JSON.stringify(errorData, null, 2);
+        errorDetails = errorData;
       } catch (e) {
         console.error('Could not parse error response as JSON');
       }
+
+      // Update transaction as failed
+      await supabaseClient
+        .from('transaction_history')
+        .update({
+          status: 'failed',
+          error_message: errorMessage,
+          error_details: errorDetails,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', transactionId);
 
       return new Response(
         JSON.stringify({
           error: errorMessage,
           details: errorDetails,
           status: nowpaymentsResponse.status,
-          api_key_length: nowpaymentsApiKey.length,
         }),
         {
           status: 500,
@@ -231,6 +289,18 @@ Deno.serve(async (req) => {
       console.log('NOWPayments response data:', JSON.stringify(paymentData, null, 2));
     } catch (e) {
       console.error('Failed to parse NOWPayments response:', e);
+      
+      // Update transaction as failed
+      await supabaseClient
+        .from('transaction_history')
+        .update({
+          status: 'failed',
+          error_message: 'Respuesta inválida del servicio de pagos',
+          error_details: { raw: responseText },
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', transactionId);
+
       return new Response(
         JSON.stringify({
           error: 'Respuesta inválida del servicio de pagos',
@@ -253,6 +323,18 @@ Deno.serve(async (req) => {
 
     if (!paymentUrl) {
       console.error('No payment URL available:', paymentData);
+      
+      // Update transaction as failed
+      await supabaseClient
+        .from('transaction_history')
+        .update({
+          status: 'failed',
+          error_message: 'No se pudo obtener la URL de pago',
+          error_details: paymentData,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', transactionId);
+
       return new Response(
         JSON.stringify({
           error: 'Pago creado pero no se pudo obtener la URL de pago',
@@ -267,7 +349,25 @@ Deno.serve(async (req) => {
 
     console.log('Payment URL:', paymentUrl);
 
-    // Store order in database
+    // Update transaction history with payment details
+    await supabaseClient
+      .from('transaction_history')
+      .update({
+        payment_id: paymentData.payment_id || null,
+        payment_url: paymentUrl,
+        status: paymentData.payment_status || 'waiting',
+        metadata: {
+          phase: currentPhase,
+          price_per_mxi: pricePerMxi,
+          pay_address: paymentData.pay_address,
+          pay_amount: paymentData.pay_amount,
+          pay_currency: paymentData.pay_currency,
+        },
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', transactionId);
+
+    // Store order in nowpayments_orders table
     const { data: order, error: orderError } = await supabaseClient
       .from('nowpayments_orders')
       .insert({
@@ -291,8 +391,8 @@ Deno.serve(async (req) => {
     if (orderError) {
       console.error('Error storing order:', orderError);
       // Don't fail the request if we can't store the order
-      // The payment was created successfully
-      console.warn('Order created in NOWPayments but failed to store in database');
+      // The payment was created successfully and transaction history is updated
+      console.warn('Order created in NOWPayments but failed to store in nowpayments_orders table');
     } else {
       console.log('Order stored successfully:', order.id);
     }
@@ -321,6 +421,32 @@ Deno.serve(async (req) => {
   } catch (error: any) {
     console.error('Error in create-nowpayments-order:', error);
     console.error('Error stack:', error.stack);
+    
+    // Update transaction as failed if we have the ID
+    if (transactionId && userId) {
+      try {
+        const supabaseClient = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        );
+        
+        await supabaseClient
+          .from('transaction_history')
+          .update({
+            status: 'failed',
+            error_message: error.message || 'Error interno del servidor',
+            error_details: {
+              type: error.constructor.name,
+              stack: error.stack,
+            },
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', transactionId);
+      } catch (updateError) {
+        console.error('Failed to update transaction history:', updateError);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         error: error.message || 'Error interno del servidor',
