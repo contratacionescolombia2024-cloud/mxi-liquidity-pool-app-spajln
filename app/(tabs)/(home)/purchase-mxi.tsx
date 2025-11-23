@@ -543,7 +543,7 @@ export default function PurchaseMXIScreen() {
             <Text style={styles.totalLabel}>Total a Pagar</Text>
             <View style={styles.totalAmount}>
               <Text style={styles.totalValue}>${usdtAmount}</Text>
-              <Text style={styles.totalCurrency}>USDT (ETH)</Text>
+              <Text style={styles.totalCurrency}>USDT</Text>
             </View>
           </View>
 
@@ -562,7 +562,7 @@ export default function PurchaseMXIScreen() {
                   size={20}
                   color="#fff"
                 />
-                <Text style={styles.purchaseButtonText}>Pagar con USDT (ETH)</Text>
+                <Text style={styles.purchaseButtonText}>Pagar con USDT (NOWPayments)</Text>
               </React.Fragment>
             )}
           </TouchableOpacity>
@@ -654,7 +654,7 @@ export default function PurchaseMXIScreen() {
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>•</Text>
               <Text style={styles.infoText}>
-                Los pagos se procesan con NOWPayments en USDT (Ethereum ERC20)
+                Los pagos se procesan con NOWPayments en USDT (Tron TRC20)
               </Text>
             </View>
             <View style={styles.infoItem}>
