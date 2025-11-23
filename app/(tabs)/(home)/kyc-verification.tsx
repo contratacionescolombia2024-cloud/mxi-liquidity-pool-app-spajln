@@ -21,12 +21,6 @@ import * as ImagePicker from 'expo-image-picker';
 
 type DocumentType = 'passport' | 'national_id' | 'drivers_license';
 
-interface ImageUpload {
-  uri: string;
-  type: string;
-  name: string;
-}
-
 export default function KYCVerificationScreen() {
   const router = useRouter();
   const { user, updateUser } = useAuth();
@@ -64,30 +58,39 @@ export default function KYCVerificationScreen() {
     
     setLoading(true);
     try {
+      console.log('Loading KYC data for user:', user.id);
       const { data, error } = await supabase
         .from('kyc_verifications')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error loading KYC data:', error);
+      }
 
       if (data) {
+        console.log('KYC data loaded:', data);
         setKycData(data);
         setFullName(data.full_name || '');
         setDocumentType(data.document_type || 'national_id');
         setDocumentNumber(data.document_number || '');
         setDocumentFrontUrl(data.document_front_url);
         setDocumentBackUrl(data.document_back_url);
+      } else {
+        console.log('No existing KYC data found');
       }
     } catch (error) {
-      console.log('No existing KYC data found');
+      console.error('Exception loading KYC data:', error);
     }
     setLoading(false);
   };
 
   const pickImage = async (side: 'front' | 'back') => {
     try {
+      console.log(`Picking image for ${side}`);
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -97,6 +100,7 @@ export default function KYCVerificationScreen() {
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
+        console.log(`Image picked for ${side}:`, asset.uri);
         if (side === 'front') {
           setDocumentFrontUri(asset.uri);
           await uploadImage(asset.uri, 'front');
@@ -112,19 +116,26 @@ export default function KYCVerificationScreen() {
   };
 
   const uploadImage = async (uri: string, side: 'front' | 'back') => {
-    if (!user) return;
+    if (!user) {
+      console.error('No user found for upload');
+      return;
+    }
 
     const setUploading = side === 'front' ? setUploadingFront : setUploadingBack;
     setUploading(true);
 
     try {
+      console.log(`Starting upload for ${side}:`, uri);
+      
       // Get file extension
       const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
       const fileName = `${user.id}/${side}_${Date.now()}.${fileExt}`;
+      console.log('Upload filename:', fileName);
 
       // Fetch the image as a blob
       const response = await fetch(uri);
       const blob = await response.blob();
+      console.log('Blob created, size:', blob.size);
 
       // Upload to Supabase Storage
       const { data, error } = await supabase.storage
@@ -135,13 +146,18 @@ export default function KYCVerificationScreen() {
         });
 
       if (error) {
+        console.error('Upload error:', error);
         throw error;
       }
+
+      console.log('Upload successful:', data);
 
       // Get public URL
       const { data: urlData } = supabase.storage
         .from('kyc-documents')
         .getPublicUrl(fileName);
+
+      console.log('Public URL:', urlData.publicUrl);
 
       if (side === 'front') {
         setDocumentFrontUrl(urlData.publicUrl);
@@ -159,8 +175,22 @@ export default function KYCVerificationScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!user) return;
+    console.log('=== KYC SUBMIT START ===');
+    
+    if (!user) {
+      console.error('No user found');
+      Alert.alert('Error', 'User not authenticated');
+      return;
+    }
 
+    console.log('User ID:', user.id);
+    console.log('Full Name:', fullName);
+    console.log('Document Type:', documentType);
+    console.log('Document Number:', documentNumber);
+    console.log('Front URL:', documentFrontUrl);
+    console.log('Back URL:', documentBackUrl);
+
+    // Validation
     if (!fullName.trim()) {
       Alert.alert('Error', 'Please enter your full name');
       return;
@@ -191,29 +221,52 @@ export default function KYCVerificationScreen() {
           onPress: async () => {
             setSubmitting(true);
             try {
-              const { error } = await supabase
-                .from('kyc_verifications')
-                .insert({
-                  user_id: user.id,
-                  full_name: fullName.trim(),
-                  document_type: documentType,
-                  document_number: documentNumber.trim(),
-                  document_front_url: documentFrontUrl,
-                  document_back_url: documentBackUrl,
-                  status: 'pending',
-                  submitted_at: new Date().toISOString(),
-                });
+              console.log('Inserting KYC verification...');
+              
+              const kycRecord = {
+                user_id: user.id,
+                full_name: fullName.trim(),
+                document_type: documentType,
+                document_number: documentNumber.trim(),
+                document_front_url: documentFrontUrl,
+                document_back_url: documentBackUrl,
+                status: 'pending',
+                submitted_at: new Date().toISOString(),
+              };
 
-              if (error) {
-                throw error;
+              console.log('KYC record to insert:', kycRecord);
+
+              const { data: insertedData, error: insertError } = await supabase
+                .from('kyc_verifications')
+                .insert(kycRecord)
+                .select()
+                .single();
+
+              if (insertError) {
+                console.error('Insert error:', insertError);
+                throw insertError;
               }
 
-              await supabase
+              console.log('KYC verification inserted successfully:', insertedData);
+
+              // Update user's KYC status
+              console.log('Updating user KYC status...');
+              const { error: updateError } = await supabase
                 .from('users')
                 .update({ kyc_status: 'pending' })
                 .eq('id', user.id);
 
+              if (updateError) {
+                console.error('User update error:', updateError);
+                // Don't fail the whole operation if this fails
+              } else {
+                console.log('User KYC status updated successfully');
+              }
+
+              // Update local user state
               await updateUser({ kycStatus: 'pending' });
+
+              console.log('=== KYC SUBMIT SUCCESS ===');
 
               Alert.alert(
                 'KYC Submitted Successfully',
@@ -226,10 +279,12 @@ export default function KYCVerificationScreen() {
                 ]
               );
             } catch (error: any) {
+              console.error('=== KYC SUBMIT ERROR ===');
               console.error('KYC submission error:', error);
-              Alert.alert('Error', error.message || 'Failed to submit KYC verification');
+              Alert.alert('Error', error.message || 'Failed to submit KYC verification. Please try again.');
+            } finally {
+              setSubmitting(false);
             }
-            setSubmitting(false);
           },
         },
       ]
