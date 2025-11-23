@@ -9,12 +9,14 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  TextInput,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
-import { colors, commonStyles } from '@/styles/commonStyles';
+import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { supabase } from '@/lib/supabase';
 import UniversalMXICounter from '@/components/UniversalMXICounter';
 
@@ -246,6 +248,159 @@ const styles = StyleSheet.create({
   counterSection: {
     marginBottom: 24,
   },
+  dangerZone: {
+    marginBottom: 24,
+    backgroundColor: colors.error + '10',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: colors.error + '40',
+  },
+  dangerZoneTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.error,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  dangerZoneSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 16,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  resetButton: {
+    backgroundColor: colors.error,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  resetButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 2,
+    borderColor: colors.error,
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.error + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.error,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalMessage: {
+    fontSize: 15,
+    color: colors.text,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 20,
+  },
+  warningList: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    gap: 12,
+  },
+  warningItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  warningBullet: {
+    fontSize: 16,
+    color: colors.error,
+    marginTop: 2,
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.text,
+    lineHeight: 18,
+  },
+  confirmationSection: {
+    marginBottom: 20,
+  },
+  confirmationLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  confirmationInput: {
+    backgroundColor: colors.background,
+    borderWidth: 2,
+    borderColor: colors.border,
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 16,
+    color: colors.text,
+    textAlign: 'center',
+    fontWeight: '700',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  confirmButton: {
+    backgroundColor: colors.error,
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  cancelButtonText: {
+    color: colors.text,
+  },
+  confirmButtonText: {
+    color: '#fff',
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
 });
 
 export default function AdminDashboard() {
@@ -256,6 +411,9 @@ export default function AdminDashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [phaseMetrics, setPhaseMetrics] = useState<PhaseMetrics | null>(null);
+  const [resetModalVisible, setResetModalVisible] = useState(false);
+  const [confirmationText, setConfirmationText] = useState('');
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -384,6 +542,47 @@ export default function AdminDashboard() {
     loadStats();
   };
 
+  const handleResetAllUsers = async () => {
+    if (confirmationText !== 'RESETEAR') {
+      Alert.alert('Error', 'Debes escribir "RESETEAR" para confirmar');
+      return;
+    }
+
+    try {
+      setResetting(true);
+
+      const { data, error } = await supabase.rpc('admin_reset_all_users', {
+        p_admin_id: user?.id,
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        Alert.alert(
+          '✅ Sistema Reiniciado',
+          data.message,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                setResetModalVisible(false);
+                setConfirmationText('');
+                loadStats();
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert('❌ Error', data?.error || 'Error al reiniciar el sistema');
+      }
+    } catch (error: any) {
+      console.error('Error resetting users:', error);
+      Alert.alert('❌ Error', error.message || 'Error al reiniciar el sistema');
+    } finally {
+      setResetting(false);
+    }
+  };
+
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat('en-US', {
       minimumFractionDigits: 0,
@@ -437,6 +636,27 @@ export default function AdminDashboard() {
         {/* Universal MXI Counter */}
         <View style={styles.counterSection}>
           <UniversalMXICounter isAdmin={true} />
+        </View>
+
+        {/* DANGER ZONE - Reset All Users */}
+        <View style={styles.dangerZone}>
+          <Text style={styles.dangerZoneTitle}>⚠️ ZONA DE PELIGRO</Text>
+          <Text style={styles.dangerZoneSubtitle}>
+            Reinicia todos los contadores de usuarios a 0 antes de iniciar la preventa.
+            Esta acción es IRREVERSIBLE.
+          </Text>
+          <TouchableOpacity
+            style={styles.resetButton}
+            onPress={() => setResetModalVisible(true)}
+          >
+            <IconSymbol 
+              ios_icon_name="arrow.counterclockwise.circle.fill" 
+              android_material_icon_name="refresh" 
+              size={24} 
+              color="#fff" 
+            />
+            <Text style={styles.resetButtonText}>Reiniciar Todos los Usuarios</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Phase Metrics */}
@@ -597,6 +817,113 @@ export default function AdminDashboard() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Reset Confirmation Modal */}
+      <Modal
+        visible={resetModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setResetModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalIcon}>
+                <IconSymbol 
+                  ios_icon_name="exclamationmark.triangle.fill" 
+                  android_material_icon_name="warning" 
+                  size={48} 
+                  color={colors.error} 
+                />
+              </View>
+              <Text style={styles.modalTitle}>¿Reiniciar Todos los Usuarios?</Text>
+            </View>
+
+            <Text style={styles.modalMessage}>
+              Esta acción es IRREVERSIBLE y eliminará todos los datos de usuarios:
+            </Text>
+
+            <View style={styles.warningList}>
+              <View style={styles.warningItem}>
+                <Text style={styles.warningBullet}>•</Text>
+                <Text style={styles.warningText}>Todos los saldos MXI y USDT se pondrán en 0</Text>
+              </View>
+              <View style={styles.warningItem}>
+                <Text style={styles.warningBullet}>•</Text>
+                <Text style={styles.warningText}>Se eliminarán todas las comisiones</Text>
+              </View>
+              <View style={styles.warningItem}>
+                <Text style={styles.warningBullet}>•</Text>
+                <Text style={styles.warningText}>Se eliminarán todos los referidos</Text>
+              </View>
+              <View style={styles.warningItem}>
+                <Text style={styles.warningBullet}>•</Text>
+                <Text style={styles.warningText}>Se eliminarán todas las contribuciones</Text>
+              </View>
+              <View style={styles.warningItem}>
+                <Text style={styles.warningBullet}>•</Text>
+                <Text style={styles.warningText}>Se eliminarán todos los retiros</Text>
+              </View>
+              <View style={styles.warningItem}>
+                <Text style={styles.warningBullet}>•</Text>
+                <Text style={styles.warningText}>Se eliminarán todos los pagos y órdenes</Text>
+              </View>
+              <View style={styles.warningItem}>
+                <Text style={styles.warningBullet}>•</Text>
+                <Text style={styles.warningText}>Las métricas se reiniciarán a valores iniciales</Text>
+              </View>
+            </View>
+
+            <View style={styles.confirmationSection}>
+              <Text style={styles.confirmationLabel}>
+                Escribe "RESETEAR" para confirmar:
+              </Text>
+              <TextInput
+                style={styles.confirmationInput}
+                value={confirmationText}
+                onChangeText={setConfirmationText}
+                placeholder="RESETEAR"
+                placeholderTextColor={colors.textSecondary}
+                autoCapitalize="characters"
+                editable={!resetting}
+              />
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setResetModalVisible(false);
+                  setConfirmationText('');
+                }}
+                disabled={resetting}
+              >
+                <Text style={[styles.modalButtonText, styles.cancelButtonText]}>
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.confirmButton,
+                  (confirmationText !== 'RESETEAR' || resetting) && styles.disabledButton,
+                ]}
+                onPress={handleResetAllUsers}
+                disabled={confirmationText !== 'RESETEAR' || resetting}
+              >
+                {resetting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={[styles.modalButtonText, styles.confirmButtonText]}>
+                    Confirmar Reset
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
