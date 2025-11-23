@@ -179,9 +179,9 @@ export default function PurchaseMXIScreen() {
       return;
     }
 
-    // Validation: Check minimum amount (changed to $1 for testing)
-    if (total < 1) {
-      Alert.alert('Monto Mínimo', 'El monto mínimo de compra es $1 USDT');
+    // Validation: Check minimum amount
+    if (total < 20) {
+      Alert.alert('Monto Mínimo', 'El monto mínimo de compra es $20 USDT');
       return;
     }
 
@@ -526,7 +526,7 @@ export default function PurchaseMXIScreen() {
           </View>
 
           <View style={styles.quickAmounts}>
-            {[5, 10, 25, 50, 100].map((amount, index) => (
+            {[50, 100, 250, 500, 1000].map((amount, index) => (
               <TouchableOpacity
                 key={index}
                 style={styles.quickAmountButton}
@@ -550,7 +550,7 @@ export default function PurchaseMXIScreen() {
           <TouchableOpacity
             style={[styles.purchaseButton, loading && styles.purchaseButtonDisabled]}
             onPress={handleCreateOrder}
-            disabled={loading || !mxiAmount || parseFloat(usdtAmount) < 1}
+            disabled={loading || !mxiAmount || parseFloat(usdtAmount) < 20}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
@@ -569,7 +569,7 @@ export default function PurchaseMXIScreen() {
 
           <View style={styles.purchaseNotes}>
             <Text style={styles.minPurchaseNote}>
-              * Monto mínimo: $1 USDT ({Math.ceil(1 / phaseData.currentPriceUsdt)} MXI) - MODO PRUEBA
+              * Monto mínimo: $20 USDT ({Math.ceil(20 / phaseData.currentPriceUsdt)} MXI)
             </Text>
             <Text style={styles.minPurchaseNote}>
               * Monto máximo: $500,000 USDT por transacción
