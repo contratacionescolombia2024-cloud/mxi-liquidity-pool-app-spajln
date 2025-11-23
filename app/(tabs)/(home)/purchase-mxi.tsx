@@ -164,7 +164,7 @@ export default function PurchaseMXIScreen() {
     }
   };
 
-  const handleCreateOrder = async () => {
+  const handleProceedToPayment = () => {
     if (!user) {
       Alert.alert('Error', 'Debes iniciar sesión para comprar MXI');
       return;
@@ -191,126 +191,14 @@ export default function PurchaseMXIScreen() {
       return;
     }
 
-    setLoading(true);
-
-    try {
-      console.log('=== Creating order for', amount, 'MXI ===');
-      console.log('Total USDT:', total);
-      
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        Alert.alert('Error', 'Sesión expirada. Por favor inicia sesión nuevamente');
-        setLoading(false);
-        return;
-      }
-
-      console.log('Session valid, calling edge function...');
-      
-      const { data, error } = await supabase.functions.invoke('create-nowpayments-order', {
-        body: { mxi_amount: amount },
-      });
-
-      console.log('Edge function response:', { data, error });
-
-      if (error) {
-        console.error('Edge function error:', error);
-        
-        // Provide more specific error messages
-        let errorMessage = 'No se pudo generar el pago. Intenta nuevamente.';
-        
-        if (error.message) {
-          if (error.message.includes('No autorizado')) {
-            errorMessage = 'Tu sesión ha expirado. Por favor inicia sesión nuevamente.';
-          } else if (error.message.includes('monto mínimo')) {
-            errorMessage = error.message;
-          } else if (error.message.includes('Solo quedan')) {
-            errorMessage = error.message;
-          } else if (error.message.includes('servicio de pagos')) {
-            errorMessage = 'Error al conectar con el servicio de pagos. Por favor intenta nuevamente en unos momentos.';
-          } else {
-            errorMessage = error.message;
-          }
-        }
-        
-        throw new Error(errorMessage);
-      }
-
-      if (!data || !data.invoice_url) {
-        console.error('No invoice URL in response:', data);
-        
-        // Check if there's an error in the data
-        if (data && data.error) {
-          throw new Error(data.error);
-        }
-        
-        throw new Error('No se pudo generar el pago. Intenta nuevamente.');
-      }
-
-      console.log('Invoice URL received:', data.invoice_url);
-
-      // Open the payment URL
-      const opened = await openPaymentUrl(data.invoice_url);
-      
-      if (opened) {
-        Alert.alert(
-          '✅ Orden Creada',
-          `Se ha creado tu orden de ${amount} MXI por $${total} USDT.\n\nSe ha abierto la página de pago de NOWPayments. Por favor completa el pago en la ventana del navegador.\n\n💡 Consejo: Puedes encontrar esta orden en "Órdenes Pendientes" si necesitas volver a abrir el enlace de pago.`,
-          [
-            { 
-              text: 'Ver Historial', 
-              onPress: () => router.push('/(tabs)/(home)/transaction-history'),
-            },
-            { 
-              text: 'OK', 
-              onPress: () => {
-                setMxiAmount('');
-                setUsdtAmount('0.00');
-                loadPendingOrders();
-              }
-            }
-          ]
-        );
-      } else {
-        Alert.alert(
-          '⚠️ Orden Creada',
-          `Tu orden ha sido creada pero no se pudo abrir el navegador automáticamente.\n\nPuedes encontrar tu orden en "Órdenes Pendientes" abajo o en el "Historial de Transacciones" para completar el pago.`,
-          [
-            { 
-              text: 'Ver Historial', 
-              onPress: () => router.push('/(tabs)/(home)/transaction-history'),
-            },
-            { 
-              text: 'OK', 
-              onPress: () => {
-                setMxiAmount('');
-                setUsdtAmount('0.00');
-                loadPendingOrders();
-              }
-            }
-          ]
-        );
-      }
-      
-      await loadPendingOrders();
-      
-    } catch (error: any) {
-      console.error('Error creating order:', error);
-      console.error('Error stack:', error.stack);
-      
-      Alert.alert(
-        '❌ Error',
-        error.message || 'No se pudo generar el pago. Intenta nuevamente.',
-        [
-          {
-            text: 'Ver Historial',
-            onPress: () => router.push('/(tabs)/(home)/transaction-history'),
-          },
-          { text: 'OK' },
-        ]
-      );
-    } finally {
-      setLoading(false);
-    }
+    // Navigate to payment flow with the amount
+    router.push({
+      pathname: '/(tabs)/(home)/payment-flow',
+      params: {
+        mxiAmount: mxiAmount,
+        usdtAmount: usdtAmount,
+      },
+    });
   };
 
   const handleOpenPayment = async (order: PendingOrder) => {
@@ -484,33 +372,6 @@ export default function PurchaseMXIScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
-        {/* New Multi-Currency Payment Button */}
-        <TouchableOpacity
-          style={styles.multiCurrencyButton}
-          onPress={() => router.push('/(tabs)/(home)/payment-flow')}
-        >
-          <View style={styles.multiCurrencyContent}>
-            <IconSymbol
-              ios_icon_name="sparkles"
-              android_material_icon_name="auto_awesome"
-              size={24}
-              color="#fff"
-            />
-            <View style={styles.multiCurrencyText}>
-              <Text style={styles.multiCurrencyTitle}>🆕 Pago Multi-Moneda</Text>
-              <Text style={styles.multiCurrencySubtitle}>
-                Paga con BTC, ETH, USDT y más criptomonedas
-              </Text>
-            </View>
-            <IconSymbol
-              ios_icon_name="chevron.right"
-              android_material_icon_name="chevron_right"
-              size={20}
-              color="#fff"
-            />
-          </View>
-        </TouchableOpacity>
-
         {/* Phase Information */}
         <View style={[commonStyles.card, styles.phaseCard]}>
           <View style={styles.phaseHeader}>
@@ -576,7 +437,7 @@ export default function PurchaseMXIScreen() {
 
           <TouchableOpacity
             style={[styles.purchaseButton, loading && styles.purchaseButtonDisabled]}
-            onPress={handleCreateOrder}
+            onPress={handleProceedToPayment}
             disabled={loading || !mxiAmount || parseFloat(usdtAmount) < 3}
           >
             {loading ? (
@@ -589,7 +450,13 @@ export default function PurchaseMXIScreen() {
                   size={20}
                   color="#fff"
                 />
-                <Text style={styles.purchaseButtonText}>Pagar con USDT ETH (Rápido)</Text>
+                <Text style={styles.purchaseButtonText}>Seleccionar Criptomoneda</Text>
+                <IconSymbol
+                  ios_icon_name="chevron.right"
+                  android_material_icon_name="chevron_right"
+                  size={20}
+                  color="#fff"
+                />
               </React.Fragment>
             )}
           </TouchableOpacity>
@@ -600,6 +467,9 @@ export default function PurchaseMXIScreen() {
             </Text>
             <Text style={styles.minPurchaseNote}>
               * Monto máximo: $500,000 USDT por transacción
+            </Text>
+            <Text style={styles.minPurchaseNote}>
+              💡 Podrás elegir entre múltiples criptomonedas en el siguiente paso
             </Text>
           </View>
         </View>
@@ -681,7 +551,13 @@ export default function PurchaseMXIScreen() {
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>•</Text>
               <Text style={styles.infoText}>
-                Los pagos se procesan con NOWPayments en USDT (Ethereum ERC20)
+                Podrás elegir entre múltiples criptomonedas: BTC, ETH, USDT, USDC, LTC y más
+              </Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoBullet}>•</Text>
+              <Text style={styles.infoText}>
+                Los pagos se procesan de forma segura con NOWPayments
               </Text>
             </View>
             <View style={styles.infoItem}>
@@ -712,12 +588,6 @@ export default function PurchaseMXIScreen() {
               <Text style={styles.infoBullet}>•</Text>
               <Text style={styles.infoText}>
                 Puedes ver todas tus transacciones en el historial
-              </Text>
-            </View>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoBullet}>•</Text>
-              <Text style={styles.infoText}>
-                Red de pago: Ethereum (ERC20) - Asegúrate de usar la red correcta
               </Text>
             </View>
           </View>
@@ -842,35 +712,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 20,
     paddingBottom: 120,
-  },
-  multiCurrencyButton: {
-    marginBottom: 16,
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})`,
-    borderWidth: 2,
-    borderColor: colors.primary,
-  },
-  multiCurrencyContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: colors.primary,
-    gap: 12,
-  },
-  multiCurrencyText: {
-    flex: 1,
-  },
-  multiCurrencyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  multiCurrencySubtitle: {
-    fontSize: 13,
-    color: '#fff',
-    opacity: 0.9,
   },
   phaseCard: {
     marginBottom: 16,

@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors, commonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
@@ -30,6 +30,7 @@ interface PhaseData {
 
 export default function PaymentFlowScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const { user } = useAuth();
   const [step, setStep] = useState<'amount' | 'crypto' | 'waiting'>('amount');
   const [mxiAmount, setMxiAmount] = useState('');
@@ -44,10 +45,20 @@ export default function PaymentFlowScreen() {
 
   useEffect(() => {
     loadPhaseData();
+    
+    // Check if we have params from the previous screen
+    if (params.mxiAmount && params.usdtAmount) {
+      setMxiAmount(params.mxiAmount as string);
+      setUsdtAmount(params.usdtAmount as string);
+      // Auto-proceed to create intent
+      setTimeout(() => {
+        handleCreateIntent();
+      }, 500);
+    }
   }, []);
 
   useEffect(() => {
-    if (mxiAmount && phaseData) {
+    if (mxiAmount && phaseData && !params.mxiAmount) {
       const amount = parseFloat(mxiAmount);
       if (!isNaN(amount) && amount > 0) {
         const total = amount * phaseData.currentPriceUsdt;
@@ -55,7 +66,7 @@ export default function PaymentFlowScreen() {
       } else {
         setUsdtAmount('0.00');
       }
-    } else {
+    } else if (!params.mxiAmount) {
       setUsdtAmount('0.00');
     }
   }, [mxiAmount, phaseData]);
@@ -286,6 +297,9 @@ export default function PaymentFlowScreen() {
       'ada': 'Cardano',
       'xrp': 'Ripple',
       'doge': 'Dogecoin',
+      'matic': 'Polygon',
+      'sol': 'Solana',
+      'trx': 'Tron',
     };
     return names[crypto.toLowerCase()] || crypto.toUpperCase();
   };
