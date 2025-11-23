@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -28,6 +28,14 @@ interface PhaseData {
   phase3Allocation: number;
 }
 
+interface CryptoInfo {
+  code: string;
+  name: string;
+  base: string;
+  network?: string;
+  priority: number;
+}
+
 export default function PaymentFlowScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -42,6 +50,8 @@ export default function PaymentFlowScreen() {
   const [paymentIntent, setPaymentIntent] = useState<any>(null);
   const [selectedCrypto, setSelectedCrypto] = useState<string>('');
   const [supportedCurrencies, setSupportedCurrencies] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterBase, setFilterBase] = useState<string>('all');
 
   useEffect(() => {
     loadPhaseData();
@@ -285,24 +295,132 @@ export default function PaymentFlowScreen() {
       .subscribe();
   };
 
-  const getCryptoDisplayName = (crypto: string) => {
-    const names: Record<string, string> = {
-      'usdteth': 'USDT (Ethereum)',
-      'usdttrc20': 'USDT (Tron)',
-      'btc': 'Bitcoin',
-      'eth': 'Ethereum',
-      'ltc': 'Litecoin',
-      'usdc': 'USD Coin',
-      'bnb': 'Binance Coin',
-      'ada': 'Cardano',
-      'xrp': 'Ripple',
-      'doge': 'Dogecoin',
-      'matic': 'Polygon',
-      'sol': 'Solana',
-      'trx': 'Tron',
+  const getCryptoInfo = (crypto: string): CryptoInfo => {
+    const cryptoLower = crypto.toLowerCase();
+    
+    // Priority currencies (lower number = higher priority)
+    const priorityMap: Record<string, number> = {
+      'usdteth': 1,
+      'usdterc20': 1,
+      'usdt': 1,
+      'usdttrc20': 2,
+      'btc': 3,
+      'eth': 4,
+      'usdc': 5,
+      'bnb': 6,
+      'sol': 7,
+      'matic': 8,
+      'trx': 9,
+      'xrp': 10,
+      'ada': 11,
+      'doge': 12,
+      'ltc': 13,
     };
-    return names[crypto.toLowerCase()] || crypto.toUpperCase();
+
+    const infoMap: Record<string, { name: string; base: string; network?: string }> = {
+      'usdteth': { name: 'Tether USD', base: 'USDT', network: 'Ethereum (ERC20)' },
+      'usdterc20': { name: 'Tether USD', base: 'USDT', network: 'Ethereum (ERC20)' },
+      'usdt': { name: 'Tether USD', base: 'USDT', network: 'Ethereum (ERC20)' },
+      'usdttrc20': { name: 'Tether USD', base: 'USDT', network: 'Tron (TRC20)' },
+      'usdtbep20': { name: 'Tether USD', base: 'USDT', network: 'BSC (BEP20)' },
+      'btc': { name: 'Bitcoin', base: 'BTC' },
+      'eth': { name: 'Ethereum', base: 'ETH' },
+      'ltc': { name: 'Litecoin', base: 'LTC' },
+      'usdc': { name: 'USD Coin', base: 'USDC' },
+      'usdcerc20': { name: 'USD Coin', base: 'USDC', network: 'Ethereum (ERC20)' },
+      'bnb': { name: 'Binance Coin', base: 'BNB' },
+      'bnbbsc': { name: 'Binance Coin', base: 'BNB', network: 'BSC' },
+      'ada': { name: 'Cardano', base: 'ADA' },
+      'xrp': { name: 'Ripple', base: 'XRP' },
+      'doge': { name: 'Dogecoin', base: 'DOGE' },
+      'matic': { name: 'Polygon', base: 'MATIC' },
+      'maticmainnet': { name: 'Polygon', base: 'MATIC', network: 'Mainnet' },
+      'sol': { name: 'Solana', base: 'SOL' },
+      'trx': { name: 'Tron', base: 'TRX' },
+      'dot': { name: 'Polkadot', base: 'DOT' },
+      'avax': { name: 'Avalanche', base: 'AVAX' },
+      'link': { name: 'Chainlink', base: 'LINK' },
+      'uni': { name: 'Uniswap', base: 'UNI' },
+      'atom': { name: 'Cosmos', base: 'ATOM' },
+      'xlm': { name: 'Stellar', base: 'XLM' },
+      'bch': { name: 'Bitcoin Cash', base: 'BCH' },
+      'etc': { name: 'Ethereum Classic', base: 'ETC' },
+      'algo': { name: 'Algorand', base: 'ALGO' },
+      'vet': { name: 'VeChain', base: 'VET' },
+      'fil': { name: 'Filecoin', base: 'FIL' },
+      'icp': { name: 'Internet Computer', base: 'ICP' },
+      'near': { name: 'NEAR Protocol', base: 'NEAR' },
+      'apt': { name: 'Aptos', base: 'APT' },
+      'arb': { name: 'Arbitrum', base: 'ARB' },
+      'op': { name: 'Optimism', base: 'OP' },
+      'dai': { name: 'Dai', base: 'DAI' },
+      'busd': { name: 'Binance USD', base: 'BUSD' },
+      'shib': { name: 'Shiba Inu', base: 'SHIB' },
+      'wbtc': { name: 'Wrapped Bitcoin', base: 'WBTC' },
+    };
+
+    const info = infoMap[cryptoLower] || {
+      name: crypto.toUpperCase(),
+      base: crypto.toUpperCase(),
+    };
+
+    return {
+      code: crypto,
+      name: info.name,
+      base: info.base,
+      network: info.network,
+      priority: priorityMap[cryptoLower] || 999,
+    };
   };
+
+  const getCryptoDisplayName = (crypto: string) => {
+    const info = getCryptoInfo(crypto);
+    if (info.network) {
+      return `${info.name} (${info.network})`;
+    }
+    return info.name;
+  };
+
+  const getAvailableBases = useMemo(() => {
+    const bases = new Set<string>();
+    supportedCurrencies.forEach(crypto => {
+      const info = getCryptoInfo(crypto);
+      bases.add(info.base);
+    });
+    return Array.from(bases).sort();
+  }, [supportedCurrencies]);
+
+  const filteredAndSortedCurrencies = useMemo(() => {
+    let filtered = supportedCurrencies.map(crypto => getCryptoInfo(crypto));
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(info => {
+        return (
+          info.name.toLowerCase().includes(query) ||
+          info.base.toLowerCase().includes(query) ||
+          info.code.toLowerCase().includes(query) ||
+          (info.network && info.network.toLowerCase().includes(query))
+        );
+      });
+    }
+
+    // Apply base filter
+    if (filterBase !== 'all') {
+      filtered = filtered.filter(info => info.base === filterBase);
+    }
+
+    // Sort by priority, then by name
+    filtered.sort((a, b) => {
+      if (a.priority !== b.priority) {
+        return a.priority - b.priority;
+      }
+      return a.name.localeCompare(b.name);
+    });
+
+    return filtered;
+  }, [supportedCurrencies, searchQuery, filterBase]);
 
   const getStatusText = (status: string) => {
     const statusMap: Record<string, string> = {
@@ -473,33 +591,134 @@ export default function PaymentFlowScreen() {
                 Elige la criptomoneda con la que deseas pagar
               </Text>
 
-              <View style={styles.cryptoList}>
-                {supportedCurrencies.map((crypto, index) => (
+              {/* Search Bar */}
+              <View style={styles.searchContainer}>
+                <IconSymbol
+                  ios_icon_name="magnifyingglass"
+                  android_material_icon_name="search"
+                  size={20}
+                  color={colors.textSecondary}
+                />
+                <TextInput
+                  style={styles.searchInput}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder="Buscar por nombre, código o red..."
+                  placeholderTextColor={colors.textSecondary}
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearchQuery('')}>
+                    <IconSymbol
+                      ios_icon_name="xmark.circle.fill"
+                      android_material_icon_name="cancel"
+                      size={20}
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Base Filter */}
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                style={styles.filterContainer}
+                contentContainerStyle={styles.filterContent}
+              >
+                <TouchableOpacity
+                  style={[
+                    styles.filterChip,
+                    filterBase === 'all' && styles.filterChipActive,
+                  ]}
+                  onPress={() => setFilterBase('all')}
+                >
+                  <Text style={[
+                    styles.filterChipText,
+                    filterBase === 'all' && styles.filterChipTextActive,
+                  ]}>
+                    Todas
+                  </Text>
+                </TouchableOpacity>
+                {getAvailableBases.map((base, index) => (
                   <TouchableOpacity
                     key={index}
                     style={[
-                      styles.cryptoItem,
-                      selectedCrypto === crypto && styles.cryptoItemSelected,
+                      styles.filterChip,
+                      filterBase === base && styles.filterChipActive,
                     ]}
-                    onPress={() => handleSelectCrypto(crypto)}
-                    disabled={loading}
+                    onPress={() => setFilterBase(base)}
                   >
-                    <View style={styles.cryptoInfo}>
-                      <Text style={styles.cryptoName}>{getCryptoDisplayName(crypto)}</Text>
-                      <Text style={styles.cryptoCode}>{crypto.toUpperCase()}</Text>
-                    </View>
-                    {loading && selectedCrypto === crypto ? (
-                      <ActivityIndicator size="small" color={colors.primary} />
-                    ) : (
-                      <IconSymbol
-                        ios_icon_name="chevron.right"
-                        android_material_icon_name="chevron_right"
-                        size={20}
-                        color={colors.textSecondary}
-                      />
-                    )}
+                    <Text style={[
+                      styles.filterChipText,
+                      filterBase === base && styles.filterChipTextActive,
+                    ]}>
+                      {base}
+                    </Text>
                   </TouchableOpacity>
                 ))}
+              </ScrollView>
+
+              {/* Results Count */}
+              <Text style={styles.resultsCount}>
+                {filteredAndSortedCurrencies.length} {filteredAndSortedCurrencies.length === 1 ? 'moneda disponible' : 'monedas disponibles'}
+              </Text>
+
+              {/* Crypto List */}
+              <View style={styles.cryptoList}>
+                {filteredAndSortedCurrencies.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <IconSymbol
+                      ios_icon_name="magnifyingglass"
+                      android_material_icon_name="search_off"
+                      size={48}
+                      color={colors.textSecondary}
+                    />
+                    <Text style={styles.emptyStateText}>
+                      No se encontraron criptomonedas
+                    </Text>
+                    <Text style={styles.emptyStateSubtext}>
+                      Intenta con otro término de búsqueda
+                    </Text>
+                  </View>
+                ) : (
+                  filteredAndSortedCurrencies.map((info, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[
+                        styles.cryptoItem,
+                        selectedCrypto === info.code && styles.cryptoItemSelected,
+                        info.priority <= 2 && styles.cryptoItemPopular,
+                      ]}
+                      onPress={() => handleSelectCrypto(info.code)}
+                      disabled={loading}
+                    >
+                      <View style={styles.cryptoInfo}>
+                        <View style={styles.cryptoHeader}>
+                          <Text style={styles.cryptoName}>{info.name}</Text>
+                          {info.priority <= 2 && (
+                            <View style={styles.popularBadge}>
+                              <Text style={styles.popularBadgeText}>⭐ Popular</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.cryptoCode}>{info.base}</Text>
+                        {info.network && (
+                          <Text style={styles.cryptoNetwork}>{info.network}</Text>
+                        )}
+                      </View>
+                      {loading && selectedCrypto === info.code ? (
+                        <ActivityIndicator size="small" color={colors.primary} />
+                      ) : (
+                        <IconSymbol
+                          ios_icon_name="chevron.right"
+                          android_material_icon_name="chevron_right"
+                          size={20}
+                          color={colors.textSecondary}
+                        />
+                      )}
+                    </TouchableOpacity>
+                  ))
+                )}
               </View>
             </View>
 
@@ -828,7 +1047,57 @@ const styles = StyleSheet.create({
   cryptoSubtitle: {
     fontSize: 14,
     color: colors.textSecondary,
-    marginBottom: 20,
+    marginBottom: 16,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 16,
+    gap: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: colors.text,
+  },
+  filterContainer: {
+    marginBottom: 16,
+  },
+  filterContent: {
+    gap: 8,
+    paddingRight: 20,
+  },
+  filterChip: {
+    backgroundColor: colors.background,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  filterChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  filterChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  filterChipTextActive: {
+    color: '#fff',
+  },
+  resultsCount: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 12,
+    fontStyle: 'italic',
   },
   cryptoList: {
     gap: 12,
@@ -847,17 +1116,58 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     backgroundColor: `${colors.primary}10`,
   },
+  cryptoItemPopular: {
+    borderColor: colors.accent,
+    backgroundColor: `${colors.accent}05`,
+  },
   cryptoInfo: {
     flex: 1,
+  },
+  cryptoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
   },
   cryptoName: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
-    marginBottom: 4,
+  },
+  popularBadge: {
+    backgroundColor: colors.accent,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  popularBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#fff',
   },
   cryptoCode: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+    marginBottom: 2,
+  },
+  cryptoNetwork: {
     fontSize: 12,
+    color: colors.textSecondary,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
     color: colors.textSecondary,
   },
   waitingCard: {
