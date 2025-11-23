@@ -115,7 +115,8 @@ export default function PurchaseMXIScreen() {
         .select('*')
         .eq('user_id', user.id)
         .in('status', ['pending', 'waiting', 'confirming'])
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(5);
 
       if (error) throw error;
 
@@ -134,7 +135,6 @@ export default function PurchaseMXIScreen() {
     console.log('Attempting to open payment URL:', url);
     
     try {
-      // Try WebBrowser first
       const result = await WebBrowser.openBrowserAsync(url, {
         dismissButtonStyle: 'close',
         readerMode: false,
@@ -146,7 +146,6 @@ export default function PurchaseMXIScreen() {
     } catch (webBrowserError) {
       console.error('WebBrowser failed:', webBrowserError);
       
-      // Fallback to Linking
       try {
         const canOpen = await Linking.canOpenURL(url);
         console.log('Can open URL with Linking:', canOpen);
@@ -217,7 +216,6 @@ export default function PurchaseMXIScreen() {
       });
 
       console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
       
       const responseText = await response.text();
       console.log('Response text:', responseText);
@@ -234,7 +232,24 @@ export default function PurchaseMXIScreen() {
 
       if (!response.ok) {
         console.error('Error response:', result);
-        throw new Error(result.error || result.details || 'Error al crear la orden');
+        
+        // Show detailed error with option to view transaction history
+        Alert.alert(
+          '❌ Error al Crear Orden',
+          result.error || 'No se pudo crear la orden de pago',
+          [
+            {
+              text: 'Ver Historial',
+              onPress: () => router.push('/(tabs)/(home)/transaction-history'),
+            },
+            {
+              text: 'Reintentar',
+              onPress: () => handleCreateOrder(),
+            },
+            { text: 'Cancelar', style: 'cancel' },
+          ]
+        );
+        return;
       }
 
       if (!result.payment_url) {
@@ -244,7 +259,6 @@ export default function PurchaseMXIScreen() {
 
       console.log('Payment URL received:', result.payment_url);
 
-      // Try to open the payment URL
       const opened = await openPaymentUrl(result.payment_url);
       
       if (opened) {
@@ -252,6 +266,10 @@ export default function PurchaseMXIScreen() {
           '✅ Orden Creada',
           `Se ha creado tu orden de ${amount} MXI por $${total} USDT.\n\nSe ha abierto la página de pago. Por favor completa el pago en la ventana del navegador.`,
           [
+            { 
+              text: 'Ver Historial', 
+              onPress: () => router.push('/(tabs)/(home)/transaction-history'),
+            },
             { 
               text: 'OK', 
               onPress: () => {
@@ -263,17 +281,13 @@ export default function PurchaseMXIScreen() {
           ]
         );
       } else {
-        // If opening failed, show the URL to the user
         Alert.alert(
           '⚠️ Orden Creada',
-          `Tu orden ha sido creada pero no se pudo abrir el navegador automáticamente.\n\nPuedes encontrar tu orden en la sección "Órdenes Pendientes" más abajo y hacer clic en "Abrir Pago".`,
+          `Tu orden ha sido creada pero no se pudo abrir el navegador automáticamente.\n\nPuedes encontrar tu orden en "Órdenes Pendientes" o en el "Historial de Transacciones".`,
           [
             { 
-              text: 'Copiar URL', 
-              onPress: () => {
-                // Note: Clipboard is not available in this context
-                console.log('Payment URL:', result.payment_url);
-              }
+              text: 'Ver Historial', 
+              onPress: () => router.push('/(tabs)/(home)/transaction-history'),
             },
             { 
               text: 'OK', 
@@ -287,20 +301,23 @@ export default function PurchaseMXIScreen() {
         );
       }
       
-      // Reload pending orders
       await loadPendingOrders();
       
     } catch (error: any) {
       console.error('Error creating order:', error);
       console.error('Error stack:', error.stack);
       
-      let errorMessage = 'No se pudo crear la orden. Por favor intenta nuevamente.';
-      
-      if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      Alert.alert('Error', errorMessage);
+      Alert.alert(
+        '❌ Error',
+        error.message || 'No se pudo crear la orden. Por favor intenta nuevamente.',
+        [
+          {
+            text: 'Ver Historial',
+            onPress: () => router.push('/(tabs)/(home)/transaction-history'),
+          },
+          { text: 'OK' },
+        ]
+      );
     } finally {
       setLoading(false);
     }
@@ -458,6 +475,17 @@ export default function PurchaseMXIScreen() {
           />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Comprar MXI</Text>
+        <TouchableOpacity
+          style={styles.historyButton}
+          onPress={() => router.push('/(tabs)/(home)/transaction-history')}
+        >
+          <IconSymbol
+            ios_icon_name="clock.fill"
+            android_material_icon_name="history"
+            size={24}
+            color={colors.primary}
+          />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -508,9 +536,9 @@ export default function PurchaseMXIScreen() {
           </View>
 
           <View style={styles.quickAmounts}>
-            {[50, 100, 250, 500, 1000].map((amount) => (
+            {[50, 100, 250, 500, 1000].map((amount, index) => (
               <TouchableOpacity
-                key={amount}
+                key={index}
                 style={styles.quickAmountButton}
                 onPress={() => setMxiAmount(amount.toString())}
               >
@@ -562,9 +590,14 @@ export default function PurchaseMXIScreen() {
         {/* Pending Orders */}
         {pendingOrders.length > 0 && (
           <View style={[commonStyles.card, styles.ordersCard]}>
-            <Text style={styles.ordersTitle}>📋 Órdenes Pendientes</Text>
-            {pendingOrders.map((order) => (
-              <View key={order.id} style={styles.orderItem}>
+            <View style={styles.ordersHeader}>
+              <Text style={styles.ordersTitle}>📋 Órdenes Pendientes</Text>
+              <TouchableOpacity onPress={() => router.push('/(tabs)/(home)/transaction-history')}>
+                <Text style={styles.viewAllText}>Ver todas</Text>
+              </TouchableOpacity>
+            </View>
+            {pendingOrders.map((order, index) => (
+              <View key={index} style={styles.orderItem}>
                 <View style={styles.orderHeader}>
                   <View style={[styles.orderStatus, { backgroundColor: getStatusColor(order.status) + '20' }]}>
                     <Text style={[styles.orderStatusText, { color: getStatusColor(order.status) }]}>
@@ -658,6 +691,12 @@ export default function PurchaseMXIScreen() {
                 Los pagos expiran después de 1 hora si no se completan
               </Text>
             </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoBullet}>•</Text>
+              <Text style={styles.infoText}>
+                Puedes ver todas tus transacciones en el historial
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -725,6 +764,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
@@ -734,9 +774,13 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   headerTitle: {
+    flex: 1,
     fontSize: 24,
     fontWeight: '700',
     color: colors.text,
+  },
+  historyButton: {
+    padding: 4,
   },
   loadingContainer: {
     flex: 1,
@@ -940,11 +984,21 @@ const styles = StyleSheet.create({
   ordersCard: {
     marginBottom: 16,
   },
+  ordersHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   ordersTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 16,
+  },
+  viewAllText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
   },
   orderItem: {
     backgroundColor: colors.background,
