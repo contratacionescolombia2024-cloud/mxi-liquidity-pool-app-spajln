@@ -37,6 +37,14 @@ interface AppMetrics {
   phase3StartDate: Date;
   phase3EndDate: Date;
   presaleEndDate: Date;
+  // Vesting metrics
+  totalVestingLocked: number;
+  totalVestingReleased: number;
+  totalVestingPending: number;
+  vestingParticipants: number;
+  averageVestingPerUser: number;
+  totalYieldGenerated: number;
+  activeYieldGenerators: number;
 }
 
 export function AdminMetricsDashboard() {
@@ -100,7 +108,7 @@ export function AdminMetricsDashboard() {
       // Get user statistics with actual MXI purchased
       const { data: usersData, error: usersError } = await supabase
         .from('users')
-        .select('id, mxi_purchased_directly, mxi_balance, usdt_contributed, is_active_contributor, is_blocked');
+        .select('id, mxi_purchased_directly, mxi_balance, mxi_vesting_locked, usdt_contributed, is_active_contributor, is_blocked, accumulated_yield, yield_rate_per_minute');
 
       if (usersError) throw usersError;
 
@@ -112,6 +120,23 @@ export function AdminMetricsDashboard() {
       const totalMxiSold = usersData?.reduce((sum, u) => sum + parseFloat(u.mxi_purchased_directly?.toString() || '0'), 0) || 0;
       const totalMxiDistributed = usersData?.reduce((sum, u) => sum + parseFloat(u.mxi_balance?.toString() || '0'), 0) || 0;
       const totalUsdtContributed = usersData?.reduce((sum, u) => sum + parseFloat(u.usdt_contributed?.toString() || '0'), 0) || 0;
+
+      // Vesting metrics
+      const totalVestingLocked = usersData?.reduce((sum, u) => sum + parseFloat(u.mxi_vesting_locked?.toString() || '0'), 0) || 0;
+      const vestingParticipants = usersData?.filter(u => parseFloat(u.mxi_vesting_locked?.toString() || '0') > 0).length || 0;
+      const averageVestingPerUser = vestingParticipants > 0 ? totalVestingLocked / vestingParticipants : 0;
+      
+      // Yield metrics
+      const totalYieldGenerated = usersData?.reduce((sum, u) => sum + parseFloat(u.accumulated_yield?.toString() || '0'), 0) || 0;
+      const activeYieldGenerators = usersData?.filter(u => parseFloat(u.yield_rate_per_minute?.toString() || '0') > 0).length || 0;
+
+      // Get vesting schedule data
+      const { data: vestingData } = await supabase
+        .from('mxi_withdrawal_schedule')
+        .select('amount, status');
+
+      const totalVestingReleased = vestingData?.filter(v => v.status === 'released').reduce((sum, v) => sum + parseFloat(v.amount?.toString() || '0'), 0) || 0;
+      const totalVestingPending = vestingData?.filter(v => v.status === 'pending').reduce((sum, v) => sum + parseFloat(v.amount?.toString() || '0'), 0) || 0;
 
       const averageMxiPerUser = totalUsers > 0 ? totalMxiDistributed / totalUsers : 0;
       const averageUsdtPerUser = totalUsers > 0 ? totalUsdtContributed / totalUsers : 0;
@@ -166,6 +191,13 @@ export function AdminMetricsDashboard() {
         phase3StartDate: phaseInfo.phase3StartDate,
         phase3EndDate: phaseInfo.phase3EndDate,
         presaleEndDate,
+        totalVestingLocked,
+        totalVestingReleased,
+        totalVestingPending,
+        vestingParticipants,
+        averageVestingPerUser,
+        totalYieldGenerated,
+        activeYieldGenerators,
       });
 
     } catch (error) {
@@ -320,6 +352,62 @@ export function AdminMetricsDashboard() {
         </View>
       </View>
 
+      {/* Vesting Metrics Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>🔒 Métricas de Vesting</Text>
+        <View style={styles.metricsGrid}>
+          <View style={[styles.metricCard, { backgroundColor: colors.primary + '15' }]}>
+            <IconSymbol ios_icon_name="lock.fill" android_material_icon_name="lock" size={32} color={colors.primary} />
+            <Text style={styles.metricValue}>{metrics.totalVestingLocked.toFixed(2)}</Text>
+            <Text style={styles.metricLabel}>MXI Bloqueado</Text>
+          </View>
+
+          <View style={[styles.metricCard, { backgroundColor: colors.success + '15' }]}>
+            <IconSymbol ios_icon_name="lock.open.fill" android_material_icon_name="lock_open" size={32} color={colors.success} />
+            <Text style={styles.metricValue}>{metrics.totalVestingReleased.toFixed(2)}</Text>
+            <Text style={styles.metricLabel}>MXI Liberado</Text>
+          </View>
+
+          <View style={[styles.metricCard, { backgroundColor: colors.warning + '15' }]}>
+            <IconSymbol ios_icon_name="clock.fill" android_material_icon_name="schedule" size={32} color={colors.warning} />
+            <Text style={styles.metricValue}>{metrics.totalVestingPending.toFixed(2)}</Text>
+            <Text style={styles.metricLabel}>MXI Pendiente</Text>
+          </View>
+
+          <View style={[styles.metricCard, { backgroundColor: colors.accent + '15' }]}>
+            <IconSymbol ios_icon_name="person.2.fill" android_material_icon_name="people" size={32} color={colors.accent} />
+            <Text style={styles.metricValue}>{metrics.vestingParticipants}</Text>
+            <Text style={styles.metricLabel}>Participantes Vesting</Text>
+          </View>
+
+          <View style={[styles.metricCard, { backgroundColor: colors.primary + '15' }]}>
+            <IconSymbol ios_icon_name="chart.bar.fill" android_material_icon_name="bar_chart" size={32} color={colors.primary} />
+            <Text style={styles.metricValue}>{metrics.averageVestingPerUser.toFixed(2)}</Text>
+            <Text style={styles.metricLabel}>Promedio Vesting/Usuario</Text>
+          </View>
+
+          <View style={[styles.metricCard, { backgroundColor: colors.success + '15' }]}>
+            <IconSymbol ios_icon_name="leaf.fill" android_material_icon_name="eco" size={32} color={colors.success} />
+            <Text style={styles.metricValue}>{metrics.totalYieldGenerated.toFixed(2)}</Text>
+            <Text style={styles.metricLabel}>Yield Total Generado</Text>
+          </View>
+
+          <View style={[styles.metricCard, { backgroundColor: colors.warning + '15' }]}>
+            <IconSymbol ios_icon_name="bolt.fill" android_material_icon_name="flash_on" size={32} color={colors.warning} />
+            <Text style={styles.metricValue}>{metrics.activeYieldGenerators}</Text>
+            <Text style={styles.metricLabel}>Generadores Activos</Text>
+          </View>
+
+          <View style={[styles.metricCard, { backgroundColor: colors.accent + '15' }]}>
+            <IconSymbol ios_icon_name="percent" android_material_icon_name="percent" size={32} color={colors.accent} />
+            <Text style={styles.metricValue}>
+              {metrics.totalVestingLocked > 0 ? ((metrics.totalVestingReleased / (metrics.totalVestingLocked + metrics.totalVestingReleased)) * 100).toFixed(1) : 0}%
+            </Text>
+            <Text style={styles.metricLabel}>% Liberado</Text>
+          </View>
+        </View>
+      </View>
+
       {/* Enhanced Presale Metrics */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>🚀 Estadísticas de Preventa</Text>
@@ -348,8 +436,12 @@ export function AdminMetricsDashboard() {
             <View style={styles.presaleStatRow}>
               <Text style={styles.presaleStatLabel}>Progreso General</Text>
               <Text style={styles.presaleStatValue}>
-                {((metrics.totalTokensSold / 25000000) * 100).toFixed(2)}%
+                {((metrics.totalTokensSold / 25000000) * 100).toFixed(4)}%
               </Text>
+            </View>
+            <View style={styles.presaleStatRow}>
+              <Text style={styles.presaleStatLabel}>Valor Recaudado</Text>
+              <Text style={styles.presaleStatValue}>${metrics.totalUsdtContributed.toFixed(2)} USDT</Text>
             </View>
             <View style={styles.presaleStatRow}>
               <Text style={styles.presaleStatLabel}>Finalización Preventa</Text>
@@ -415,6 +507,9 @@ export function AdminMetricsDashboard() {
                 ]} 
               />
             </View>
+            <Text style={styles.phaseProgressText}>
+              {((metrics.phase1Sold / 8333333) * 100).toFixed(4)}%
+            </Text>
           </View>
 
           {/* Phase 2 */}
@@ -459,6 +554,9 @@ export function AdminMetricsDashboard() {
                 ]} 
               />
             </View>
+            <Text style={styles.phaseProgressText}>
+              {((metrics.phase2Sold / 8333333) * 100).toFixed(4)}%
+            </Text>
           </View>
 
           {/* Phase 3 */}
@@ -503,6 +601,9 @@ export function AdminMetricsDashboard() {
                 ]} 
               />
             </View>
+            <Text style={styles.phaseProgressText}>
+              {((metrics.phase3Sold / 8333334) * 100).toFixed(4)}%
+            </Text>
           </View>
         </View>
       </View>
@@ -521,7 +622,7 @@ export function AdminMetricsDashboard() {
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Progreso Preventa:</Text>
           <Text style={styles.summaryValue}>
-            {((metrics.totalTokensSold / 25000000) * 100).toFixed(2)}%
+            {((metrics.totalTokensSold / 25000000) * 100).toFixed(4)}%
           </Text>
         </View>
         <View style={styles.summaryRow}>
@@ -531,6 +632,14 @@ export function AdminMetricsDashboard() {
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Fase Actual:</Text>
           <Text style={styles.summaryValue}>Fase {metrics.currentPhase} (${metrics.currentPrice.toFixed(2)} USDT)</Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>MXI en Vesting:</Text>
+          <Text style={styles.summaryValue}>{metrics.totalVestingLocked.toFixed(2)} MXI</Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Yield Generado:</Text>
+          <Text style={styles.summaryValue}>{metrics.totalYieldGenerated.toFixed(2)} MXI</Text>
         </View>
       </View>
     </ScrollView>
@@ -753,6 +862,13 @@ const styles = StyleSheet.create({
   phaseProgressFill: {
     height: '100%',
     borderRadius: 4,
+  },
+  phaseProgressText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 4,
   },
   summaryCard: {
     backgroundColor: colors.card,

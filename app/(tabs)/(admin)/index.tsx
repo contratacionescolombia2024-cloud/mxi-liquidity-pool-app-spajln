@@ -350,6 +350,23 @@ const styles = StyleSheet.create({
     color: colors.text,
     lineHeight: 18,
   },
+  preservedItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  preservedBullet: {
+    fontSize: 16,
+    color: colors.success,
+    marginTop: 2,
+  },
+  preservedText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.success,
+    lineHeight: 18,
+    fontWeight: '600',
+  },
   confirmationSection: {
     marginBottom: 20,
   },
@@ -642,7 +659,7 @@ export default function AdminDashboard() {
         <View style={styles.dangerZone}>
           <Text style={styles.dangerZoneTitle}>⚠️ ZONA DE PELIGRO</Text>
           <Text style={styles.dangerZoneSubtitle}>
-            Reinicia todos los contadores de usuarios a 0 antes de iniciar la preventa.
+            Reinicia todos los contadores de MXI a 0. Las relaciones de referidos se preservarán.
             Esta acción es IRREVERSIBLE.
           </Text>
           <TouchableOpacity
@@ -655,7 +672,7 @@ export default function AdminDashboard() {
               size={24} 
               color="#fff" 
             />
-            <Text style={styles.resetButtonText}>Reiniciar Todos los Usuarios</Text>
+            <Text style={styles.resetButtonText}>Reiniciar Todo</Text>
           </TouchableOpacity>
         </View>
 
@@ -836,11 +853,11 @@ export default function AdminDashboard() {
                   color={colors.error} 
                 />
               </View>
-              <Text style={styles.modalTitle}>¿Reiniciar Todos los Usuarios?</Text>
+              <Text style={styles.modalTitle}>¿Reiniciar Todo el Sistema?</Text>
             </View>
 
             <Text style={styles.modalMessage}>
-              Esta acción es IRREVERSIBLE y eliminará todos los datos de usuarios:
+              Esta acción es IRREVERSIBLE y reiniciará todos los contadores a 0:
             </Text>
 
             <View style={styles.warningList}>
@@ -851,10 +868,6 @@ export default function AdminDashboard() {
               <View style={styles.warningItem}>
                 <Text style={styles.warningBullet}>•</Text>
                 <Text style={styles.warningText}>Se eliminarán todas las comisiones</Text>
-              </View>
-              <View style={styles.warningItem}>
-                <Text style={styles.warningBullet}>•</Text>
-                <Text style={styles.warningText}>Se eliminarán todos los referidos</Text>
               </View>
               <View style={styles.warningItem}>
                 <Text style={styles.warningBullet}>•</Text>
@@ -870,7 +883,16 @@ export default function AdminDashboard() {
               </View>
               <View style={styles.warningItem}>
                 <Text style={styles.warningBullet}>•</Text>
-                <Text style={styles.warningText}>Las métricas se reiniciarán a valores iniciales</Text>
+                <Text style={styles.warningText}>Las métricas de preventa se reiniciarán a 0</Text>
+              </View>
+              <View style={styles.warningItem}>
+                <Text style={styles.warningBullet}>•</Text>
+                <Text style={styles.warningText}>Todo el vesting se eliminará</Text>
+              </View>
+              
+              <View style={styles.preservedItem}>
+                <Text style={styles.preservedBullet}>✓</Text>
+                <Text style={styles.preservedText}>Las relaciones de referidos SE PRESERVARÁN</Text>
               </View>
             </View>
 
