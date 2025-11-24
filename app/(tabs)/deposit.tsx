@@ -53,6 +53,8 @@ export default function DepositScreen() {
   const [loadingCurrencies, setLoadingCurrencies] = useState(false);
   const [mxiAmount, setMxiAmount] = useState(0);
   const [currentPrice, setCurrentPrice] = useState(0.40);
+  const [currentPhase, setCurrentPhase] = useState(1);
+  const [phaseInfo, setPhaseInfo] = useState<any>(null);
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | null>(null);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
@@ -91,10 +93,12 @@ export default function DepositScreen() {
   const loadPhaseInfo = async () => {
     try {
       addDebugInfo('Loading phase info...');
-      const phaseInfo = await getPhaseInfo();
-      if (phaseInfo) {
-        setCurrentPrice(phaseInfo.currentPriceUsdt);
-        addDebugInfo(`Phase info loaded: Price = ${phaseInfo.currentPriceUsdt} USDT`);
+      const info = await getPhaseInfo();
+      if (info) {
+        setCurrentPrice(info.currentPriceUsdt);
+        setCurrentPhase(info.currentPhase);
+        setPhaseInfo(info);
+        addDebugInfo(`Phase ${info.currentPhase} loaded: Price = ${info.currentPriceUsdt} USDT`);
       }
     } catch (error) {
       console.error('Error loading phase info:', error);
@@ -551,6 +555,19 @@ export default function DepositScreen() {
     return !isNaN(usdtAmount) && usdtAmount >= MIN_USDT && usdtAmount <= MAX_USDT;
   };
 
+  const getPhasePriceLabel = (phase: number) => {
+    switch (phase) {
+      case 1:
+        return '0.40 USDT';
+      case 2:
+        return '0.70 USDT';
+      case 3:
+        return '1.00 USDT';
+      default:
+        return '0.40 USDT';
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -579,6 +596,50 @@ export default function DepositScreen() {
           </View>
           <Text style={styles.balanceValue}>{user?.mxiBalance.toFixed(2) || '0.00'} MXI</Text>
           <Text style={styles.balanceSubtext}>${user?.usdtContributed.toFixed(2) || '0.00'} USDT Contribuido</Text>
+        </View>
+
+        <View style={styles.phaseCard}>
+          <Text style={styles.phaseTitle}>🚀 Fase Actual de Preventa</Text>
+          <View style={styles.phaseRow}>
+            <Text style={styles.phaseLabel}>Fase Activa:</Text>
+            <Text style={styles.phaseValue}>Fase {currentPhase} de 3</Text>
+          </View>
+          <View style={styles.phaseRow}>
+            <Text style={styles.phaseLabel}>Precio Actual:</Text>
+            <Text style={styles.phaseValue}>{currentPrice.toFixed(2)} USDT por MXI</Text>
+          </View>
+          <View style={styles.phaseDivider} />
+          <View style={styles.phaseRow}>
+            <Text style={styles.phaseLabel}>Fase 1:</Text>
+            <Text style={styles.phaseValue}>0.40 USDT</Text>
+          </View>
+          <View style={styles.phaseRow}>
+            <Text style={styles.phaseLabel}>Fase 2:</Text>
+            <Text style={styles.phaseValue}>0.70 USDT</Text>
+          </View>
+          <View style={styles.phaseRow}>
+            <Text style={styles.phaseLabel}>Fase 3:</Text>
+            <Text style={styles.phaseValue}>1.00 USDT</Text>
+          </View>
+          {phaseInfo && (
+            <React.Fragment>
+              <View style={styles.phaseDivider} />
+              <View style={styles.phaseRow}>
+                <Text style={styles.phaseLabel}>Tokens Vendidos:</Text>
+                <Text style={styles.phaseValue}>
+                  {phaseInfo.totalTokensSold.toLocaleString()} MXI
+                </Text>
+              </View>
+              {currentPhase < 3 && (
+                <View style={styles.phaseRow}>
+                  <Text style={styles.phaseLabel}>Hasta Siguiente Fase:</Text>
+                  <Text style={styles.phaseValue}>
+                    {phaseInfo.tokensUntilNextPhase.toLocaleString()} MXI
+                  </Text>
+                </View>
+              )}
+            </React.Fragment>
+          )}
         </View>
 
         <View style={commonStyles.card}>
@@ -855,6 +916,42 @@ const styles = StyleSheet.create({
   balanceSubtext: {
     fontSize: 14,
     color: colors.textSecondary,
+  },
+  phaseCard: {
+    backgroundColor: 'rgba(255, 215, 0, 0.15)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  phaseTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.primary,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  phaseRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  phaseLabel: {
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: '500',
+  },
+  phaseValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  phaseDivider: {
+    height: 1,
+    backgroundColor: colors.primary + '30',
+    marginVertical: 8,
   },
   sectionTitle: {
     fontSize: 20,

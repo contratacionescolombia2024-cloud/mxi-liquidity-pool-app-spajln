@@ -177,18 +177,55 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  phaseInfoCard: {
+    backgroundColor: 'rgba(255, 215, 0, 0.15)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  phaseTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.primary,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  phaseRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  phaseLabel: {
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: '500',
+  },
+  phaseValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  phaseDivider: {
+    height: 1,
+    backgroundColor: colors.primary + '30',
+    marginVertical: 8,
+  },
 });
 
 export default function ContratacionesScreen() {
   const router = useRouter();
   const { user, getPhaseInfo } = useAuth();
-  const [currentPrice, setCurrentPrice] = useState(0.30);
+  const [currentPrice, setCurrentPrice] = useState(0.40);
   const [currentPhase, setCurrentPhase] = useState(1);
   const [amount, setAmount] = useState('');
   const [mxiAmount, setMxiAmount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [recentPayments, setRecentPayments] = useState<any[]>([]);
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [phaseInfo, setPhaseInfo] = useState<any>(null);
 
   useEffect(() => {
     loadPhaseInfo();
@@ -235,10 +272,12 @@ export default function ContratacionesScreen() {
 
   const loadPhaseInfo = async () => {
     try {
-      const phaseInfo = await getPhaseInfo();
-      if (phaseInfo) {
-        setCurrentPrice(phaseInfo.currentPriceUsdt);
-        setCurrentPhase(phaseInfo.currentPhase);
+      const info = await getPhaseInfo();
+      if (info) {
+        setCurrentPrice(info.currentPriceUsdt);
+        setCurrentPhase(info.currentPhase);
+        setPhaseInfo(info);
+        console.log('Phase info loaded:', info);
       }
     } catch (error) {
       console.error('Error loading phase info:', error);
@@ -414,6 +453,19 @@ export default function ContratacionesScreen() {
     }
   };
 
+  const getPhasePriceLabel = (phase: number) => {
+    switch (phase) {
+      case 1:
+        return '0.40 USDT';
+      case 2:
+        return '0.70 USDT';
+      case 3:
+        return '1.00 USDT';
+      default:
+        return '0.40 USDT';
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -442,16 +494,48 @@ export default function ContratacionesScreen() {
           </Text>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Información Actual</Text>
-          <View style={styles.calculationRow}>
-            <Text style={styles.calculationLabel}>Fase:</Text>
-            <Text style={styles.calculationValue}>Fase {currentPhase}</Text>
+        <View style={styles.phaseInfoCard}>
+          <Text style={styles.phaseTitle}>🚀 Fase Actual de Preventa</Text>
+          <View style={styles.phaseRow}>
+            <Text style={styles.phaseLabel}>Fase Activa:</Text>
+            <Text style={styles.phaseValue}>Fase {currentPhase} de 3</Text>
           </View>
-          <View style={styles.calculationRow}>
-            <Text style={styles.calculationLabel}>Precio por MXI:</Text>
-            <Text style={styles.calculationValue}>{currentPrice.toFixed(2)} USDT</Text>
+          <View style={styles.phaseRow}>
+            <Text style={styles.phaseLabel}>Precio Actual:</Text>
+            <Text style={styles.phaseValue}>{currentPrice.toFixed(2)} USDT por MXI</Text>
           </View>
+          <View style={styles.phaseDivider} />
+          <View style={styles.phaseRow}>
+            <Text style={styles.phaseLabel}>Fase 1:</Text>
+            <Text style={styles.phaseValue}>0.40 USDT</Text>
+          </View>
+          <View style={styles.phaseRow}>
+            <Text style={styles.phaseLabel}>Fase 2:</Text>
+            <Text style={styles.phaseValue}>0.70 USDT</Text>
+          </View>
+          <View style={styles.phaseRow}>
+            <Text style={styles.phaseLabel}>Fase 3:</Text>
+            <Text style={styles.phaseValue}>1.00 USDT</Text>
+          </View>
+          {phaseInfo && (
+            <React.Fragment>
+              <View style={styles.phaseDivider} />
+              <View style={styles.phaseRow}>
+                <Text style={styles.phaseLabel}>Tokens Vendidos:</Text>
+                <Text style={styles.phaseValue}>
+                  {phaseInfo.totalTokensSold.toLocaleString()} MXI
+                </Text>
+              </View>
+              {currentPhase < 3 && (
+                <View style={styles.phaseRow}>
+                  <Text style={styles.phaseLabel}>Hasta Siguiente Fase:</Text>
+                  <Text style={styles.phaseValue}>
+                    {phaseInfo.tokensUntilNextPhase.toLocaleString()} MXI
+                  </Text>
+                </View>
+              )}
+            </React.Fragment>
+          )}
         </View>
 
         <View style={styles.card}>
@@ -516,6 +600,18 @@ export default function ContratacionesScreen() {
                   </Text>
                 </View>
                 <View style={styles.statusRow}>
+                  <Text style={styles.statusLabel}>Precio:</Text>
+                  <Text style={styles.statusValue}>
+                    {parseFloat(payment.price_per_mxi).toFixed(2)} USDT/MXI
+                  </Text>
+                </View>
+                <View style={styles.statusRow}>
+                  <Text style={styles.statusLabel}>Fase:</Text>
+                  <Text style={styles.statusValue}>
+                    Fase {payment.phase}
+                  </Text>
+                </View>
+                <View style={styles.statusRow}>
                   <Text style={styles.statusLabel}>Estado:</Text>
                   <View
                     style={[
@@ -555,6 +651,9 @@ export default function ContratacionesScreen() {
           </Text>
           <Text style={styles.infoText}>
             • Acceso anticipado al lanzamiento oficial
+          </Text>
+          <Text style={styles.infoText}>
+            • Precio preferencial en preventa (aumenta por fase)
           </Text>
         </View>
 
