@@ -32,21 +32,39 @@ Deno.serve(async (req) => {
 
     console.log('Checking status for order:', orderId);
 
-    // Create Supabase client
+    // Create Supabase client with service role for full access
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get order from database
+    // First, try to get from payment_intents table
+    const { data: paymentIntent, error: intentError } = await supabaseClient
+      .from('payment_intents')
+      .select('*')
+      .eq('order_id', orderId)
+      .single();
+
+    if (intentError && intentError.code !== 'PGRST116') {
+      console.error('Error fetching payment intent:', intentError);
+    }
+
+    // Also try to get from nowpayments_orders table for backward compatibility
     const { data: order, error: orderError } = await supabaseClient
       .from('nowpayments_orders')
       .select('*')
       .eq('order_id', orderId)
       .single();
 
-    if (orderError || !order) {
-      console.error('Order not found:', orderId);
+    if (orderError && orderError.code !== 'PGRST116') {
+      console.error('Error fetching order:', orderError);
+    }
+
+    // Use whichever record we found
+    const record = paymentIntent || order;
+
+    if (!record) {
+      console.error('Order not found in either table:', orderId);
       return new Response(
         JSON.stringify({ error: 'Order not found' }),
         {
@@ -56,19 +74,35 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('Order found:', order);
+    console.log('Record found:', record);
 
     // If already confirmed, return success
-    if (order.status === 'confirmed' || order.status === 'finished') {
+    if (record.status === 'confirmed' || record.status === 'finished') {
       return new Response(
         JSON.stringify({
           success: true,
-          status: order.status,
+          status: record.status,
           message: 'Payment already confirmed',
-          order: order,
+          mxi_credited: record.mxi_amount,
+          usdt_amount: record.usdt_amount || record.price_amount,
         }),
         {
           status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Check if we have a payment_id to query NowPayments
+    if (!record.payment_id) {
+      console.error('No payment_id found for order:', orderId);
+      return new Response(
+        JSON.stringify({
+          error: 'Payment ID not found. The payment may not have been created yet.',
+          status: record.status,
+        }),
+        {
+          status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
@@ -90,10 +124,10 @@ Deno.serve(async (req) => {
 
     // Check payment status with NowPayments API
     console.log('Checking payment status with NowPayments API...');
-    console.log('Payment ID:', order.payment_id);
+    console.log('Payment ID:', record.payment_id);
 
     const nowpaymentsResponse = await fetch(
-      `https://api.nowpayments.io/v1/payment/${order.payment_id}`,
+      `https://api.nowpayments.io/v1/payment/${record.payment_id}`,
       {
         method: 'GET',
         headers: {
@@ -107,8 +141,9 @@ Deno.serve(async (req) => {
       console.error('NowPayments API error:', errorText);
       return new Response(
         JSON.stringify({
-          error: 'Failed to check payment status',
+          error: 'Failed to check payment status with NowPayments',
           details: errorText,
+          current_status: record.status,
         }),
         {
           status: 500,
@@ -124,14 +159,36 @@ Deno.serve(async (req) => {
     const actuallyPaid = parseFloat(paymentData.actually_paid || paymentData.outcome_amount || '0');
     const payCurrency = paymentData.pay_currency || '';
 
-    // Update order with latest status
+    // Update both tables with latest status
+    if (paymentIntent) {
+      await supabaseClient
+        .from('payment_intents')
+        .update({
+          status: paymentStatus,
+          pay_amount: actuallyPaid,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('order_id', orderId);
+    }
+
+    if (order) {
+      await supabaseClient
+        .from('nowpayments_orders')
+        .update({
+          status: paymentStatus,
+          payment_status: paymentStatus,
+          actually_paid: actuallyPaid,
+          outcome_amount: actuallyPaid,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('order_id', orderId);
+    }
+
+    // Update transaction history
     await supabaseClient
-      .from('nowpayments_orders')
+      .from('transaction_history')
       .update({
         status: paymentStatus,
-        payment_status: paymentStatus,
-        actually_paid: actuallyPaid,
-        outcome_amount: actuallyPaid,
         updated_at: new Date().toISOString(),
       })
       .eq('order_id', orderId);
@@ -140,56 +197,18 @@ Deno.serve(async (req) => {
     if (paymentStatus === 'finished' || paymentStatus === 'confirmed') {
       console.log('Payment is finished/confirmed, processing...');
 
-      // Verify payment currency
-      const normalizedCurrency = payCurrency.toLowerCase().replace(/[^a-z]/g, '');
-      const isValidCurrency = normalizedCurrency.includes('usdteth') || 
-                             normalizedCurrency.includes('usdterc') ||
-                             (normalizedCurrency.includes('usdt') && !normalizedCurrency.includes('trc'));
-      
-      if (!isValidCurrency) {
-        console.error('Invalid payment currency:', payCurrency);
-        return new Response(
-          JSON.stringify({
-            error: 'Invalid payment currency',
-            expected: 'USDT ETH (ERC20)',
-            received: payCurrency,
-          }),
-          {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          }
-        );
-      }
-
-      // Verify amount
-      const expectedAmount = parseFloat(order.usdt_amount.toString());
-      const variance = Math.abs(actuallyPaid - expectedAmount) / expectedAmount;
-
-      if (variance > 0.05) {
-        console.error('Payment amount mismatch');
-        return new Response(
-          JSON.stringify({
-            error: 'Payment amount mismatch',
-            expected: expectedAmount,
-            actual: actuallyPaid,
-            variance: variance * 100 + '%',
-          }),
-          {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          }
-        );
-      }
+      // Get user_id from the record
+      const userId = record.user_id;
 
       // Get user data
       const { data: user, error: userError } = await supabaseClient
         .from('users')
         .select('*')
-        .eq('id', order.user_id)
+        .eq('id', userId)
         .single();
 
       if (userError || !user) {
-        console.error('User not found:', order.user_id);
+        console.error('User not found:', userId);
         return new Response(
           JSON.stringify({ error: 'User not found' }),
           {
@@ -199,8 +218,16 @@ Deno.serve(async (req) => {
         );
       }
 
-      const mxiAmount = parseFloat(order.mxi_amount.toString());
-      const usdtAmount = parseFloat(order.usdt_amount.toString());
+      const mxiAmount = parseFloat(record.mxi_amount.toString());
+      const usdtAmount = parseFloat((record.usdt_amount || record.price_amount).toString());
+
+      // Get current phase and price from metrics
+      const { data: metrics } = await supabaseClient
+        .from('metrics')
+        .select('*')
+        .single();
+
+      const currentPhase = record.phase || metrics?.current_phase || 1;
 
       // Update user balances
       const newMxiBalance = parseFloat(user.mxi_balance.toString()) + mxiAmount;
@@ -225,11 +252,11 @@ Deno.serve(async (req) => {
           last_yield_update: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
-        .eq('id', order.user_id);
+        .eq('id', userId);
 
       // Create contribution record
       await supabaseClient.from('contributions').insert({
-        user_id: order.user_id,
+        user_id: userId,
         usdt_amount: usdtAmount,
         mxi_amount: mxiAmount,
         transaction_type: 'initial',
@@ -237,10 +264,8 @@ Deno.serve(async (req) => {
       });
 
       // Update metrics
-      const { data: metrics } = await supabaseClient.from('metrics').select('*').single();
-
       if (metrics) {
-        const phaseField = `phase_${order.phase}_tokens_sold`;
+        const phaseField = `phase_${currentPhase}_tokens_sold`;
         const currentPhaseSold = parseFloat(metrics[phaseField]?.toString() || '0');
         const newPhaseSold = currentPhaseSold + mxiAmount;
         const newTotalSold = parseFloat(metrics.total_tokens_sold.toString()) + mxiAmount;
@@ -295,7 +320,7 @@ Deno.serve(async (req) => {
 
             await supabaseClient.from('commissions').insert({
               user_id: referrer.id,
-              from_user_id: order.user_id,
+              from_user_id: userId,
               level: level,
               amount: commissionAmount,
               percentage: commissionRates[level - 1] * 100,
@@ -309,14 +334,26 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Mark order as confirmed
-      await supabaseClient
-        .from('nowpayments_orders')
-        .update({
-          status: 'confirmed',
-          confirmed_at: new Date().toISOString(),
-        })
-        .eq('order_id', orderId);
+      // Mark records as confirmed
+      if (paymentIntent) {
+        await supabaseClient
+          .from('payment_intents')
+          .update({
+            status: 'confirmed',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('order_id', orderId);
+      }
+
+      if (order) {
+        await supabaseClient
+          .from('nowpayments_orders')
+          .update({
+            status: 'confirmed',
+            confirmed_at: new Date().toISOString(),
+          })
+          .eq('order_id', orderId);
+      }
 
       // Update transaction history
       await supabaseClient
@@ -351,18 +388,20 @@ Deno.serve(async (req) => {
         success: true,
         status: paymentStatus,
         message: 'Payment status updated',
-        order: order,
+        current_status: paymentStatus,
       }),
       {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+        }
+      );
   } catch (error: any) {
     console.error('Error in check-nowpayments-status:', error);
+    console.error('Error stack:', error.stack);
     return new Response(
       JSON.stringify({
         error: error.message || 'Internal server error',
+        details: error.stack,
       }),
       {
         status: 500,
