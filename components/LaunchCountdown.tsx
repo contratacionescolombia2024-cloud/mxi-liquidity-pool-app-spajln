@@ -12,7 +12,7 @@ interface CountdownTime {
   seconds: number;
 }
 
-export default function LaunchCountdown() {
+export function LaunchCountdown() {
   const [countdown, setCountdown] = useState<CountdownTime>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [launchDate] = useState(new Date('2026-02-15T12:00:00Z'));
 
