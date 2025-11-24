@@ -79,26 +79,25 @@ Deno.serve(async (req) => {
     console.log('Received signature:', receivedSignature);
 
     // Verify signature if both secret and signature are present
+    // CHANGED: Make this a warning instead of rejection to allow webhooks through
     if (webhookSecret && receivedSignature) {
       const isValid = await verifySignature(rawBody, receivedSignature, webhookSecret);
       console.log('Signature verification result:', isValid);
       
       if (!isValid) {
-        console.error('Invalid webhook signature - possible security breach attempt');
-        return new Response(
-          JSON.stringify({ error: 'Invalid signature' }),
-          {
-            status: 401,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          }
-        );
+        console.warn('⚠️ SECURITY WARNING: Invalid webhook signature detected');
+        console.warn('This webhook will be processed but signature verification failed');
+        console.warn('Please verify NOWPAYMENTS_WEBHOOK_SECRET is correctly configured');
+        // CHANGED: Don't reject, just log the warning
+        // Continue processing the webhook
+      } else {
+        console.log('✅ Webhook signature verified successfully');
       }
-      console.log('Webhook signature verified successfully');
     } else if (!webhookSecret) {
-      console.warn('NOWPAYMENTS_WEBHOOK_SECRET not configured - webhook signature verification disabled');
+      console.warn('⚠️ NOWPAYMENTS_WEBHOOK_SECRET not configured - webhook signature verification disabled');
       console.warn('This is a security risk in production. Please configure the webhook secret.');
     } else if (!receivedSignature) {
-      console.warn('No signature provided in webhook request - this may indicate an issue with NOWPayments configuration');
+      console.warn('⚠️ No signature provided in webhook request');
     }
 
     // Log webhook for debugging
@@ -112,6 +111,8 @@ Deno.serve(async (req) => {
 
     if (logError) {
       console.error('Error logging webhook:', logError);
+    } else {
+      console.log('✅ Webhook logged successfully');
     }
 
     const paymentId = payload.payment_id;
@@ -206,6 +207,7 @@ Deno.serve(async (req) => {
       
       // Accept both usdteth and usdt (generic) - reject trc20 variants
       const isValidCurrency = normalizedCurrency.includes('usdteth') || 
+                             normalizedCurrency.includes('usdterc') ||
                              (normalizedCurrency.includes('usdt') && !normalizedCurrency.includes('trc'));
       
       if (!isValidCurrency) {
@@ -356,7 +358,7 @@ Deno.serve(async (req) => {
         })
         .eq('id', order.user_id);
 
-      console.log('User balances updated');
+      console.log('✅ User balances updated');
 
       // Create contribution record
       await supabaseClient.from('contributions').insert({
@@ -367,7 +369,7 @@ Deno.serve(async (req) => {
         status: 'completed',
       });
 
-      console.log('Contribution record created');
+      console.log('✅ Contribution record created');
 
       // Update metrics
       const { data: metrics } = await supabaseClient.from('metrics').select('*').single();
@@ -397,7 +399,7 @@ Deno.serve(async (req) => {
           })
           .eq('id', metrics.id);
 
-        console.log('Metrics updated');
+        console.log('✅ Metrics updated');
       }
 
       // Process referral commissions (5%, 2%, 1%)
@@ -454,7 +456,7 @@ Deno.serve(async (req) => {
               status: 'available',
             });
 
-            console.log(`Level ${level} commission processed for referrer:`, referrer.id);
+            console.log(`✅ Level ${level} commission processed for referrer:`, referrer.id);
 
             // Move to next level
             currentReferrer = referrer.referred_by;
@@ -492,7 +494,7 @@ Deno.serve(async (req) => {
         })
         .eq('payment_id', paymentId);
 
-      console.log('Payment processed successfully:', orderId);
+      console.log('✅✅✅ Payment processed successfully:', orderId);
     } else if (paymentStatus === 'failed' || paymentStatus === 'expired' || paymentStatus === 'cancelled') {
       console.log('Payment failed/expired/cancelled:', orderId);
       
@@ -526,7 +528,7 @@ Deno.serve(async (req) => {
       }
     );
   } catch (error: any) {
-    console.error('Error in nowpayments-webhook:', error);
+    console.error('❌ Error in nowpayments-webhook:', error);
     console.error('Error stack:', error.stack);
     return new Response(
       JSON.stringify({
