@@ -12,7 +12,7 @@ interface UniversalMXICounterProps {
   isAdmin?: boolean;
 }
 
-export default function UniversalMXICounter({ isAdmin = false }: UniversalMXICounterProps) {
+export function UniversalMXICounter({ isAdmin = false }: UniversalMXICounterProps) {
   const { user } = useAuth();
   const [displayYield, setDisplayYield] = useState(0);
 

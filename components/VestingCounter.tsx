@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabase';
 const MONTHLY_YIELD_PERCENTAGE = 0.03; // 3% monthly
 const SECONDS_IN_MONTH = 2592000; // 30 days * 24 hours * 60 minutes * 60 seconds
 
-export default function VestingCounter() {
+export function VestingCounter() {
   const router = useRouter();
   const { user } = useAuth();
   const [displayYield, setDisplayYield] = useState(0);

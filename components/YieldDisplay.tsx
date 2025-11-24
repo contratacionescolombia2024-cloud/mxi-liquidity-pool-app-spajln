@@ -5,7 +5,7 @@ import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
 
-export default function YieldDisplay() {
+export function YieldDisplay() {
   const { user, getCurrentYield, claimYield } = useAuth();
   const [currentYield, setCurrentYield] = useState(0);
   const [claiming, setClaiming] = useState(false);
@@ -129,7 +129,7 @@ export default function YieldDisplay() {
       >
         <IconSymbol 
           ios_icon_name="arrow.down.circle.fill" 
-          android_material_icon_name="arrow-circle-down"
+          android_material_icon_name="arrow_circle_down"
           size={20} 
           color={claiming || currentYield < 0.000001 ? colors.textSecondary : '#fff'} 
         />
