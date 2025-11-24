@@ -113,25 +113,15 @@ export default function DepositScreen() {
       console.log('Setting Realtime auth token');
       await supabase.realtime.setAuth(currentSession.access_token);
 
-      // Create private channel for this payment
-      const channelName = `payment:${orderId}`;
-      console.log('Creating channel:', channelName);
-
-      const channel = supabase.channel(channelName, {
-        config: {
-          private: true,
-          broadcast: { ack: true },
-        },
-      });
-
-      // Subscribe to database changes
-      channel
+      // Subscribe to nowpayments_orders table changes
+      const channel = supabase
+        .channel(`payment-updates-${orderId}`)
         .on(
           'postgres_changes',
           {
             event: '*',
             schema: 'public',
-            table: 'payments',
+            table: 'nowpayments_orders',
             filter: `order_id=eq.${orderId}`,
           },
           (payload) => {
@@ -140,13 +130,25 @@ export default function DepositScreen() {
             console.log('Payload:', JSON.stringify(payload, null, 2));
 
             if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
-              const record = payload.new as PaymentStatus;
+              const record = payload.new as any;
               console.log('Payment status updated:', record.status);
               
-              setPaymentStatus(record);
+              // Update local state
+              setPaymentStatus({
+                id: record.id,
+                order_id: record.order_id,
+                status: record.status,
+                payment_status: record.payment_status || record.status,
+                price_amount: record.usdt_amount,
+                pay_currency: record.pay_currency,
+                actually_paid: record.actually_paid || 0,
+                invoice_url: record.payment_url,
+                created_at: record.created_at,
+                updated_at: record.updated_at,
+              });
 
               // Handle payment completion
-              if (record.status === 'paid') {
+              if (record.status === 'finished' || record.status === 'confirmed') {
                 console.log('Payment confirmed!');
                 Alert.alert(
                   '¡Pago Confirmado!',
@@ -231,55 +233,24 @@ export default function DepositScreen() {
     try {
       const orderId = `MXI-${Date.now()}-${user?.id.substring(0, 8)}`;
       
-      const requestBody = {
-        order_id: orderId,
-        price_amount: usdtAmount,
-        price_currency: 'usd',
-      };
+      console.log('Order ID:', orderId);
+      console.log('Amount:', usdtAmount);
 
-      console.log('Request:', JSON.stringify(requestBody, null, 2));
+      // Show available currencies directly (hardcoded list)
+      const availableCurrencies = [
+        { code: 'usdttrc20', name: 'USDT (TRC20)' },
+        { code: 'usdterc20', name: 'USDT (ERC20)' },
+        { code: 'usdtbep20', name: 'USDT (BEP20)' },
+        { code: 'btc', name: 'Bitcoin' },
+        { code: 'eth', name: 'Ethereum' },
+        { code: 'bnb', name: 'BNB' },
+        { code: 'trx', name: 'TRON' },
+      ];
 
-      const response = await fetch(
-        'https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/create-payment-intent',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify(requestBody),
-        }
-      );
-
-      console.log('Response status:', response.status);
-
-      const responseText = await response.text();
-      console.log('Response text:', responseText);
-
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (e) {
-        throw new Error(`Respuesta inválida del servidor: ${responseText.substring(0, 100)}`);
-      }
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Error al cargar criptomonedas');
-      }
-
-      if (data.intent?.pay_currencies && Array.isArray(data.intent.pay_currencies)) {
-        const currencyList = data.intent.pay_currencies.map((code: string) => ({
-          code: code,
-          name: getCurrencyName(code),
-        }));
-
-        console.log('Currencies loaded:', currencyList.length);
-        setCurrencies(currencyList);
-        setCurrentOrderId(orderId);
-        setShowCurrencyModal(true);
-      } else {
-        throw new Error('No se pudieron cargar las criptomonedas disponibles');
-      }
+      console.log('Currencies loaded:', availableCurrencies.length);
+      setCurrencies(availableCurrencies);
+      setCurrentOrderId(orderId);
+      setShowCurrencyModal(true);
     } catch (error: any) {
       console.error('Error loading currencies:', error);
       Alert.alert(
@@ -369,58 +340,93 @@ export default function DepositScreen() {
         throw new Error(`Respuesta inválida: ${responseText.substring(0, 100)}`);
       }
 
+      console.log('Parsed response:', JSON.stringify(data, null, 2));
+
       if (!response.ok || !data.success) {
         throw new Error(data.error || 'Error al crear el pago');
       }
 
-      if (data.intent?.invoice_url) {
-        const invoiceUrl = data.intent.invoice_url;
-        
-        console.log('Opening invoice URL:', invoiceUrl);
-
-        // Subscribe to Realtime updates BEFORE opening the payment page
-        await subscribeToPaymentUpdates(currentOrderId);
-
-        // Open payment URL in browser
-        await WebBrowser.openBrowserAsync(invoiceUrl);
-
-        Alert.alert(
-          'Pago Iniciado',
-          'Se ha abierto la página de pago. Completa el pago y el estado se actualizará automáticamente en tiempo real.',
-          [{ text: 'OK' }]
-        );
-
-        // Set initial payment status
-        setPaymentStatus({
-          id: data.intent.id,
-          order_id: currentOrderId,
-          status: data.intent.status || 'waiting',
-          payment_status: data.intent.payment_status || 'waiting',
-          price_amount: usdtAmount,
-          pay_currency: selectedCurrency,
-          actually_paid: 0,
-          invoice_url: invoiceUrl,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        });
-      } else {
+      if (!data.intent?.invoice_url) {
+        console.error('No invoice_url in response:', data);
         throw new Error('No se pudo obtener la URL de pago');
       }
+
+      const invoiceUrl = data.intent.invoice_url;
+      
+      console.log('✅ Invoice URL received:', invoiceUrl);
+
+      // Close the modal first
+      setShowCurrencyModal(false);
+
+      // Subscribe to Realtime updates BEFORE opening the payment page
+      await subscribeToPaymentUpdates(currentOrderId);
+
+      // Set initial payment status
+      setPaymentStatus({
+        id: data.intent.id || currentOrderId,
+        order_id: currentOrderId,
+        status: 'waiting',
+        payment_status: 'waiting',
+        price_amount: usdtAmount,
+        pay_currency: selectedCurrency,
+        actually_paid: 0,
+        invoice_url: invoiceUrl,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      // Small delay to ensure modal is closed
+      setTimeout(async () => {
+        console.log('🌐 Opening payment URL in browser...');
+        
+        try {
+          // Open payment URL in browser
+          const result = await WebBrowser.openBrowserAsync(invoiceUrl, {
+            dismissButtonStyle: 'close',
+            presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+          });
+          
+          console.log('Browser result:', result);
+
+          // Show confirmation after browser opens
+          Alert.alert(
+            'Pago Iniciado',
+            'Se ha abierto la página de pago de NOWPayments. Completa el pago y el estado se actualizará automáticamente en tiempo real.',
+            [{ text: 'OK' }]
+          );
+        } catch (browserError) {
+          console.error('Error opening browser:', browserError);
+          Alert.alert(
+            'Pago Creado',
+            'El pago ha sido creado. Por favor copia esta URL y ábrela en tu navegador:\n\n' + invoiceUrl,
+            [
+              {
+                text: 'Copiar URL',
+                onPress: () => {
+                  console.log('Copy URL:', invoiceUrl);
+                }
+              },
+              { text: 'OK' }
+            ]
+          );
+        }
+      }, 300);
+
     } catch (error: any) {
-      console.error('Payment error:', error);
+      console.error('❌ Payment error:', error);
       Alert.alert(
-        'Error',
-        error.message || 'Error al procesar el pago'
+        'Error al Procesar Pago',
+        error.message || 'Ocurrió un error al procesar el pago. Por favor intenta nuevamente.'
       );
     } finally {
       setLoading(false);
-      setShowCurrencyModal(false);
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'paid':
+      case 'finished':
+      case 'confirmed':
         return colors.success;
       case 'failed':
       case 'expired':
@@ -428,6 +434,7 @@ export default function DepositScreen() {
       case 'waiting':
       case 'pending':
       case 'processing':
+      case 'confirming':
         return colors.warning;
       default:
         return colors.textSecondary;
@@ -439,7 +446,9 @@ export default function DepositScreen() {
       pending: 'Pendiente',
       waiting: 'Esperando pago',
       processing: 'Procesando pago',
-      paid: 'Pago confirmado',
+      confirming: 'Confirmando',
+      confirmed: 'Confirmado',
+      finished: 'Completado',
       failed: 'Fallido',
       expired: 'Expirado',
       refunded: 'Reembolsado',
@@ -668,7 +677,7 @@ export default function DepositScreen() {
               {loading ? (
                 <ActivityIndicator color="#000000" />
               ) : (
-                <Text style={styles.modalButtonText}>Pagar</Text>
+                <Text style={styles.modalButtonText}>Continuar al Pago</Text>
               )}
             </TouchableOpacity>
 

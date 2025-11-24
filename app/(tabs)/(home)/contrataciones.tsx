@@ -455,7 +455,7 @@ export default function ContratacionesScreen() {
       console.log('Order ID:', orderId);
       console.log('Amount:', usdtAmount);
 
-      // Show available currencies without calling the API
+      // Show available currencies directly (hardcoded list)
       const availableCurrencies = [
         { code: 'usdttrc20', name: 'USDT (TRC20)' },
         { code: 'usdterc20', name: 'USDT (ERC20)' },
@@ -526,6 +526,15 @@ export default function ContratacionesScreen() {
       console.log('Amount:', usdtAmount);
       console.log('Currency:', selectedCurrency);
 
+      const requestBody = {
+        order_id: currentOrderId,
+        price_amount: usdtAmount,
+        price_currency: 'usd',
+        pay_currency: selectedCurrency,
+      };
+
+      console.log('Request body:', JSON.stringify(requestBody, null, 2));
+
       const response = await fetch(
         `https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/create-payment-intent`,
         {
@@ -534,12 +543,7 @@ export default function ContratacionesScreen() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({
-            order_id: currentOrderId,
-            price_amount: usdtAmount,
-            price_currency: 'usd',
-            pay_currency: selectedCurrency,
-          }),
+          body: JSON.stringify(requestBody),
         }
       );
 
@@ -556,7 +560,7 @@ export default function ContratacionesScreen() {
         throw new Error('Respuesta inválida del servidor');
       }
 
-      console.log('Payment response:', data);
+      console.log('Payment response:', JSON.stringify(data, null, 2));
 
       if (!response.ok) {
         throw new Error(data.error || `Error del servidor: ${response.status}`);
@@ -623,7 +627,6 @@ export default function ContratacionesScreen() {
               {
                 text: 'Copiar URL',
                 onPress: () => {
-                  // You would need to implement clipboard functionality here
                   console.log('Copy URL:', invoiceUrl);
                 }
               },
@@ -821,11 +824,9 @@ export default function ContratacionesScreen() {
           </Text>
         </View>
 
-        {/* Extra padding at bottom to avoid tab bar */}
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Currency Selection Modal */}
       <Modal
         visible={showCurrencyModal}
         transparent={true}
