@@ -17,6 +17,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { UniversalMXICounter } from '@/components/UniversalMXICounter';
 import { YieldDisplay } from '@/components/YieldDisplay';
 import { LaunchCountdown } from '@/components/LaunchCountdown';
+import { supabase } from '@/lib/supabase';
 
 const styles = StyleSheet.create({
   container: {
@@ -66,6 +67,33 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   phaseSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  poolCounterCard: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  poolCounterTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  poolCounterValue: {
+    fontSize: 48,
+    fontWeight: '900',
+    color: colors.success,
+    marginBottom: 4,
+  },
+  poolCounterLabel: {
     fontSize: 14,
     color: colors.textSecondary,
   },
@@ -153,6 +181,7 @@ export default function HomeScreen() {
   const { user, loading, checkWithdrawalEligibility, getPhaseInfo } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [phaseInfo, setPhaseInfo] = useState<any>(null);
+  const [poolParticipants, setPoolParticipants] = useState(56527);
 
   useEffect(() => {
     if (user) {
@@ -165,6 +194,16 @@ export default function HomeScreen() {
       await checkWithdrawalEligibility();
       const info = await getPhaseInfo();
       setPhaseInfo(info);
+
+      // Load pool participants count
+      const { data: metricsData, error: metricsError } = await supabase
+        .from('metrics')
+        .select('total_members')
+        .single();
+
+      if (!metricsError && metricsData) {
+        setPoolParticipants(metricsData.total_members);
+      }
     } catch (error) {
       console.error('Error loading data:', error);
     }
@@ -235,6 +274,15 @@ export default function HomeScreen() {
             <Text style={styles.phaseSubtitle}>USDT por MXI</Text>
           </View>
         )}
+
+        {/* Pool Participants Counter */}
+        <View style={styles.poolCounterCard}>
+          <Text style={styles.poolCounterTitle}>Participantes del Pool</Text>
+          <Text style={styles.poolCounterValue}>
+            {poolParticipants.toLocaleString('es-ES')}
+          </Text>
+          <Text style={styles.poolCounterLabel}>de 250,000 personas</Text>
+        </View>
 
         {/* Launch Countdown */}
         <LaunchCountdown />
@@ -327,12 +375,6 @@ export default function HomeScreen() {
             <Text style={styles.statValue}>{user.activeReferrals}</Text>
           </View>
           <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Comisiones Disponibles</Text>
-            <Text style={styles.statValue}>
-              ${user.commissions.available.toFixed(2)}
-            </Text>
-          </View>
-          <View style={styles.statRow}>
             <Text style={styles.statLabel}>MXI Comprado Directamente</Text>
             <Text style={styles.statValue}>
               {(user.mxiPurchasedDirectly || 0).toFixed(2)}
@@ -342,6 +384,18 @@ export default function HomeScreen() {
             <Text style={styles.statLabel}>MXI de Comisiones Unificadas</Text>
             <Text style={styles.statValue}>
               {(user.mxiFromUnifiedCommissions || 0).toFixed(2)}
+            </Text>
+          </View>
+          <View style={styles.statRow}>
+            <Text style={styles.statLabel}>MXI de Vesting</Text>
+            <Text style={styles.statValue}>
+              {(user.mxiVestingLocked || 0).toFixed(2)}
+            </Text>
+          </View>
+          <View style={styles.statRow}>
+            <Text style={styles.statLabel}>MXI de Torneos</Text>
+            <Text style={styles.statValue}>
+              {(user.mxiFromChallenges || 0).toFixed(2)}
             </Text>
           </View>
           <View style={styles.statRow}>
