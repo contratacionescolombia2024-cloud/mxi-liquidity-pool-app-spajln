@@ -333,6 +333,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
   },
+  usdtPaymentButton: {
+    backgroundColor: colors.success,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+    borderWidth: 2,
+    borderColor: colors.success,
+  },
+  usdtPaymentButtonText: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
 });
 
 export default function HomeScreen() {
@@ -352,6 +371,7 @@ export default function HomeScreen() {
   });
   const [poolParticipants, setPoolParticipants] = useState(56527);
   const [commissions, setCommissions] = useState({ available: 0, total: 0 });
+  const [saldoMxi, setSaldoMxi] = useState(0);
 
   useEffect(() => {
     if (user) {
@@ -419,6 +439,17 @@ export default function HomeScreen() {
         const total = commissionsData.reduce((sum, c) => sum + parseFloat(c.amount), 0);
         setCommissions({ available, total });
       }
+
+      // Load saldo_mxi
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('saldo_mxi')
+        .eq('id', user?.id)
+        .single();
+
+      if (!userError && userData) {
+        setSaldoMxi(parseFloat(userData.saldo_mxi || 0));
+      }
     } catch (error) {
       console.error('Error loading data:', error);
     }
@@ -478,6 +509,41 @@ export default function HomeScreen() {
               size={20}
               color={colors.warning}
             />
+          </TouchableOpacity>
+        )}
+
+        {/* USDT Payment Button */}
+        <TouchableOpacity
+          style={styles.usdtPaymentButton}
+          onPress={() => router.push('/(tabs)/(home)/pagar-usdt')}
+        >
+          <IconSymbol
+            ios_icon_name="dollarsign.circle.fill"
+            android_material_icon_name="attach_money"
+            size={28}
+            color="#FFFFFF"
+          />
+          <Text style={styles.usdtPaymentButtonText}>
+            Pagar con USDT ERC20
+          </Text>
+        </TouchableOpacity>
+
+        {/* Saldo MXI Card */}
+        {saldoMxi > 0 && (
+          <TouchableOpacity
+            style={styles.totalBalanceCard}
+            onPress={() => router.push('/(tabs)/(home)/saldo-mxi')}
+          >
+            <Text style={styles.cardTitle}>Saldo MXI (USDT Payments)</Text>
+            <Text style={styles.totalBalanceValue}>
+              {saldoMxi.toLocaleString('es-ES', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })} MXI
+            </Text>
+            <Text style={styles.phaseSubtitle}>
+              Toca para ver detalles →
+            </Text>
           </TouchableOpacity>
         )}
 
@@ -671,41 +737,6 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Buy MXI Button */}
-        <TouchableOpacity
-          style={{
-            backgroundColor: colors.primary,
-            borderRadius: 16,
-            padding: 20,
-            marginBottom: 16,
-            alignItems: 'center',
-            flexDirection: 'row',
-            justifyContent: 'center',
-            gap: 12,
-            borderWidth: 2,
-            borderColor: colors.primary,
-          }}
-          onPress={() => router.push('/(tabs)/(home)/contrataciones')}
-        >
-          <IconSymbol
-            ios_icon_name="cart.fill"
-            android_material_icon_name="shopping_cart"
-            size={28}
-            color="#000000"
-          />
-          <Text
-            style={{
-              fontSize: 20,
-              fontWeight: '900',
-              color: '#000000',
-              textTransform: 'uppercase',
-              letterSpacing: 1,
-            }}
-          >
-            Comprar MXI
-          </Text>
-        </TouchableOpacity>
-
         {/* Launch Countdown */}
         <LaunchCountdown />
 
@@ -733,7 +764,7 @@ export default function HomeScreen() {
 
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => router.push('/(tabs)/(home)/payment-history')}
+            onPress={() => router.push('/(tabs)/(home)/historial-pagos-usdt')}
           >
             <IconSymbol
               ios_icon_name="clock.fill"
@@ -742,7 +773,7 @@ export default function HomeScreen() {
               color={colors.primary}
               style={styles.actionIcon}
             />
-            <Text style={styles.actionLabel}>Historial</Text>
+            <Text style={styles.actionLabel}>Historial USDT</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
