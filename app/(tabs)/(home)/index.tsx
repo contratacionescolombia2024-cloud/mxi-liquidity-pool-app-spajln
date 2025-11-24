@@ -43,272 +43,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
   },
-  phaseCard: {
-    backgroundColor: colors.primary + '20',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    alignItems: 'center',
-  },
-  phaseTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  phasePrice: {
-    fontSize: 42,
-    fontWeight: '900',
-    color: colors.primary,
-    marginBottom: 4,
-  },
-  phaseSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  poolCounterCard: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-  },
-  poolCounterTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  poolCounterValue: {
-    fontSize: 48,
-    fontWeight: '900',
-    color: colors.success,
-    marginBottom: 4,
-  },
-  poolCounterLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  totalBalanceCard: {
-    backgroundColor: colors.primary + '15',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: colors.primary,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 16,
-  },
-  totalBalanceValue: {
-    fontSize: 36,
-    fontWeight: '900',
-    color: colors.primary,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  balanceBreakdown: {
-    gap: 8,
-  },
-  breakdownRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border + '30',
-  },
-  breakdownLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  breakdownValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  commissionsCard: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  commissionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-  },
-  commissionItem: {
-    flex: 1,
-    minWidth: '45%',
-    alignItems: 'center',
-    gap: 8,
-  },
-  commissionValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  commissionLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  phasesCard: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  currentPhaseInfo: {
-    backgroundColor: colors.primary + '20',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    alignItems: 'center',
-  },
-  currentPhaseLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  currentPhasePrice: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: colors.primary,
-  },
-  phasesList: {
-    gap: 12,
-    marginBottom: 16,
-  },
-  phaseItem: {
-    backgroundColor: colors.card,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  phaseLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  phaseValue: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  overallProgress: {
-    marginBottom: 16,
-  },
-  overallProgressLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  progressBar: {
-    height: 12,
-    backgroundColor: colors.border,
-    borderRadius: 6,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: colors.success,
-  },
-  progressText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  progressSubtext: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  poolCloseInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  poolCloseText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    flex: 1,
-  },
-  quickActionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 16,
-  },
-  actionButton: {
-    flex: 1,
-    minWidth: '47%',
-    backgroundColor: colors.cardBackground,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  actionIcon: {
-    marginBottom: 8,
-  },
-  actionLabel: {
-    fontSize: 13,
-    color: colors.text,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  statsCard: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  statsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 16,
-  },
-  statRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  statLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  statValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
   kycBanner: {
     backgroundColor: 'rgba(255, 152, 0, 0.1)',
     borderRadius: 12,
@@ -333,6 +67,337 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
   },
+  totalBalanceCard: {
+    backgroundColor: 'rgba(255, 215, 0, 0.08)',
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  totalBalanceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    gap: 12,
+  },
+  totalBalanceValue: {
+    fontSize: 48,
+    fontWeight: '900',
+    color: colors.primary,
+    textAlign: 'center',
+  },
+  totalBalanceUnit: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  balanceBreakdown: {
+    gap: 12,
+    marginTop: 20,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    padding: 12,
+    gap: 12,
+  },
+  breakdownIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 215, 0, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  breakdownContent: {
+    flex: 1,
+  },
+  breakdownLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  breakdownBar: {
+    height: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  breakdownBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  breakdownValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  phasesCard: {
+    backgroundColor: 'rgba(99, 102, 241, 0.08)',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(99, 102, 241, 0.3)',
+    shadowColor: '#6366F1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  currentPhaseInfo: {
+    backgroundColor: 'rgba(99, 102, 241, 0.15)',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(99, 102, 241, 0.3)',
+  },
+  currentPhaseLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  currentPhasePrice: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#6366F1',
+  },
+  phasesList: {
+    gap: 10,
+    marginBottom: 16,
+  },
+  phaseItem: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(99, 102, 241, 0.2)',
+  },
+  phaseHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  phaseLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  phasePrice: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#6366F1',
+  },
+  phaseProgressBar: {
+    height: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  phaseProgressFill: {
+    height: '100%',
+    backgroundColor: '#6366F1',
+  },
+  phaseStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  phaseValue: {
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
+  overallProgress: {
+    marginBottom: 16,
+  },
+  overallProgressLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  progressBarContainer: {
+    height: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(99, 102, 241, 0.3)',
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: '#6366F1',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  progressBarText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  progressStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  progressText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  progressSubtext: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  poolCloseInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(99, 102, 241, 0.2)',
+  },
+  poolCloseText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    flex: 1,
+  },
+  commissionsCard: {
+    backgroundColor: 'rgba(168, 85, 247, 0.08)',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(168, 85, 247, 0.3)',
+    shadowColor: '#A855F7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  commissionsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  commissionsTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  commissionsGrid: {
+    gap: 12,
+  },
+  commissionItem: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(168, 85, 247, 0.2)',
+  },
+  commissionIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(168, 85, 247, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  commissionContent: {
+    flex: 1,
+  },
+  commissionLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  commissionValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  commissionValue: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: colors.text,
+  },
+  commissionUnit: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  commissionBar: {
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginTop: 8,
+  },
+  commissionBarFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 16,
+  },
+  actionButton: {
+    flex: 1,
+    minWidth: '47%',
+    backgroundColor: 'rgba(26, 31, 58, 0.6)',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.2)',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  actionIcon: {
+    marginBottom: 8,
+  },
+  actionLabel: {
+    fontSize: 13,
+    color: colors.text,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
 });
 
 export default function HomeScreen() {
@@ -350,7 +415,6 @@ export default function HomeScreen() {
     overallProgress: 0,
     poolCloseDate: '2026-02-15T12:00:00Z',
   });
-  const [poolParticipants, setPoolParticipants] = useState(56527);
   const [commissions, setCommissions] = useState({ available: 0, total: 0 });
   const [saldoMxi, setSaldoMxi] = useState(0);
 
@@ -368,15 +432,13 @@ export default function HomeScreen() {
         setPhaseInfo(info);
       }
 
-      // Load pool participants count
+      // Load pool participants count and phase info
       const { data: metricsData, error: metricsError } = await supabase
         .from('metrics')
         .select('*')
         .single();
 
       if (!metricsError && metricsData) {
-        setPoolParticipants(metricsData.total_members || 56527);
-
         // Calculate phase info
         const phase1Allocation = 8333333;
         const phase2Allocation = 8333333;
@@ -452,6 +514,20 @@ export default function HomeScreen() {
     );
   }
 
+  // Calculate total MXI balance
+  const totalMxiBalance = user.mxiBalance || 0;
+  const mxiPurchased = user.mxiPurchasedDirectly || 0;
+  const mxiVesting = user.mxiVestingLocked || 0;
+  const mxiChallenges = user.mxiFromChallenges || 0;
+  const mxiCommissions = user.mxiFromUnifiedCommissions || 0;
+
+  // Calculate percentages for bars
+  const maxValue = Math.max(mxiPurchased, mxiVesting, mxiChallenges, mxiCommissions, 1);
+  const purchasedPercent = (mxiPurchased / maxValue) * 100;
+  const vestingPercent = (mxiVesting / maxValue) * 100;
+  const challengesPercent = (mxiChallenges / maxValue) * 100;
+  const commissionsPercent = (mxiCommissions / maxValue) * 100;
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -493,139 +569,238 @@ export default function HomeScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Saldo MXI Card */}
-        {saldoMxi > 0 && (
-          <TouchableOpacity
-            style={styles.totalBalanceCard}
-            onPress={() => router.push('/(tabs)/(home)/saldo-mxi')}
-          >
-            <Text style={styles.cardTitle}>Saldo MXI (USDT Payments)</Text>
+        {/* Launch Countdown - Moved here, right after KYC banner */}
+        <LaunchCountdown />
+
+        {/* Enhanced Total MXI Balance Card with Bars and Emoticons */}
+        <View style={styles.totalBalanceCard}>
+          <Text style={styles.cardTitle}>💰 Balance Total de MXI</Text>
+          <View style={styles.totalBalanceHeader}>
             <Text style={styles.totalBalanceValue}>
-              {saldoMxi.toLocaleString('es-ES', {
+              {totalMxiBalance.toLocaleString('es-ES', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
-              })} MXI
+              })}
             </Text>
-            <Text style={styles.phaseSubtitle}>
-              Toca para ver detalles →
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Current Phase Price Card */}
-        {phaseInfo && phaseInfo.currentPhase && phaseInfo.currentPriceUsdt !== undefined && (
-          <View style={styles.phaseCard}>
-            <Text style={styles.phaseTitle}>Fase {phaseInfo.currentPhase} - Precio Actual</Text>
-            <Text style={styles.phasePrice}>${phaseInfo.currentPriceUsdt.toFixed(2)}</Text>
-            <Text style={styles.phaseSubtitle}>USDT por MXI</Text>
+            <Text style={styles.totalBalanceUnit}>MXI</Text>
           </View>
-        )}
-
-        {/* Pool Participants Counter */}
-        <View style={styles.poolCounterCard}>
-          <Text style={styles.poolCounterTitle}>Participantes del Pool</Text>
-          <Text style={styles.poolCounterValue}>
-            {poolParticipants.toLocaleString('es-ES')}
-          </Text>
-          <Text style={styles.poolCounterLabel}>de 250,000 personas</Text>
-        </View>
-
-        {/* Total MXI Balance Card */}
-        <View style={styles.totalBalanceCard}>
-          <Text style={styles.cardTitle}>Balance Total de MXI</Text>
-          <Text style={styles.totalBalanceValue}>
-            {(user.mxiBalance || 0).toLocaleString('es-ES', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })} MXI
-          </Text>
+          
           <View style={styles.balanceBreakdown}>
+            {/* MXI Comprados */}
             <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>MXI Comprados:</Text>
+              <View style={styles.breakdownIcon}>
+                <Text style={{ fontSize: 20 }}>🛒</Text>
+              </View>
+              <View style={styles.breakdownContent}>
+                <Text style={styles.breakdownLabel}>MXI Comprados</Text>
+                <View style={styles.breakdownBar}>
+                  <View 
+                    style={[
+                      styles.breakdownBarFill, 
+                      { 
+                        width: `${purchasedPercent}%`,
+                        backgroundColor: '#10b981'
+                      }
+                    ]} 
+                  />
+                </View>
+              </View>
               <Text style={styles.breakdownValue}>
-                {(user.mxiPurchasedDirectly || 0).toFixed(2)}
+                {mxiPurchased.toFixed(2)}
               </Text>
             </View>
+
+            {/* MXI de Vesting */}
             <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>MXI de Vesting:</Text>
+              <View style={styles.breakdownIcon}>
+                <Text style={{ fontSize: 20 }}>🔒</Text>
+              </View>
+              <View style={styles.breakdownContent}>
+                <Text style={styles.breakdownLabel}>MXI de Vesting</Text>
+                <View style={styles.breakdownBar}>
+                  <View 
+                    style={[
+                      styles.breakdownBarFill, 
+                      { 
+                        width: `${vestingPercent}%`,
+                        backgroundColor: '#6366F1'
+                      }
+                    ]} 
+                  />
+                </View>
+              </View>
               <Text style={styles.breakdownValue}>
-                {(user.mxiVestingLocked || 0).toFixed(2)}
+                {mxiVesting.toFixed(2)}
               </Text>
             </View>
+
+            {/* MXI de Torneos */}
             <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>MXI de Torneos:</Text>
+              <View style={styles.breakdownIcon}>
+                <Text style={{ fontSize: 20 }}>🏆</Text>
+              </View>
+              <View style={styles.breakdownContent}>
+                <Text style={styles.breakdownLabel}>MXI de Torneos</Text>
+                <View style={styles.breakdownBar}>
+                  <View 
+                    style={[
+                      styles.breakdownBarFill, 
+                      { 
+                        width: `${challengesPercent}%`,
+                        backgroundColor: '#F59E0B'
+                      }
+                    ]} 
+                  />
+                </View>
+              </View>
               <Text style={styles.breakdownValue}>
-                {(user.mxiFromChallenges || 0).toFixed(2)}
+                {mxiChallenges.toFixed(2)}
               </Text>
             </View>
+
+            {/* MXI de Comisiones */}
             <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>MXI de Comisiones:</Text>
+              <View style={styles.breakdownIcon}>
+                <Text style={{ fontSize: 20 }}>💵</Text>
+              </View>
+              <View style={styles.breakdownContent}>
+                <Text style={styles.breakdownLabel}>MXI de Comisiones</Text>
+                <View style={styles.breakdownBar}>
+                  <View 
+                    style={[
+                      styles.breakdownBarFill, 
+                      { 
+                        width: `${commissionsPercent}%`,
+                        backgroundColor: '#A855F7'
+                      }
+                    ]} 
+                  />
+                </View>
+              </View>
               <Text style={styles.breakdownValue}>
-                {(user.mxiFromUnifiedCommissions || 0).toFixed(2)}
+                {mxiCommissions.toFixed(2)}
               </Text>
             </View>
           </View>
         </View>
 
-        {/* Commissions and Referrals Card */}
+        {/* Enhanced Commissions and Referrals Card */}
         <View style={styles.commissionsCard}>
-          <Text style={styles.cardTitle}>Comisiones y Referidos</Text>
+          <View style={styles.commissionsHeader}>
+            <Text style={styles.commissionsTitle}>💼 Comisiones y Referidos</Text>
+          </View>
+          
           <View style={styles.commissionsGrid}>
+            {/* Available Commissions */}
             <View style={styles.commissionItem}>
-              <IconSymbol 
-                ios_icon_name="dollarsign.circle.fill" 
-                android_material_icon_name="attach_money" 
-                size={32} 
-                color={colors.success} 
-              />
-              <Text style={styles.commissionValue}>
-                ${commissions.available.toFixed(2)}
-              </Text>
-              <Text style={styles.commissionLabel}>Disponibles</Text>
+              <View style={styles.commissionIconContainer}>
+                <Text style={{ fontSize: 24 }}>💰</Text>
+              </View>
+              <View style={styles.commissionContent}>
+                <Text style={styles.commissionLabel}>Disponibles</Text>
+                <View style={styles.commissionValueContainer}>
+                  <Text style={styles.commissionValue}>
+                    ${commissions.available.toFixed(2)}
+                  </Text>
+                </View>
+                <View style={styles.commissionBar}>
+                  <View 
+                    style={[
+                      styles.commissionBarFill, 
+                      { 
+                        width: commissions.total > 0 ? `${(commissions.available / commissions.total) * 100}%` : '0%',
+                        backgroundColor: '#10b981'
+                      }
+                    ]} 
+                  />
+                </View>
+              </View>
             </View>
+
+            {/* Total Commissions */}
             <View style={styles.commissionItem}>
-              <IconSymbol 
-                ios_icon_name="chart.bar.fill" 
-                android_material_icon_name="bar_chart" 
-                size={32} 
-                color={colors.primary} 
-              />
-              <Text style={styles.commissionValue}>
-                ${commissions.total.toFixed(2)}
-              </Text>
-              <Text style={styles.commissionLabel}>Total Comisiones</Text>
+              <View style={styles.commissionIconContainer}>
+                <Text style={{ fontSize: 24 }}>📊</Text>
+              </View>
+              <View style={styles.commissionContent}>
+                <Text style={styles.commissionLabel}>Total Comisiones</Text>
+                <View style={styles.commissionValueContainer}>
+                  <Text style={styles.commissionValue}>
+                    ${commissions.total.toFixed(2)}
+                  </Text>
+                </View>
+                <View style={styles.commissionBar}>
+                  <View 
+                    style={[
+                      styles.commissionBarFill, 
+                      { 
+                        width: '100%',
+                        backgroundColor: '#6366F1'
+                      }
+                    ]} 
+                  />
+                </View>
+              </View>
             </View>
+
+            {/* Active Referrals */}
             <View style={styles.commissionItem}>
-              <IconSymbol 
-                ios_icon_name="person.3.fill" 
-                android_material_icon_name="group" 
-                size={32} 
-                color={colors.accent} 
-              />
-              <Text style={styles.commissionValue}>
-                {user.activeReferrals || 0}
-              </Text>
-              <Text style={styles.commissionLabel}>Referidos Activos</Text>
+              <View style={styles.commissionIconContainer}>
+                <Text style={{ fontSize: 24 }}>👥</Text>
+              </View>
+              <View style={styles.commissionContent}>
+                <Text style={styles.commissionLabel}>Referidos Activos</Text>
+                <View style={styles.commissionValueContainer}>
+                  <Text style={styles.commissionValue}>
+                    {user.activeReferrals || 0}
+                  </Text>
+                </View>
+                <View style={styles.commissionBar}>
+                  <View 
+                    style={[
+                      styles.commissionBarFill, 
+                      { 
+                        width: `${Math.min((user.activeReferrals || 0) * 20, 100)}%`,
+                        backgroundColor: '#A855F7'
+                      }
+                    ]} 
+                  />
+                </View>
+              </View>
             </View>
+
+            {/* USDT Contributed */}
             <View style={styles.commissionItem}>
-              <IconSymbol 
-                ios_icon_name="banknote.fill" 
-                android_material_icon_name="payments" 
-                size={32} 
-                color={colors.warning} 
-              />
-              <Text style={styles.commissionValue}>
-                ${(user.usdtContributed || 0).toFixed(2)}
-              </Text>
-              <Text style={styles.commissionLabel}>USDT Contribuido</Text>
+              <View style={styles.commissionIconContainer}>
+                <Text style={{ fontSize: 24 }}>💳</Text>
+              </View>
+              <View style={styles.commissionContent}>
+                <Text style={styles.commissionLabel}>USDT Contribuido</Text>
+                <View style={styles.commissionValueContainer}>
+                  <Text style={styles.commissionValue}>
+                    ${(user.usdtContributed || 0).toFixed(2)}
+                  </Text>
+                </View>
+                <View style={styles.commissionBar}>
+                  <View 
+                    style={[
+                      styles.commissionBarFill, 
+                      { 
+                        width: '100%',
+                        backgroundColor: '#F59E0B'
+                      }
+                    ]} 
+                  />
+                </View>
+              </View>
             </View>
           </View>
         </View>
 
-        {/* Phases and Progress Card */}
+        {/* Enhanced Phases and Progress Card - Translucent with different color */}
         {phaseInfo && phaseInfo.phase1 && phaseInfo.phase2 && phaseInfo.phase3 && (
           <View style={styles.phasesCard}>
-            <Text style={styles.cardTitle}>Fases y Progreso</Text>
+            <Text style={styles.cardTitle}>🚀 Fases y Progreso</Text>
             
             <View style={styles.currentPhaseInfo}>
               <Text style={styles.currentPhaseLabel}>Fase Actual: {phaseInfo.currentPhase || 1}</Text>
@@ -635,58 +810,115 @@ export default function HomeScreen() {
             </View>
 
             <View style={styles.phasesList}>
+              {/* Phase 1 */}
               <View style={styles.phaseItem}>
-                <Text style={styles.phaseLabel}>Fase 1 (0.40 USDT)</Text>
-                <Text style={styles.phaseValue}>
-                  Vendidos: {(phaseInfo.phase1.sold || 0).toLocaleString('es-ES')} MXI
-                </Text>
-                <Text style={styles.phaseValue}>
-                  Restantes: {(phaseInfo.phase1.remaining || 8333333).toLocaleString('es-ES')} MXI
-                </Text>
+                <View style={styles.phaseHeader}>
+                  <Text style={styles.phaseLabel}>Fase 1</Text>
+                  <Text style={styles.phasePrice}>0.40 USDT</Text>
+                </View>
+                <View style={styles.phaseProgressBar}>
+                  <View 
+                    style={[
+                      styles.phaseProgressFill, 
+                      { 
+                        width: `${((phaseInfo.phase1.sold || 0) / (phaseInfo.phase1.allocation || 1)) * 100}%`
+                      }
+                    ]} 
+                  />
+                </View>
+                <View style={styles.phaseStats}>
+                  <Text style={styles.phaseValue}>
+                    Vendidos: {(phaseInfo.phase1.sold || 0).toLocaleString('es-ES')}
+                  </Text>
+                  <Text style={styles.phaseValue}>
+                    Restantes: {(phaseInfo.phase1.remaining || 8333333).toLocaleString('es-ES')}
+                  </Text>
+                </View>
               </View>
+
+              {/* Phase 2 */}
               <View style={styles.phaseItem}>
-                <Text style={styles.phaseLabel}>Fase 2 (0.70 USDT)</Text>
-                <Text style={styles.phaseValue}>
-                  Vendidos: {(phaseInfo.phase2.sold || 0).toLocaleString('es-ES')} MXI
-                </Text>
-                <Text style={styles.phaseValue}>
-                  Restantes: {(phaseInfo.phase2.remaining || 8333333).toLocaleString('es-ES')} MXI
-                </Text>
+                <View style={styles.phaseHeader}>
+                  <Text style={styles.phaseLabel}>Fase 2</Text>
+                  <Text style={styles.phasePrice}>0.70 USDT</Text>
+                </View>
+                <View style={styles.phaseProgressBar}>
+                  <View 
+                    style={[
+                      styles.phaseProgressFill, 
+                      { 
+                        width: `${((phaseInfo.phase2.sold || 0) / (phaseInfo.phase2.allocation || 1)) * 100}%`
+                      }
+                    ]} 
+                  />
+                </View>
+                <View style={styles.phaseStats}>
+                  <Text style={styles.phaseValue}>
+                    Vendidos: {(phaseInfo.phase2.sold || 0).toLocaleString('es-ES')}
+                  </Text>
+                  <Text style={styles.phaseValue}>
+                    Restantes: {(phaseInfo.phase2.remaining || 8333333).toLocaleString('es-ES')}
+                  </Text>
+                </View>
               </View>
+
+              {/* Phase 3 */}
               <View style={styles.phaseItem}>
-                <Text style={styles.phaseLabel}>Fase 3 (1.00 USDT)</Text>
-                <Text style={styles.phaseValue}>
-                  Vendidos: {(phaseInfo.phase3.sold || 0).toLocaleString('es-ES')} MXI
-                </Text>
-                <Text style={styles.phaseValue}>
-                  Restantes: {(phaseInfo.phase3.remaining || 8333334).toLocaleString('es-ES')} MXI
-                </Text>
+                <View style={styles.phaseHeader}>
+                  <Text style={styles.phaseLabel}>Fase 3</Text>
+                  <Text style={styles.phasePrice}>1.00 USDT</Text>
+                </View>
+                <View style={styles.phaseProgressBar}>
+                  <View 
+                    style={[
+                      styles.phaseProgressFill, 
+                      { 
+                        width: `${((phaseInfo.phase3.sold || 0) / (phaseInfo.phase3.allocation || 1)) * 100}%`
+                      }
+                    ]} 
+                  />
+                </View>
+                <View style={styles.phaseStats}>
+                  <Text style={styles.phaseValue}>
+                    Vendidos: {(phaseInfo.phase3.sold || 0).toLocaleString('es-ES')}
+                  </Text>
+                  <Text style={styles.phaseValue}>
+                    Restantes: {(phaseInfo.phase3.remaining || 8333334).toLocaleString('es-ES')}
+                  </Text>
+                </View>
               </View>
             </View>
 
+            {/* Overall Progress with Professional Bar Graph */}
             <View style={styles.overallProgress}>
-              <Text style={styles.overallProgressLabel}>Progreso General</Text>
-              <View style={styles.progressBar}>
+              <Text style={styles.overallProgressLabel}>📈 Progreso General</Text>
+              <View style={styles.progressBarContainer}>
                 <View 
                   style={[
-                    styles.progressFill, 
+                    styles.progressBar, 
                     { width: `${Math.min(phaseInfo.overallProgress || 0, 100)}%` }
-                  ]} 
-                />
+                  ]}
+                >
+                  <Text style={styles.progressBarText}>
+                    {(phaseInfo.overallProgress || 0).toFixed(1)}%
+                  </Text>
+                </View>
               </View>
-              <Text style={styles.progressText}>
-                {(phaseInfo.overallProgress || 0).toFixed(2)}% - {(phaseInfo.totalSold || 0).toLocaleString('es-ES')} / 25,000,000 MXI
-              </Text>
-              <Text style={styles.progressSubtext}>
-                Saldo Restante: {(phaseInfo.totalRemaining || 25000000).toLocaleString('es-ES')} MXI
-              </Text>
+              <View style={styles.progressStats}>
+                <Text style={styles.progressText}>
+                  {(phaseInfo.totalSold || 0).toLocaleString('es-ES')} MXI
+                </Text>
+                <Text style={styles.progressSubtext}>
+                  de 25,000,000 MXI
+                </Text>
+              </View>
             </View>
 
             <View style={styles.poolCloseInfo}>
               <IconSymbol 
                 ios_icon_name="clock.fill" 
                 android_material_icon_name="schedule" 
-                size={20} 
+                size={18} 
                 color={colors.textSecondary} 
               />
               <Text style={styles.poolCloseText}>
@@ -702,57 +934,26 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Launch Countdown */}
-        <LaunchCountdown />
-
         {/* Yield Display */}
         <YieldDisplay />
 
         {/* Universal MXI Counter */}
         <UniversalMXICounter />
 
-        {/* Quick Actions */}
+        {/* Quick Actions - Removed Referidos, Historial, and Vesting (they're in the floating menu) */}
         <View style={styles.quickActionsGrid}>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => router.push('/(tabs)/(home)/referrals')}
+            onPress={() => router.push('/(tabs)/deposit')}
           >
             <IconSymbol
-              ios_icon_name="person.2.fill"
-              android_material_icon_name="group"
+              ios_icon_name="arrow.down.circle.fill"
+              android_material_icon_name="arrow_circle_down"
               size={32}
               color={colors.primary}
               style={styles.actionIcon}
             />
-            <Text style={styles.actionLabel}>Referidos</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => router.push('/(tabs)/(home)/historial-pagos-usdt')}
-          >
-            <IconSymbol
-              ios_icon_name="clock.fill"
-              android_material_icon_name="history"
-              size={32}
-              color={colors.primary}
-              style={styles.actionIcon}
-            />
-            <Text style={styles.actionLabel}>Historial USDT</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => router.push('/(tabs)/(home)/vesting')}
-          >
-            <IconSymbol
-              ios_icon_name="chart.line.uptrend.xyaxis"
-              android_material_icon_name="trending_up"
-              size={32}
-              color={colors.primary}
-              style={styles.actionIcon}
-            />
-            <Text style={styles.actionLabel}>Vesting</Text>
+            <Text style={styles.actionLabel}>Depositar</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -761,12 +962,40 @@ export default function HomeScreen() {
           >
             <IconSymbol
               ios_icon_name="arrow.up.circle.fill"
-              android_material_icon_name="upload"
+              android_material_icon_name="arrow_circle_up"
               size={32}
               color={colors.primary}
               style={styles.actionIcon}
             />
             <Text style={styles.actionLabel}>Retirar</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/(tabs)/(home)/kyc-verification')}
+          >
+            <IconSymbol
+              ios_icon_name="checkmark.shield.fill"
+              android_material_icon_name="verified_user"
+              size={32}
+              color={colors.primary}
+              style={styles.actionIcon}
+            />
+            <Text style={styles.actionLabel}>KYC</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/(tabs)/(home)/support')}
+          >
+            <IconSymbol
+              ios_icon_name="questionmark.circle.fill"
+              android_material_icon_name="help"
+              size={32}
+              color={colors.primary}
+              style={styles.actionIcon}
+            />
+            <Text style={styles.actionLabel}>Soporte</Text>
           </TouchableOpacity>
         </View>
 
