@@ -16,6 +16,8 @@ import { colors, commonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 
 interface PhaseData {
   currentPhase: number;
@@ -181,6 +183,48 @@ export default function PaymentFlowScreen() {
     }
   };
 
+  const openPaymentUrl = async (url: string) => {
+    console.log('Attempting to open payment URL:', url);
+    
+    if (!url) {
+      console.error('No URL provided to openPaymentUrl');
+      return false;
+    }
+
+    try {
+      // Try WebBrowser first
+      console.log('Opening with WebBrowser...');
+      const result = await WebBrowser.openBrowserAsync(url, {
+        dismissButtonStyle: 'close',
+        readerMode: false,
+        enableBarCollapsing: false,
+      });
+      
+      console.log('WebBrowser result:', result);
+      return true;
+    } catch (webBrowserError) {
+      console.error('WebBrowser failed:', webBrowserError);
+      
+      try {
+        // Fallback to Linking
+        console.log('Falling back to Linking...');
+        const canOpen = await Linking.canOpenURL(url);
+        console.log('Can open URL with Linking:', canOpen);
+        
+        if (canOpen) {
+          await Linking.openURL(url);
+          return true;
+        } else {
+          console.error('Cannot open URL with Linking');
+          return false;
+        }
+      } catch (linkingError) {
+        console.error('Linking failed:', linkingError);
+        return false;
+      }
+    }
+  };
+
   const handleSelectCrypto = async (crypto: string) => {
     setSelectedCrypto(crypto);
     setLoading(true);
@@ -219,13 +263,40 @@ export default function PaymentFlowScreen() {
         throw new Error(result.error || 'Error al generar factura');
       }
 
+      const invoiceUrl = result.intent?.nowpayment_invoice_url;
+      console.log('Invoice URL from response:', invoiceUrl);
+
+      if (!invoiceUrl) {
+        throw new Error('No se recibió la URL de pago del servidor');
+      }
+
       setPaymentIntent(result.intent);
       setStep('waiting');
 
-      // Open payment URL
-      if (result.intent.nowpayment_invoice_url) {
-        const { default: WebBrowser } = await import('expo-web-browser');
-        await WebBrowser.openBrowserAsync(result.intent.nowpayment_invoice_url);
+      // Open payment URL with improved error handling
+      console.log('Opening payment URL:', invoiceUrl);
+      const opened = await openPaymentUrl(invoiceUrl);
+      
+      if (!opened) {
+        Alert.alert(
+          'Error al Abrir Pago',
+          'No se pudo abrir la página de pago automáticamente. Puedes copiar el enlace manualmente.',
+          [
+            {
+              text: 'Copiar URL',
+              onPress: () => {
+                Alert.alert('URL de Pago', invoiceUrl);
+              }
+            },
+            {
+              text: 'Reintentar',
+              onPress: () => openPaymentUrl(invoiceUrl)
+            },
+            { text: 'Cancelar' }
+          ]
+        );
+      } else {
+        console.log('Payment URL opened successfully');
       }
 
       // Start real-time subscription
@@ -233,6 +304,8 @@ export default function PaymentFlowScreen() {
     } catch (error: any) {
       console.error('Error selecting crypto:', error);
       Alert.alert('Error', error.message || 'No se pudo generar la factura');
+      setLoading(false);
+    } finally {
       setLoading(false);
     }
   };
@@ -767,8 +840,22 @@ export default function PaymentFlowScreen() {
                 <TouchableOpacity
                   style={styles.reopenButton}
                   onPress={async () => {
-                    const { default: WebBrowser } = await import('expo-web-browser');
-                    await WebBrowser.openBrowserAsync(paymentIntent.nowpayment_invoice_url);
+                    const opened = await openPaymentUrl(paymentIntent.nowpayment_invoice_url);
+                    if (!opened) {
+                      Alert.alert(
+                        'Error',
+                        'No se pudo abrir la página de pago. Por favor intenta nuevamente.',
+                        [
+                          {
+                            text: 'Copiar URL',
+                            onPress: () => {
+                              Alert.alert('URL de Pago', paymentIntent.nowpayment_invoice_url);
+                            }
+                          },
+                          { text: 'OK' }
+                        ]
+                      );
+                    }
                   }}
                 >
                   <IconSymbol
