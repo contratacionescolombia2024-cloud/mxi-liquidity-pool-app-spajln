@@ -52,12 +52,13 @@ export default function DepositScreen() {
   const [loading, setLoading] = useState(false);
   const [loadingCurrencies, setLoadingCurrencies] = useState(false);
   const [mxiAmount, setMxiAmount] = useState(0);
-  const [currentPrice, setCurrentPrice] = useState(0.30);
+  const [currentPrice, setCurrentPrice] = useState(0.40);
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | null>(null);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
   const [realtimeChannel, setRealtimeChannel] = useState<RealtimeChannel | null>(null);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<string[]>([]);
 
   useEffect(() => {
     loadPhaseInfo();
@@ -81,20 +82,30 @@ export default function DepositScreen() {
     }
   }, [amount, currentPrice]);
 
+  const addDebugInfo = (message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setDebugInfo(prev => [...prev, `[${timestamp}] ${message}`]);
+    console.log(`[DEBUG] ${message}`);
+  };
+
   const loadPhaseInfo = async () => {
     try {
+      addDebugInfo('Loading phase info...');
       const phaseInfo = await getPhaseInfo();
       if (phaseInfo) {
         setCurrentPrice(phaseInfo.currentPriceUsdt);
+        addDebugInfo(`Phase info loaded: Price = ${phaseInfo.currentPriceUsdt} USDT`);
       }
     } catch (error) {
       console.error('Error loading phase info:', error);
+      addDebugInfo(`Error loading phase info: ${error}`);
     }
   };
 
   const subscribeToPaymentUpdates = async (orderId: string) => {
     console.log('\n========== SUBSCRIBING TO REALTIME ==========');
     console.log('Order ID:', orderId);
+    addDebugInfo(`Subscribing to payment updates for order: ${orderId}`);
 
     try {
       // Unsubscribe from previous channel if exists
@@ -108,13 +119,14 @@ export default function DepositScreen() {
       
       if (!currentSession?.access_token) {
         console.error('No session token available');
+        addDebugInfo('ERROR: No session token available');
         return;
       }
 
       console.log('Setting Realtime auth token');
       await supabase.realtime.setAuth(currentSession.access_token);
 
-      // CRITICAL FIX: Subscribe to payments table (not nowpayments_orders)
+      // Subscribe to payments table
       const channel = supabase
         .channel(`payment-updates-${orderId}`)
         .on(
@@ -129,10 +141,12 @@ export default function DepositScreen() {
             console.log('\n========== REALTIME UPDATE RECEIVED ==========');
             console.log('Event:', payload.eventType);
             console.log('Payload:', JSON.stringify(payload, null, 2));
+            addDebugInfo(`Realtime update: ${payload.eventType}`);
 
             if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
               const record = payload.new as any;
               console.log('Payment status updated:', record.status);
+              addDebugInfo(`Payment status: ${record.status}`);
               
               // Update local state
               setPaymentStatus({
@@ -151,6 +165,7 @@ export default function DepositScreen() {
               // Handle payment completion
               if (record.status === 'paid' || record.status === 'confirmed' || record.status === 'finished') {
                 console.log('Payment confirmed!');
+                addDebugInfo('✅ Payment confirmed!');
                 Alert.alert(
                   '¡Pago Confirmado!',
                   `Tu pago ha sido confirmado exitosamente. Los MXI se han acreditado a tu cuenta.`,
@@ -170,6 +185,7 @@ export default function DepositScreen() {
                 }
               } else if (record.status === 'failed' || record.status === 'expired') {
                 console.log('Payment failed/expired');
+                addDebugInfo(`❌ Payment ${record.status}`);
                 Alert.alert(
                   'Pago No Completado',
                   `El pago ha ${record.status === 'failed' ? 'fallado' : 'expirado'}. Por favor intenta nuevamente.`,
@@ -188,18 +204,23 @@ export default function DepositScreen() {
         )
         .subscribe((status) => {
           console.log('Realtime subscription status:', status);
+          addDebugInfo(`Realtime status: ${status}`);
           
           if (status === 'SUBSCRIBED') {
             console.log('✅ Successfully subscribed to payment updates');
+            addDebugInfo('✅ Realtime connected');
             setIsRealtimeConnected(true);
           } else if (status === 'CHANNEL_ERROR') {
             console.error('❌ Realtime channel error');
+            addDebugInfo('❌ Realtime channel error');
             setIsRealtimeConnected(false);
           } else if (status === 'TIMED_OUT') {
             console.error('❌ Realtime subscription timed out');
+            addDebugInfo('❌ Realtime timed out');
             setIsRealtimeConnected(false);
           } else if (status === 'CLOSED') {
             console.log('Realtime channel closed');
+            addDebugInfo('Realtime channel closed');
             setIsRealtimeConnected(false);
           }
         });
@@ -208,15 +229,18 @@ export default function DepositScreen() {
       console.log('Realtime channel setup complete');
     } catch (error) {
       console.error('Error setting up Realtime subscription:', error);
+      addDebugInfo(`Error setting up Realtime: ${error}`);
       setIsRealtimeConnected(false);
     }
   };
 
   const loadCurrencies = async () => {
     console.log('\n========== LOAD CURRENCIES ==========');
+    addDebugInfo('Loading currencies...');
     
     if (!session?.access_token) {
       Alert.alert('Error', 'Por favor inicia sesión para continuar');
+      addDebugInfo('ERROR: No session token');
       return;
     }
 
@@ -226,6 +250,7 @@ export default function DepositScreen() {
         'Monto inválido',
         `El monto debe estar entre ${MIN_USDT} y ${MAX_USDT} USDT`
       );
+      addDebugInfo(`ERROR: Invalid amount ${amount}`);
       return;
     }
 
@@ -236,6 +261,8 @@ export default function DepositScreen() {
       
       console.log('Order ID:', orderId);
       console.log('Amount:', usdtAmount);
+      addDebugInfo(`Order ID: ${orderId}`);
+      addDebugInfo(`Amount: ${usdtAmount} USDT`);
 
       // Show available currencies directly (hardcoded list)
       const availableCurrencies = [
@@ -249,11 +276,13 @@ export default function DepositScreen() {
       ];
 
       console.log('Currencies loaded:', availableCurrencies.length);
+      addDebugInfo(`${availableCurrencies.length} currencies available`);
       setCurrencies(availableCurrencies);
       setCurrentOrderId(orderId);
       setShowCurrencyModal(true);
     } catch (error: any) {
       console.error('Error loading currencies:', error);
+      addDebugInfo(`ERROR: ${error.message}`);
       Alert.alert(
         'Error',
         error.message || 'Error al cargar criptomonedas disponibles'
@@ -266,6 +295,7 @@ export default function DepositScreen() {
   const openPaymentUrl = async (url: string) => {
     console.log('\n========== OPENING PAYMENT URL ==========');
     console.log('URL:', url);
+    addDebugInfo(`Opening payment URL...`);
 
     try {
       // Try WebBrowser first
@@ -278,16 +308,20 @@ export default function DepositScreen() {
       });
       
       console.log('WebBrowser result:', result);
+      addDebugInfo(`WebBrowser result: ${result.type}`);
 
       if (result.type === 'opened') {
         console.log('✅ Browser opened successfully');
+        addDebugInfo('✅ Browser opened');
         return true;
       } else if (result.type === 'cancel') {
         console.log('⚠️ User cancelled browser');
+        addDebugInfo('⚠️ User cancelled');
         return false;
       }
     } catch (browserError) {
       console.error('❌ WebBrowser error:', browserError);
+      addDebugInfo(`WebBrowser error: ${browserError}`);
       
       // Fallback to Linking
       try {
@@ -297,13 +331,16 @@ export default function DepositScreen() {
         if (canOpen) {
           await Linking.openURL(url);
           console.log('✅ Opened with Linking');
+          addDebugInfo('✅ Opened with Linking');
           return true;
         } else {
           console.error('❌ Cannot open URL with Linking');
+          addDebugInfo('❌ Cannot open URL');
           throw new Error('No se puede abrir el navegador');
         }
       } catch (linkingError) {
         console.error('❌ Linking error:', linkingError);
+        addDebugInfo(`Linking error: ${linkingError}`);
         throw linkingError;
       }
     }
@@ -314,19 +351,23 @@ export default function DepositScreen() {
   const handlePayment = async () => {
     console.log('\n========== HANDLE PAYMENT ==========');
     console.log('Selected currency:', selectedCurrency);
+    addDebugInfo(`Creating payment with ${selectedCurrency}...`);
 
     if (!selectedCurrency) {
       Alert.alert('Error', 'Por favor selecciona una criptomoneda');
+      addDebugInfo('ERROR: No currency selected');
       return;
     }
 
     if (!session?.access_token) {
       Alert.alert('Error', 'Por favor inicia sesión para continuar');
+      addDebugInfo('ERROR: No session token');
       return;
     }
 
     if (!currentOrderId) {
       Alert.alert('Error', 'No se pudo generar el ID de orden');
+      addDebugInfo('ERROR: No order ID');
       return;
     }
 
@@ -337,6 +378,7 @@ export default function DepositScreen() {
         'Monto inválido',
         `El monto debe estar entre ${MIN_USDT} y ${MAX_USDT} USDT`
       );
+      addDebugInfo(`ERROR: Invalid amount ${amount}`);
       return;
     }
 
@@ -351,6 +393,7 @@ export default function DepositScreen() {
       };
 
       console.log('Creating payment:', JSON.stringify(requestBody, null, 2));
+      addDebugInfo('Calling create-payment-intent...');
 
       const response = await fetch(
         'https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/create-payment-intent',
@@ -365,6 +408,7 @@ export default function DepositScreen() {
       );
 
       console.log('Payment response status:', response.status);
+      addDebugInfo(`Response status: ${response.status}`);
 
       const responseText = await response.text();
       console.log('Payment response:', responseText);
@@ -373,23 +417,27 @@ export default function DepositScreen() {
       try {
         data = JSON.parse(responseText);
       } catch (e) {
+        addDebugInfo(`ERROR: Invalid JSON response`);
         throw new Error(`Respuesta inválida: ${responseText.substring(0, 100)}`);
       }
 
       console.log('Parsed response:', JSON.stringify(data, null, 2));
 
       if (!response.ok || !data.success) {
+        addDebugInfo(`ERROR: ${data.error || 'Unknown error'}`);
         throw new Error(data.error || 'Error al crear el pago');
       }
 
       if (!data.intent?.invoice_url) {
         console.error('No invoice_url in response:', data);
+        addDebugInfo('ERROR: No invoice URL in response');
         throw new Error('No se pudo obtener la URL de pago');
       }
 
       const invoiceUrl = data.intent.invoice_url;
       
       console.log('✅ Invoice URL received:', invoiceUrl);
+      addDebugInfo('✅ Invoice created successfully');
 
       // Close the modal first
       setShowCurrencyModal(false);
@@ -416,6 +464,7 @@ export default function DepositScreen() {
 
       // Try to open the payment URL
       console.log('🌐 Attempting to open payment URL...');
+      addDebugInfo('Opening payment page...');
       
       const opened = await openPaymentUrl(invoiceUrl);
 
@@ -426,6 +475,7 @@ export default function DepositScreen() {
           'Se ha abierto la página de pago de NOWPayments. Completa el pago y el estado se actualizará automáticamente en tiempo real.',
           [{ text: 'OK' }]
         );
+        addDebugInfo('✅ Payment page opened');
       } else {
         // Show URL for manual opening
         Alert.alert(
@@ -446,10 +496,12 @@ export default function DepositScreen() {
             { text: 'Cancelar', style: 'cancel' }
           ]
         );
+        addDebugInfo('⚠️ Could not open payment page automatically');
       }
 
     } catch (error: any) {
       console.error('❌ Payment error:', error);
+      addDebugInfo(`❌ ERROR: ${error.message}`);
       Alert.alert(
         'Error al Procesar Pago',
         error.message || 'Ocurrió un error al procesar el pago. Por favor intenta nuevamente.'
@@ -631,6 +683,23 @@ export default function DepositScreen() {
                 <Text style={styles.buyButtonText}>Abrir Página de Pago</Text>
               </TouchableOpacity>
             )}
+          </View>
+        )}
+
+        {debugInfo.length > 0 && (
+          <View style={[commonStyles.card, styles.debugCard]}>
+            <Text style={styles.debugTitle}>Debug Info</Text>
+            <ScrollView style={styles.debugScroll} nestedScrollEnabled>
+              {debugInfo.map((info, index) => (
+                <Text key={index} style={styles.debugText}>{info}</Text>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.clearDebugButton}
+              onPress={() => setDebugInfo([])}
+            >
+              <Text style={styles.clearDebugText}>Limpiar</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -1010,5 +1079,36 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: '#00FF00',
+  },
+  debugCard: {
+    backgroundColor: '#1a1a1a',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  debugTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#00FF00',
+    marginBottom: 8,
+  },
+  debugScroll: {
+    maxHeight: 200,
+  },
+  debugText: {
+    fontSize: 11,
+    color: '#00FF00',
+    fontFamily: 'monospace',
+    marginBottom: 2,
+  },
+  clearDebugButton: {
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: '#333',
+    borderRadius: 4,
+    alignItems: 'center',
+  },
+  clearDebugText: {
+    fontSize: 12,
+    color: '#00FF00',
   },
 });

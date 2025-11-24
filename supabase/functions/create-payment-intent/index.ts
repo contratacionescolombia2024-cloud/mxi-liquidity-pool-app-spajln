@@ -30,19 +30,45 @@ Deno.serve(async (req) => {
     const nowpaymentsApiKey = Deno.env.get('NOWPAYMENTS_API_KEY');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
 
     console.log(`[${requestId}] Env check:`, {
       hasApiKey: !!nowpaymentsApiKey,
       hasSupabaseUrl: !!supabaseUrl,
       hasSupabaseServiceKey: !!supabaseServiceKey,
+      hasSupabaseAnonKey: !!supabaseAnonKey,
+      apiKeyLength: nowpaymentsApiKey?.length || 0,
     });
 
-    if (!nowpaymentsApiKey || !supabaseUrl || !supabaseServiceKey) {
-      console.error(`[${requestId}] Missing environment variables`);
-      throw new Error('Missing environment variables');
+    if (!nowpaymentsApiKey) {
+      console.error(`[${requestId}] Missing NOWPAYMENTS_API_KEY`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'NOWPayments API key not configured',
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
-    // 2. AUTHENTICATE USER - FIXED: Use anon key for auth check
+    if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
+      console.error(`[${requestId}] Missing Supabase environment variables`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Supabase configuration missing',
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // 2. AUTHENTICATE USER
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       console.error(`[${requestId}] No authorization header`);
@@ -62,12 +88,7 @@ Deno.serve(async (req) => {
     const token = authHeader.replace('Bearer ', '');
     
     // Create client with anon key for auth verification
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
-    if (!anonKey) {
-      throw new Error('SUPABASE_ANON_KEY not configured');
-    }
-
-    const authClient = createClient(supabaseUrl, anonKey, {
+    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
@@ -184,10 +205,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 6. CREATE INVOICE
-    console.log(`[${requestId}] Creating invoice with ${body.pay_currency}`);
-
-    // Get phase info
+    // 6. GET PHASE INFO
+    console.log(`[${requestId}] Fetching phase info...`);
+    
     const { data: metrics, error: metricsError } = await adminClient
       .from('metrics')
       .select('current_phase, current_price_usdt')
@@ -230,7 +250,9 @@ Deno.serve(async (req) => {
       mxiAmount,
     });
 
-    // Call NOWPayments API first
+    // 7. CREATE NOWPAYMENTS INVOICE
+    console.log(`[${requestId}] Creating NOWPayments invoice...`);
+    
     const webhookUrl = `${supabaseUrl}/functions/v1/nowpayments-webhook`;
     const invoicePayload = {
       price_amount: amount,
@@ -241,8 +263,8 @@ Deno.serve(async (req) => {
       order_description: `MXI Purchase - ${mxiAmount.toFixed(2)} MXI`,
     };
 
-    console.log(`[${requestId}] Calling NOWPayments API...`);
-    console.log(`[${requestId}] Payload:`, JSON.stringify(invoicePayload, null, 2));
+    console.log(`[${requestId}] NOWPayments payload:`, JSON.stringify(invoicePayload, null, 2));
+    console.log(`[${requestId}] Webhook URL:`, webhookUrl);
 
     const nowpaymentsResponse = await fetch('https://api.nowpayments.io/v1/invoice', {
       method: 'POST',
@@ -256,7 +278,7 @@ Deno.serve(async (req) => {
     console.log(`[${requestId}] NOWPayments status: ${nowpaymentsResponse.status}`);
 
     const responseText = await nowpaymentsResponse.text();
-    console.log(`[${requestId}] NOWPayments response:`, responseText);
+    console.log(`[${requestId}] NOWPayments response:`, responseText.substring(0, 500));
 
     if (!nowpaymentsResponse.ok) {
       console.error(`[${requestId}] NOWPayments API error: ${nowpaymentsResponse.status}`);
@@ -264,7 +286,7 @@ Deno.serve(async (req) => {
         JSON.stringify({
           success: false,
           error: `NOWPayments API error: ${nowpaymentsResponse.status}`,
-          details: responseText,
+          details: responseText.substring(0, 200),
         }),
         {
           status: 500,
@@ -307,7 +329,9 @@ Deno.serve(async (req) => {
     console.log(`[${requestId}] Invoice URL: ${invoiceData.invoice_url}`);
     console.log(`[${requestId}] Invoice ID: ${invoiceData.id}`);
 
-    // CRITICAL FIX: Insert into payments table (primary table for webhook)
+    // 8. INSERT INTO PAYMENTS TABLE
+    console.log(`[${requestId}] Inserting payment record...`);
+    
     const { data: payment, error: paymentError } = await adminClient
       .from('payments')
       .insert({
@@ -348,7 +372,7 @@ Deno.serve(async (req) => {
 
     console.log(`[${requestId}] Payment record created: ${payment?.id}`);
 
-    // Create transaction record (for history)
+    // 9. CREATE TRANSACTION HISTORY RECORD
     const { error: txError } = await adminClient
       .from('transaction_history')
       .insert({
@@ -375,7 +399,7 @@ Deno.serve(async (req) => {
       console.log(`[${requestId}] Transaction history created`);
     }
 
-    // Store in nowpayments_orders (for backward compatibility)
+    // 10. STORE IN NOWPAYMENTS_ORDERS (for backward compatibility)
     const { error: orderError } = await adminClient
       .from('nowpayments_orders')
       .insert({
@@ -400,7 +424,7 @@ Deno.serve(async (req) => {
       console.log(`[${requestId}] NOWPayments order created`);
     }
 
-    console.log(`[${requestId}] SUCCESS - Invoice created`);
+    console.log(`[${requestId}] ✅ SUCCESS - Invoice created`);
 
     return new Response(
       JSON.stringify({
@@ -423,7 +447,7 @@ Deno.serve(async (req) => {
     );
 
   } catch (error: any) {
-    console.error(`[${requestId}] ERROR:`, error.message);
+    console.error(`[${requestId}] ❌ ERROR:`, error.message);
     console.error(`[${requestId}] Stack:`, error.stack);
 
     return new Response(
