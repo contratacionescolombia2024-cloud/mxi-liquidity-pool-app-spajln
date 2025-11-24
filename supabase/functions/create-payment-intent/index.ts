@@ -33,22 +33,56 @@ Deno.serve(async (req) => {
 
     if (!NOWPAYMENTS_API_KEY) {
       console.error(`[${requestId}] ERROR: NOWPAYMENTS_API_KEY not configured`);
-      throw new Error('NOWPayments API key not configured');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'NOWPayments API key not configured',
+          code: 'MISSING_API_KEY',
+          requestId: requestId,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       console.error(`[${requestId}] ERROR: Supabase credentials not configured`);
-      throw new Error('Supabase credentials not configured');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Supabase credentials not configured',
+          code: 'MISSING_SUPABASE_CREDS',
+          requestId: requestId,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     console.log(`[${requestId}] ✅ Environment variables validated`);
+    console.log(`[${requestId}] API Key present: ${NOWPAYMENTS_API_KEY.substring(0, 10)}...`);
 
     // Step 2: Get user session
     console.log(`[${requestId}] Step 2: Validating user session...`);
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       console.error(`[${requestId}] ERROR: No authorization header`);
-      throw new Error('No authorization header');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'No authorization header',
+          code: 'NO_AUTH_HEADER',
+          requestId: requestId,
+        }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
@@ -61,21 +95,65 @@ Deno.serve(async (req) => {
     
     if (userError || !user) {
       console.error(`[${requestId}] ERROR: Invalid user session:`, userError);
-      throw new Error('Invalid user session');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Invalid user session',
+          code: 'INVALID_SESSION',
+          details: userError?.message,
+          requestId: requestId,
+        }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     console.log(`[${requestId}] ✅ User authenticated: ${user.id}`);
 
     // Step 3: Parse request body
     console.log(`[${requestId}] Step 3: Parsing request body...`);
-    const body: PaymentRequest = await req.json();
-    console.log(`[${requestId}] Request body:`, JSON.stringify(body, null, 2));
+    let body: PaymentRequest;
+    
+    try {
+      body = await req.json();
+      console.log(`[${requestId}] Request body:`, JSON.stringify(body, null, 2));
+    } catch (parseError: any) {
+      console.error(`[${requestId}] ERROR: Failed to parse request body:`, parseError);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Invalid request body',
+          code: 'INVALID_JSON',
+          details: parseError.message,
+          requestId: requestId,
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
 
     const { order_id, price_amount, price_currency, pay_currency } = body;
 
     if (!order_id || !price_amount || !price_currency || !pay_currency) {
       console.error(`[${requestId}] ERROR: Missing required fields`);
-      throw new Error('Missing required fields: order_id, price_amount, price_currency, pay_currency');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Missing required fields',
+          code: 'MISSING_FIELDS',
+          required: ['order_id', 'price_amount', 'price_currency', 'pay_currency'],
+          received: { order_id, price_amount, price_currency, pay_currency },
+          requestId: requestId,
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     console.log(`[${requestId}] ✅ Request validated`);
@@ -89,7 +167,19 @@ Deno.serve(async (req) => {
 
     if (metricsError || !metrics) {
       console.error(`[${requestId}] ERROR: Failed to get metrics:`, metricsError);
-      throw new Error('Failed to get phase information');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Failed to get phase information',
+          code: 'METRICS_ERROR',
+          details: metricsError?.message,
+          requestId: requestId,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     const currentPhase = metrics.current_phase;
@@ -113,31 +203,83 @@ Deno.serve(async (req) => {
 
     console.log(`[${requestId}] NOWPayments payload:`, JSON.stringify(nowPaymentsPayload, null, 2));
 
-    const nowPaymentsResponse = await fetch('https://api.nowpayments.io/v1/invoice', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': NOWPAYMENTS_API_KEY,
-      },
-      body: JSON.stringify(nowPaymentsPayload),
-    });
+    let nowPaymentsResponse;
+    try {
+      nowPaymentsResponse = await fetch('https://api.nowpayments.io/v1/invoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': NOWPAYMENTS_API_KEY,
+        },
+        body: JSON.stringify(nowPaymentsPayload),
+      });
+    } catch (fetchError: any) {
+      console.error(`[${requestId}] ERROR: Failed to connect to NOWPayments:`, fetchError);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Failed to connect to payment provider',
+          code: 'NOWPAYMENTS_CONNECTION_ERROR',
+          details: fetchError.message,
+          requestId: requestId,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
 
     console.log(`[${requestId}] NOWPayments response status: ${nowPaymentsResponse.status}`);
 
     const nowPaymentsText = await nowPaymentsResponse.text();
-    console.log(`[${requestId}] NOWPayments response:`, nowPaymentsText);
+    console.log(`[${requestId}] NOWPayments response body:`, nowPaymentsText);
 
     if (!nowPaymentsResponse.ok) {
       console.error(`[${requestId}] ERROR: NOWPayments API error`);
-      throw new Error(`NOWPayments API error: ${nowPaymentsText}`);
+      
+      let errorDetails;
+      try {
+        errorDetails = JSON.parse(nowPaymentsText);
+      } catch {
+        errorDetails = { raw: nowPaymentsText };
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Payment provider error',
+          code: 'NOWPAYMENTS_API_ERROR',
+          statusCode: nowPaymentsResponse.status,
+          details: errorDetails,
+          requestId: requestId,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     let nowPaymentsData;
     try {
       nowPaymentsData = JSON.parse(nowPaymentsText);
-    } catch (e) {
+    } catch (parseError: any) {
       console.error(`[${requestId}] ERROR: Invalid JSON from NOWPayments`);
-      throw new Error('Invalid response from NOWPayments');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Invalid response from payment provider',
+          code: 'NOWPAYMENTS_INVALID_JSON',
+          details: parseError.message,
+          raw: nowPaymentsText.substring(0, 500),
+          requestId: requestId,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     console.log(`[${requestId}] ✅ Invoice created: ${nowPaymentsData.id}`);
@@ -172,7 +314,19 @@ Deno.serve(async (req) => {
 
     if (paymentError) {
       console.error(`[${requestId}] ERROR: Failed to store payment:`, paymentError);
-      throw new Error(`Failed to store payment: ${paymentError.message}`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Failed to store payment record',
+          code: 'DATABASE_ERROR',
+          details: paymentError.message,
+          requestId: requestId,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     console.log(`[${requestId}] ✅ Payment stored: ${payment.id}`);
@@ -197,6 +351,7 @@ Deno.serve(async (req) => {
       },
     };
 
+    console.log(`[${requestId}] Response:`, JSON.stringify(response, null, 2));
     console.log(`[${requestId}] ========== SUCCESS ==========\n`);
 
     return new Response(JSON.stringify(response), {
@@ -205,14 +360,18 @@ Deno.serve(async (req) => {
     });
 
   } catch (error: any) {
-    console.error(`[${requestId}] ========== ERROR ==========`);
+    console.error(`[${requestId}] ========== UNEXPECTED ERROR ==========`);
     console.error(`[${requestId}] Error:`, error);
+    console.error(`[${requestId}] Error message:`, error.message);
+    console.error(`[${requestId}] Error name:`, error.name);
     console.error(`[${requestId}] Stack:`, error.stack);
 
     return new Response(
       JSON.stringify({
         success: false,
         error: error.message || 'Internal server error',
+        code: 'UNEXPECTED_ERROR',
+        errorType: error.name,
         requestId: requestId,
       }),
       {

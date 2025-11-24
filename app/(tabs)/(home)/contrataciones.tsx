@@ -229,6 +229,7 @@ const styles = StyleSheet.create({
     maxWidth: 400,
     borderWidth: 2,
     borderColor: '#F44336',
+    maxHeight: '80%',
   },
   errorModalTitle: {
     fontSize: 22,
@@ -318,6 +319,7 @@ const styles = StyleSheet.create({
 interface ErrorDetails {
   timestamp: string;
   errorMessage: string;
+  errorCode?: string;
   statusCode?: number;
   requestUrl?: string;
   requestBody?: any;
@@ -325,6 +327,7 @@ interface ErrorDetails {
   authToken?: string;
   userId?: string;
   stackTrace?: string;
+  requestId?: string;
 }
 
 export default function ContratacionesScreen() {
@@ -485,14 +488,20 @@ export default function ContratacionesScreen() {
       addDebugLog('Step 3: Enviando solicitud a Edge Function...');
       const startTime = Date.now();
 
-      const response = await fetch(requestUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sessionData.session.access_token}`,
-        },
-        body: JSON.stringify(requestBody),
-      });
+      let response;
+      try {
+        response = await fetch(requestUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${sessionData.session.access_token}`,
+          },
+          body: JSON.stringify(requestBody),
+        });
+      } catch (fetchError: any) {
+        addDebugLog(`Error en fetch: ${fetchError.message}`);
+        throw new Error(`Error de conexión: ${fetchError.message}`);
+      }
 
       const endTime = Date.now();
       addDebugLog(`Respuesta recibida en ${endTime - startTime}ms`);
@@ -500,36 +509,74 @@ export default function ContratacionesScreen() {
 
       // Step 5: Parse response
       addDebugLog('Step 4: Parseando respuesta...');
+      let responseText;
       let result;
+      
       try {
-        const responseText = await response.text();
+        responseText = await response.text();
         addDebugLog(`Response Text (primeros 500 chars): ${responseText.substring(0, 500)}`);
-        result = JSON.parse(responseText);
-        addDebugLog(`Response JSON: ${JSON.stringify(result, null, 2)}`);
-      } catch (parseError: any) {
-        addDebugLog(`Error parseando JSON: ${parseError.message}`);
-        throw new Error('Error al procesar la respuesta del servidor');
+      } catch (textError: any) {
+        addDebugLog(`Error leyendo texto de respuesta: ${textError.message}`);
+        throw new Error('Error al leer la respuesta del servidor');
       }
 
-      // Step 6: Check for errors
-      if (!response.ok || !result.success) {
-        addDebugLog('Step 5: Error en la respuesta');
+      try {
+        result = JSON.parse(responseText);
+        addDebugLog(`Response JSON parseado exitosamente`);
+      } catch (parseError: any) {
+        addDebugLog(`Error parseando JSON: ${parseError.message}`);
         
         const errorDetail: ErrorDetails = {
           timestamp: new Date().toISOString(),
-          errorMessage: result.error || result.message || 'Error desconocido',
+          errorMessage: 'El servidor devolvió una respuesta inválida',
+          errorCode: 'INVALID_JSON_RESPONSE',
           statusCode: response.status,
           requestUrl,
           requestBody,
-          responseBody: result,
+          responseBody: responseText.substring(0, 1000),
           authToken: sessionData.session.access_token.substring(0, 20) + '...',
           userId: sessionData.session.user.id,
         };
 
         setErrorDetails(errorDetail);
         setShowErrorModal(true);
+        throw new Error('Error al procesar la respuesta del servidor');
+      }
+
+      // Step 6: Check for errors
+      if (!response.ok || !result.success) {
+        addDebugLog('Step 5: Error en la respuesta');
+        addDebugLog(`Error code: ${result.code || 'UNKNOWN'}`);
+        addDebugLog(`Error message: ${result.error || 'Unknown error'}`);
         
-        throw new Error(result.error || result.message || 'Error al crear el pago');
+        const errorDetail: ErrorDetails = {
+          timestamp: new Date().toISOString(),
+          errorMessage: result.error || result.message || 'Error desconocido',
+          errorCode: result.code || 'UNKNOWN',
+          statusCode: response.status,
+          requestUrl,
+          requestBody,
+          responseBody: result,
+          authToken: sessionData.session.access_token.substring(0, 20) + '...',
+          userId: sessionData.session.user.id,
+          requestId: result.requestId,
+        };
+
+        setErrorDetails(errorDetail);
+        setShowErrorModal(true);
+        
+        // Provide user-friendly error messages
+        let userMessage = result.error || 'Error al crear el pago';
+        
+        if (result.code === 'MISSING_API_KEY') {
+          userMessage = 'Error de configuración del servidor. Contacta al soporte.';
+        } else if (result.code === 'NOWPAYMENTS_API_ERROR') {
+          userMessage = 'Error del proveedor de pagos. Por favor, intenta nuevamente.';
+        } else if (result.code === 'INVALID_SESSION') {
+          userMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
+        }
+        
+        throw new Error(userMessage);
       }
 
       addDebugLog('Step 6: Pago creado exitosamente');
@@ -698,7 +745,9 @@ export default function ContratacionesScreen() {
   const copyErrorDetails = () => {
     if (errorDetails) {
       const errorText = JSON.stringify(errorDetails, null, 2);
-      console.log('Error details to copy:', errorText);
+      console.log('=== ERROR DETAILS ===');
+      console.log(errorText);
+      console.log('=== END ERROR DETAILS ===');
       Alert.alert('Detalles Copiados', 'Los detalles del error han sido copiados al log de la consola');
     }
   };
@@ -924,7 +973,7 @@ export default function ContratacionesScreen() {
         onRequestClose={() => setShowErrorModal(false)}
       >
         <View style={styles.errorModal}>
-          <ScrollView style={{ width: '100%', maxWidth: 400 }}>
+          <ScrollView style={{ width: '100%', maxWidth: 400 }} contentContainerStyle={{ padding: 20 }}>
             <View style={styles.errorModalContent}>
               <Text style={styles.errorModalTitle}>⚠️ Error de Pago</Text>
 
@@ -935,6 +984,20 @@ export default function ContratacionesScreen() {
                     <Text style={styles.errorModalText}>{errorDetails.errorMessage}</Text>
                   </View>
 
+                  {errorDetails.errorCode && (
+                    <View style={styles.errorModalSection}>
+                      <Text style={styles.errorModalLabel}>Código de Error:</Text>
+                      <Text style={styles.errorModalText}>{errorDetails.errorCode}</Text>
+                    </View>
+                  )}
+
+                  {errorDetails.requestId && (
+                    <View style={styles.errorModalSection}>
+                      <Text style={styles.errorModalLabel}>Request ID:</Text>
+                      <Text style={styles.errorModalText}>{errorDetails.requestId}</Text>
+                    </View>
+                  )}
+
                   {errorDetails.statusCode && (
                     <View style={styles.errorModalSection}>
                       <Text style={styles.errorModalLabel}>Código de Estado HTTP:</Text>
@@ -942,56 +1005,10 @@ export default function ContratacionesScreen() {
                     </View>
                   )}
 
-                  {errorDetails.requestUrl && (
-                    <View style={styles.errorModalSection}>
-                      <Text style={styles.errorModalLabel}>URL de Solicitud:</Text>
-                      <Text style={styles.errorModalText}>{errorDetails.requestUrl}</Text>
-                    </View>
-                  )}
-
-                  {errorDetails.requestBody && (
-                    <View style={styles.errorModalSection}>
-                      <Text style={styles.errorModalLabel}>Cuerpo de Solicitud:</Text>
-                      <Text style={styles.errorModalText}>
-                        {JSON.stringify(errorDetails.requestBody, null, 2)}
-                      </Text>
-                    </View>
-                  )}
-
-                  {errorDetails.responseBody && (
-                    <View style={styles.errorModalSection}>
-                      <Text style={styles.errorModalLabel}>Respuesta del Servidor:</Text>
-                      <Text style={styles.errorModalText}>
-                        {JSON.stringify(errorDetails.responseBody, null, 2)}
-                      </Text>
-                    </View>
-                  )}
-
-                  {errorDetails.userId && (
-                    <View style={styles.errorModalSection}>
-                      <Text style={styles.errorModalLabel}>User ID:</Text>
-                      <Text style={styles.errorModalText}>{errorDetails.userId}</Text>
-                    </View>
-                  )}
-
-                  {errorDetails.authToken && (
-                    <View style={styles.errorModalSection}>
-                      <Text style={styles.errorModalLabel}>Token (primeros 20 caracteres):</Text>
-                      <Text style={styles.errorModalText}>{errorDetails.authToken}</Text>
-                    </View>
-                  )}
-
                   <View style={styles.errorModalSection}>
                     <Text style={styles.errorModalLabel}>Timestamp:</Text>
                     <Text style={styles.errorModalText}>{errorDetails.timestamp}</Text>
                   </View>
-
-                  {errorDetails.stackTrace && (
-                    <View style={styles.errorModalSection}>
-                      <Text style={styles.errorModalLabel}>Stack Trace:</Text>
-                      <Text style={styles.errorModalText}>{errorDetails.stackTrace}</Text>
-                    </View>
-                  )}
 
                   <View style={styles.errorModalDivider} />
 
