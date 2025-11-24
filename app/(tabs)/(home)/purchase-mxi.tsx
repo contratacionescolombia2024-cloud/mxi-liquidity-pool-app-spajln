@@ -191,9 +191,9 @@ export default function PurchaseMXIScreen() {
       return;
     }
 
-    // Navigate to payment flow with the amount
+    // Navigate to currency selection screen
     router.push({
-      pathname: '/(tabs)/(home)/payment-flow',
+      pathname: '/(tabs)/(home)/select-currency',
       params: {
         mxiAmount: mxiAmount,
         usdtAmount: usdtAmount,
@@ -469,7 +469,7 @@ export default function PurchaseMXIScreen() {
               * Monto máximo: $500,000 USDT por transacción
             </Text>
             <Text style={styles.minPurchaseNote}>
-              💡 Podrás elegir entre múltiples criptomonedas en el siguiente paso
+              💡 Podrás elegir entre BTC, ETH, USDT, USDC, LTC, BNB y más de 150 criptomonedas
             </Text>
           </View>
         </View>
@@ -551,7 +551,7 @@ export default function PurchaseMXIScreen() {
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>•</Text>
               <Text style={styles.infoText}>
-                Podrás elegir entre múltiples criptomonedas: BTC, ETH, USDT, USDC, LTC y más
+                Más de 150 criptomonedas disponibles: BTC, ETH, USDT, USDC, LTC, BNB, DOGE, XRP, ADA y más
               </Text>
             </View>
             <View style={styles.infoItem}>
