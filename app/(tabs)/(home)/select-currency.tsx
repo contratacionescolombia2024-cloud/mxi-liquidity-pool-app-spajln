@@ -114,14 +114,15 @@ export default function SelectCurrencyScreen() {
 
       console.log('Session token obtained');
 
-      // Step 1: Create payment intent and get available currencies
-      const apiUrl = `${supabase.supabaseUrl}/functions/v1/create-paid-intent`;
+      // Call create-payment-intent WITHOUT pay_currency to get available currencies
+      const apiUrl = `${supabase.supabaseUrl}/functions/v1/create-payment-intent`;
       console.log('Calling API:', apiUrl);
 
       const requestBody = {
         order_id: newOrderId,
         price_amount: parseFloat(usdtAmount),
         price_currency: 'USD',
+        // NO pay_currency - this triggers Step 1 (fetch currencies)
       };
       console.log('Request body:', JSON.stringify(requestBody, null, 2));
 
@@ -266,7 +267,7 @@ export default function SelectCurrencyScreen() {
         return;
       }
 
-      // Step 2: Generate invoice with selected currency
+      // Call create-payment-intent WITH pay_currency to generate invoice
       const response = await fetch(
         `${supabase.supabaseUrl}/functions/v1/create-payment-intent`,
         {
@@ -279,7 +280,7 @@ export default function SelectCurrencyScreen() {
             order_id: orderId,
             price_amount: parseFloat(usdtAmount),
             price_currency: 'USD',
-            pay_currency: currencyCode,
+            pay_currency: currencyCode, // This triggers Step 2 (generate invoice)
           }),
         }
       );

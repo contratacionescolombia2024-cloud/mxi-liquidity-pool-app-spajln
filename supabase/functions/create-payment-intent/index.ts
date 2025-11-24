@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
   let userId: string | null = null;
 
   try {
-    console.log('=== Create Payment Intent (Step 2 - Generate Invoice) ===');
+    console.log('=== Create Payment Intent ===');
     console.log('Request method:', req.method);
 
     // Get Supabase client
@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
     let requestBody;
     try {
       requestBody = await req.json();
-      console.log('Request body:', requestBody);
+      console.log('Request body:', JSON.stringify(requestBody, null, 2));
     } catch (e) {
       console.error('Failed to parse request body:', e);
       return new Response(
@@ -75,11 +75,12 @@ Deno.serve(async (req) => {
 
     const { order_id, price_amount, price_currency, pay_currency } = requestBody;
 
-    if (!order_id || !price_amount || !price_currency || !pay_currency) {
+    if (!order_id || !price_amount || !price_currency) {
+      console.error('Missing required parameters:', { order_id, price_amount, price_currency });
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: 'Faltan parámetros requeridos' 
+          error: 'Faltan parámetros requeridos: order_id, price_amount, price_currency' 
         }),
         {
           status: 400,
@@ -88,10 +89,184 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('Creating invoice:', { order_id, price_amount, price_currency, pay_currency });
+    console.log('Processing payment intent:', { order_id, price_amount, price_currency, pay_currency });
+
+    // Get NowPayments API key
+    const nowpaymentsApiKey = Deno.env.get('NOWPAYMENTS_API_KEY');
+    
+    if (!nowpaymentsApiKey) {
+      console.error('NOWPAYMENTS_API_KEY not configured in environment variables');
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'Error de configuración del servidor. Por favor contacta al administrador.' 
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    console.log('API key found, length:', nowpaymentsApiKey.length);
+
+    // STEP 1: If no pay_currency is provided, fetch available currencies
+    if (!pay_currency) {
+      console.log('=== STEP 1: Fetching available currencies ===');
+      
+      let currenciesResponse;
+      try {
+        currenciesResponse = await fetch('https://api.nowpayments.io/v1/currencies', {
+          method: 'GET',
+          headers: {
+            'x-api-key': nowpaymentsApiKey,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        console.log('NOWPayments currencies API response status:', currenciesResponse.status);
+      } catch (fetchError: any) {
+        console.error('Fetch error when calling NOWPayments API:', fetchError);
+        
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Error al conectar con el servicio de pagos. Por favor intenta nuevamente.',
+            details: {
+              message: fetchError.message,
+              type: fetchError.name,
+            },
+          }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      const responseText = await currenciesResponse.text();
+      console.log('NOWPayments raw response (first 500 chars):', responseText.substring(0, 500));
+
+      if (!currenciesResponse.ok) {
+        console.error('NOWPayments API error - Status:', currenciesResponse.status);
+        console.error('NOWPayments API error - Body:', responseText);
+        
+        let errorMessage = 'Error al obtener criptomonedas disponibles';
+        let errorDetails: any = { 
+          raw: responseText, 
+          status: currenciesResponse.status,
+          statusText: currenciesResponse.statusText,
+        };
+        
+        try {
+          const errorData = JSON.parse(responseText);
+          console.error('Parsed error data:', JSON.stringify(errorData, null, 2));
+          errorMessage = errorData.message || errorData.error || errorMessage;
+          errorDetails = errorData;
+        } catch (e) {
+          console.error('Could not parse error response as JSON:', e);
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: errorMessage,
+            details: errorDetails,
+          }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      // Parse successful response
+      let currenciesData;
+      try {
+        currenciesData = JSON.parse(responseText);
+        console.log('Successfully parsed currencies data');
+        console.log('Number of currencies:', currenciesData.currencies?.length || 0);
+      } catch (e) {
+        console.error('Failed to parse NOWPayments response as JSON:', e);
+        
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Respuesta inválida del servicio de pagos',
+            details: { 
+              raw: responseText,
+              parseError: e.message,
+            },
+          }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      // Validate currencies data
+      if (!currenciesData.currencies || !Array.isArray(currenciesData.currencies)) {
+        console.error('Invalid currencies data structure:', currenciesData);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Estructura de datos inválida del servicio de pagos',
+            details: currenciesData,
+          }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      if (currenciesData.currencies.length === 0) {
+        console.warn('No currencies available from NOWPayments');
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'No hay criptomonedas disponibles en este momento',
+            details: { message: 'Empty currencies list from API' },
+          }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      console.log('Successfully fetched', currenciesData.currencies.length, 'currencies');
+
+      // Return payment intent with available currencies
+      const responseData = {
+        success: true,
+        intent: {
+          id: order_id,
+          order_id: order_id,
+          price_amount: price_amount,
+          price_currency: price_currency,
+          pay_currencies: currenciesData.currencies,
+          user_id: user.id,
+          created_at: new Date().toISOString(),
+        },
+      };
+
+      console.log('Returning success response with', currenciesData.currencies.length, 'currencies');
+
+      return new Response(
+        JSON.stringify(responseData),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // STEP 2: If pay_currency is provided, generate invoice
+    console.log('=== STEP 2: Generating invoice with currency:', pay_currency, '===');
 
     // Calculate MXI amount from order_id (extract from purchase-mxi screen params)
-    // We need to get this from the URL params that were passed
     const url = new URL(req.url);
     const mxiAmountParam = url.searchParams.get('mxi_amount');
     
@@ -183,35 +358,6 @@ Deno.serve(async (req) => {
 
     transactionId = transaction.id;
     console.log('Transaction history created:', transactionId);
-
-    // Get NowPayments API key
-    const nowpaymentsApiKey = Deno.env.get('NOWPAYMENTS_API_KEY');
-    
-    if (!nowpaymentsApiKey) {
-      console.error('NOWPAYMENTS_API_KEY not configured');
-      
-      // Update transaction as failed
-      await supabaseClient
-        .from('transaction_history')
-        .update({
-          status: 'failed',
-          error_message: 'Error de configuración del servidor',
-          error_details: { message: 'API key not configured' },
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', transactionId);
-
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Error de configuración del servidor',
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
 
     // Webhook URL
     const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/nowpayments-webhook`;
@@ -445,7 +591,9 @@ Deno.serve(async (req) => {
       }
     );
   } catch (error: any) {
-    console.error('Error in create-payment-intent:', error);
+    console.error('=== UNEXPECTED ERROR in create-payment-intent ===');
+    console.error('Error type:', error.constructor.name);
+    console.error('Error message:', error.message);
     console.error('Error stack:', error.stack);
     
     // Update transaction as failed if we have the ID
@@ -478,7 +626,11 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: false,
         error: 'Error interno del servidor',
-        details: error.message,
+        details: {
+          type: error.constructor.name,
+          message: error.message,
+          stack: error.stack,
+        },
       }),
       {
         status: 500,
