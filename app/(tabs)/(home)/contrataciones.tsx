@@ -282,37 +282,41 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
-  debugCard: {
-    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+  configErrorCard: {
+    backgroundColor: 'rgba(244, 67, 54, 0.15)',
     borderRadius: 12,
-    padding: 16,
+    padding: 20,
     marginBottom: 16,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#F44336',
   },
-  debugTitle: {
-    fontSize: 16,
+  configErrorTitle: {
+    fontSize: 18,
     fontWeight: '700',
     color: '#F44336',
     marginBottom: 12,
+    textAlign: 'center',
   },
-  debugText: {
-    fontSize: 12,
-    color: colors.text,
-    lineHeight: 18,
-    fontFamily: 'monospace',
-  },
-  debugButton: {
-    backgroundColor: '#F44336',
-    borderRadius: 8,
-    padding: 12,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  debugButtonText: {
+  configErrorText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.text,
+    lineHeight: 22,
+    marginBottom: 8,
+  },
+  configErrorBullet: {
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 22,
+    marginLeft: 16,
+  },
+  configErrorHighlight: {
+    fontSize: 13,
+    color: colors.primary,
+    fontFamily: 'monospace',
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    padding: 8,
+    borderRadius: 6,
+    marginVertical: 8,
   },
 });
 
@@ -343,14 +347,7 @@ export default function ContratacionesScreen() {
   const [phaseInfo, setPhaseInfo] = useState<any>(null);
   const [errorDetails, setErrorDetails] = useState<ErrorDetails | null>(null);
   const [showErrorModal, setShowErrorModal] = useState(false);
-  const [debugLogs, setDebugLogs] = useState<string[]>([]);
-
-  const addDebugLog = (message: string) => {
-    const timestamp = new Date().toISOString();
-    const logMessage = `[${timestamp}] ${message}`;
-    console.log(logMessage);
-    setDebugLogs(prev => [...prev, logMessage].slice(-20)); // Keep last 20 logs
-  };
+  const [showConfigError, setShowConfigError] = useState(false);
 
   useEffect(() => {
     loadPhaseInfo();
@@ -369,7 +366,6 @@ export default function ContratacionesScreen() {
         },
         (payload) => {
           console.log('Payment update received:', payload);
-          addDebugLog('Payment update received via Realtime');
           loadRecentPayments();
         }
       )
@@ -398,23 +394,19 @@ export default function ContratacionesScreen() {
 
   const loadPhaseInfo = async () => {
     try {
-      addDebugLog('Loading phase info...');
       const info = await getPhaseInfo();
       if (info) {
         setCurrentPrice(info.currentPriceUsdt);
         setCurrentPhase(info.currentPhase);
         setPhaseInfo(info);
-        addDebugLog(`Phase info loaded: Phase ${info.currentPhase}, Price ${info.currentPriceUsdt} USDT`);
       }
     } catch (error) {
       console.error('Error loading phase info:', error);
-      addDebugLog(`Error loading phase info: ${error}`);
     }
   };
 
   const loadRecentPayments = async () => {
     try {
-      addDebugLog('Loading recent payments...');
       const { data, error } = await supabase
         .from('payments')
         .select('*')
@@ -424,10 +416,8 @@ export default function ContratacionesScreen() {
 
       if (error) throw error;
       setRecentPayments(data || []);
-      addDebugLog(`Loaded ${data?.length || 0} recent payments`);
     } catch (error) {
       console.error('Error loading payments:', error);
-      addDebugLog(`Error loading payments: ${error}`);
     }
   };
 
@@ -444,32 +434,32 @@ export default function ContratacionesScreen() {
 
     setLoading(true);
     setErrorDetails(null);
-    addDebugLog('=== INICIANDO PROCESO DE PAGO ===');
-    addDebugLog(`Monto: ${amount} USDT`);
+    setShowConfigError(false);
+    console.log('=== INICIANDO PROCESO DE PAGO ===');
+    console.log(`Monto: ${amount} USDT`);
 
     try {
       // Step 1: Get session
-      addDebugLog('Step 1: Obteniendo sesión de usuario...');
+      console.log('Step 1: Obteniendo sesión de usuario...');
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
-        addDebugLog(`Error obteniendo sesión: ${sessionError.message}`);
+        console.log(`Error obteniendo sesión: ${sessionError.message}`);
         throw new Error(`Error de sesión: ${sessionError.message}`);
       }
 
       if (!sessionData.session) {
-        addDebugLog('No hay sesión activa');
+        console.log('No hay sesión activa');
         Alert.alert('Error', 'Debes iniciar sesión para continuar');
         setLoading(false);
         return;
       }
 
-      addDebugLog(`Sesión obtenida. User ID: ${sessionData.session.user.id}`);
-      addDebugLog(`Token presente: ${sessionData.session.access_token ? 'Sí' : 'No'}`);
+      console.log(`Sesión obtenida. User ID: ${sessionData.session.user.id}`);
 
       // Step 2: Generate unique order ID
       const orderId = `${user?.id}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-      addDebugLog(`Order ID generado: ${orderId}`);
+      console.log(`Order ID generado: ${orderId}`);
 
       // Step 3: Prepare request - USING CORRECT PROJECT URL
       const requestUrl = 'https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/create-payment-intent';
@@ -480,12 +470,12 @@ export default function ContratacionesScreen() {
         pay_currency: 'usdteth',
       };
 
-      addDebugLog('Step 2: Preparando solicitud...');
-      addDebugLog(`URL: ${requestUrl}`);
-      addDebugLog(`Body: ${JSON.stringify(requestBody)}`);
+      console.log('Step 2: Preparando solicitud...');
+      console.log(`URL: ${requestUrl}`);
+      console.log(`Body: ${JSON.stringify(requestBody)}`);
 
       // Step 4: Make request
-      addDebugLog('Step 3: Enviando solicitud a Edge Function...');
+      console.log('Step 3: Enviando solicitud a Edge Function...');
       const startTime = Date.now();
 
       let response;
@@ -499,7 +489,7 @@ export default function ContratacionesScreen() {
           body: JSON.stringify(requestBody),
         });
       } catch (fetchError: any) {
-        addDebugLog(`Error en fetch: ${fetchError.message}`);
+        console.log(`Error en fetch: ${fetchError.message}`);
         
         const errorDetail: ErrorDetails = {
           timestamp: new Date().toISOString(),
@@ -518,18 +508,18 @@ export default function ContratacionesScreen() {
       }
 
       const endTime = Date.now();
-      addDebugLog(`Respuesta recibida en ${endTime - startTime}ms`);
-      addDebugLog(`Status Code: ${response.status} ${response.statusText}`);
+      console.log(`Respuesta recibida en ${endTime - startTime}ms`);
+      console.log(`Status Code: ${response.status} ${response.statusText}`);
 
       // Step 5: Read response text first
-      addDebugLog('Step 4: Leyendo respuesta...');
+      console.log('Step 4: Leyendo respuesta...');
       let responseText;
       
       try {
         responseText = await response.text();
-        addDebugLog(`Response Text (primeros 1000 chars): ${responseText.substring(0, 1000)}`);
+        console.log(`Response Text (primeros 500 chars): ${responseText.substring(0, 500)}`);
       } catch (textError: any) {
-        addDebugLog(`Error leyendo texto de respuesta: ${textError.message}`);
+        console.log(`Error leyendo texto de respuesta: ${textError.message}`);
         
         const errorDetail: ErrorDetails = {
           timestamp: new Date().toISOString(),
@@ -549,17 +539,17 @@ export default function ContratacionesScreen() {
       }
 
       // Step 6: Parse JSON
-      addDebugLog('Step 5: Parseando JSON...');
+      console.log('Step 5: Parseando JSON...');
       let result;
       
       try {
         result = JSON.parse(responseText);
-        addDebugLog(`JSON parseado exitosamente`);
-        addDebugLog(`Success: ${result.success}`);
-        addDebugLog(`Error: ${result.error || 'none'}`);
-        addDebugLog(`Code: ${result.code || 'none'}`);
+        console.log(`JSON parseado exitosamente`);
+        console.log(`Success: ${result.success}`);
+        console.log(`Error: ${result.error || 'none'}`);
+        console.log(`Code: ${result.code || 'none'}`);
       } catch (parseError: any) {
-        addDebugLog(`Error parseando JSON: ${parseError.message}`);
+        console.log(`Error parseando JSON: ${parseError.message}`);
         
         const errorDetail: ErrorDetails = {
           timestamp: new Date().toISOString(),
@@ -581,10 +571,16 @@ export default function ContratacionesScreen() {
 
       // Step 7: Check for errors in response
       if (!response.ok || !result.success) {
-        addDebugLog('Step 6: Error en la respuesta');
-        addDebugLog(`Error code: ${result.code || 'UNKNOWN'}`);
-        addDebugLog(`Error message: ${result.error || 'Unknown error'}`);
-        addDebugLog(`Request ID: ${result.requestId || 'none'}`);
+        console.log('Step 6: Error en la respuesta');
+        console.log(`Error code: ${result.code || 'UNKNOWN'}`);
+        console.log(`Error message: ${result.error || 'Unknown error'}`);
+        console.log(`Request ID: ${result.requestId || 'none'}`);
+        
+        // Check if this is a configuration error
+        if (result.code === 'MISSING_API_KEY' || result.code === 'MISSING_SUPABASE_CREDS') {
+          setShowConfigError(true);
+          throw new Error('CONFIGURATION_ERROR');
+        }
         
         const errorDetail: ErrorDetails = {
           timestamp: new Date().toISOString(),
@@ -605,9 +601,7 @@ export default function ContratacionesScreen() {
         // Provide user-friendly error messages
         let userMessage = result.error || 'Error al crear el pago';
         
-        if (result.code === 'MISSING_API_KEY') {
-          userMessage = 'Error de configuración del servidor. Contacta al soporte técnico.';
-        } else if (result.code === 'NOWPAYMENTS_API_ERROR') {
+        if (result.code === 'NOWPAYMENTS_API_ERROR') {
           userMessage = `Error del proveedor de pagos: ${result.details?.message || 'Error desconocido'}. Por favor, intenta nuevamente.`;
         } else if (result.code === 'INVALID_SESSION') {
           userMessage = 'Tu sesión ha expirado. Por favor, cierra sesión e inicia sesión nuevamente.';
@@ -620,31 +614,31 @@ export default function ContratacionesScreen() {
         throw new Error(userMessage);
       }
 
-      addDebugLog('Step 7: Pago creado exitosamente');
-      addDebugLog(`Order ID: ${result.intent?.order_id}`);
-      addDebugLog(`Invoice URL: ${result.intent?.invoice_url}`);
-      addDebugLog(`Payment ID: ${result.intent?.payment_id}`);
+      console.log('Step 7: Pago creado exitosamente');
+      console.log(`Order ID: ${result.intent?.order_id}`);
+      console.log(`Invoice URL: ${result.intent?.invoice_url}`);
+      console.log(`Payment ID: ${result.intent?.payment_id}`);
 
       // Step 8: Open payment URL
       if (result.intent?.invoice_url) {
-        addDebugLog('Step 8: Abriendo URL de pago...');
+        console.log('Step 8: Abriendo URL de pago...');
         
         try {
           const supported = await Linking.canOpenURL(result.intent.invoice_url);
-          addDebugLog(`URL soportada: ${supported}`);
+          console.log(`URL soportada: ${supported}`);
           
           if (supported) {
             const browserResult = await WebBrowser.openBrowserAsync(result.intent.invoice_url, {
               dismissButtonStyle: 'close',
               presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
             });
-            addDebugLog(`Browser result: ${browserResult.type}`);
+            console.log(`Browser result: ${browserResult.type}`);
           } else {
-            addDebugLog('URL no soportada, intentando con Linking.openURL');
+            console.log('URL no soportada, intentando con Linking.openURL');
             await Linking.openURL(result.intent.invoice_url);
           }
         } catch (browserError: any) {
-          addDebugLog(`Error abriendo navegador: ${browserError.message}`);
+          console.log(`Error abriendo navegador: ${browserError.message}`);
           Alert.alert(
             'Error al abrir navegador',
             `No se pudo abrir el navegador automáticamente. URL: ${result.intent.invoice_url}`,
@@ -669,27 +663,29 @@ export default function ContratacionesScreen() {
         setAmount('');
         loadRecentPayments();
       } else {
-        addDebugLog('ERROR: No se recibió invoice_url en la respuesta');
+        console.log('ERROR: No se recibió invoice_url en la respuesta');
         throw new Error('No se recibió URL de pago del servidor');
       }
     } catch (error: any) {
       console.error('Error creating payment:', error);
-      addDebugLog(`ERROR FINAL: ${error.message}`);
+      console.log(`ERROR FINAL: ${error.message}`);
       
-      if (!errorDetails) {
-        const errorDetail: ErrorDetails = {
-          timestamp: new Date().toISOString(),
-          errorMessage: error.message || 'Error desconocido',
-          stackTrace: error.stack,
-        };
-        setErrorDetails(errorDetail);
-        setShowErrorModal(true);
+      if (error.message !== 'CONFIGURATION_ERROR') {
+        if (!errorDetails) {
+          const errorDetail: ErrorDetails = {
+            timestamp: new Date().toISOString(),
+            errorMessage: error.message || 'Error desconocido',
+            stackTrace: error.stack,
+          };
+          setErrorDetails(errorDetail);
+          setShowErrorModal(true);
+        }
+        
+        Alert.alert('Error', error.message || 'No se pudo crear el pago');
       }
-      
-      Alert.alert('Error', error.message || 'No se pudo crear el pago');
     } finally {
       setLoading(false);
-      addDebugLog('=== PROCESO DE PAGO FINALIZADO ===');
+      console.log('=== PROCESO DE PAGO FINALIZADO ===');
     }
   };
 
@@ -698,7 +694,7 @@ export default function ContratacionesScreen() {
       clearInterval(pollingInterval);
     }
 
-    addDebugLog(`Iniciando polling para order_id: ${orderId}`);
+    console.log(`Iniciando polling para order_id: ${orderId}`);
 
     const interval = setInterval(async () => {
       try {
@@ -711,7 +707,7 @@ export default function ContratacionesScreen() {
         if (error) throw error;
 
         if (data && (data.status === 'finished' || data.status === 'confirmed' || data.status === 'failed' || data.status === 'expired')) {
-          addDebugLog(`Pago finalizado con estado: ${data.status}`);
+          console.log(`Pago finalizado con estado: ${data.status}`);
           clearInterval(interval);
           setPollingInterval(null);
           loadRecentPayments();
@@ -738,7 +734,6 @@ export default function ContratacionesScreen() {
         }
       } catch (error) {
         console.error('Error polling payment status:', error);
-        addDebugLog(`Error en polling: ${error}`);
       }
     }, 5000); // Poll every 5 seconds
 
@@ -815,22 +810,40 @@ export default function ContratacionesScreen() {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {debugLogs.length > 0 && (
-          <View style={styles.debugCard}>
-            <Text style={styles.debugTitle}>🔍 Debug Log (Últimos eventos)</Text>
-            {debugLogs.slice(-5).map((log, index) => (
-              <Text key={index} style={styles.debugText}>{log}</Text>
-            ))}
-            <TouchableOpacity
-              style={styles.debugButton}
-              onPress={() => {
-                console.log('=== FULL DEBUG LOG ===');
-                debugLogs.forEach(log => console.log(log));
-                Alert.alert('Debug Log', 'El log completo ha sido impreso en la consola');
-              }}
-            >
-              <Text style={styles.debugButtonText}>Ver Log Completo en Consola</Text>
-            </TouchableOpacity>
+        {showConfigError && (
+          <View style={styles.configErrorCard}>
+            <Text style={styles.configErrorTitle}>⚠️ Error de Configuración del Servidor</Text>
+            <Text style={styles.configErrorText}>
+              El sistema de pagos no está configurado correctamente. Este es un problema del servidor que debe ser resuelto por el administrador.
+            </Text>
+            <Text style={styles.configErrorText} style={{ marginTop: 12, fontWeight: '600' }}>
+              Problema Detectado:
+            </Text>
+            <Text style={styles.configErrorBullet}>
+              • Las credenciales de NOWPayments no están configuradas en el servidor
+            </Text>
+            <Text style={styles.configErrorText} style={{ marginTop: 12, fontWeight: '600' }}>
+              Solución (Para el Administrador):
+            </Text>
+            <Text style={styles.configErrorBullet}>
+              1. Ir al Dashboard de Supabase
+            </Text>
+            <Text style={styles.configErrorBullet}>
+              2. Navegar a Project Settings → Edge Functions
+            </Text>
+            <Text style={styles.configErrorBullet}>
+              3. Agregar las siguientes variables de entorno:
+            </Text>
+            <Text style={styles.configErrorHighlight}>
+              NOWPAYMENTS_API_KEY{'\n'}
+              NOWPAYMENTS_IPN_SECRET
+            </Text>
+            <Text style={styles.configErrorBullet}>
+              4. Redesplegar las Edge Functions
+            </Text>
+            <Text style={styles.configErrorText} style={{ marginTop: 12, fontStyle: 'italic' }}>
+              Por favor, contacta al administrador del sistema para resolver este problema.
+            </Text>
           </View>
         )}
 
