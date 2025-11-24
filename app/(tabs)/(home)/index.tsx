@@ -333,25 +333,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
   },
-  usdtPaymentButton: {
-    backgroundColor: colors.success,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 12,
-    borderWidth: 2,
-    borderColor: colors.success,
-  },
-  usdtPaymentButtonText: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
 });
 
 export default function HomeScreen() {
@@ -511,22 +492,6 @@ export default function HomeScreen() {
             />
           </TouchableOpacity>
         )}
-
-        {/* USDT Payment Button */}
-        <TouchableOpacity
-          style={styles.usdtPaymentButton}
-          onPress={() => router.push('/(tabs)/(home)/pagar-usdt')}
-        >
-          <IconSymbol
-            ios_icon_name="dollarsign.circle.fill"
-            android_material_icon_name="attach_money"
-            size={28}
-            color="#FFFFFF"
-          />
-          <Text style={styles.usdtPaymentButtonText}>
-            Pagar con USDT ERC20
-          </Text>
-        </TouchableOpacity>
 
         {/* Saldo MXI Card */}
         {saldoMxi > 0 && (
