@@ -8,10 +8,10 @@ const corsHeaders = {
 };
 
 interface RequestBody {
+  amount_fiat: number;
+  fiat_currency: string;
+  crypto_currency: string;
   order_id: string;
-  price_amount: number;
-  price_currency: string;
-  pay_currency?: string;
 }
 
 Deno.serve(async (req) => {
@@ -43,8 +43,6 @@ Deno.serve(async (req) => {
 
     if (!nowpaymentsApiKey) {
       console.error(`[${requestId}] ❌ Missing NOWPAYMENTS_API_KEY`);
-      console.error(`[${requestId}] Please set the API key in Supabase Edge Function secrets`);
-      console.error(`[${requestId}] Expected format: 7QB99E2-JCE4H3A-QNC2GS3-1T5QDS9`);
       return new Response(
         JSON.stringify({
           success: false,
@@ -137,13 +135,19 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 4. VALIDATE REQUEST
-    if (!body.order_id || !body.price_amount || !body.price_currency) {
+    // 4. VALIDATE REQUEST - NEW FORMAT
+    if (!body.order_id || !body.amount_fiat || !body.fiat_currency || !body.crypto_currency) {
       console.error(`[${requestId}] ❌ Missing required fields`);
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Missing required fields: order_id, price_amount, price_currency',
+          error: 'Missing required fields: order_id, amount_fiat, fiat_currency, crypto_currency',
+          received: {
+            order_id: !!body.order_id,
+            amount_fiat: !!body.amount_fiat,
+            fiat_currency: !!body.fiat_currency,
+            crypto_currency: !!body.crypto_currency,
+          },
         }),
         {
           status: 400,
@@ -152,13 +156,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    const amount = Number(body.price_amount);
+    const amount = Number(body.amount_fiat);
     if (isNaN(amount) || amount < 3 || amount > 500000) {
-      console.error(`[${requestId}] ❌ Invalid amount: ${body.price_amount}`);
+      console.error(`[${requestId}] ❌ Invalid amount: ${body.amount_fiat}`);
       return new Response(
         JSON.stringify({
           success: false,
-          error: `Invalid amount: ${body.price_amount}. Must be between 3 and 500000 USDT`,
+          error: `Invalid amount: ${body.amount_fiat}. Must be between 3 and 500000`,
         }),
         {
           status: 400,
@@ -170,46 +174,11 @@ Deno.serve(async (req) => {
     console.log(`[${requestId}] ✅ Validated:`, {
       order_id: body.order_id,
       amount,
-      currency: body.price_currency,
-      pay_currency: body.pay_currency || 'NOT PROVIDED',
+      fiat_currency: body.fiat_currency,
+      crypto_currency: body.crypto_currency,
     });
 
-    // 5. DETERMINE ACTION
-    if (!body.pay_currency) {
-      // RETURN AVAILABLE CURRENCIES
-      console.log(`[${requestId}] Returning available currencies`);
-      
-      const currencies = [
-        'usdttrc20',
-        'usdterc20',
-        'usdtbep20',
-        'btc',
-        'eth',
-        'bnb',
-        'trx',
-      ];
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          intent: {
-            id: body.order_id,
-            order_id: body.order_id,
-            price_amount: amount,
-            price_currency: body.price_currency.toLowerCase(),
-            pay_currencies: currencies,
-            user_id: user.id,
-            created_at: new Date().toISOString(),
-          },
-        }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    // 6. GET PHASE INFO
+    // 5. GET PHASE INFO
     console.log(`[${requestId}] Fetching phase info...`);
     
     const { data: metrics, error: metricsError } = await adminClient
@@ -254,15 +223,19 @@ Deno.serve(async (req) => {
       mxiAmount,
     });
 
-    // 7. CREATE NOWPAYMENTS INVOICE
+    // 6. CREATE NOWPAYMENTS INVOICE
     console.log(`[${requestId}] Creating NOWPayments invoice...`);
     console.log(`[${requestId}] Using API key: ${nowpaymentsApiKey.substring(0, 7)}...`);
     
     const webhookUrl = `${supabaseUrl}/functions/v1/nowpayments-webhook`;
+    
+    // Normalize crypto currency to lowercase
+    const payCurrency = body.crypto_currency.toLowerCase();
+    
     const invoicePayload = {
       price_amount: amount,
-      price_currency: 'usd',
-      pay_currency: body.pay_currency.toLowerCase(),
+      price_currency: body.fiat_currency.toLowerCase(),
+      pay_currency: payCurrency,
       ipn_callback_url: webhookUrl,
       order_id: body.order_id,
       order_description: `MXI Purchase - ${mxiAmount.toFixed(2)} MXI`,
@@ -288,21 +261,19 @@ Deno.serve(async (req) => {
     if (!nowpaymentsResponse.ok) {
       console.error(`[${requestId}] ❌ NOWPayments API error: ${nowpaymentsResponse.status}`);
       
-      // Provide specific error messages based on status code
       let errorMessage = `NOWPayments API error: ${nowpaymentsResponse.status}`;
       let errorHint = '';
       
       if (nowpaymentsResponse.status === 401) {
         errorMessage = 'NOWPayments API authentication failed';
-        errorHint = 'The API key may be invalid or expired. Please verify the NOWPAYMENTS_API_KEY in Supabase Edge Function secrets.';
+        errorHint = 'The API key may be invalid or expired. Please verify the NOWPAYMENTS_API_KEY.';
         console.error(`[${requestId}] ❌ API KEY ISSUE: The key "${nowpaymentsApiKey.substring(0, 7)}..." is not valid`);
-        console.error(`[${requestId}] Expected format: 7QB99E2-JCE4H3A-QNC2GS3-1T5QDS9`);
       } else if (nowpaymentsResponse.status === 400) {
         errorMessage = 'Invalid request to NOWPayments';
         errorHint = 'The request parameters may be incorrect. Check the currency codes and amounts.';
       } else if (nowpaymentsResponse.status === 403) {
         errorMessage = 'NOWPayments API access forbidden';
-        errorHint = 'The API key may not have the required permissions. Check the key permissions in NOWPayments dashboard.';
+        errorHint = 'The API key may not have the required permissions.';
       }
       
       return new Response(
@@ -354,7 +325,7 @@ Deno.serve(async (req) => {
     console.log(`[${requestId}] ✅ Invoice URL: ${invoiceData.invoice_url}`);
     console.log(`[${requestId}] ✅ Invoice ID: ${invoiceData.id}`);
 
-    // 8. INSERT INTO PAYMENTS TABLE
+    // 7. INSERT INTO PAYMENTS TABLE
     console.log(`[${requestId}] Inserting payment record...`);
     
     const { data: payment, error: paymentError } = await adminClient
@@ -366,9 +337,9 @@ Deno.serve(async (req) => {
         invoice_url: invoiceData.invoice_url,
         pay_address: invoiceData.pay_address || null,
         price_amount: amount,
-        price_currency: 'usd',
+        price_currency: body.fiat_currency.toLowerCase(),
         pay_amount: amount,
-        pay_currency: body.pay_currency,
+        pay_currency: payCurrency,
         actually_paid: 0,
         mxi_amount: mxiAmount,
         price_per_mxi: pricePerMxi,
@@ -397,7 +368,7 @@ Deno.serve(async (req) => {
 
     console.log(`[${requestId}] ✅ Payment record created: ${payment?.id}`);
 
-    // 9. CREATE TRANSACTION HISTORY RECORD
+    // 8. CREATE TRANSACTION HISTORY RECORD
     const { error: txError } = await adminClient
       .from('transaction_history')
       .insert({
@@ -412,19 +383,19 @@ Deno.serve(async (req) => {
         metadata: {
           phase: metrics.current_phase,
           price_per_mxi: pricePerMxi,
-          pay_currency: body.pay_currency,
+          pay_currency: payCurrency,
+          fiat_currency: body.fiat_currency,
           invoice_data: invoiceData,
         },
       });
 
     if (txError) {
       console.error(`[${requestId}] ⚠️ Transaction error:`, txError);
-      // Don't fail the request, just log it
     } else {
       console.log(`[${requestId}] ✅ Transaction history created`);
     }
 
-    // 10. STORE IN NOWPAYMENTS_ORDERS (for backward compatibility)
+    // 9. STORE IN NOWPAYMENTS_ORDERS (for backward compatibility)
     const { error: orderError } = await adminClient
       .from('nowpayments_orders')
       .insert({
@@ -437,14 +408,13 @@ Deno.serve(async (req) => {
         price_per_mxi: pricePerMxi,
         phase: metrics.current_phase,
         status: 'waiting',
-        pay_currency: body.pay_currency,
+        pay_currency: payCurrency,
         pay_amount: amount,
         expires_at: new Date(Date.now() + 3600000).toISOString(),
       });
 
     if (orderError) {
       console.error(`[${requestId}] ⚠️ Order error:`, orderError);
-      // Don't fail the request, just log it
     } else {
       console.log(`[${requestId}] ✅ NOWPayments order created`);
     }
@@ -462,7 +432,8 @@ Deno.serve(async (req) => {
           usdt_amount: amount,
           price_per_mxi: pricePerMxi,
           phase: metrics.current_phase,
-          pay_currency: body.pay_currency,
+          pay_currency: payCurrency,
+          fiat_currency: body.fiat_currency,
         },
       }),
       {
