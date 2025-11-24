@@ -11,7 +11,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useRouter } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
-import { PaymentStatus } from '@/components/PaymentStatus';
 
 const styles = StyleSheet.create({
   container: {
@@ -59,6 +58,28 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 8,
   },
+  noticeCard: {
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  noticeTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.primary,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  noticeText: {
+    fontSize: 14,
+    color: colors.text,
+    marginBottom: 8,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
 });
 
 export default function PaymentHistoryScreen() {
@@ -82,22 +103,26 @@ export default function PaymentHistoryScreen() {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>Acerca de los Pagos</Text>
-          <Text style={styles.infoText}>
-            Los pagos se procesan a través de NOWPayments, una plataforma segura de pagos con criptomonedas.
+        <View style={styles.noticeCard}>
+          <Text style={styles.noticeTitle}>Sistema de Pagos Deshabilitado</Text>
+          <Text style={styles.noticeText}>
+            El sistema de pagos automáticos ha sido deshabilitado temporalmente.
           </Text>
-          <Text style={styles.infoText}>
-            Una vez que completes el pago, los MXI se acreditarán automáticamente a tu cuenta.
-          </Text>
-          <Text style={styles.infoText}>
-            El tiempo de confirmación puede variar según la red blockchain utilizada (generalmente 5-30 minutos).
+          <Text style={styles.noticeText}>
+            Para consultar el historial de transacciones, visita la sección de Historial de Transacciones.
           </Text>
         </View>
 
-        <PaymentStatus />
+        <View style={styles.infoCard}>
+          <Text style={styles.infoTitle}>Información</Text>
+          <Text style={styles.infoText}>
+            El historial de pagos no está disponible en este momento.
+          </Text>
+          <Text style={styles.infoText}>
+            Para realizar compras de MXI o consultar sobre transacciones, por favor contacta al soporte.
+          </Text>
+        </View>
 
-        {/* Extra padding at bottom to avoid tab bar */}
         <View style={{ height: 100 }} />
       </ScrollView>
     </SafeAreaView>
