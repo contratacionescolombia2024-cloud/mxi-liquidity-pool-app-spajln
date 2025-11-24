@@ -1,6 +1,6 @@
 
 import "react-native-reanimated";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useFonts } from "expo-font";
 import { Stack, router, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -30,8 +30,19 @@ function RootLayoutNav() {
   const { isAuthenticated } = useAuth();
   const segments = useSegments();
   const colorScheme = useColorScheme();
+  const [isMounted, setIsMounted] = useState(false);
 
+  // Mark component as mounted after first render
   useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Handle navigation only after component is mounted
+  useEffect(() => {
+    if (!isMounted) {
+      return;
+    }
+
     const inAuthGroup = segments[0] === "(auth)";
     const inEmailConfirmed = segments[0] === "email-confirmed";
 
@@ -45,7 +56,7 @@ function RootLayoutNav() {
     } else if (isAuthenticated && inAuthGroup) {
       router.replace("/(tabs)/(home)/");
     }
-  }, [isAuthenticated, segments]);
+  }, [isAuthenticated, segments, isMounted]);
 
   // Handle deep linking for email confirmation
   useEffect(() => {
