@@ -42,45 +42,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
   },
-  balanceCard: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  balanceLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  balanceAmount: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: colors.primary,
-    marginBottom: 4,
-  },
-  balanceSubtext: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  buyButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 16,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  buyButtonText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#000000',
-  },
   quickActionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -239,34 +200,6 @@ export default function HomeScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Balance Card */}
-        <View style={styles.balanceCard}>
-          <Text style={styles.balanceLabel}>Balance Total MXI</Text>
-          <Text style={styles.balanceAmount}>
-            {user.mxiBalance.toLocaleString('es-ES', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-          </Text>
-          <Text style={styles.balanceSubtext}>
-            USDT Contribuido: ${user.usdtContributed.toFixed(2)}
-          </Text>
-        </View>
-
-        {/* Buy MXI Button */}
-        <TouchableOpacity
-          style={styles.buyButton}
-          onPress={() => router.push('/(tabs)/(home)/contrataciones')}
-        >
-          <IconSymbol
-            ios_icon_name="plus.circle.fill"
-            android_material_icon_name="add_circle"
-            size={24}
-            color="#000000"
-          />
-          <Text style={styles.buyButtonText}>Comprar MXI</Text>
-        </TouchableOpacity>
-
         {/* Yield Display */}
         <YieldDisplay />
 
@@ -338,6 +271,21 @@ export default function HomeScreen() {
         {/* Stats Card */}
         <View style={styles.statsCard}>
           <Text style={styles.statsTitle}>Estadísticas</Text>
+          <View style={styles.statRow}>
+            <Text style={styles.statLabel}>Balance Total MXI</Text>
+            <Text style={styles.statValue}>
+              {user.mxiBalance.toLocaleString('es-ES', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </Text>
+          </View>
+          <View style={styles.statRow}>
+            <Text style={styles.statLabel}>USDT Contribuido</Text>
+            <Text style={styles.statValue}>
+              ${user.usdtContributed.toFixed(2)}
+            </Text>
+          </View>
           <View style={styles.statRow}>
             <Text style={styles.statLabel}>Referidos Activos</Text>
             <Text style={styles.statValue}>{user.activeReferrals}</Text>
