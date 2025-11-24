@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -479,17 +480,52 @@ export default function ContratacionesScreen() {
     }
   };
 
-  const getCurrencyName = (code: string): string => {
-    const names: { [key: string]: string } = {
-      'usdttrc20': 'USDT (TRC20)',
-      'usdterc20': 'USDT (ERC20)',
-      'usdtbep20': 'USDT (BEP20)',
-      'btc': 'Bitcoin',
-      'eth': 'Ethereum',
-      'bnb': 'BNB',
-      'trx': 'TRON',
-    };
-    return names[code.toLowerCase()] || code.toUpperCase();
+  const openPaymentUrl = async (url: string) => {
+    console.log('\n========== OPENING PAYMENT URL ==========');
+    console.log('URL:', url);
+
+    try {
+      // Try WebBrowser first
+      console.log('Attempting to open with WebBrowser...');
+      const result = await WebBrowser.openBrowserAsync(url, {
+        dismissButtonStyle: 'close',
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+        controlsColor: colors.primary,
+        toolbarColor: '#000000',
+      });
+      
+      console.log('WebBrowser result:', result);
+
+      if (result.type === 'opened') {
+        console.log('✅ Browser opened successfully');
+        return true;
+      } else if (result.type === 'cancel') {
+        console.log('⚠️ User cancelled browser');
+        return false;
+      }
+    } catch (browserError) {
+      console.error('❌ WebBrowser error:', browserError);
+      
+      // Fallback to Linking
+      try {
+        console.log('Attempting fallback with Linking...');
+        const canOpen = await Linking.canOpenURL(url);
+        
+        if (canOpen) {
+          await Linking.openURL(url);
+          console.log('✅ Opened with Linking');
+          return true;
+        } else {
+          console.error('❌ Cannot open URL with Linking');
+          throw new Error('No se puede abrir el navegador');
+        }
+      } catch (linkingError) {
+        console.error('❌ Linking error:', linkingError);
+        throw linkingError;
+      }
+    }
+
+    return false;
   };
 
   const handlePayment = async () => {
@@ -599,42 +635,42 @@ export default function ContratacionesScreen() {
         updated_at: new Date().toISOString(),
       });
 
-      // Small delay to ensure modal is closed
-      setTimeout(async () => {
-        console.log('🌐 Opening payment URL in browser...');
-        
-        try {
-          // Open payment URL in browser
-          const result = await WebBrowser.openBrowserAsync(invoiceUrl, {
-            dismissButtonStyle: 'close',
-            presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
-          });
-          
-          console.log('Browser result:', result);
+      // Wait a bit for modal to close
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-          // Show confirmation after browser opens
-          Alert.alert(
-            'Pago Iniciado',
-            'Se ha abierto la página de pago de NOWPayments. Completa el pago y el estado se actualizará automáticamente en tiempo real.',
-            [{ text: 'OK' }]
-          );
-        } catch (browserError) {
-          console.error('Error opening browser:', browserError);
-          Alert.alert(
-            'Pago Creado',
-            'El pago ha sido creado. Por favor copia esta URL y ábrela en tu navegador:\n\n' + invoiceUrl,
-            [
-              {
-                text: 'Copiar URL',
-                onPress: () => {
-                  console.log('Copy URL:', invoiceUrl);
-                }
-              },
-              { text: 'OK' }
-            ]
-          );
-        }
-      }, 300);
+      // Try to open the payment URL
+      console.log('🌐 Attempting to open payment URL...');
+      
+      const opened = await openPaymentUrl(invoiceUrl);
+
+      if (opened) {
+        // Show success message
+        Alert.alert(
+          'Pago Iniciado',
+          'Se ha abierto la página de pago de NOWPayments. Completa el pago y el estado se actualizará automáticamente en tiempo real.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        // Show URL for manual opening
+        Alert.alert(
+          'Abrir Página de Pago',
+          'Por favor copia esta URL y ábrela en tu navegador para completar el pago:',
+          [
+            {
+              text: 'Copiar URL',
+              onPress: () => {
+                console.log('User requested to copy URL:', invoiceUrl);
+                Alert.alert('URL Copiada', 'Abre esta URL en tu navegador:\n\n' + invoiceUrl);
+              }
+            },
+            {
+              text: 'Intentar de Nuevo',
+              onPress: () => openPaymentUrl(invoiceUrl)
+            },
+            { text: 'Cancelar', style: 'cancel' }
+          ]
+        );
+      }
 
     } catch (error: any) {
       console.error('❌ Payment error:', error);
@@ -783,6 +819,15 @@ export default function ContratacionesScreen() {
             <Text style={[styles.statusText, { fontSize: 12, marginTop: 8 }]}>
               Última actualización: {new Date(paymentStatus.updated_at).toLocaleString('es-ES')}
             </Text>
+            
+            {paymentStatus.invoice_url && (
+              <TouchableOpacity
+                style={[styles.payButton, { marginTop: 12 }]}
+                onPress={() => openPaymentUrl(paymentStatus.invoice_url)}
+              >
+                <Text style={styles.payButtonText}>Abrir Página de Pago</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
