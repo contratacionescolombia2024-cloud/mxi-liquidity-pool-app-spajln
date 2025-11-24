@@ -471,8 +471,8 @@ export default function ContratacionesScreen() {
       const orderId = `${user?.id}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
       addDebugLog(`Order ID generado: ${orderId}`);
 
-      // Step 3: Prepare request - USING CORRECT EDGE FUNCTION URL
-      const requestUrl = 'https://ienxcoudewmbuuldyecb.supabase.co/functions/v1/create-payment-intent';
+      // Step 3: Prepare request - USING CORRECT PROJECT URL
+      const requestUrl = 'https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/create-payment-intent';
       const requestBody = {
         order_id: orderId,
         price_amount: parseFloat(amount),
