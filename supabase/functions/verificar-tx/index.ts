@@ -8,25 +8,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
 };
 
-// Network configurations
+// Network configurations - Each network has its own RPC URL secret
 const NETWORKS = {
   ethereum: {
     name: 'Ethereum (ERC20)',
-    rpcUrl: Deno.env.get('ETH_RPC_URL'),
+    rpcUrlEnvVar: 'ETH_RPC_URL',
     usdtContract: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
     decimals: 6,
     chainId: 1
   },
   bnb: {
     name: 'BNB Chain (BEP20)',
-    rpcUrl: Deno.env.get('BNB_RPC_URL') || 'https://bsc-dataseed1.binance.org',
+    rpcUrlEnvVar: 'BNB_RPC_URL',
     usdtContract: '0x55d398326f99059fF775485246999027B3197955',
     decimals: 18,
     chainId: 56
   },
   polygon: {
     name: 'Polygon (Matic)',
-    rpcUrl: Deno.env.get('POLYGON_RPC_URL') || 'https://polygon-rpc.com',
+    rpcUrlEnvVar: 'POLYGON_RPC_URL',
     usdtContract: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
     decimals: 6,
     chainId: 137
@@ -166,13 +166,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!networkConfig.rpcUrl) {
+    // Get network-specific RPC URL from environment variable
+    const rpcUrl = Deno.env.get(networkConfig.rpcUrlEnvVar);
+    
+    if (!rpcUrl) {
       console.error(`[${requestId}] ERROR: RPC URL not configured for ${network}`);
+      console.error(`[${requestId}] Missing environment variable: ${networkConfig.rpcUrlEnvVar}`);
       return new Response(
         JSON.stringify({
           ok: false,
           error: 'rpc_not_configured',
-          message: `RPC URL no configurado para ${networkConfig.name}`
+          message: `RPC URL no configurado para ${networkConfig.name}. Variable requerida: ${networkConfig.rpcUrlEnvVar}`
         }),
         {
           status: 500,
@@ -182,7 +186,10 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[${requestId}] Network: ${networkConfig.name}`);
+    console.log(`[${requestId}] RPC URL Variable: ${networkConfig.rpcUrlEnvVar}`);
     console.log(`[${requestId}] TxHash: ${txHash}`);
+    console.log(`[${requestId}] USDT Contract: ${networkConfig.usdtContract}`);
+    console.log(`[${requestId}] Decimals: ${networkConfig.decimals}`);
 
     // Check if transaction already processed (idempotency)
     const { data: existingPayment } = await supabase
@@ -210,21 +217,55 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Connect to blockchain RPC
+    // Connect to blockchain RPC - Each network uses its own RPC endpoint
     console.log(`[${requestId}] Connecting to ${networkConfig.name} RPC...`);
-    const provider = new ethers.JsonRpcProvider(networkConfig.rpcUrl);
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+
+    // Verify we're connected to the correct network
+    try {
+      const networkInfo = await provider.getNetwork();
+      console.log(`[${requestId}] Connected to chain ID: ${networkInfo.chainId}`);
+      
+      if (Number(networkInfo.chainId) !== networkConfig.chainId) {
+        console.error(`[${requestId}] ERROR: Chain ID mismatch. Expected ${networkConfig.chainId}, got ${networkInfo.chainId}`);
+        return new Response(
+          JSON.stringify({
+            ok: false,
+            error: 'wrong_network',
+            message: `El RPC está conectado a la red incorrecta. Se esperaba ${networkConfig.name} (Chain ID: ${networkConfig.chainId})`
+          }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+    } catch (error) {
+      console.error(`[${requestId}] ERROR: Failed to verify network:`, error);
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          error: 'rpc_connection_failed',
+          message: `No se pudo conectar al RPC de ${networkConfig.name}. Verifica la configuración.`
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
 
     // Get transaction receipt
     console.log(`[${requestId}] Getting transaction receipt...`);
     const receipt = await provider.getTransactionReceipt(txHash);
 
     if (!receipt) {
-      console.log(`[${requestId}] Transaction not found`);
+      console.log(`[${requestId}] Transaction not found on ${networkConfig.name}`);
       return new Response(
         JSON.stringify({
           ok: false,
           error: 'tx_not_found',
-          message: 'Transacción no encontrada en la blockchain'
+          message: `Transacción no encontrada en ${networkConfig.name}. Verifica que el hash sea correcto y que la transacción esté en la red ${networkConfig.name}.`
         }),
         {
           status: 404,
@@ -254,7 +295,7 @@ Deno.serve(async (req) => {
     // Check confirmations
     const currentBlock = await provider.getBlockNumber();
     const confirmations = currentBlock - receipt.blockNumber;
-    console.log(`[${requestId}] Confirmations: ${confirmations}`);
+    console.log(`[${requestId}] Confirmations: ${confirmations} (required: ${REQUIRED_CONFIRMATIONS})`);
 
     if (confirmations < REQUIRED_CONFIRMATIONS) {
       console.log(`[${requestId}] Insufficient confirmations`);
@@ -275,6 +316,7 @@ Deno.serve(async (req) => {
 
     // Find Transfer event in logs
     console.log(`[${requestId}] Scanning logs for Transfer event...`);
+    console.log(`[${requestId}] Looking for USDT contract: ${networkConfig.usdtContract}`);
     let transferLog = null;
     let usdtAmount = 0;
 
@@ -297,7 +339,7 @@ Deno.serve(async (req) => {
           
           // Convert based on network decimals
           usdtAmount = Number(value) / Math.pow(10, networkConfig.decimals);
-          console.log(`[${requestId}] USDT amount: ${usdtAmount}`);
+          console.log(`[${requestId}] USDT amount: ${usdtAmount} (decimals: ${networkConfig.decimals})`);
           break;
         }
       }
@@ -305,11 +347,13 @@ Deno.serve(async (req) => {
 
     if (!transferLog) {
       console.log(`[${requestId}] No valid Transfer event found`);
+      console.log(`[${requestId}] Expected recipient: ${RECIPIENT_ADDRESS}`);
+      console.log(`[${requestId}] Expected USDT contract: ${networkConfig.usdtContract}`);
       return new Response(
         JSON.stringify({
           ok: false,
           error: 'no_transfer_found',
-          message: 'No se encontró una transferencia USDT válida a la dirección receptora'
+          message: `No se encontró una transferencia USDT válida a la dirección receptora en ${networkConfig.name}`
         }),
         {
           status: 400,

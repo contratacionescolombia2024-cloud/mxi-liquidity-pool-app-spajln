@@ -27,21 +27,24 @@ const NETWORKS = [
     name: 'Ethereum',
     label: 'ERC20',
     color: '#627EEA',
-    icon: 'Ξ'
+    icon: 'Ξ',
+    description: 'Red Ethereum - Validación independiente'
   },
   {
     id: 'bnb',
     name: 'BNB Chain',
     label: 'BEP20',
     color: '#F3BA2F',
-    icon: 'B'
+    icon: 'B',
+    description: 'Red BNB Chain - Validación independiente'
   },
   {
     id: 'polygon',
     name: 'Polygon',
     label: 'Matic',
     color: '#8247E5',
-    icon: 'P'
+    icon: 'P',
+    description: 'Red Polygon - Validación independiente'
   }
 ];
 
@@ -75,6 +78,25 @@ export default function PagarUSDTScreen() {
       return;
     }
 
+    const selectedNetworkData = NETWORKS.find(n => n.id === selectedNetwork);
+
+    Alert.alert(
+      '⚠️ Confirmar Red',
+      `¿Estás seguro de que la transacción fue realizada en ${selectedNetworkData?.name} (${selectedNetworkData?.label})?\n\nLa validación se hará SOLO en esta red.`,
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel'
+        },
+        {
+          text: 'Sí, verificar',
+          onPress: () => performVerification()
+        }
+      ]
+    );
+  };
+
+  const performVerification = async () => {
     setLoading(true);
 
     try {
@@ -119,7 +141,7 @@ export default function PagarUSDTScreen() {
         
         switch (data.error) {
           case 'tx_not_found':
-            errorMessage = 'Transacción no encontrada en la blockchain. Verifica el hash y la red seleccionada.';
+            errorMessage = `Transacción no encontrada en ${NETWORKS.find(n => n.id === selectedNetwork)?.name}.\n\nVerifica que:\n• El hash sea correcto\n• La transacción esté en la red ${NETWORKS.find(n => n.id === selectedNetwork)?.name}\n• La transacción tenga al menos 1 confirmación`;
             break;
           case 'pocas_confirmaciones':
             errorMessage = data.message || 'La transacción necesita más confirmaciones. Por favor intenta más tarde.';
@@ -131,13 +153,19 @@ export default function PagarUSDTScreen() {
             errorMessage = 'Esta transacción ya ha sido procesada anteriormente.';
             break;
           case 'no_transfer_found':
-            errorMessage = 'No se encontró una transferencia USDT válida a la dirección receptora.';
+            errorMessage = `No se encontró una transferencia USDT válida a la dirección receptora en ${NETWORKS.find(n => n.id === selectedNetwork)?.name}.`;
             break;
           case 'tx_failed':
             errorMessage = 'La transacción falló en la blockchain.';
             break;
           case 'invalid_network':
             errorMessage = data.message || 'Red no válida seleccionada.';
+            break;
+          case 'rpc_not_configured':
+            errorMessage = `⚠️ Error de Configuración del Servidor\n\n${data.message}\n\nContacta al administrador para configurar el RPC de esta red.`;
+            break;
+          case 'wrong_network':
+            errorMessage = data.message || 'El RPC está conectado a la red incorrecta.';
             break;
           default:
             errorMessage = data.message || 'Error al verificar el pago. Por favor intenta nuevamente.';
@@ -176,8 +204,11 @@ export default function PagarUSDTScreen() {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.networkCard}>
-          <Text style={styles.networkTitle}>Selecciona la Red</Text>
+        <View style={[styles.networkCard, { borderColor: selectedNetworkData?.color }]}>
+          <Text style={styles.networkTitle}>Selecciona la Red de Pago</Text>
+          <Text style={styles.networkSubtitle}>
+            Cada red valida sus transacciones de forma independiente
+          </Text>
           <View style={styles.networkButtons}>
             {NETWORKS.map((network, index) => (
               <TouchableOpacity
@@ -198,6 +229,7 @@ export default function PagarUSDTScreen() {
                 <View style={styles.networkInfo}>
                   <Text style={styles.networkName}>{network.name}</Text>
                   <Text style={styles.networkLabel}>{network.label}</Text>
+                  <Text style={styles.networkDescription}>{network.description}</Text>
                 </View>
                 {selectedNetwork === network.id && (
                   <IconSymbol
@@ -209,6 +241,25 @@ export default function PagarUSDTScreen() {
                 )}
               </TouchableOpacity>
             ))}
+          </View>
+        </View>
+
+        <View style={[styles.validationCard, { backgroundColor: selectedNetworkData?.color + '15', borderColor: selectedNetworkData?.color }]}>
+          <View style={styles.validationHeader}>
+            <IconSymbol
+              ios_icon_name="shield.checkmark.fill"
+              android_material_icon_name="verified_user"
+              size={32}
+              color={selectedNetworkData?.color}
+            />
+            <View style={styles.validationInfo}>
+              <Text style={[styles.validationTitle, { color: selectedNetworkData?.color }]}>
+                Validación en {selectedNetworkData?.name}
+              </Text>
+              <Text style={styles.validationText}>
+                Los pagos en {selectedNetworkData?.name} solo se validan en la red {selectedNetworkData?.name}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -291,7 +342,7 @@ export default function PagarUSDTScreen() {
               color={selectedNetworkData?.color}
             />
             <Text style={[styles.addressWarning, { color: selectedNetworkData?.color }]}>
-              Solo envía USDT en la red {selectedNetworkData?.name} ({selectedNetworkData?.label})
+              ⚠️ Solo envía USDT en la red {selectedNetworkData?.name} ({selectedNetworkData?.label})
             </Text>
           </View>
         </View>
@@ -358,7 +409,9 @@ export default function PagarUSDTScreen() {
                 size={24}
                 color="#FFFFFF"
               />
-              <Text style={styles.verifyButtonText}>Verificar Pago</Text>
+              <Text style={styles.verifyButtonText}>
+                Verificar en {selectedNetworkData?.name}
+              </Text>
             </React.Fragment>
           )}
         </TouchableOpacity>
@@ -371,21 +424,24 @@ export default function PagarUSDTScreen() {
             color={colors.warning}
           />
           <View style={styles.warningContent}>
-            <Text style={styles.warningTitle}>Importante</Text>
+            <Text style={styles.warningTitle}>⚠️ Importante - Validación por Red</Text>
             <Text style={styles.warningText}>
-              - Asegúrate de seleccionar la red correcta antes de verificar
+              • Cada red valida sus transacciones de forma independiente
             </Text>
             <Text style={styles.warningText}>
-              - No envíes claves privadas ni firmes transacciones aquí
+              • Los pagos en ETH solo se validan en la red Ethereum
             </Text>
             <Text style={styles.warningText}>
-              - Solo verificamos transacciones on-chain mediante el txHash
+              • Los pagos en BNB solo se validan en la red BNB Chain
             </Text>
             <Text style={styles.warningText}>
-              - La transacción debe tener al menos 3 confirmaciones
+              • Los pagos en Polygon solo se validan en la red Polygon
             </Text>
             <Text style={styles.warningText}>
-              - Los MXI se acreditan automáticamente tras la verificación
+              • Asegúrate de seleccionar la red correcta antes de verificar
+            </Text>
+            <Text style={styles.warningText}>
+              • La transacción debe tener al menos 3 confirmaciones
             </Text>
           </View>
         </View>
@@ -426,13 +482,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 20,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
   },
   networkTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: colors.text,
+    marginBottom: 4,
+  },
+  networkSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
     marginBottom: 16,
   },
   networkButtons: {
@@ -472,6 +532,36 @@ const styles = StyleSheet.create({
   networkLabel: {
     fontSize: 12,
     color: colors.textSecondary,
+    marginBottom: 2,
+  },
+  networkDescription: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+  },
+  validationCard: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 2,
+  },
+  validationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  validationInfo: {
+    flex: 1,
+  },
+  validationTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  validationText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 16,
   },
   infoCard: {
     backgroundColor: colors.primary + '15',
