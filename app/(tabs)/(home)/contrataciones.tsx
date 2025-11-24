@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
   Linking,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -213,7 +214,118 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary + '30',
     marginVertical: 8,
   },
+  errorModal: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorModalContent: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 2,
+    borderColor: '#F44336',
+  },
+  errorModalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#F44336',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  errorModalSection: {
+    marginBottom: 16,
+  },
+  errorModalLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+    marginBottom: 8,
+  },
+  errorModalText: {
+    fontSize: 13,
+    color: colors.text,
+    lineHeight: 20,
+    fontFamily: 'monospace',
+  },
+  errorModalDivider: {
+    height: 1,
+    backgroundColor: '#333333',
+    marginVertical: 12,
+  },
+  errorModalButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  errorModalButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#000000',
+  },
+  errorModalCopyButton: {
+    backgroundColor: '#333333',
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  errorModalCopyButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  debugCard: {
+    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#F44336',
+  },
+  debugTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#F44336',
+    marginBottom: 12,
+  },
+  debugText: {
+    fontSize: 12,
+    color: colors.text,
+    lineHeight: 18,
+    fontFamily: 'monospace',
+  },
+  debugButton: {
+    backgroundColor: '#F44336',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  debugButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
 });
+
+interface ErrorDetails {
+  timestamp: string;
+  errorMessage: string;
+  statusCode?: number;
+  requestUrl?: string;
+  requestBody?: any;
+  responseBody?: any;
+  authToken?: string;
+  userId?: string;
+  stackTrace?: string;
+}
 
 export default function ContratacionesScreen() {
   const router = useRouter();
@@ -226,6 +338,16 @@ export default function ContratacionesScreen() {
   const [recentPayments, setRecentPayments] = useState<any[]>([]);
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
   const [phaseInfo, setPhaseInfo] = useState<any>(null);
+  const [errorDetails, setErrorDetails] = useState<ErrorDetails | null>(null);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+
+  const addDebugLog = (message: string) => {
+    const timestamp = new Date().toISOString();
+    const logMessage = `[${timestamp}] ${message}`;
+    console.log(logMessage);
+    setDebugLogs(prev => [...prev, logMessage].slice(-20)); // Keep last 20 logs
+  };
 
   useEffect(() => {
     loadPhaseInfo();
@@ -244,6 +366,7 @@ export default function ContratacionesScreen() {
         },
         (payload) => {
           console.log('Payment update received:', payload);
+          addDebugLog('Payment update received via Realtime');
           loadRecentPayments();
         }
       )
@@ -272,20 +395,23 @@ export default function ContratacionesScreen() {
 
   const loadPhaseInfo = async () => {
     try {
+      addDebugLog('Loading phase info...');
       const info = await getPhaseInfo();
       if (info) {
         setCurrentPrice(info.currentPriceUsdt);
         setCurrentPhase(info.currentPhase);
         setPhaseInfo(info);
-        console.log('Phase info loaded:', info);
+        addDebugLog(`Phase info loaded: Phase ${info.currentPhase}, Price ${info.currentPriceUsdt} USDT`);
       }
     } catch (error) {
       console.error('Error loading phase info:', error);
+      addDebugLog(`Error loading phase info: ${error}`);
     }
   };
 
   const loadRecentPayments = async () => {
     try {
+      addDebugLog('Loading recent payments...');
       const { data, error } = await supabase
         .from('payments')
         .select('*')
@@ -295,8 +421,10 @@ export default function ContratacionesScreen() {
 
       if (error) throw error;
       setRecentPayments(data || []);
+      addDebugLog(`Loaded ${data?.length || 0} recent payments`);
     } catch (error) {
       console.error('Error loading payments:', error);
+      addDebugLog(`Error loading payments: ${error}`);
     }
   };
 
@@ -312,47 +440,125 @@ export default function ContratacionesScreen() {
     }
 
     setLoading(true);
+    setErrorDetails(null);
+    addDebugLog('=== INICIANDO PROCESO DE PAGO ===');
+    addDebugLog(`Monto: ${amount} USDT`);
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
+      // Step 1: Get session
+      addDebugLog('Step 1: Obteniendo sesión de usuario...');
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        addDebugLog(`Error obteniendo sesión: ${sessionError.message}`);
+        throw new Error(`Error de sesión: ${sessionError.message}`);
+      }
+
       if (!sessionData.session) {
+        addDebugLog('No hay sesión activa');
         Alert.alert('Error', 'Debes iniciar sesión para continuar');
         setLoading(false);
         return;
       }
 
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/create-payment-intent`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${sessionData.session.access_token}`,
-          },
-          body: JSON.stringify({
-            amount_fiat: parseFloat(amount),
-            fiat_currency: 'usd',
-            crypto_currency: 'usdteth',
-          }),
-        }
-      );
+      addDebugLog(`Sesión obtenida. User ID: ${sessionData.session.user.id}`);
+      addDebugLog(`Token presente: ${sessionData.session.access_token ? 'Sí' : 'No'}`);
 
-      const result = await response.json();
+      // Step 2: Prepare request
+      const requestUrl = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/create-payment-intent`;
+      const requestBody = {
+        amount_fiat: parseFloat(amount),
+        fiat_currency: 'usd',
+        crypto_currency: 'usdteth',
+      };
 
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Error al crear el pago');
+      addDebugLog('Step 2: Preparando solicitud...');
+      addDebugLog(`URL: ${requestUrl}`);
+      addDebugLog(`Body: ${JSON.stringify(requestBody)}`);
+
+      // Step 3: Make request
+      addDebugLog('Step 3: Enviando solicitud a Edge Function...');
+      const startTime = Date.now();
+
+      const response = await fetch(requestUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const endTime = Date.now();
+      addDebugLog(`Respuesta recibida en ${endTime - startTime}ms`);
+      addDebugLog(`Status Code: ${response.status} ${response.statusText}`);
+
+      // Step 4: Parse response
+      addDebugLog('Step 4: Parseando respuesta...');
+      let result;
+      try {
+        const responseText = await response.text();
+        addDebugLog(`Response Text: ${responseText}`);
+        result = JSON.parse(responseText);
+        addDebugLog(`Response JSON: ${JSON.stringify(result, null, 2)}`);
+      } catch (parseError: any) {
+        addDebugLog(`Error parseando JSON: ${parseError.message}`);
+        throw new Error('Error al procesar la respuesta del servidor');
       }
 
-      console.log('Payment created:', result.payment);
-
-      // Open payment URL
-      if (result.payment.invoice_url) {
-        const supported = await Linking.canOpenURL(result.payment.invoice_url);
+      // Step 5: Check for errors
+      if (!response.ok || !result.success) {
+        addDebugLog('Step 5: Error en la respuesta');
         
-        if (supported) {
-          await WebBrowser.openBrowserAsync(result.payment.invoice_url);
-        } else {
-          Alert.alert('Error', 'No se pudo abrir el navegador');
+        const errorDetail: ErrorDetails = {
+          timestamp: new Date().toISOString(),
+          errorMessage: result.error || result.message || 'Error desconocido',
+          statusCode: response.status,
+          requestUrl,
+          requestBody,
+          responseBody: result,
+          authToken: sessionData.session.access_token.substring(0, 20) + '...',
+          userId: sessionData.session.user.id,
+        };
+
+        setErrorDetails(errorDetail);
+        setShowErrorModal(true);
+        
+        throw new Error(result.error || result.message || 'Error al crear el pago');
+      }
+
+      addDebugLog('Step 6: Pago creado exitosamente');
+      addDebugLog(`Order ID: ${result.payment?.order_id}`);
+      addDebugLog(`Invoice URL: ${result.payment?.invoice_url}`);
+
+      // Step 7: Open payment URL
+      if (result.payment.invoice_url) {
+        addDebugLog('Step 7: Abriendo URL de pago...');
+        
+        try {
+          const supported = await Linking.canOpenURL(result.payment.invoice_url);
+          addDebugLog(`URL soportada: ${supported}`);
+          
+          if (supported) {
+            const browserResult = await WebBrowser.openBrowserAsync(result.payment.invoice_url);
+            addDebugLog(`Browser result: ${browserResult.type}`);
+          } else {
+            addDebugLog('URL no soportada, intentando con Linking.openURL');
+            await Linking.openURL(result.payment.invoice_url);
+          }
+        } catch (browserError: any) {
+          addDebugLog(`Error abriendo navegador: ${browserError.message}`);
+          Alert.alert(
+            'Error al abrir navegador',
+            `No se pudo abrir el navegador automáticamente. URL: ${result.payment.invoice_url}`,
+            [
+              { text: 'Copiar URL', onPress: () => {
+                // In a real app, you'd use Clipboard here
+                console.log('URL to copy:', result.payment.invoice_url);
+              }},
+              { text: 'OK' }
+            ]
+          );
         }
 
         // Start polling for status updates
@@ -369,9 +575,22 @@ export default function ContratacionesScreen() {
       }
     } catch (error: any) {
       console.error('Error creating payment:', error);
+      addDebugLog(`ERROR FINAL: ${error.message}`);
+      
+      if (!errorDetails) {
+        const errorDetail: ErrorDetails = {
+          timestamp: new Date().toISOString(),
+          errorMessage: error.message || 'Error desconocido',
+          stackTrace: error.stack,
+        };
+        setErrorDetails(errorDetail);
+        setShowErrorModal(true);
+      }
+      
       Alert.alert('Error', error.message || 'No se pudo crear el pago');
     } finally {
       setLoading(false);
+      addDebugLog('=== PROCESO DE PAGO FINALIZADO ===');
     }
   };
 
@@ -379,6 +598,8 @@ export default function ContratacionesScreen() {
     if (pollingInterval) {
       clearInterval(pollingInterval);
     }
+
+    addDebugLog(`Iniciando polling para order_id: ${orderId}`);
 
     const interval = setInterval(async () => {
       try {
@@ -391,6 +612,7 @@ export default function ContratacionesScreen() {
         if (error) throw error;
 
         if (data && (data.status === 'finished' || data.status === 'failed' || data.status === 'expired')) {
+          addDebugLog(`Pago finalizado con estado: ${data.status}`);
           clearInterval(interval);
           setPollingInterval(null);
           loadRecentPayments();
@@ -405,6 +627,7 @@ export default function ContratacionesScreen() {
         }
       } catch (error) {
         console.error('Error polling payment status:', error);
+        addDebugLog(`Error en polling: ${error}`);
       }
     }, 5000); // Poll every 5 seconds
 
@@ -453,16 +676,11 @@ export default function ContratacionesScreen() {
     }
   };
 
-  const getPhasePriceLabel = (phase: number) => {
-    switch (phase) {
-      case 1:
-        return '0.40 USDT';
-      case 2:
-        return '0.70 USDT';
-      case 3:
-        return '1.00 USDT';
-      default:
-        return '0.40 USDT';
+  const copyErrorDetails = () => {
+    if (errorDetails) {
+      const errorText = JSON.stringify(errorDetails, null, 2);
+      console.log('Error details to copy:', errorText);
+      Alert.alert('Detalles Copiados', 'Los detalles del error han sido copiados al log de la consola');
     }
   };
 
@@ -484,6 +702,25 @@ export default function ContratacionesScreen() {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {debugLogs.length > 0 && (
+          <View style={styles.debugCard}>
+            <Text style={styles.debugTitle}>🔍 Debug Log (Últimos eventos)</Text>
+            {debugLogs.slice(-5).map((log, index) => (
+              <Text key={index} style={styles.debugText}>{log}</Text>
+            ))}
+            <TouchableOpacity
+              style={styles.debugButton}
+              onPress={() => {
+                console.log('=== FULL DEBUG LOG ===');
+                debugLogs.forEach(log => console.log(log));
+                Alert.alert('Debug Log', 'El log completo ha sido impreso en la consola');
+              }}
+            >
+              <Text style={styles.debugButtonText}>Ver Log Completo en Consola</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <View style={styles.warningCard}>
           <Text style={styles.warningTitle}>⚠️ Importante</Text>
           <Text style={styles.warningText}>
@@ -659,6 +896,107 @@ export default function ContratacionesScreen() {
 
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* Error Modal */}
+      <Modal
+        visible={showErrorModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowErrorModal(false)}
+      >
+        <View style={styles.errorModal}>
+          <ScrollView style={{ width: '100%', maxWidth: 400 }}>
+            <View style={styles.errorModalContent}>
+              <Text style={styles.errorModalTitle}>⚠️ Error de Pago</Text>
+
+              {errorDetails && (
+                <React.Fragment>
+                  <View style={styles.errorModalSection}>
+                    <Text style={styles.errorModalLabel}>Mensaje de Error:</Text>
+                    <Text style={styles.errorModalText}>{errorDetails.errorMessage}</Text>
+                  </View>
+
+                  {errorDetails.statusCode && (
+                    <View style={styles.errorModalSection}>
+                      <Text style={styles.errorModalLabel}>Código de Estado HTTP:</Text>
+                      <Text style={styles.errorModalText}>{errorDetails.statusCode}</Text>
+                    </View>
+                  )}
+
+                  {errorDetails.requestUrl && (
+                    <View style={styles.errorModalSection}>
+                      <Text style={styles.errorModalLabel}>URL de Solicitud:</Text>
+                      <Text style={styles.errorModalText}>{errorDetails.requestUrl}</Text>
+                    </View>
+                  )}
+
+                  {errorDetails.requestBody && (
+                    <View style={styles.errorModalSection}>
+                      <Text style={styles.errorModalLabel}>Cuerpo de Solicitud:</Text>
+                      <Text style={styles.errorModalText}>
+                        {JSON.stringify(errorDetails.requestBody, null, 2)}
+                      </Text>
+                    </View>
+                  )}
+
+                  {errorDetails.responseBody && (
+                    <View style={styles.errorModalSection}>
+                      <Text style={styles.errorModalLabel}>Respuesta del Servidor:</Text>
+                      <Text style={styles.errorModalText}>
+                        {JSON.stringify(errorDetails.responseBody, null, 2)}
+                      </Text>
+                    </View>
+                  )}
+
+                  {errorDetails.userId && (
+                    <View style={styles.errorModalSection}>
+                      <Text style={styles.errorModalLabel}>User ID:</Text>
+                      <Text style={styles.errorModalText}>{errorDetails.userId}</Text>
+                    </View>
+                  )}
+
+                  {errorDetails.authToken && (
+                    <View style={styles.errorModalSection}>
+                      <Text style={styles.errorModalLabel}>Token (primeros 20 caracteres):</Text>
+                      <Text style={styles.errorModalText}>{errorDetails.authToken}</Text>
+                    </View>
+                  )}
+
+                  <View style={styles.errorModalSection}>
+                    <Text style={styles.errorModalLabel}>Timestamp:</Text>
+                    <Text style={styles.errorModalText}>{errorDetails.timestamp}</Text>
+                  </View>
+
+                  {errorDetails.stackTrace && (
+                    <View style={styles.errorModalSection}>
+                      <Text style={styles.errorModalLabel}>Stack Trace:</Text>
+                      <Text style={styles.errorModalText}>{errorDetails.stackTrace}</Text>
+                    </View>
+                  )}
+
+                  <View style={styles.errorModalDivider} />
+
+                  <TouchableOpacity
+                    style={styles.errorModalCopyButton}
+                    onPress={copyErrorDetails}
+                  >
+                    <Text style={styles.errorModalCopyButtonText}>
+                      Copiar Detalles a Consola
+                    </Text>
+                  </TouchableOpacity>
+                </React.Fragment>
+              )}
+
+              <TouchableOpacity
+                style={styles.errorModalButton}
+                onPress={() => setShowErrorModal(false)}
+              >
+                <Text style={styles.errorModalButtonText}>Cerrar</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
