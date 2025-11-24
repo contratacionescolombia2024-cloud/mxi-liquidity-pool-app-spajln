@@ -67,6 +67,7 @@ export default function DepositScreen() {
   const [realtimeChannel, setRealtimeChannel] = useState<RealtimeChannel | null>(null);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
   const [debugLogs, setDebugLogs] = useState<DebugLog[]>([]);
+  const [showDebugLogs, setShowDebugLogs] = useState(false);
 
   useEffect(() => {
     loadPhaseInfo();
@@ -483,7 +484,7 @@ export default function DepositScreen() {
       } catch (e) {
         addDebugLog(`ERROR: Invalid JSON response`, 'error');
         addDebugLog(`Response: ${responseText.substring(0, 200)}`, 'error');
-        throw new Error(`Respuesta inválida del servidor: ${responseText.substring(0, 100)}`);
+        throw new Error(`El servidor devolvió una respuesta inválida. Por favor intenta nuevamente o contacta al soporte.`);
       }
 
       console.log('Parsed response:', JSON.stringify(data, null, 2));
@@ -493,13 +494,26 @@ export default function DepositScreen() {
         if (data.requestId) {
           addDebugLog(`Request ID: ${data.requestId}`, 'error');
         }
-        throw new Error(data.error || 'Error al crear el pago');
+        
+        // Show detailed error information
+        let errorMessage = data.error || 'Error al crear el pago';
+        if (data.details) {
+          console.error('Error details:', data.details);
+          addDebugLog(`Details: ${JSON.stringify(data.details)}`, 'error');
+          
+          // Check for specific NOWPayments errors
+          if (data.details.message) {
+            errorMessage += `\n\nDetalles: ${data.details.message}`;
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
 
       if (!data.intent?.invoice_url) {
         console.error('No invoice_url in response:', data);
         addDebugLog('ERROR: No invoice URL in response', 'error');
-        throw new Error('No se pudo obtener la URL de pago');
+        throw new Error('No se pudo obtener la URL de pago. Por favor intenta nuevamente.');
       }
 
       const invoiceUrl = data.intent.invoice_url;
@@ -572,9 +586,21 @@ export default function DepositScreen() {
     } catch (error: any) {
       console.error('❌ Payment error:', error);
       addDebugLog(`❌ ERROR: ${error.message}`, 'error');
+      
+      // Show user-friendly error with option to view logs
       Alert.alert(
         'Error al Procesar Pago',
-        error.message || 'Ocurrió un error al procesar el pago. Por favor intenta nuevamente.'
+        error.message || 'Ocurrió un error al procesar el pago. Por favor intenta nuevamente.',
+        [
+          {
+            text: 'Ver Detalles',
+            onPress: () => setShowDebugLogs(true),
+          },
+          {
+            text: 'OK',
+            style: 'cancel',
+          },
+        ]
       );
     } finally {
       setLoading(false);
@@ -651,6 +677,17 @@ export default function DepositScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Depositar</Text>
+        <TouchableOpacity
+          style={styles.debugButton}
+          onPress={() => setShowDebugLogs(!showDebugLogs)}
+        >
+          <IconSymbol
+            ios_icon_name="info.circle"
+            android_material_icon_name="info"
+            size={24}
+            color={colors.primary}
+          />
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -826,11 +863,19 @@ export default function DepositScreen() {
           </View>
         )}
 
-        {debugLogs.length > 0 && (
+        {showDebugLogs && debugLogs.length > 0 && (
           <View style={[commonStyles.card, styles.debugCard]}>
-            <Text style={styles.debugTitle}>Debug Log (Últimos eventos)</Text>
+            <View style={styles.debugHeader}>
+              <Text style={styles.debugTitle}>Debug Log</Text>
+              <TouchableOpacity
+                style={styles.clearDebugButton}
+                onPress={() => setDebugLogs([])}
+              >
+                <Text style={styles.clearDebugText}>Limpiar</Text>
+              </TouchableOpacity>
+            </View>
             <ScrollView style={styles.debugScroll} nestedScrollEnabled>
-              {debugLogs.slice(-20).map((log, index) => (
+              {debugLogs.slice(-30).map((log, index) => (
                 <View key={index} style={styles.debugLogItem}>
                   <Text style={[styles.debugText, { color: getLogColor(log.type) }]}>
                     {getLogIcon(log.type)} [{new Date(log.timestamp).toLocaleTimeString()}] {log.message}
@@ -838,12 +883,6 @@ export default function DepositScreen() {
                 </View>
               ))}
             </ScrollView>
-            <TouchableOpacity
-              style={styles.clearDebugButton}
-              onPress={() => setDebugLogs([])}
-            >
-              <Text style={styles.clearDebugText}>Limpiar Log</Text>
-            </TouchableOpacity>
           </View>
         )}
 
@@ -965,12 +1004,17 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 28,
     fontWeight: '700',
     color: colors.text,
-    textAlign: 'center',
+  },
+  debugButton: {
+    padding: 8,
   },
   scrollContent: {
     padding: 20,
@@ -1265,11 +1309,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#333',
   },
+  debugHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   debugTitle: {
     fontSize: 14,
     fontWeight: '600',
     color: '#00FF00',
-    marginBottom: 8,
   },
   debugScroll: {
     maxHeight: 300,
@@ -1283,11 +1332,10 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   clearDebugButton: {
-    marginTop: 8,
-    padding: 8,
+    padding: 4,
+    paddingHorizontal: 8,
     backgroundColor: '#333',
     borderRadius: 4,
-    alignItems: 'center',
   },
   clearDebugText: {
     fontSize: 12,

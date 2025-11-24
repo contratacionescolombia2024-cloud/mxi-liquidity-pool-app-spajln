@@ -190,10 +190,14 @@ Deno.serve(async (req) => {
 
     // Step 5: Create NOWPayments invoice
     console.log(`[${requestId}] Step 5: Creating NOWPayments invoice...`);
+    
+    // IMPORTANT: NOWPayments expects lowercase currency codes
+    const normalizedPayCurrency = pay_currency.toLowerCase();
+    
     const nowPaymentsPayload = {
       price_amount: price_amount,
-      price_currency: price_currency,
-      pay_currency: pay_currency,
+      price_currency: price_currency.toLowerCase(),
+      pay_currency: normalizedPayCurrency,
       order_id: order_id,
       order_description: `Purchase ${mxiAmount.toFixed(2)} MXI tokens`,
       ipn_callback_url: `${SUPABASE_URL}/functions/v1/nowpayments-webhook`,
@@ -202,9 +206,11 @@ Deno.serve(async (req) => {
     };
 
     console.log(`[${requestId}] NOWPayments payload:`, JSON.stringify(nowPaymentsPayload, null, 2));
+    console.log(`[${requestId}] Using API key: ${NOWPAYMENTS_API_KEY.substring(0, 15)}...`);
 
     let nowPaymentsResponse;
     try {
+      console.log(`[${requestId}] Calling NOWPayments API...`);
       nowPaymentsResponse = await fetch('https://api.nowpayments.io/v1/invoice', {
         method: 'POST',
         headers: {
@@ -213,8 +219,14 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify(nowPaymentsPayload),
       });
+      console.log(`[${requestId}] NOWPayments API call completed`);
     } catch (fetchError: any) {
       console.error(`[${requestId}] ERROR: Failed to connect to NOWPayments:`, fetchError);
+      console.error(`[${requestId}] Fetch error details:`, {
+        name: fetchError.name,
+        message: fetchError.message,
+        stack: fetchError.stack,
+      });
       return new Response(
         JSON.stringify({
           success: false,
@@ -231,24 +243,57 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[${requestId}] NOWPayments response status: ${nowPaymentsResponse.status}`);
+    console.log(`[${requestId}] NOWPayments response headers:`, Object.fromEntries(nowPaymentsResponse.headers.entries()));
 
-    const nowPaymentsText = await nowPaymentsResponse.text();
-    console.log(`[${requestId}] NOWPayments response body:`, nowPaymentsText);
+    let nowPaymentsText;
+    try {
+      nowPaymentsText = await nowPaymentsResponse.text();
+      console.log(`[${requestId}] NOWPayments response body (first 500 chars):`, nowPaymentsText.substring(0, 500));
+    } catch (textError: any) {
+      console.error(`[${requestId}] ERROR: Failed to read response text:`, textError);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Failed to read payment provider response',
+          code: 'NOWPAYMENTS_READ_ERROR',
+          details: textError.message,
+          requestId: requestId,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
 
     if (!nowPaymentsResponse.ok) {
-      console.error(`[${requestId}] ERROR: NOWPayments API error`);
+      console.error(`[${requestId}] ERROR: NOWPayments API error - Status ${nowPaymentsResponse.status}`);
+      console.error(`[${requestId}] Response body:`, nowPaymentsText);
       
       let errorDetails;
       try {
         errorDetails = JSON.parse(nowPaymentsText);
+        console.error(`[${requestId}] Parsed error:`, errorDetails);
       } catch {
         errorDetails = { raw: nowPaymentsText };
+      }
+
+      // Provide user-friendly error messages
+      let userMessage = 'Error al procesar el pago con NOWPayments';
+      if (nowPaymentsResponse.status === 400) {
+        userMessage = 'Datos de pago inválidos. Por favor verifica la información e intenta nuevamente.';
+      } else if (nowPaymentsResponse.status === 401) {
+        userMessage = 'Error de autenticación con el proveedor de pagos. Por favor contacta al soporte.';
+      } else if (nowPaymentsResponse.status === 429) {
+        userMessage = 'Demasiadas solicitudes. Por favor espera un momento e intenta nuevamente.';
+      } else if (nowPaymentsResponse.status >= 500) {
+        userMessage = 'El proveedor de pagos está experimentando problemas. Por favor intenta más tarde.';
       }
 
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Payment provider error',
+          error: userMessage,
           code: 'NOWPAYMENTS_API_ERROR',
           statusCode: nowPaymentsResponse.status,
           details: errorDetails,
@@ -264,8 +309,11 @@ Deno.serve(async (req) => {
     let nowPaymentsData;
     try {
       nowPaymentsData = JSON.parse(nowPaymentsText);
+      console.log(`[${requestId}] Parsed NOWPayments data:`, JSON.stringify(nowPaymentsData, null, 2));
     } catch (parseError: any) {
       console.error(`[${requestId}] ERROR: Invalid JSON from NOWPayments`);
+      console.error(`[${requestId}] Parse error:`, parseError);
+      console.error(`[${requestId}] Response text:`, nowPaymentsText);
       return new Response(
         JSON.stringify({
           success: false,
@@ -273,6 +321,26 @@ Deno.serve(async (req) => {
           code: 'NOWPAYMENTS_INVALID_JSON',
           details: parseError.message,
           raw: nowPaymentsText.substring(0, 500),
+          requestId: requestId,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Validate that we got the required fields from NOWPayments
+    if (!nowPaymentsData.id || !nowPaymentsData.invoice_url) {
+      console.error(`[${requestId}] ERROR: Missing required fields in NOWPayments response`);
+      console.error(`[${requestId}] Response data:`, nowPaymentsData);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Incomplete response from payment provider',
+          code: 'NOWPAYMENTS_INCOMPLETE_RESPONSE',
+          details: 'Missing id or invoice_url',
+          received: nowPaymentsData,
           requestId: requestId,
         }),
         {
@@ -294,7 +362,7 @@ Deno.serve(async (req) => {
       price_amount: price_amount,
       price_currency: price_currency,
       pay_amount: nowPaymentsData.pay_amount || null,
-      pay_currency: pay_currency,
+      pay_currency: normalizedPayCurrency,
       pay_address: nowPaymentsData.pay_address || null,
       mxi_amount: mxiAmount,
       price_per_mxi: pricePerMxi,
@@ -342,7 +410,7 @@ Deno.serve(async (req) => {
         payment_id: nowPaymentsData.id,
         pay_address: nowPaymentsData.pay_address,
         pay_amount: nowPaymentsData.pay_amount,
-        pay_currency: pay_currency,
+        pay_currency: normalizedPayCurrency,
         price_amount: price_amount,
         price_currency: price_currency,
         mxi_amount: mxiAmount,
