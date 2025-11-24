@@ -1,250 +1,173 @@
 
-# NOWPayments Payment System - Drastic Fix Complete ✅
+# NOWPayments Button Fix - Drastic Approach Complete
 
-## Problem Summary
-The payment system was experiencing persistent errors with the `create-payment-intent` Edge Function, resulting in:
-- **400 Bad Request errors** when trying to fetch cryptocurrencies
-- "No se encontraron criptomonedas" error message
-- Payment flow completely broken
+## Problem Identified
 
-## Root Cause Analysis
-After examining the logs and code, the issues were:
-1. **Insufficient error handling** - errors were not being properly caught and logged
-2. **Missing validation** - request parameters were not being validated before processing
-3. **Poor logging** - difficult to diagnose where the failure was occurring
-4. **Complex code structure** - made debugging and maintenance difficult
+The "Deposito" button was consistently failing with 500 errors. After exhaustive analysis, the root cause was identified:
 
-## Drastic Fix Implementation
+### Root Cause
+The `create-payment-intent` Edge Function had a flawed dual-purpose design:
+- When `pay_currency` was NOT provided: It tried to fetch currencies from NOWPayments API
+- When `pay_currency` WAS provided: It tried to create an invoice
 
-### 1. Complete Edge Function Rebuild
+The issue was that the function was calling the wrong NOWPayments endpoint (`/v1/currencies`) which returns a different data structure than expected, causing parsing errors and 500 responses.
+
+## Solution Implemented
+
+### 1. Complete Edge Function Rewrite
 **File:** `supabase/functions/create-payment-intent/index.ts`
 
-#### Key Improvements:
-- ✅ **Step-by-step validation** with detailed logging at each stage
-- ✅ **Comprehensive error handling** with user-friendly messages
-- ✅ **API key verification** before making any requests
-- ✅ **Request body validation** with specific error messages for each missing parameter
-- ✅ **Detailed logging** of all API calls and responses
-- ✅ **Technical details** included in error responses for debugging
-- ✅ **Transaction tracking** with proper status updates on failures
+**Key Changes:**
+- **Simplified Currency Selection:** Instead of calling NOWPayments API for currencies, we now return a hardcoded list of supported currencies:
+  - `usdttrc20` (USDT TRC20)
+  - `usdterc20` (USDT ERC20)
+  - `usdtbep20` (USDT BEP20)
+  - `btc` (Bitcoin)
+  - `eth` (Ethereum)
+  - `bnb` (BNB)
+  - `trx` (TRON)
 
-#### New Error Handling Flow:
-```
-1. Verify NOWPAYMENTS_API_KEY exists
-   ↓
-2. Authenticate user with Supabase
-   ↓
-3. Parse and validate request body
-   ↓
-4. Validate required parameters (order_id, price_amount, price_currency)
-   ↓
-5. Execute action (fetch currencies OR generate invoice)
-   ↓
-6. Handle API response with detailed error messages
-   ↓
-7. Return success or detailed error
-```
+- **Improved Error Handling:** Every step now has comprehensive error handling with detailed logging
+- **Request ID Tracking:** Each request gets a unique ID for easier debugging
+- **Better Validation:** Amount validation (3-500,000 USDT) happens early
+- **Cleaner Flow:** The function now has two clear paths:
+  - **Path A (no pay_currency):** Return available currencies immediately
+  - **Path B (with pay_currency):** Create NOWPayments invoice
 
-### 2. Enhanced Logging System
-Every step now logs:
-- ✅ Timestamp
-- ✅ Action being performed
-- ✅ Input parameters
-- ✅ API responses (first 1000 chars)
-- ✅ Error details with stack traces
-- ✅ Success confirmations with checkmarks (✓)
+### 2. Enhanced Logging
+- Every step is logged with a unique request ID
+- All API calls are logged with request/response details
+- Errors include full context for debugging
 
-### 3. User-Friendly Error Messages
-All errors now return:
-- **Spanish error message** for the user
-- **Technical details** for debugging (status, response body, etc.)
-- **Actionable suggestions** when possible
+### 3. Robust Error Recovery
+- Failed transactions are properly marked in the database
+- Users receive clear, actionable error messages in Spanish
+- No silent failures
 
-### 4. Validation Improvements
-- ✅ Check if `order_id` exists
-- ✅ Validate `price_amount` is a valid number
-- ✅ Ensure `price_currency` is provided
-- ✅ Verify API responses have expected structure
-- ✅ Check for empty currency lists
+## How It Works Now
+
+### Step 1: User Enters Amount
+1. User enters USDT amount (3-500,000)
+2. App validates the amount locally
+3. User clicks "Continuar al Pago"
+
+### Step 2: Load Currencies
+1. App calls `create-payment-intent` WITHOUT `pay_currency`
+2. Edge Function returns list of 7 supported cryptocurrencies
+3. Modal displays currency options to user
+
+### Step 3: Create Payment
+1. User selects a cryptocurrency
+2. App calls `create-payment-intent` WITH `pay_currency`
+3. Edge Function:
+   - Validates all parameters
+   - Fetches current phase and MXI price
+   - Creates transaction history record
+   - Calls NOWPayments API to create invoice
+   - Stores order in `nowpayments_orders` table
+   - Returns invoice URL
+
+### Step 4: Complete Payment
+1. App opens invoice URL in browser
+2. User completes payment on NOWPayments site
+3. NOWPayments sends webhook to `nowpayments-webhook` function
+4. Webhook updates order status and credits MXI to user
+5. App polls database for status updates
+6. User sees confirmation when payment is complete
 
 ## Testing Checklist
 
-### Before Testing
-- [x] Verify `NOWPAYMENTS_API_KEY` is set in Supabase Edge Function secrets
-- [x] Verify `NOWPAYMENTS_WEBHOOK_SECRET` is set in Supabase Edge Function secrets
-- [x] Edge Function deployed successfully (version 4)
+- [x] Edge Function deployed successfully (version 8)
+- [ ] Test with small amount (3 USDT)
+- [ ] Test with medium amount (100 USDT)
+- [ ] Test currency selection modal
+- [ ] Test each supported cryptocurrency
+- [ ] Test payment flow end-to-end
+- [ ] Verify MXI is credited correctly
+- [ ] Test error scenarios (invalid amount, network errors)
 
-### Test Scenarios
+## Monitoring
 
-#### 1. Fetch Available Currencies
-**Request:**
-```json
-{
-  "order_id": "MXI-TEST-123",
-  "price_amount": 10,
-  "price_currency": "usd"
-}
-```
-
-**Expected Response:**
-```json
-{
-  "success": true,
-  "intent": {
-    "id": "MXI-TEST-123",
-    "order_id": "MXI-TEST-123",
-    "price_amount": 10,
-    "price_currency": "usd",
-    "pay_currencies": ["btc", "eth", "usdteth", ...],
-    "user_id": "...",
-    "created_at": "..."
-  }
-}
-```
-
-#### 2. Generate Invoice with Selected Currency
-**Request:**
-```json
-{
-  "order_id": "MXI-TEST-123",
-  "price_amount": 10,
-  "price_currency": "usd",
-  "pay_currency": "btc"
-}
-```
-
-**Expected Response:**
-```json
-{
-  "success": true,
-  "intent": {
-    "id": "...",
-    "order_id": "MXI-TEST-123",
-    "invoice_url": "https://nowpayments.io/payment/...",
-    "mxi_amount": 25,
-    "usdt_amount": 10,
-    "price_per_mxi": 0.40,
-    "phase": 1,
-    "pay_currency": "btc",
-    "expires_at": "..."
-  }
-}
-```
-
-#### 3. Error Handling Tests
-- [ ] Missing `order_id` → Returns 400 with "Falta parámetro requerido: order_id"
-- [ ] Invalid `price_amount` → Returns 400 with "Monto inválido"
-- [ ] Missing `price_currency` → Returns 400 with "Falta parámetro requerido: price_currency"
-- [ ] Invalid API key → Returns 500 with "Error al obtener criptomonedas disponibles"
-- [ ] Network error → Returns 500 with "Error de conexión con el servicio de pagos"
-
-## Debugging Guide
-
-### How to Check Logs
-1. Go to Supabase Dashboard
-2. Navigate to Edge Functions → `create-payment-intent`
-3. Click on "Logs" tab
-4. Look for entries with "=== CREATE PAYMENT INTENT - DRASTIC FIX VERSION ==="
-
-### What to Look For in Logs
-- ✅ "✓ API Key found, length: XX" - API key is configured
-- ✅ "✓ User authenticated: USER_ID" - User authentication successful
-- ✅ "✓ Request validated: {...}" - Request parameters are valid
-- ✅ "✓ Successfully fetched XX currencies" - Currencies fetched successfully
-- ✅ "✓ Invoice URL received: URL" - Invoice created successfully
-
-### Common Issues and Solutions
-
-#### Issue: "NOWPAYMENTS_API_KEY not found"
-**Solution:** Set the API key in Supabase Edge Function secrets:
+### Check Logs
 ```bash
-supabase secrets set NOWPAYMENTS_API_KEY=your_api_key_here
+# View Edge Function logs
+supabase functions logs create-payment-intent --project-ref aeyfnjuatbtcauiumbhn
+
+# View webhook logs
+supabase functions logs nowpayments-webhook --project-ref aeyfnjuatbtcauiumbhn
 ```
 
-#### Issue: "No Authorization header"
-**Solution:** Ensure the frontend is sending the Authorization header with the user's session token.
+### Check Database
+```sql
+-- Check recent orders
+SELECT * FROM nowpayments_orders 
+ORDER BY created_at DESC 
+LIMIT 10;
 
-#### Issue: "NOWPayments API error: 401"
-**Solution:** The API key is invalid or expired. Get a new API key from NOWPayments dashboard.
+-- Check transaction history
+SELECT * FROM transaction_history 
+WHERE transaction_type = 'nowpayments_order'
+ORDER BY created_at DESC 
+LIMIT 10;
 
-#### Issue: "No currencies available"
-**Solution:** Check NOWPayments API status. The API might be temporarily unavailable.
+-- Check webhook logs
+SELECT * FROM nowpayments_webhook_logs 
+ORDER BY created_at DESC 
+LIMIT 10;
+```
 
-#### Issue: "Network error calling NOWPayments"
-**Solution:** Check internet connectivity. The Edge Function might not be able to reach NOWPayments API.
+## Error Messages (Spanish)
 
-## Frontend Integration
-
-The frontend (`select-currency.tsx`) already handles the new error format:
-- Displays user-friendly error messages
-- Shows technical details in a separate alert for debugging
-- Provides retry functionality
-- Handles empty currency lists gracefully
+| Error | Message |
+|-------|---------|
+| No API Key | "Configuración del servidor incompleta" |
+| Not Authenticated | "No autorizado" |
+| Session Expired | "Sesión expirada" |
+| Invalid Request | "Solicitud inválida" |
+| Missing Parameters | "Faltan parámetros requeridos" |
+| Invalid Amount | "Monto inválido (debe estar entre 3 y 500,000 USDT)" |
+| Network Error | "Error de conexión con el servicio de pagos" |
+| API Error | "No se pudo generar el pago" |
+| No Invoice URL | "No se pudo obtener la URL de pago" |
 
 ## Next Steps
 
-1. **Test the payment flow end-to-end:**
-   - Navigate to "Comprar MXI"
-   - Enter an amount
-   - Click "Seleccionar Criptomoneda"
-   - Verify currencies load
-   - Select a currency
-   - Verify invoice is generated
-   - Complete payment
-
-2. **Monitor logs for any issues:**
-   - Check Edge Function logs after each test
-   - Look for any unexpected errors
-   - Verify all checkmarks (✓) appear in logs
-
-3. **Test error scenarios:**
-   - Try with invalid amounts
-   - Test with network disconnected
-   - Verify error messages are user-friendly
-
-## Success Criteria
-
-- ✅ Edge Function deployed successfully (version 4)
-- ✅ Comprehensive logging implemented
-- ✅ User-friendly error messages
-- ✅ Technical details for debugging
-- ✅ Step-by-step validation
-- ✅ Proper error handling at every stage
+1. **Test the payment flow** with a real transaction
+2. **Monitor logs** for any issues
+3. **Verify webhook** is receiving and processing IPNs correctly
+4. **Check user balance** updates after successful payment
+5. **Test referral commissions** are calculated correctly
 
 ## Rollback Plan
 
 If issues persist, you can rollback to the previous version:
-```bash
-# View previous versions
-supabase functions list
 
-# Deploy previous version
-supabase functions deploy create-payment-intent --version 3
+```bash
+# List all versions
+supabase functions list --project-ref aeyfnjuatbtcauiumbhn
+
+# Deploy previous version (if needed)
+# Note: You would need to redeploy the previous code
 ```
 
 ## Support
 
 If you encounter any issues:
-1. Check the Edge Function logs first
-2. Look for the specific error message
-3. Check the "Common Issues and Solutions" section above
-4. Verify all environment variables are set correctly
-5. Test the NOWPayments API directly using curl or Postman
+
+1. Check the Edge Function logs for detailed error messages
+2. Verify the NOWPayments API key is correctly set in environment variables
+3. Ensure the webhook URL is correctly configured in NOWPayments dashboard
+4. Check that the database tables have proper RLS policies
 
 ## Summary
 
-This drastic fix completely rebuilds the payment system with:
-- **Bulletproof error handling** at every step
-- **Comprehensive logging** for easy debugging
-- **User-friendly error messages** in Spanish
-- **Technical details** for developers
-- **Step-by-step validation** to catch issues early
-- **Proper transaction tracking** with status updates
+The payment button should now work correctly. The drastic fix involved:
+- ✅ Complete rewrite of the Edge Function
+- ✅ Simplified currency selection (no external API call)
+- ✅ Enhanced error handling and logging
+- ✅ Better validation and user feedback
+- ✅ Proper database transaction tracking
 
-The system is now much more robust and easier to debug when issues occur.
-
----
-
-**Deployment Date:** 2025-01-20
-**Version:** 4
-**Status:** ✅ DEPLOYED AND READY FOR TESTING
+**Status:** DEPLOYED AND READY FOR TESTING
+**Version:** 8
+**Deployment Time:** 2025-01-24 07:57:43 UTC
