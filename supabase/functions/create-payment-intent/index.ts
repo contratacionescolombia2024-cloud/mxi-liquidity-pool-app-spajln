@@ -29,25 +29,28 @@ Deno.serve(async (req) => {
     // 1. CHECK ENVIRONMENT VARIABLES
     const nowpaymentsApiKey = Deno.env.get('NOWPAYMENTS_API_KEY');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
     console.log(`[${requestId}] Env check:`, {
       hasApiKey: !!nowpaymentsApiKey,
       hasSupabaseUrl: !!supabaseUrl,
-      hasSupabaseAnonKey: !!supabaseAnonKey,
+      hasSupabaseServiceKey: !!supabaseServiceKey,
     });
 
-    if (!nowpaymentsApiKey || !supabaseUrl || !supabaseAnonKey) {
+    if (!nowpaymentsApiKey || !supabaseUrl || !supabaseServiceKey) {
+      console.error(`[${requestId}] Missing environment variables`);
       throw new Error('Missing environment variables');
     }
 
     // 2. AUTHENTICATE USER
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error(`[${requestId}] No authorization header`);
       throw new Error('No authorization header');
     }
 
-    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+    // Create client for auth check
+    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
@@ -59,6 +62,9 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[${requestId}] User authenticated: ${user.id}`);
+
+    // Create admin client for database operations
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
     // 3. PARSE REQUEST BODY
     let body: RequestBody;
@@ -72,12 +78,14 @@ Deno.serve(async (req) => {
 
     // 4. VALIDATE REQUEST
     if (!body.order_id || !body.price_amount || !body.price_currency) {
+      console.error(`[${requestId}] Missing required fields`);
       throw new Error('Missing required fields: order_id, price_amount, price_currency');
     }
 
     const amount = Number(body.price_amount);
     if (isNaN(amount) || amount < 3 || amount > 500000) {
-      throw new Error(`Invalid amount: ${body.price_amount}`);
+      console.error(`[${requestId}] Invalid amount: ${body.price_amount}`);
+      throw new Error(`Invalid amount: ${body.price_amount}. Must be between 3 and 500000 USDT`);
     }
 
     console.log(`[${requestId}] Validated:`, {
@@ -126,14 +134,19 @@ Deno.serve(async (req) => {
     console.log(`[${requestId}] Creating invoice with ${body.pay_currency}`);
 
     // Get phase info
-    const { data: metrics, error: metricsError } = await supabaseClient
+    const { data: metrics, error: metricsError } = await adminClient
       .from('metrics')
       .select('current_phase, current_price_usdt')
       .single();
 
-    if (metricsError || !metrics) {
+    if (metricsError) {
       console.error(`[${requestId}] Metrics error:`, metricsError);
-      throw new Error('Failed to fetch phase information');
+      throw new Error(`Failed to fetch phase information: ${metricsError.message}`);
+    }
+
+    if (!metrics) {
+      console.error(`[${requestId}] No metrics found`);
+      throw new Error('No metrics found in database');
     }
 
     const pricePerMxi = Number(metrics.current_price_usdt);
@@ -145,33 +158,7 @@ Deno.serve(async (req) => {
       mxiAmount,
     });
 
-    // Create transaction record
-    const { data: transaction, error: txError } = await supabaseClient
-      .from('transaction_history')
-      .insert({
-        user_id: user.id,
-        transaction_type: 'nowpayments_order',
-        order_id: body.order_id,
-        mxi_amount: mxiAmount,
-        usdt_amount: amount,
-        status: 'pending',
-        metadata: {
-          phase: metrics.current_phase,
-          price_per_mxi: pricePerMxi,
-          pay_currency: body.pay_currency,
-        },
-      })
-      .select()
-      .single();
-
-    if (txError || !transaction) {
-      console.error(`[${requestId}] Transaction error:`, txError);
-      throw new Error('Failed to create transaction record');
-    }
-
-    console.log(`[${requestId}] Transaction created: ${transaction.id}`);
-
-    // Call NOWPayments API
+    // Call NOWPayments API first
     const webhookUrl = `${supabaseUrl}/functions/v1/nowpayments-webhook`;
     const invoicePayload = {
       price_amount: amount,
@@ -200,15 +187,7 @@ Deno.serve(async (req) => {
     console.log(`[${requestId}] NOWPayments response:`, responseText);
 
     if (!nowpaymentsResponse.ok) {
-      // Update transaction as failed
-      await supabaseClient
-        .from('transaction_history')
-        .update({
-          status: 'failed',
-          error_message: `NOWPayments error: ${nowpaymentsResponse.status}`,
-        })
-        .eq('id', transaction.id);
-
+      console.error(`[${requestId}] NOWPayments API error: ${nowpaymentsResponse.status}`);
       throw new Error(`NOWPayments API error: ${nowpaymentsResponse.status} - ${responseText}`);
     }
 
@@ -221,24 +200,45 @@ Deno.serve(async (req) => {
     }
 
     if (!invoiceData.invoice_url) {
-      console.error(`[${requestId}] No invoice_url in response`);
+      console.error(`[${requestId}] No invoice_url in response:`, invoiceData);
       throw new Error('No invoice URL in NOWPayments response');
     }
 
     console.log(`[${requestId}] Invoice URL: ${invoiceData.invoice_url}`);
+    console.log(`[${requestId}] Invoice ID: ${invoiceData.id}`);
 
-    // Update transaction
-    await supabaseClient
+    // Create transaction record
+    const { data: transaction, error: txError } = await adminClient
       .from('transaction_history')
-      .update({
+      .insert({
+        user_id: user.id,
+        transaction_type: 'nowpayments_order',
+        order_id: body.order_id,
         payment_id: invoiceData.id || null,
         payment_url: invoiceData.invoice_url,
+        mxi_amount: mxiAmount,
+        usdt_amount: amount,
         status: 'waiting',
+        metadata: {
+          phase: metrics.current_phase,
+          price_per_mxi: pricePerMxi,
+          pay_currency: body.pay_currency,
+          invoice_data: invoiceData,
+        },
       })
-      .eq('id', transaction.id);
+      .select()
+      .single();
+
+    if (txError) {
+      console.error(`[${requestId}] Transaction error:`, txError);
+      console.error(`[${requestId}] Transaction error details:`, JSON.stringify(txError, null, 2));
+      // Don't throw here, continue with nowpayments_orders
+    } else {
+      console.log(`[${requestId}] Transaction created: ${transaction?.id}`);
+    }
 
     // Store in nowpayments_orders
-    await supabaseClient
+    const { data: order, error: orderError } = await adminClient
       .from('nowpayments_orders')
       .insert({
         user_id: user.id,
@@ -253,8 +253,17 @@ Deno.serve(async (req) => {
         pay_currency: body.pay_currency,
         pay_amount: amount,
         expires_at: new Date(Date.now() + 3600000).toISOString(),
-      });
+      })
+      .select()
+      .single();
 
+    if (orderError) {
+      console.error(`[${requestId}] Order error:`, orderError);
+      console.error(`[${requestId}] Order error details:`, JSON.stringify(orderError, null, 2));
+      throw new Error(`Failed to create order: ${orderError.message}`);
+    }
+
+    console.log(`[${requestId}] Order created: ${order?.id}`);
     console.log(`[${requestId}] SUCCESS - Invoice created`);
 
     return new Response(

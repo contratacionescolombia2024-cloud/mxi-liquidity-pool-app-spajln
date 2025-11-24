@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Modal,
   Linking,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -242,6 +243,19 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#00FF00',
   },
+  debugCard: {
+    backgroundColor: '#2A2A2A',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#444444',
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#888888',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
 });
 
 interface Currency {
@@ -278,6 +292,13 @@ export default function ContratacionesScreen() {
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
   const [realtimeChannel, setRealtimeChannel] = useState<RealtimeChannel | null>(null);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<string[]>([]);
+
+  const addDebugInfo = (message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setDebugInfo(prev => [...prev, `[${timestamp}] ${message}`].slice(-10));
+    console.log(`[DEBUG] ${message}`);
+  };
 
   useEffect(() => {
     loadPhaseInfo();
@@ -306,15 +327,18 @@ export default function ContratacionesScreen() {
       const phaseInfo = await getPhaseInfo();
       if (phaseInfo) {
         setCurrentPrice(phaseInfo.currentPriceUsdt);
+        addDebugInfo(`Precio cargado: ${phaseInfo.currentPriceUsdt} USDT`);
       }
     } catch (error) {
       console.error('Error loading phase info:', error);
+      addDebugInfo(`Error al cargar precio: ${error}`);
     }
   };
 
   const subscribeToPaymentUpdates = async (orderId: string) => {
     console.log('\n========== SUBSCRIBING TO REALTIME ==========');
     console.log('Order ID:', orderId);
+    addDebugInfo(`Suscribiendo a actualizaciones: ${orderId}`);
 
     try {
       // Unsubscribe from previous channel if exists
@@ -328,6 +352,7 @@ export default function ContratacionesScreen() {
       
       if (!currentSession?.access_token) {
         console.error('No session token available');
+        addDebugInfo('Error: No hay token de sesión');
         return;
       }
 
@@ -349,10 +374,12 @@ export default function ContratacionesScreen() {
             console.log('\n========== REALTIME UPDATE RECEIVED ==========');
             console.log('Event:', payload.eventType);
             console.log('Payload:', JSON.stringify(payload, null, 2));
+            addDebugInfo(`Actualización recibida: ${payload.eventType}`);
 
             if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
               const record = payload.new as any;
               console.log('Payment status updated:', record.status);
+              addDebugInfo(`Estado: ${record.status}`);
               
               // Update local state
               setPaymentStatus({
@@ -371,6 +398,7 @@ export default function ContratacionesScreen() {
               // Handle payment completion
               if (record.status === 'finished' || record.status === 'confirmed') {
                 console.log('Payment confirmed!');
+                addDebugInfo('¡Pago confirmado!');
                 Alert.alert(
                   '¡Pago Confirmado!',
                   `Tu pago ha sido confirmado exitosamente. Los MXI se han acreditado a tu cuenta.`,
@@ -390,6 +418,7 @@ export default function ContratacionesScreen() {
                 }
               } else if (record.status === 'failed' || record.status === 'expired') {
                 console.log('Payment failed/expired');
+                addDebugInfo(`Pago ${record.status}`);
                 Alert.alert(
                   'Pago No Completado',
                   `El pago ha ${record.status === 'failed' ? 'fallado' : 'expirado'}. Por favor intenta nuevamente.`,
@@ -408,6 +437,7 @@ export default function ContratacionesScreen() {
         )
         .subscribe((status) => {
           console.log('Realtime subscription status:', status);
+          addDebugInfo(`Realtime: ${status}`);
           
           if (status === 'SUBSCRIBED') {
             console.log('✅ Successfully subscribed to payment updates');
@@ -428,6 +458,7 @@ export default function ContratacionesScreen() {
       console.log('Realtime channel setup complete');
     } catch (error) {
       console.error('Error setting up Realtime subscription:', error);
+      addDebugInfo(`Error Realtime: ${error}`);
       setIsRealtimeConnected(false);
     }
   };
@@ -455,6 +486,7 @@ export default function ContratacionesScreen() {
       console.log('\n========== LOADING CURRENCIES ==========');
       console.log('Order ID:', orderId);
       console.log('Amount:', usdtAmount);
+      addDebugInfo(`Generando orden: ${orderId}`);
 
       // Show available currencies directly (hardcoded list)
       const availableCurrencies = [
@@ -472,8 +504,10 @@ export default function ContratacionesScreen() {
       setShowCurrencyModal(true);
       
       console.log('Currencies loaded successfully');
+      addDebugInfo('Monedas cargadas');
     } catch (error: any) {
       console.error('Error loading currencies:', error);
+      addDebugInfo(`Error: ${error.message}`);
       Alert.alert('Error', error.message || 'Error al cargar criptomonedas disponibles');
     } finally {
       setLoadingCurrencies(false);
@@ -483,6 +517,7 @@ export default function ContratacionesScreen() {
   const openPaymentUrl = async (url: string) => {
     console.log('\n========== OPENING PAYMENT URL ==========');
     console.log('URL:', url);
+    addDebugInfo('Abriendo navegador...');
 
     try {
       // Try WebBrowser first
@@ -495,6 +530,7 @@ export default function ContratacionesScreen() {
       });
       
       console.log('WebBrowser result:', result);
+      addDebugInfo(`WebBrowser: ${result.type}`);
 
       if (result.type === 'opened') {
         console.log('✅ Browser opened successfully');
@@ -505,6 +541,7 @@ export default function ContratacionesScreen() {
       }
     } catch (browserError) {
       console.error('❌ WebBrowser error:', browserError);
+      addDebugInfo(`Error WebBrowser: ${browserError}`);
       
       // Fallback to Linking
       try {
@@ -514,13 +551,16 @@ export default function ContratacionesScreen() {
         if (canOpen) {
           await Linking.openURL(url);
           console.log('✅ Opened with Linking');
+          addDebugInfo('Abierto con Linking');
           return true;
         } else {
           console.error('❌ Cannot open URL with Linking');
+          addDebugInfo('No se puede abrir URL');
           throw new Error('No se puede abrir el navegador');
         }
       } catch (linkingError) {
         console.error('❌ Linking error:', linkingError);
+        addDebugInfo(`Error Linking: ${linkingError}`);
         throw linkingError;
       }
     }
@@ -555,6 +595,7 @@ export default function ContratacionesScreen() {
     }
 
     setLoading(true);
+    addDebugInfo('Iniciando pago...');
     
     try {
       console.log('\n========== CREATING PAYMENT ==========');
@@ -570,6 +611,7 @@ export default function ContratacionesScreen() {
       };
 
       console.log('Request body:', JSON.stringify(requestBody, null, 2));
+      addDebugInfo(`Llamando Edge Function...`);
 
       const response = await fetch(
         `https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/create-payment-intent`,
@@ -584,6 +626,7 @@ export default function ContratacionesScreen() {
       );
 
       console.log('Response status:', response.status);
+      addDebugInfo(`Respuesta: ${response.status}`);
       
       const responseText = await response.text();
       console.log('Response text:', responseText);
@@ -593,27 +636,32 @@ export default function ContratacionesScreen() {
         data = JSON.parse(responseText);
       } catch (e) {
         console.error('Failed to parse response:', e);
+        addDebugInfo('Error al parsear respuesta');
         throw new Error('Respuesta inválida del servidor');
       }
 
       console.log('Payment response:', JSON.stringify(data, null, 2));
 
       if (!response.ok) {
+        addDebugInfo(`Error: ${data.error || response.status}`);
         throw new Error(data.error || `Error del servidor: ${response.status}`);
       }
 
       if (!data.success) {
+        addDebugInfo(`Error: ${data.error}`);
         throw new Error(data.error || 'Error al crear el pago');
       }
 
       if (!data.intent?.invoice_url) {
         console.error('No invoice_url in response:', data);
+        addDebugInfo('Error: No invoice_url');
         throw new Error('No se pudo obtener la URL de pago');
       }
 
       const invoiceUrl = data.intent.invoice_url;
       
       console.log('✅ Invoice URL received:', invoiceUrl);
+      addDebugInfo('URL recibida correctamente');
 
       // Close the modal first
       setShowCurrencyModal(false);
@@ -640,11 +688,13 @@ export default function ContratacionesScreen() {
 
       // Try to open the payment URL
       console.log('🌐 Attempting to open payment URL...');
+      addDebugInfo('Abriendo página de pago...');
       
       const opened = await openPaymentUrl(invoiceUrl);
 
       if (opened) {
         // Show success message
+        addDebugInfo('Navegador abierto exitosamente');
         Alert.alert(
           'Pago Iniciado',
           'Se ha abierto la página de pago de NOWPayments. Completa el pago y el estado se actualizará automáticamente en tiempo real.',
@@ -652,6 +702,7 @@ export default function ContratacionesScreen() {
         );
       } else {
         // Show URL for manual opening
+        addDebugInfo('Mostrando URL manual');
         Alert.alert(
           'Abrir Página de Pago',
           'Por favor copia esta URL y ábrela en tu navegador para completar el pago:',
@@ -674,6 +725,7 @@ export default function ContratacionesScreen() {
 
     } catch (error: any) {
       console.error('❌ Payment error:', error);
+      addDebugInfo(`Error final: ${error.message}`);
       Alert.alert(
         'Error al Procesar Pago',
         error.message || 'Ocurrió un error al procesar el pago. Por favor intenta nuevamente.'
@@ -828,6 +880,19 @@ export default function ContratacionesScreen() {
                 <Text style={styles.payButtonText}>Abrir Página de Pago</Text>
               </TouchableOpacity>
             )}
+          </View>
+        )}
+
+        {debugInfo.length > 0 && (
+          <View style={styles.debugCard}>
+            <Text style={[styles.debugText, { fontWeight: 'bold', marginBottom: 4 }]}>
+              Debug Log:
+            </Text>
+            {debugInfo.map((info, index) => (
+              <Text key={index} style={styles.debugText}>
+                {info}
+              </Text>
+            ))}
           </View>
         )}
 
