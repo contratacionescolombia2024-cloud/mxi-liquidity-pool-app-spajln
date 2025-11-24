@@ -9,23 +9,46 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
-  Clipboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
 import { colors } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
 import * as Clipboard2 from 'expo-clipboard';
 
 const RECIPIENT_ADDRESS = '0x68F0d7c607617DA0b1a0dC7b72885E11ddFec623';
 const MIN_USDT = 20;
 const MXI_RATE = 2.5;
 
+const NETWORKS = [
+  {
+    id: 'ethereum',
+    name: 'Ethereum',
+    label: 'ERC20',
+    color: '#627EEA',
+    icon: 'Ξ'
+  },
+  {
+    id: 'bnb',
+    name: 'BNB Chain',
+    label: 'BEP20',
+    color: '#F3BA2F',
+    icon: 'B'
+  },
+  {
+    id: 'polygon',
+    name: 'Polygon',
+    label: 'Matic',
+    color: '#8247E5',
+    icon: 'P'
+  }
+];
+
 export default function PagarUSDTScreen() {
   const router = useRouter();
   const { user, session } = useAuth();
+  const [selectedNetwork, setSelectedNetwork] = useState('ethereum');
   const [txHash, setTxHash] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -66,6 +89,7 @@ export default function PagarUSDTScreen() {
           body: JSON.stringify({
             txHash: txHash.trim(),
             userId: user?.id,
+            network: selectedNetwork,
           }),
         }
       );
@@ -75,7 +99,7 @@ export default function PagarUSDTScreen() {
       if (data.ok) {
         Alert.alert(
           '✅ Pago Confirmado',
-          `Se acreditaron ${data.mxi.toFixed(2)} MXI a tu cuenta.\n\nUSDT pagados: ${data.usdt.toFixed(2)}`,
+          `Se acreditaron ${data.mxi.toFixed(2)} MXI a tu cuenta.\n\nRed: ${data.network}\nUSDT pagados: ${data.usdt.toFixed(2)}`,
           [
             {
               text: 'Ver Saldo',
@@ -95,7 +119,7 @@ export default function PagarUSDTScreen() {
         
         switch (data.error) {
           case 'tx_not_found':
-            errorMessage = 'Transacción no encontrada en la blockchain. Verifica el hash e intenta nuevamente.';
+            errorMessage = 'Transacción no encontrada en la blockchain. Verifica el hash y la red seleccionada.';
             break;
           case 'pocas_confirmaciones':
             errorMessage = data.message || 'La transacción necesita más confirmaciones. Por favor intenta más tarde.';
@@ -111,6 +135,9 @@ export default function PagarUSDTScreen() {
             break;
           case 'tx_failed':
             errorMessage = 'La transacción falló en la blockchain.';
+            break;
+          case 'invalid_network':
+            errorMessage = data.message || 'Red no válida seleccionada.';
             break;
           default:
             errorMessage = data.message || 'Error al verificar el pago. Por favor intenta nuevamente.';
@@ -128,6 +155,8 @@ export default function PagarUSDTScreen() {
       setLoading(false);
     }
   };
+
+  const selectedNetworkData = NETWORKS.find(n => n.id === selectedNetwork);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -147,6 +176,42 @@ export default function PagarUSDTScreen() {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.networkCard}>
+          <Text style={styles.networkTitle}>Selecciona la Red</Text>
+          <View style={styles.networkButtons}>
+            {NETWORKS.map((network, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.networkButton,
+                  selectedNetwork === network.id && {
+                    backgroundColor: network.color + '30',
+                    borderColor: network.color,
+                    borderWidth: 2,
+                  }
+                ]}
+                onPress={() => setSelectedNetwork(network.id)}
+              >
+                <View style={[styles.networkIcon, { backgroundColor: network.color }]}>
+                  <Text style={styles.networkIconText}>{network.icon}</Text>
+                </View>
+                <View style={styles.networkInfo}>
+                  <Text style={styles.networkName}>{network.name}</Text>
+                  <Text style={styles.networkLabel}>{network.label}</Text>
+                </View>
+                {selectedNetwork === network.id && (
+                  <IconSymbol
+                    ios_icon_name="checkmark.circle.fill"
+                    android_material_icon_name="check_circle"
+                    size={24}
+                    color={network.color}
+                  />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
         <View style={styles.infoCard}>
           <View style={styles.infoHeader}>
             <IconSymbol
@@ -162,29 +227,35 @@ export default function PagarUSDTScreen() {
             <View style={styles.stepItem}>
               <Text style={styles.stepNumber}>1</Text>
               <Text style={styles.stepText}>
-                Envía USDT (ERC20) desde cualquier wallet a la dirección receptora
+                Selecciona la red que vas a usar ({selectedNetworkData?.label})
               </Text>
             </View>
             <View style={styles.stepItem}>
               <Text style={styles.stepNumber}>2</Text>
               <Text style={styles.stepText}>
-                Monto mínimo: {MIN_USDT} USDT
+                Envía USDT desde cualquier wallet a la dirección receptora
               </Text>
             </View>
             <View style={styles.stepItem}>
               <Text style={styles.stepNumber}>3</Text>
               <Text style={styles.stepText}>
-                Copia el hash de la transacción (txHash)
+                Monto mínimo: {MIN_USDT} USDT
               </Text>
             </View>
             <View style={styles.stepItem}>
               <Text style={styles.stepNumber}>4</Text>
               <Text style={styles.stepText}>
-                Pega el txHash aquí y verifica el pago
+                Copia el hash de la transacción (txHash)
               </Text>
             </View>
             <View style={styles.stepItem}>
               <Text style={styles.stepNumber}>5</Text>
+              <Text style={styles.stepText}>
+                Pega el txHash aquí y verifica el pago
+              </Text>
+            </View>
+            <View style={styles.stepItem}>
+              <Text style={styles.stepNumber}>6</Text>
               <Text style={styles.stepText}>
                 Recibirás MXI = USDT × {MXI_RATE}
               </Text>
@@ -193,7 +264,9 @@ export default function PagarUSDTScreen() {
         </View>
 
         <View style={styles.addressCard}>
-          <Text style={styles.addressLabel}>Dirección Receptora (ERC20)</Text>
+          <Text style={styles.addressLabel}>
+            Dirección Receptora ({selectedNetworkData?.label})
+          </Text>
           <View style={styles.addressContainer}>
             <Text style={styles.addressText} numberOfLines={1} ellipsizeMode="middle">
               {RECIPIENT_ADDRESS}
@@ -210,9 +283,17 @@ export default function PagarUSDTScreen() {
               />
             </TouchableOpacity>
           </View>
-          <Text style={styles.addressWarning}>
-            ⚠️ Solo envía USDT en la red Ethereum (ERC20)
-          </Text>
+          <View style={[styles.addressWarningBox, { backgroundColor: selectedNetworkData?.color + '20' }]}>
+            <IconSymbol
+              ios_icon_name="exclamationmark.triangle.fill"
+              android_material_icon_name="warning"
+              size={20}
+              color={selectedNetworkData?.color}
+            />
+            <Text style={[styles.addressWarning, { color: selectedNetworkData?.color }]}>
+              Solo envía USDT en la red {selectedNetworkData?.name} ({selectedNetworkData?.label})
+            </Text>
+          </View>
         </View>
 
         <View style={styles.calculatorCard}>
@@ -254,24 +335,28 @@ export default function PagarUSDTScreen() {
             numberOfLines={3}
           />
           <Text style={styles.inputHint}>
-            Pega el hash de tu transacción de Ethereum aquí
+            Pega el hash de tu transacción de {selectedNetworkData?.name} aquí
           </Text>
         </View>
 
         <TouchableOpacity
-          style={[styles.verifyButton, loading && styles.verifyButtonDisabled]}
+          style={[
+            styles.verifyButton,
+            { backgroundColor: selectedNetworkData?.color || colors.primary },
+            loading && styles.verifyButtonDisabled
+          ]}
           onPress={handleVerifyPayment}
           disabled={loading || !txHash.trim()}
         >
           {loading ? (
-            <ActivityIndicator color="#000000" />
+            <ActivityIndicator color="#FFFFFF" />
           ) : (
             <React.Fragment>
               <IconSymbol
                 ios_icon_name="checkmark.circle.fill"
                 android_material_icon_name="check_circle"
                 size={24}
-                color="#000000"
+                color="#FFFFFF"
               />
               <Text style={styles.verifyButtonText}>Verificar Pago</Text>
             </React.Fragment>
@@ -287,6 +372,9 @@ export default function PagarUSDTScreen() {
           />
           <View style={styles.warningContent}>
             <Text style={styles.warningTitle}>Importante</Text>
+            <Text style={styles.warningText}>
+              - Asegúrate de seleccionar la red correcta antes de verificar
+            </Text>
             <Text style={styles.warningText}>
               - No envíes claves privadas ni firmes transacciones aquí
             </Text>
@@ -332,6 +420,58 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 20,
+  },
+  networkCard: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  networkTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 16,
+  },
+  networkButtons: {
+    gap: 12,
+  },
+  networkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  networkIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  networkIconText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  networkInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  networkName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 2,
+  },
+  networkLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
   },
   infoCard: {
     backgroundColor: colors.primary + '15',
@@ -409,9 +549,16 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     padding: 4,
   },
+  addressWarningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 8,
+  },
   addressWarning: {
+    flex: 1,
     fontSize: 12,
-    color: colors.warning,
     fontWeight: '600',
   },
   calculatorCard: {
@@ -483,7 +630,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   verifyButton: {
-    backgroundColor: colors.primary,
     borderRadius: 12,
     padding: 16,
     flexDirection: 'row',
@@ -498,7 +644,7 @@ const styles = StyleSheet.create({
   verifyButtonText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#000000',
+    color: '#FFFFFF',
   },
   warningCard: {
     backgroundColor: 'rgba(255, 152, 0, 0.1)',

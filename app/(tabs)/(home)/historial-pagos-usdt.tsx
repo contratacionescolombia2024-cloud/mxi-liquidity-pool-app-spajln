@@ -23,8 +23,15 @@ interface Payment {
   usdt: number;
   mxi: number;
   estado: string;
+  pay_currency: string;
   created_at: string;
 }
+
+const NETWORK_INFO: Record<string, { name: string; color: string; icon: string }> = {
+  usdterc20: { name: 'Ethereum (ERC20)', color: '#627EEA', icon: 'Ξ' },
+  usdtbep20: { name: 'BNB Chain (BEP20)', color: '#F3BA2F', icon: 'B' },
+  usdtmatic: { name: 'Polygon (Matic)', color: '#8247E5', icon: 'P' },
+};
 
 export default function HistorialPagosUSDTScreen() {
   const router = useRouter();
@@ -110,6 +117,10 @@ export default function HistorialPagosUSDTScreen() {
     }
   };
 
+  const getNetworkInfo = (payCurrency: string) => {
+    return NETWORK_INFO[payCurrency] || { name: 'Desconocida', color: colors.textSecondary, icon: '?' };
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -182,65 +193,81 @@ export default function HistorialPagosUSDTScreen() {
             />
           }
         >
-          {payments.map((payment, index) => (
-            <View key={index} style={styles.paymentCard}>
-              <View style={styles.paymentHeader}>
-                <View style={styles.paymentAmounts}>
-                  <Text style={styles.usdtAmount}>
-                    {payment.usdt.toFixed(2)} USDT
-                  </Text>
-                  <Text style={styles.mxiAmount}>
-                    → {payment.mxi.toFixed(2)} MXI
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    { backgroundColor: getStatusColor(payment.estado) },
-                  ]}
-                >
-                  <Text style={styles.statusText}>
-                    {getStatusText(payment.estado)}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentLabel}>Fecha:</Text>
-                <Text style={styles.paymentValue}>
-                  {new Date(payment.created_at).toLocaleString('es-ES', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </Text>
-              </View>
-
-              <View style={styles.txHashContainer}>
-                <Text style={styles.txHashLabel}>Transaction Hash:</Text>
-                <View style={styles.txHashRow}>
-                  <Text style={styles.txHashText} numberOfLines={1} ellipsizeMode="middle">
-                    {payment.tx_hash}
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.copyButton}
-                    onPress={() => copyTxHash(payment.tx_hash)}
+          {payments.map((payment, index) => {
+            const networkInfo = getNetworkInfo(payment.pay_currency);
+            
+            return (
+              <View key={index} style={styles.paymentCard}>
+                <View style={styles.paymentHeader}>
+                  <View style={styles.paymentAmounts}>
+                    <Text style={styles.usdtAmount}>
+                      {payment.usdt.toFixed(2)} USDT
+                    </Text>
+                    <Text style={styles.mxiAmount}>
+                      → {payment.mxi.toFixed(2)} MXI
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      { backgroundColor: getStatusColor(payment.estado) },
+                    ]}
                   >
-                    <IconSymbol
-                      ios_icon_name="doc.on.doc.fill"
-                      android_material_icon_name="content_copy"
-                      size={16}
-                      color={colors.primary}
-                    />
-                  </TouchableOpacity>
+                    <Text style={styles.statusText}>
+                      {getStatusText(payment.estado)}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.divider} />
+
+                <View style={styles.paymentRow}>
+                  <Text style={styles.paymentLabel}>Red:</Text>
+                  <View style={styles.networkBadge}>
+                    <View style={[styles.networkDot, { backgroundColor: networkInfo.color }]}>
+                      <Text style={styles.networkDotText}>{networkInfo.icon}</Text>
+                    </View>
+                    <Text style={[styles.paymentValue, { color: networkInfo.color }]}>
+                      {networkInfo.name}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.paymentRow}>
+                  <Text style={styles.paymentLabel}>Fecha:</Text>
+                  <Text style={styles.paymentValue}>
+                    {new Date(payment.created_at).toLocaleString('es-ES', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </Text>
+                </View>
+
+                <View style={styles.txHashContainer}>
+                  <Text style={styles.txHashLabel}>Transaction Hash:</Text>
+                  <View style={styles.txHashRow}>
+                    <Text style={styles.txHashText} numberOfLines={1} ellipsizeMode="middle">
+                      {payment.tx_hash}
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.copyButton}
+                      onPress={() => copyTxHash(payment.tx_hash)}
+                    >
+                      <IconSymbol
+                        ios_icon_name="doc.on.doc.fill"
+                        android_material_icon_name="content_copy"
+                        size={16}
+                        color={colors.primary}
+                      />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
 
           <View style={{ height: 100 }} />
         </ScrollView>
@@ -361,6 +388,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
+  },
+  networkBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  networkDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  networkDotText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   txHashContainer: {
     backgroundColor: colors.background,
