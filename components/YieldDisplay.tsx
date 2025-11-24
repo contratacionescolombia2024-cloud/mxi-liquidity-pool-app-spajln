@@ -128,7 +128,8 @@ export default function YieldDisplay() {
         disabled={claiming || currentYield < 0.000001}
       >
         <IconSymbol 
-          name="arrow.down.circle.fill" 
+          ios_icon_name="arrow.down.circle.fill" 
+          android_material_icon_name="arrow-circle-down"
           size={20} 
           color={claiming || currentYield < 0.000001 ? colors.textSecondary : '#fff'} 
         />
