@@ -21,8 +21,12 @@ Deno.serve(async (req) => {
     const orderId = url.searchParams.get('order_id');
 
     if (!orderId) {
+      console.error('Missing order_id parameter');
       return new Response(
-        JSON.stringify({ error: 'order_id parameter is required' }),
+        JSON.stringify({ 
+          success: false,
+          error: 'order_id parameter is required' 
+        }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -66,7 +70,11 @@ Deno.serve(async (req) => {
     if (!record) {
       console.error('Order not found in either table:', orderId);
       return new Response(
-        JSON.stringify({ error: 'Order not found' }),
+        JSON.stringify({ 
+          success: false,
+          error: 'Order not found',
+          message: 'No se encontró la orden. Por favor verifica el ID de la orden.' 
+        }),
         {
           status: 404,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -78,6 +86,7 @@ Deno.serve(async (req) => {
 
     // If already confirmed, return success
     if (record.status === 'confirmed' || record.status === 'finished') {
+      console.log('Payment already confirmed');
       return new Response(
         JSON.stringify({
           success: true,
@@ -98,7 +107,9 @@ Deno.serve(async (req) => {
       console.error('No payment_id found for order:', orderId);
       return new Response(
         JSON.stringify({
-          error: 'Payment ID not found. The payment may not have been created yet.',
+          success: false,
+          error: 'Payment ID not found',
+          message: 'El ID de pago no está disponible. Es posible que la creación del pago haya fallado.',
           status: record.status,
         }),
         {
@@ -114,7 +125,11 @@ Deno.serve(async (req) => {
     if (!nowpaymentsApiKey) {
       console.error('NOWPAYMENTS_API_KEY not configured');
       return new Response(
-        JSON.stringify({ error: 'Server configuration error' }),
+        JSON.stringify({ 
+          success: false,
+          error: 'Server configuration error',
+          message: 'Error de configuración del servidor. Por favor contacta al soporte.' 
+        }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -126,22 +141,44 @@ Deno.serve(async (req) => {
     console.log('Checking payment status with NowPayments API...');
     console.log('Payment ID:', record.payment_id);
 
-    const nowpaymentsResponse = await fetch(
-      `https://api.nowpayments.io/v1/payment/${record.payment_id}`,
-      {
-        method: 'GET',
-        headers: {
-          'x-api-key': nowpaymentsApiKey,
-        },
-      }
-    );
+    let nowpaymentsResponse;
+    try {
+      nowpaymentsResponse = await fetch(
+        `https://api.nowpayments.io/v1/payment/${record.payment_id}`,
+        {
+          method: 'GET',
+          headers: {
+            'x-api-key': nowpaymentsApiKey,
+          },
+        }
+      );
+    } catch (fetchError: any) {
+      console.error('Network error calling NowPayments API:', fetchError);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Network error',
+          message: 'Error de red al conectar con NowPayments. Por favor intenta nuevamente.',
+          details: fetchError.message,
+          current_status: record.status,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
 
     if (!nowpaymentsResponse.ok) {
       const errorText = await nowpaymentsResponse.text();
       console.error('NowPayments API error:', errorText);
+      console.error('Status code:', nowpaymentsResponse.status);
+      
       return new Response(
         JSON.stringify({
+          success: false,
           error: 'Failed to check payment status with NowPayments',
+          message: `Error al verificar el estado del pago (código ${nowpaymentsResponse.status}). Por favor intenta nuevamente.`,
           details: errorText,
           current_status: record.status,
         }),
@@ -210,7 +247,11 @@ Deno.serve(async (req) => {
       if (userError || !user) {
         console.error('User not found:', userId);
         return new Response(
-          JSON.stringify({ error: 'User not found' }),
+          JSON.stringify({ 
+            success: false,
+            error: 'User not found',
+            message: 'Usuario no encontrado. Por favor contacta al soporte.' 
+          }),
           {
             status: 404,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -393,14 +434,16 @@ Deno.serve(async (req) => {
       {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+      }
+    );
   } catch (error: any) {
     console.error('Error in check-nowpayments-status:', error);
     console.error('Error stack:', error.stack);
     return new Response(
       JSON.stringify({
+        success: false,
         error: error.message || 'Internal server error',
+        message: 'Error interno del servidor. Por favor intenta nuevamente o contacta al soporte.',
         details: error.stack,
       }),
       {

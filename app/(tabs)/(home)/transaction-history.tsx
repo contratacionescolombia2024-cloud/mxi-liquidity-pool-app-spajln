@@ -42,6 +42,7 @@ export default function TransactionHistoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filter, setFilter] = useState<'all' | 'pending' | 'success' | 'failed'>('all');
+  const [verifyingOrderId, setVerifyingOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     loadTransactions();
@@ -136,9 +137,17 @@ export default function TransactionHistoryScreen() {
       return;
     }
 
+    setVerifyingOrderId(transaction.order_id);
+
     try {
+      console.log('Checking transaction status for order:', transaction.order_id);
+      
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) {
+        Alert.alert('Error', 'Sesión expirada. Por favor inicia sesión nuevamente.');
+        setVerifyingOrderId(null);
+        return;
+      }
 
       const response = await fetch(
         `${supabase.supabaseUrl}/functions/v1/check-nowpayments-status?order_id=${transaction.order_id}`,
@@ -151,6 +160,31 @@ export default function TransactionHistoryScreen() {
       );
 
       const result = await response.json();
+      console.log('Status check result:', result);
+
+      if (!response.ok) {
+        // Handle error response
+        console.error('Status check failed:', result);
+        Alert.alert(
+          'Error al Verificar',
+          result.message || result.error || 'No se pudo verificar el estado del pago. Por favor intenta nuevamente.',
+          [
+            {
+              text: 'Ver Detalles',
+              onPress: () => {
+                Alert.alert(
+                  'Detalles del Error',
+                  `Error: ${result.error || 'Desconocido'}\n\nDetalles: ${result.details || 'No disponible'}`,
+                  [{ text: 'OK' }]
+                );
+              }
+            },
+            { text: 'OK' }
+          ]
+        );
+        setVerifyingOrderId(null);
+        return;
+      }
 
       if (result.success) {
         if (result.status === 'confirmed' || result.status === 'finished') {
@@ -168,13 +202,26 @@ export default function TransactionHistoryScreen() {
         } else {
           Alert.alert(
             'Estado del Pago',
-            `Estado actual: ${getStatusText(result.status)}\n\nEl pago aún está siendo procesado.`
+            `Estado actual: ${getStatusText(result.status)}\n\nEl pago aún está siendo procesado.`,
+            [{ text: 'OK', onPress: () => loadTransactions() }]
           );
         }
+      } else {
+        Alert.alert(
+          'Error',
+          result.message || result.error || 'No se pudo verificar el estado del pago',
+          [{ text: 'OK' }]
+        );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error checking status:', error);
-      Alert.alert('Error', 'No se pudo verificar el estado del pago');
+      Alert.alert(
+        'Error de Red',
+        'No se pudo conectar con el servidor. Por favor verifica tu conexión a internet e intenta nuevamente.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setVerifyingOrderId(null);
     }
   };
 
@@ -451,14 +498,21 @@ export default function TransactionHistoryScreen() {
                       <TouchableOpacity
                         style={styles.checkButton}
                         onPress={() => checkTransactionStatus(transaction)}
+                        disabled={verifyingOrderId === transaction.order_id}
                       >
-                        <IconSymbol
-                          ios_icon_name="arrow.clockwise"
-                          android_material_icon_name="refresh"
-                          size={16}
-                          color={colors.accent}
-                        />
-                        <Text style={styles.checkButtonText}>Verificar</Text>
+                        {verifyingOrderId === transaction.order_id ? (
+                          <ActivityIndicator size="small" color={colors.accent} />
+                        ) : (
+                          <React.Fragment>
+                            <IconSymbol
+                              ios_icon_name="arrow.clockwise"
+                              android_material_icon_name="refresh"
+                              size={16}
+                              color={colors.accent}
+                            />
+                            <Text style={styles.checkButtonText}>Verificar</Text>
+                          </React.Fragment>
+                        )}
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.cancelButton}
@@ -711,6 +765,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 6,
+    minHeight: 32,
   },
   checkButtonText: {
     fontSize: 12,
