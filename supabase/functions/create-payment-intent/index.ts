@@ -38,14 +38,18 @@ Deno.serve(async (req) => {
       hasSupabaseServiceKey: !!supabaseServiceKey,
       hasSupabaseAnonKey: !!supabaseAnonKey,
       apiKeyLength: nowpaymentsApiKey?.length || 0,
+      apiKeyPrefix: nowpaymentsApiKey?.substring(0, 7) || 'N/A',
     });
 
     if (!nowpaymentsApiKey) {
-      console.error(`[${requestId}] Missing NOWPAYMENTS_API_KEY`);
+      console.error(`[${requestId}] ❌ Missing NOWPAYMENTS_API_KEY`);
+      console.error(`[${requestId}] Please set the API key in Supabase Edge Function secrets`);
+      console.error(`[${requestId}] Expected format: 7QB99E2-JCE4H3A-QNC2GS3-1T5QDS9`);
       return new Response(
         JSON.stringify({
           success: false,
           error: 'NOWPayments API key not configured',
+          hint: 'Please configure NOWPAYMENTS_API_KEY in Supabase Edge Function secrets',
         }),
         {
           status: 500,
@@ -55,7 +59,7 @@ Deno.serve(async (req) => {
     }
 
     if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
-      console.error(`[${requestId}] Missing Supabase environment variables`);
+      console.error(`[${requestId}] ❌ Missing Supabase environment variables`);
       return new Response(
         JSON.stringify({
           success: false,
@@ -71,7 +75,7 @@ Deno.serve(async (req) => {
     // 2. AUTHENTICATE USER
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      console.error(`[${requestId}] No authorization header`);
+      console.error(`[${requestId}] ❌ No authorization header`);
       return new Response(
         JSON.stringify({
           success: false,
@@ -95,7 +99,7 @@ Deno.serve(async (req) => {
     const { data: { user }, error: authError } = await authClient.auth.getUser(token);
 
     if (authError || !user) {
-      console.error(`[${requestId}] Auth failed:`, authError?.message);
+      console.error(`[${requestId}] ❌ Auth failed:`, authError?.message);
       return new Response(
         JSON.stringify({
           success: false,
@@ -109,7 +113,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[${requestId}] User authenticated: ${user.id}`);
+    console.log(`[${requestId}] ✅ User authenticated: ${user.id}`);
 
     // Create admin client for database operations (bypasses RLS)
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
@@ -120,7 +124,7 @@ Deno.serve(async (req) => {
       body = await req.json();
       console.log(`[${requestId}] Request body:`, JSON.stringify(body, null, 2));
     } catch (e) {
-      console.error(`[${requestId}] JSON parse error:`, e);
+      console.error(`[${requestId}] ❌ JSON parse error:`, e);
       return new Response(
         JSON.stringify({
           success: false,
@@ -135,7 +139,7 @@ Deno.serve(async (req) => {
 
     // 4. VALIDATE REQUEST
     if (!body.order_id || !body.price_amount || !body.price_currency) {
-      console.error(`[${requestId}] Missing required fields`);
+      console.error(`[${requestId}] ❌ Missing required fields`);
       return new Response(
         JSON.stringify({
           success: false,
@@ -150,7 +154,7 @@ Deno.serve(async (req) => {
 
     const amount = Number(body.price_amount);
     if (isNaN(amount) || amount < 3 || amount > 500000) {
-      console.error(`[${requestId}] Invalid amount: ${body.price_amount}`);
+      console.error(`[${requestId}] ❌ Invalid amount: ${body.price_amount}`);
       return new Response(
         JSON.stringify({
           success: false,
@@ -163,7 +167,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[${requestId}] Validated:`, {
+    console.log(`[${requestId}] ✅ Validated:`, {
       order_id: body.order_id,
       amount,
       currency: body.price_currency,
@@ -214,7 +218,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (metricsError) {
-      console.error(`[${requestId}] Metrics error:`, metricsError);
+      console.error(`[${requestId}] ❌ Metrics error:`, metricsError);
       return new Response(
         JSON.stringify({
           success: false,
@@ -228,7 +232,7 @@ Deno.serve(async (req) => {
     }
 
     if (!metrics) {
-      console.error(`[${requestId}] No metrics found`);
+      console.error(`[${requestId}] ❌ No metrics found`);
       return new Response(
         JSON.stringify({
           success: false,
@@ -244,7 +248,7 @@ Deno.serve(async (req) => {
     const pricePerMxi = Number(metrics.current_price_usdt);
     const mxiAmount = amount / pricePerMxi;
 
-    console.log(`[${requestId}] Phase info:`, {
+    console.log(`[${requestId}] ✅ Phase info:`, {
       phase: metrics.current_phase,
       pricePerMxi,
       mxiAmount,
@@ -252,6 +256,7 @@ Deno.serve(async (req) => {
 
     // 7. CREATE NOWPAYMENTS INVOICE
     console.log(`[${requestId}] Creating NOWPayments invoice...`);
+    console.log(`[${requestId}] Using API key: ${nowpaymentsApiKey.substring(0, 7)}...`);
     
     const webhookUrl = `${supabaseUrl}/functions/v1/nowpayments-webhook`;
     const invoicePayload = {
@@ -281,12 +286,32 @@ Deno.serve(async (req) => {
     console.log(`[${requestId}] NOWPayments response:`, responseText.substring(0, 500));
 
     if (!nowpaymentsResponse.ok) {
-      console.error(`[${requestId}] NOWPayments API error: ${nowpaymentsResponse.status}`);
+      console.error(`[${requestId}] ❌ NOWPayments API error: ${nowpaymentsResponse.status}`);
+      
+      // Provide specific error messages based on status code
+      let errorMessage = `NOWPayments API error: ${nowpaymentsResponse.status}`;
+      let errorHint = '';
+      
+      if (nowpaymentsResponse.status === 401) {
+        errorMessage = 'NOWPayments API authentication failed';
+        errorHint = 'The API key may be invalid or expired. Please verify the NOWPAYMENTS_API_KEY in Supabase Edge Function secrets.';
+        console.error(`[${requestId}] ❌ API KEY ISSUE: The key "${nowpaymentsApiKey.substring(0, 7)}..." is not valid`);
+        console.error(`[${requestId}] Expected format: 7QB99E2-JCE4H3A-QNC2GS3-1T5QDS9`);
+      } else if (nowpaymentsResponse.status === 400) {
+        errorMessage = 'Invalid request to NOWPayments';
+        errorHint = 'The request parameters may be incorrect. Check the currency codes and amounts.';
+      } else if (nowpaymentsResponse.status === 403) {
+        errorMessage = 'NOWPayments API access forbidden';
+        errorHint = 'The API key may not have the required permissions. Check the key permissions in NOWPayments dashboard.';
+      }
+      
       return new Response(
         JSON.stringify({
           success: false,
-          error: `NOWPayments API error: ${nowpaymentsResponse.status}`,
+          error: errorMessage,
+          hint: errorHint,
           details: responseText.substring(0, 200),
+          statusCode: nowpaymentsResponse.status,
         }),
         {
           status: 500,
@@ -299,7 +324,7 @@ Deno.serve(async (req) => {
     try {
       invoiceData = JSON.parse(responseText);
     } catch (e) {
-      console.error(`[${requestId}] Failed to parse NOWPayments response:`, e);
+      console.error(`[${requestId}] ❌ Failed to parse NOWPayments response:`, e);
       return new Response(
         JSON.stringify({
           success: false,
@@ -313,7 +338,7 @@ Deno.serve(async (req) => {
     }
 
     if (!invoiceData.invoice_url) {
-      console.error(`[${requestId}] No invoice_url in response:`, invoiceData);
+      console.error(`[${requestId}] ❌ No invoice_url in response:`, invoiceData);
       return new Response(
         JSON.stringify({
           success: false,
@@ -326,8 +351,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[${requestId}] Invoice URL: ${invoiceData.invoice_url}`);
-    console.log(`[${requestId}] Invoice ID: ${invoiceData.id}`);
+    console.log(`[${requestId}] ✅ Invoice URL: ${invoiceData.invoice_url}`);
+    console.log(`[${requestId}] ✅ Invoice ID: ${invoiceData.id}`);
 
     // 8. INSERT INTO PAYMENTS TABLE
     console.log(`[${requestId}] Inserting payment record...`);
@@ -356,7 +381,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (paymentError) {
-      console.error(`[${requestId}] Payment insert error:`, paymentError);
+      console.error(`[${requestId}] ❌ Payment insert error:`, paymentError);
       console.error(`[${requestId}] Payment error details:`, JSON.stringify(paymentError, null, 2));
       return new Response(
         JSON.stringify({
@@ -370,7 +395,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[${requestId}] Payment record created: ${payment?.id}`);
+    console.log(`[${requestId}] ✅ Payment record created: ${payment?.id}`);
 
     // 9. CREATE TRANSACTION HISTORY RECORD
     const { error: txError } = await adminClient
@@ -393,10 +418,10 @@ Deno.serve(async (req) => {
       });
 
     if (txError) {
-      console.error(`[${requestId}] Transaction error:`, txError);
+      console.error(`[${requestId}] ⚠️ Transaction error:`, txError);
       // Don't fail the request, just log it
     } else {
-      console.log(`[${requestId}] Transaction history created`);
+      console.log(`[${requestId}] ✅ Transaction history created`);
     }
 
     // 10. STORE IN NOWPAYMENTS_ORDERS (for backward compatibility)
@@ -418,13 +443,13 @@ Deno.serve(async (req) => {
       });
 
     if (orderError) {
-      console.error(`[${requestId}] Order error:`, orderError);
+      console.error(`[${requestId}] ⚠️ Order error:`, orderError);
       // Don't fail the request, just log it
     } else {
-      console.log(`[${requestId}] NOWPayments order created`);
+      console.log(`[${requestId}] ✅ NOWPayments order created`);
     }
 
-    console.log(`[${requestId}] ✅ SUCCESS - Invoice created`);
+    console.log(`[${requestId}] ✅✅✅ SUCCESS - Invoice created`);
 
     return new Response(
       JSON.stringify({
@@ -447,7 +472,7 @@ Deno.serve(async (req) => {
     );
 
   } catch (error: any) {
-    console.error(`[${requestId}] ❌ ERROR:`, error.message);
+    console.error(`[${requestId}] ❌❌❌ ERROR:`, error.message);
     console.error(`[${requestId}] Stack:`, error.stack);
 
     return new Response(
