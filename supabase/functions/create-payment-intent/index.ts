@@ -42,28 +42,55 @@ Deno.serve(async (req) => {
       throw new Error('Missing environment variables');
     }
 
-    // 2. AUTHENTICATE USER
+    // 2. AUTHENTICATE USER - FIXED: Use anon key for auth check
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       console.error(`[${requestId}] No authorization header`);
-      throw new Error('No authorization header');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'No authorization header provided',
+        }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
-    // Create client for auth check
-    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
+    // Extract JWT token from Authorization header
+    const token = authHeader.replace('Bearer ', '');
+    
+    // Create client with anon key for auth verification
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    if (!anonKey) {
+      throw new Error('SUPABASE_ANON_KEY not configured');
+    }
+
+    const authClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    const { data: { user }, error: authError } = await authClient.auth.getUser(token);
 
     if (authError || !user) {
       console.error(`[${requestId}] Auth failed:`, authError?.message);
-      throw new Error('Authentication failed');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Authentication failed',
+          details: authError?.message,
+        }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     console.log(`[${requestId}] User authenticated: ${user.id}`);
 
-    // Create admin client for database operations
+    // Create admin client for database operations (bypasses RLS)
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
     // 3. PARSE REQUEST BODY
@@ -73,19 +100,46 @@ Deno.serve(async (req) => {
       console.log(`[${requestId}] Request body:`, JSON.stringify(body, null, 2));
     } catch (e) {
       console.error(`[${requestId}] JSON parse error:`, e);
-      throw new Error('Invalid JSON in request body');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Invalid JSON in request body',
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     // 4. VALIDATE REQUEST
     if (!body.order_id || !body.price_amount || !body.price_currency) {
       console.error(`[${requestId}] Missing required fields`);
-      throw new Error('Missing required fields: order_id, price_amount, price_currency');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Missing required fields: order_id, price_amount, price_currency',
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     const amount = Number(body.price_amount);
     if (isNaN(amount) || amount < 3 || amount > 500000) {
       console.error(`[${requestId}] Invalid amount: ${body.price_amount}`);
-      throw new Error(`Invalid amount: ${body.price_amount}. Must be between 3 and 500000 USDT`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Invalid amount: ${body.price_amount}. Must be between 3 and 500000 USDT`,
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     console.log(`[${requestId}] Validated:`, {
@@ -141,12 +195,30 @@ Deno.serve(async (req) => {
 
     if (metricsError) {
       console.error(`[${requestId}] Metrics error:`, metricsError);
-      throw new Error(`Failed to fetch phase information: ${metricsError.message}`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Failed to fetch phase information: ${metricsError.message}`,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     if (!metrics) {
       console.error(`[${requestId}] No metrics found`);
-      throw new Error('No metrics found in database');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'No metrics found in database',
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     const pricePerMxi = Number(metrics.current_price_usdt);
@@ -188,7 +260,17 @@ Deno.serve(async (req) => {
 
     if (!nowpaymentsResponse.ok) {
       console.error(`[${requestId}] NOWPayments API error: ${nowpaymentsResponse.status}`);
-      throw new Error(`NOWPayments API error: ${nowpaymentsResponse.status} - ${responseText}`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `NOWPayments API error: ${nowpaymentsResponse.status}`,
+          details: responseText,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     let invoiceData;
@@ -196,19 +278,78 @@ Deno.serve(async (req) => {
       invoiceData = JSON.parse(responseText);
     } catch (e) {
       console.error(`[${requestId}] Failed to parse NOWPayments response:`, e);
-      throw new Error('Invalid response from NOWPayments');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Invalid response from NOWPayments',
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     if (!invoiceData.invoice_url) {
       console.error(`[${requestId}] No invoice_url in response:`, invoiceData);
-      throw new Error('No invoice URL in NOWPayments response');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'No invoice URL in NOWPayments response',
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     console.log(`[${requestId}] Invoice URL: ${invoiceData.invoice_url}`);
     console.log(`[${requestId}] Invoice ID: ${invoiceData.id}`);
 
-    // Create transaction record
-    const { data: transaction, error: txError } = await adminClient
+    // CRITICAL FIX: Insert into payments table (primary table for webhook)
+    const { data: payment, error: paymentError } = await adminClient
+      .from('payments')
+      .insert({
+        order_id: body.order_id,
+        user_id: user.id,
+        payment_id: invoiceData.id || null,
+        invoice_url: invoiceData.invoice_url,
+        pay_address: invoiceData.pay_address || null,
+        price_amount: amount,
+        price_currency: 'usd',
+        pay_amount: amount,
+        pay_currency: body.pay_currency,
+        actually_paid: 0,
+        mxi_amount: mxiAmount,
+        price_per_mxi: pricePerMxi,
+        phase: metrics.current_phase,
+        status: 'waiting',
+        payment_status: 'waiting',
+        expires_at: new Date(Date.now() + 3600000).toISOString(),
+      })
+      .select()
+      .single();
+
+    if (paymentError) {
+      console.error(`[${requestId}] Payment insert error:`, paymentError);
+      console.error(`[${requestId}] Payment error details:`, JSON.stringify(paymentError, null, 2));
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Failed to create payment record: ${paymentError.message}`,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    console.log(`[${requestId}] Payment record created: ${payment?.id}`);
+
+    // Create transaction record (for history)
+    const { error: txError } = await adminClient
       .from('transaction_history')
       .insert({
         user_id: user.id,
@@ -225,20 +366,17 @@ Deno.serve(async (req) => {
           pay_currency: body.pay_currency,
           invoice_data: invoiceData,
         },
-      })
-      .select()
-      .single();
+      });
 
     if (txError) {
       console.error(`[${requestId}] Transaction error:`, txError);
-      console.error(`[${requestId}] Transaction error details:`, JSON.stringify(txError, null, 2));
-      // Don't throw here, continue with nowpayments_orders
+      // Don't fail the request, just log it
     } else {
-      console.log(`[${requestId}] Transaction created: ${transaction?.id}`);
+      console.log(`[${requestId}] Transaction history created`);
     }
 
-    // Store in nowpayments_orders
-    const { data: order, error: orderError } = await adminClient
+    // Store in nowpayments_orders (for backward compatibility)
+    const { error: orderError } = await adminClient
       .from('nowpayments_orders')
       .insert({
         user_id: user.id,
@@ -253,17 +391,15 @@ Deno.serve(async (req) => {
         pay_currency: body.pay_currency,
         pay_amount: amount,
         expires_at: new Date(Date.now() + 3600000).toISOString(),
-      })
-      .select()
-      .single();
+      });
 
     if (orderError) {
       console.error(`[${requestId}] Order error:`, orderError);
-      console.error(`[${requestId}] Order error details:`, JSON.stringify(orderError, null, 2));
-      throw new Error(`Failed to create order: ${orderError.message}`);
+      // Don't fail the request, just log it
+    } else {
+      console.log(`[${requestId}] NOWPayments order created`);
     }
 
-    console.log(`[${requestId}] Order created: ${order?.id}`);
     console.log(`[${requestId}] SUCCESS - Invoice created`);
 
     return new Response(

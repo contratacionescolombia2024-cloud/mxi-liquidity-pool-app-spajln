@@ -52,7 +52,7 @@ export default function DepositScreen() {
   const [loading, setLoading] = useState(false);
   const [loadingCurrencies, setLoadingCurrencies] = useState(false);
   const [mxiAmount, setMxiAmount] = useState(0);
-  const [currentPrice, setCurrentPrice] = useState(0.40);
+  const [currentPrice, setCurrentPrice] = useState(0.30);
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | null>(null);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
@@ -114,7 +114,7 @@ export default function DepositScreen() {
       console.log('Setting Realtime auth token');
       await supabase.realtime.setAuth(currentSession.access_token);
 
-      // Subscribe to nowpayments_orders table changes
+      // CRITICAL FIX: Subscribe to payments table (not nowpayments_orders)
       const channel = supabase
         .channel(`payment-updates-${orderId}`)
         .on(
@@ -122,7 +122,7 @@ export default function DepositScreen() {
           {
             event: '*',
             schema: 'public',
-            table: 'nowpayments_orders',
+            table: 'payments',
             filter: `order_id=eq.${orderId}`,
           },
           (payload) => {
@@ -140,16 +140,16 @@ export default function DepositScreen() {
                 order_id: record.order_id,
                 status: record.status,
                 payment_status: record.payment_status || record.status,
-                price_amount: record.usdt_amount,
+                price_amount: record.price_amount,
                 pay_currency: record.pay_currency,
                 actually_paid: record.actually_paid || 0,
-                invoice_url: record.payment_url,
+                invoice_url: record.invoice_url,
                 created_at: record.created_at,
                 updated_at: record.updated_at,
               });
 
               // Handle payment completion
-              if (record.status === 'finished' || record.status === 'confirmed') {
+              if (record.status === 'paid' || record.status === 'confirmed' || record.status === 'finished') {
                 console.log('Payment confirmed!');
                 Alert.alert(
                   '¡Pago Confirmado!',
@@ -463,6 +463,7 @@ export default function DepositScreen() {
     switch (status) {
       case 'finished':
       case 'confirmed':
+      case 'paid':
         return colors.success;
       case 'failed':
       case 'expired':
@@ -485,6 +486,7 @@ export default function DepositScreen() {
       confirming: 'Confirmando',
       confirmed: 'Confirmado',
       finished: 'Completado',
+      paid: 'Pagado',
       failed: 'Fallido',
       expired: 'Expirado',
       refunded: 'Reembolsado',
