@@ -121,7 +121,7 @@ export default function SelectCurrencyScreen() {
       const requestBody = {
         order_id: newOrderId,
         price_amount: parseFloat(usdtAmount),
-        price_currency: 'USD',
+        price_currency: 'usd', // FIXED: Changed from 'USD' to 'usd' (lowercase)
         // NO pay_currency - this triggers Step 1 (fetch currencies)
       };
       console.log('Request body:', JSON.stringify(requestBody, null, 2));
@@ -279,7 +279,7 @@ export default function SelectCurrencyScreen() {
           body: JSON.stringify({
             order_id: orderId,
             price_amount: parseFloat(usdtAmount),
-            price_currency: 'USD',
+            price_currency: 'usd', // FIXED: Changed from 'USD' to 'usd' (lowercase)
             pay_currency: currencyCode, // This triggers Step 2 (generate invoice)
           }),
         }
