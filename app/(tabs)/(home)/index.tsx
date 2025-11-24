@@ -671,6 +671,41 @@ export default function HomeScreen() {
           </View>
         )}
 
+        {/* Buy MXI Button */}
+        <TouchableOpacity
+          style={{
+            backgroundColor: colors.primary,
+            borderRadius: 16,
+            padding: 20,
+            marginBottom: 16,
+            alignItems: 'center',
+            flexDirection: 'row',
+            justifyContent: 'center',
+            gap: 12,
+            borderWidth: 2,
+            borderColor: colors.primary,
+          }}
+          onPress={() => router.push('/(tabs)/(home)/contrataciones')}
+        >
+          <IconSymbol
+            ios_icon_name="cart.fill"
+            android_material_icon_name="shopping_cart"
+            size={28}
+            color="#000000"
+          />
+          <Text
+            style={{
+              fontSize: 20,
+              fontWeight: '900',
+              color: '#000000',
+              textTransform: 'uppercase',
+              letterSpacing: 1,
+            }}
+          >
+            Comprar MXI
+          </Text>
+        </TouchableOpacity>
+
         {/* Launch Countdown */}
         <LaunchCountdown />
 
