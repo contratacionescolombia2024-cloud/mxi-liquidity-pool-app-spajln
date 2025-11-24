@@ -318,6 +318,37 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginVertical: 8,
   },
+  testButton: {
+    backgroundColor: '#2196F3',
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  testButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  successCard: {
+    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#4CAF50',
+  },
+  successTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#4CAF50',
+    marginBottom: 8,
+  },
+  successText: {
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
+  },
 });
 
 interface ErrorDetails {
@@ -348,12 +379,13 @@ export default function ContratacionesScreen() {
   const [errorDetails, setErrorDetails] = useState<ErrorDetails | null>(null);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [showConfigError, setShowConfigError] = useState(false);
+  const [testingEnv, setTestingEnv] = useState(false);
+  const [envTestResult, setEnvTestResult] = useState<any>(null);
 
   useEffect(() => {
     loadPhaseInfo();
     loadRecentPayments();
 
-    // Subscribe to payment updates
     const channel = supabase
       .channel('payment-updates')
       .on(
@@ -421,6 +453,46 @@ export default function ContratacionesScreen() {
     }
   };
 
+  const testEnvironmentVariables = async () => {
+    setTestingEnv(true);
+    setEnvTestResult(null);
+    setShowConfigError(false);
+
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !sessionData.session) {
+        Alert.alert('Error', 'Debes iniciar sesión para realizar esta prueba');
+        setTestingEnv(false);
+        return;
+      }
+
+      const response = await fetch(
+        'https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/test-env-vars',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${sessionData.session.access_token}`,
+          },
+        }
+      );
+
+      const result = await response.json();
+      console.log('Environment test result:', result);
+      setEnvTestResult(result);
+
+      if (result.environment_variables?.NOWPAYMENTS_API_KEY === 'MISSING') {
+        setShowConfigError(true);
+      }
+    } catch (error: any) {
+      console.error('Error testing environment:', error);
+      Alert.alert('Error', `No se pudo probar las variables de entorno: ${error.message}`);
+    } finally {
+      setTestingEnv(false);
+    }
+  };
+
   const handleCreatePayment = async () => {
     if (!amount || parseFloat(amount) < 3) {
       Alert.alert('Error', 'El monto mínimo es 3 USDT');
@@ -439,7 +511,6 @@ export default function ContratacionesScreen() {
     console.log(`Monto: ${amount} USDT`);
 
     try {
-      // Step 1: Get session
       console.log('Step 1: Obteniendo sesión de usuario...');
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       
@@ -457,11 +528,9 @@ export default function ContratacionesScreen() {
 
       console.log(`Sesión obtenida. User ID: ${sessionData.session.user.id}`);
 
-      // Step 2: Generate unique order ID
       const orderId = `${user?.id}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
       console.log(`Order ID generado: ${orderId}`);
 
-      // Step 3: Prepare request - USING CORRECT PROJECT URL
       const requestUrl = 'https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/create-payment-intent';
       const requestBody = {
         order_id: orderId,
@@ -474,7 +543,6 @@ export default function ContratacionesScreen() {
       console.log(`URL: ${requestUrl}`);
       console.log(`Body: ${JSON.stringify(requestBody)}`);
 
-      // Step 4: Make request
       console.log('Step 3: Enviando solicitud a Edge Function...');
       const startTime = Date.now();
 
@@ -511,7 +579,6 @@ export default function ContratacionesScreen() {
       console.log(`Respuesta recibida en ${endTime - startTime}ms`);
       console.log(`Status Code: ${response.status} ${response.statusText}`);
 
-      // Step 5: Read response text first
       console.log('Step 4: Leyendo respuesta...');
       let responseText;
       
@@ -538,7 +605,6 @@ export default function ContratacionesScreen() {
         throw new Error('Error al leer la respuesta del servidor');
       }
 
-      // Step 6: Parse JSON
       console.log('Step 5: Parseando JSON...');
       let result;
       
@@ -569,14 +635,12 @@ export default function ContratacionesScreen() {
         throw new Error('El servidor devolvió una respuesta inválida');
       }
 
-      // Step 7: Check for errors in response
       if (!response.ok || !result.success) {
         console.log('Step 6: Error en la respuesta');
         console.log(`Error code: ${result.code || 'UNKNOWN'}`);
         console.log(`Error message: ${result.error || 'Unknown error'}`);
         console.log(`Request ID: ${result.requestId || 'none'}`);
         
-        // Check if this is a configuration error
         if (result.code === 'MISSING_API_KEY' || result.code === 'MISSING_SUPABASE_CREDS') {
           setShowConfigError(true);
           throw new Error('CONFIGURATION_ERROR');
@@ -598,7 +662,6 @@ export default function ContratacionesScreen() {
         setErrorDetails(errorDetail);
         setShowErrorModal(true);
         
-        // Provide user-friendly error messages
         let userMessage = result.error || 'Error al crear el pago';
         
         if (result.code === 'NOWPAYMENTS_API_ERROR') {
@@ -619,7 +682,6 @@ export default function ContratacionesScreen() {
       console.log(`Invoice URL: ${result.intent?.invoice_url}`);
       console.log(`Payment ID: ${result.intent?.payment_id}`);
 
-      // Step 8: Open payment URL
       if (result.intent?.invoice_url) {
         console.log('Step 8: Abriendo URL de pago...');
         
@@ -651,7 +713,6 @@ export default function ContratacionesScreen() {
           );
         }
 
-        // Start polling for status updates
         startPolling(result.intent.order_id);
 
         Alert.alert(
@@ -735,7 +796,7 @@ export default function ContratacionesScreen() {
       } catch (error) {
         console.error('Error polling payment status:', error);
       }
-    }, 5000); // Poll every 5 seconds
+    }, 5000);
 
     setPollingInterval(interval);
   };
@@ -816,13 +877,13 @@ export default function ContratacionesScreen() {
             <Text style={styles.configErrorText}>
               El sistema de pagos no está configurado correctamente. Este es un problema del servidor que debe ser resuelto por el administrador.
             </Text>
-            <Text style={styles.configErrorText} style={{ marginTop: 12, fontWeight: '600' }}>
+            <Text style={[styles.configErrorText, { marginTop: 12, fontWeight: '600' }]}>
               Problema Detectado:
             </Text>
             <Text style={styles.configErrorBullet}>
               • Las credenciales de NOWPayments no están configuradas en el servidor
             </Text>
-            <Text style={styles.configErrorText} style={{ marginTop: 12, fontWeight: '600' }}>
+            <Text style={[styles.configErrorText, { marginTop: 12, fontWeight: '600' }]}>
               Solución (Para el Administrador):
             </Text>
             <Text style={styles.configErrorBullet}>
@@ -841,11 +902,40 @@ export default function ContratacionesScreen() {
             <Text style={styles.configErrorBullet}>
               4. Redesplegar las Edge Functions
             </Text>
-            <Text style={styles.configErrorText} style={{ marginTop: 12, fontStyle: 'italic' }}>
+            <Text style={[styles.configErrorText, { marginTop: 12, fontStyle: 'italic' }]}>
               Por favor, contacta al administrador del sistema para resolver este problema.
             </Text>
           </View>
         )}
+
+        {envTestResult && envTestResult.environment_variables?.NOWPAYMENTS_API_KEY !== 'MISSING' && (
+          <View style={styles.successCard}>
+            <Text style={styles.successTitle}>✅ Configuración Correcta</Text>
+            <Text style={styles.successText}>
+              Las variables de entorno están configuradas correctamente. El sistema de pagos debería funcionar.
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Diagnóstico del Sistema</Text>
+          <Text style={styles.infoText}>
+            Si experimentas problemas con los pagos, usa este botón para verificar que las variables de entorno estén configuradas correctamente.
+          </Text>
+          <TouchableOpacity
+            style={styles.testButton}
+            onPress={testEnvironmentVariables}
+            disabled={testingEnv}
+          >
+            {testingEnv ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.testButtonText}>
+                Probar Configuración del Servidor
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.warningCard}>
           <Text style={styles.warningTitle}>⚠️ Importante</Text>
@@ -1023,7 +1113,6 @@ export default function ContratacionesScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Error Modal */}
       <Modal
         visible={showErrorModal}
         transparent={true}
