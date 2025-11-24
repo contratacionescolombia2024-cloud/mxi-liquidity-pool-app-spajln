@@ -18,6 +18,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import * as WebBrowser from 'expo-web-browser';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 const MIN_USDT = 3;
 const MAX_USDT = 500000;
@@ -25,6 +26,19 @@ const MAX_USDT = 500000;
 interface Currency {
   code: string;
   name: string;
+}
+
+interface PaymentStatus {
+  id: string;
+  order_id: string;
+  status: string;
+  payment_status: string;
+  price_amount: number;
+  pay_currency: string;
+  actually_paid: number;
+  invoice_url: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export default function DepositScreen() {
@@ -39,14 +53,19 @@ export default function DepositScreen() {
   const [mxiAmount, setMxiAmount] = useState(0);
   const [currentPrice, setCurrentPrice] = useState(0.40);
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
-  const [paymentStatus, setPaymentStatus] = useState<any>(null);
-  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | null>(null);
+  const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
+  const [realtimeChannel, setRealtimeChannel] = useState<RealtimeChannel | null>(null);
+  const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
 
   useEffect(() => {
     loadPhaseInfo();
+    
     return () => {
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
+      // Cleanup Realtime subscription on unmount
+      if (realtimeChannel) {
+        console.log('Cleaning up Realtime channel');
+        realtimeChannel.unsubscribe();
       }
     };
   }, []);
@@ -69,6 +88,124 @@ export default function DepositScreen() {
       }
     } catch (error) {
       console.error('Error loading phase info:', error);
+    }
+  };
+
+  const subscribeToPaymentUpdates = async (orderId: string) => {
+    console.log('\n========== SUBSCRIBING TO REALTIME ==========');
+    console.log('Order ID:', orderId);
+
+    try {
+      // Unsubscribe from previous channel if exists
+      if (realtimeChannel) {
+        console.log('Unsubscribing from previous channel');
+        await realtimeChannel.unsubscribe();
+      }
+
+      // Get current session token
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      
+      if (!currentSession?.access_token) {
+        console.error('No session token available');
+        return;
+      }
+
+      console.log('Setting Realtime auth token');
+      await supabase.realtime.setAuth(currentSession.access_token);
+
+      // Create private channel for this payment
+      const channelName = `payment:${orderId}`;
+      console.log('Creating channel:', channelName);
+
+      const channel = supabase.channel(channelName, {
+        config: {
+          private: true,
+          broadcast: { ack: true },
+        },
+      });
+
+      // Subscribe to database changes
+      channel
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'payments',
+            filter: `order_id=eq.${orderId}`,
+          },
+          (payload) => {
+            console.log('\n========== REALTIME UPDATE RECEIVED ==========');
+            console.log('Event:', payload.eventType);
+            console.log('Payload:', JSON.stringify(payload, null, 2));
+
+            if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+              const record = payload.new as PaymentStatus;
+              console.log('Payment status updated:', record.status);
+              
+              setPaymentStatus(record);
+
+              // Handle payment completion
+              if (record.status === 'paid') {
+                console.log('Payment confirmed!');
+                Alert.alert(
+                  '¡Pago Confirmado!',
+                  `Tu pago ha sido confirmado exitosamente. Los MXI se han acreditado a tu cuenta.`,
+                  [
+                    {
+                      text: 'Ver Balance',
+                      onPress: () => router.push('/(tabs)/(home)'),
+                    },
+                  ]
+                );
+                
+                // Unsubscribe after successful payment
+                if (realtimeChannel) {
+                  realtimeChannel.unsubscribe();
+                  setRealtimeChannel(null);
+                  setIsRealtimeConnected(false);
+                }
+              } else if (record.status === 'failed' || record.status === 'expired') {
+                console.log('Payment failed/expired');
+                Alert.alert(
+                  'Pago No Completado',
+                  `El pago ha ${record.status === 'failed' ? 'fallado' : 'expirado'}. Por favor intenta nuevamente.`,
+                  [{ text: 'OK' }]
+                );
+                
+                // Unsubscribe after failed payment
+                if (realtimeChannel) {
+                  realtimeChannel.unsubscribe();
+                  setRealtimeChannel(null);
+                  setIsRealtimeConnected(false);
+                }
+              }
+            }
+          }
+        )
+        .subscribe((status) => {
+          console.log('Realtime subscription status:', status);
+          
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ Successfully subscribed to payment updates');
+            setIsRealtimeConnected(true);
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('❌ Realtime channel error');
+            setIsRealtimeConnected(false);
+          } else if (status === 'TIMED_OUT') {
+            console.error('❌ Realtime subscription timed out');
+            setIsRealtimeConnected(false);
+          } else if (status === 'CLOSED') {
+            console.log('Realtime channel closed');
+            setIsRealtimeConnected(false);
+          }
+        });
+
+      setRealtimeChannel(channel);
+      console.log('Realtime channel setup complete');
+    } catch (error) {
+      console.error('Error setting up Realtime subscription:', error);
+      setIsRealtimeConnected(false);
     }
   };
 
@@ -138,6 +275,7 @@ export default function DepositScreen() {
 
         console.log('Currencies loaded:', currencyList.length);
         setCurrencies(currencyList);
+        setCurrentOrderId(orderId);
         setShowCurrencyModal(true);
       } else {
         throw new Error('No se pudieron cargar las criptomonedas disponibles');
@@ -180,6 +318,11 @@ export default function DepositScreen() {
       return;
     }
 
+    if (!currentOrderId) {
+      Alert.alert('Error', 'No se pudo generar el ID de orden');
+      return;
+    }
+
     const usdtAmount = parseFloat(amount);
 
     if (isNaN(usdtAmount) || usdtAmount < MIN_USDT || usdtAmount > MAX_USDT) {
@@ -193,10 +336,8 @@ export default function DepositScreen() {
     setLoading(true);
 
     try {
-      const orderId = `MXI-${Date.now()}-${user?.id.substring(0, 8)}`;
-
       const requestBody = {
-        order_id: orderId,
+        order_id: currentOrderId,
         price_amount: usdtAmount,
         price_currency: 'usd',
         pay_currency: selectedCurrency,
@@ -237,17 +378,31 @@ export default function DepositScreen() {
         
         console.log('Opening invoice URL:', invoiceUrl);
 
+        // Subscribe to Realtime updates BEFORE opening the payment page
+        await subscribeToPaymentUpdates(currentOrderId);
+
         // Open payment URL in browser
         await WebBrowser.openBrowserAsync(invoiceUrl);
 
-        // Start polling for payment status
-        startPolling(orderId);
-
         Alert.alert(
           'Pago Iniciado',
-          'Se ha abierto la página de pago. Completa el pago y regresa a la app para ver el estado.',
+          'Se ha abierto la página de pago. Completa el pago y el estado se actualizará automáticamente en tiempo real.',
           [{ text: 'OK' }]
         );
+
+        // Set initial payment status
+        setPaymentStatus({
+          id: data.intent.id,
+          order_id: currentOrderId,
+          status: data.intent.status || 'waiting',
+          payment_status: data.intent.payment_status || 'waiting',
+          price_amount: usdtAmount,
+          pay_currency: selectedCurrency,
+          actually_paid: 0,
+          invoice_url: invoiceUrl,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
       } else {
         throw new Error('No se pudo obtener la URL de pago');
       }
@@ -263,89 +418,16 @@ export default function DepositScreen() {
     }
   };
 
-  const startPolling = (orderId: string) => {
-    if (pollingInterval) {
-      clearInterval(pollingInterval);
-    }
-
-    const interval = setInterval(async () => {
-      await checkPaymentStatus(orderId);
-    }, 5000);
-
-    setPollingInterval(interval);
-
-    setTimeout(() => {
-      if (interval) {
-        clearInterval(interval);
-      }
-    }, 30 * 60 * 1000);
-  };
-
-  const checkPaymentStatus = async (orderId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('nowpayments_orders')
-        .select('*')
-        .eq('order_id', orderId)
-        .single();
-
-      if (error) {
-        console.error('Error checking payment status:', error);
-        return;
-      }
-
-      if (data) {
-        setPaymentStatus(data);
-
-        if (
-          data.status === 'finished' ||
-          data.status === 'confirmed' ||
-          data.status === 'failed' ||
-          data.status === 'expired' ||
-          data.status === 'cancelled'
-        ) {
-          if (pollingInterval) {
-            clearInterval(pollingInterval);
-            setPollingInterval(null);
-          }
-
-          if (data.status === 'finished' || data.status === 'confirmed') {
-            Alert.alert(
-              '¡Pago Confirmado!',
-              `Has recibido ${parseFloat(data.mxi_amount.toString()).toFixed(2)} MXI en tu cuenta.`,
-              [
-                {
-                  text: 'Ver Balance',
-                  onPress: () => router.push('/(tabs)/(home)'),
-                },
-              ]
-            );
-          } else if (data.status === 'failed' || data.status === 'expired') {
-            Alert.alert(
-              'Pago No Completado',
-              `El pago ha ${data.status === 'failed' ? 'fallado' : 'expirado'}. Por favor intenta nuevamente.`,
-              [{ text: 'OK' }]
-            );
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error checking payment status:', error);
-    }
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'finished':
-      case 'confirmed':
+      case 'paid':
         return colors.success;
       case 'failed':
       case 'expired':
-      case 'cancelled':
         return colors.error;
       case 'waiting':
       case 'pending':
-      case 'confirming':
+      case 'processing':
         return colors.warning;
       default:
         return colors.textSecondary;
@@ -354,14 +436,13 @@ export default function DepositScreen() {
 
   const getStatusText = (status: string) => {
     const statusMap: { [key: string]: string } = {
+      pending: 'Pendiente',
       waiting: 'Esperando pago',
-      pending: 'Pago pendiente',
-      confirming: 'Confirmando pago',
-      confirmed: 'Pago confirmado',
-      finished: 'Completado',
+      processing: 'Procesando pago',
+      paid: 'Pago confirmado',
       failed: 'Fallido',
       expired: 'Expirado',
-      cancelled: 'Cancelado',
+      refunded: 'Reembolsado',
     };
     return statusMap[status] || status;
   };
@@ -378,6 +459,15 @@ export default function DepositScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        {isRealtimeConnected && (
+          <View style={styles.realtimeIndicator}>
+            <View style={styles.realtimeDot} />
+            <Text style={styles.realtimeIndicatorText}>
+              Actualizaciones en tiempo real activas
+            </Text>
+          </View>
+        )}
+
         <View style={[commonStyles.card, styles.balanceCard]}>
           <View style={styles.balanceHeader}>
             <IconSymbol 
@@ -463,13 +553,7 @@ export default function DepositScreen() {
             <View style={styles.statusRow}>
               <Text style={styles.statusLabel}>Monto:</Text>
               <Text style={styles.statusValue}>
-                {parseFloat(paymentStatus.usdt_amount.toString()).toFixed(2)} USDT
-              </Text>
-            </View>
-            <View style={styles.statusRow}>
-              <Text style={styles.statusLabel}>MXI:</Text>
-              <Text style={styles.statusValue}>
-                {parseFloat(paymentStatus.mxi_amount.toString()).toFixed(2)} MXI
+                {parseFloat(paymentStatus.price_amount.toString()).toFixed(2)} USDT
               </Text>
             </View>
             {paymentStatus.pay_currency && (
@@ -480,6 +564,17 @@ export default function DepositScreen() {
                 </Text>
               </View>
             )}
+            {paymentStatus.actually_paid > 0 && (
+              <View style={styles.statusRow}>
+                <Text style={styles.statusLabel}>Pagado:</Text>
+                <Text style={styles.statusValue}>
+                  {parseFloat(paymentStatus.actually_paid.toString()).toFixed(8)} {paymentStatus.pay_currency.toUpperCase()}
+                </Text>
+              </View>
+            )}
+            <Text style={[styles.statusLabel, { fontSize: 12, marginTop: 8 }]}>
+              Última actualización: {new Date(paymentStatus.updated_at).toLocaleString('es-ES')}
+            </Text>
           </View>
         )}
 
@@ -508,6 +603,10 @@ export default function DepositScreen() {
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>4.</Text>
+              <Text style={styles.infoText}>El estado se actualiza automáticamente en tiempo real</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoBullet}>5.</Text>
               <Text style={styles.infoText}>Los MXI se acreditan automáticamente a tu cuenta</Text>
             </View>
           </View>
@@ -835,5 +934,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
+  },
+  realtimeIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 255, 0, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginBottom: 12,
+  },
+  realtimeIndicatorText: {
+    fontSize: 12,
+    color: '#00FF00',
+    marginLeft: 6,
+  },
+  realtimeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#00FF00',
   },
 });

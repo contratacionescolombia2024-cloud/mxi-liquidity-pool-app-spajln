@@ -18,6 +18,7 @@ import { colors } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import * as WebBrowser from 'expo-web-browser';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 const MIN_USDT = 3;
 const MAX_USDT = 500000;
@@ -220,11 +221,44 @@ const styles = StyleSheet.create({
     color: colors.warning,
     marginTop: 4,
   },
+  realtimeIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 255, 0, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginBottom: 12,
+  },
+  realtimeIndicatorText: {
+    fontSize: 12,
+    color: '#00FF00',
+    marginLeft: 6,
+  },
+  realtimeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#00FF00',
+  },
 });
 
 interface Currency {
   code: string;
   name: string;
+}
+
+interface PaymentStatus {
+  id: string;
+  order_id: string;
+  status: string;
+  payment_status: string;
+  price_amount: number;
+  pay_currency: string;
+  actually_paid: number;
+  invoice_url: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export default function ContratacionesScreen() {
@@ -239,14 +273,19 @@ export default function ContratacionesScreen() {
   const [mxiAmount, setMxiAmount] = useState(0);
   const [currentPrice, setCurrentPrice] = useState(0.30);
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
-  const [paymentStatus, setPaymentStatus] = useState<any>(null);
-  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | null>(null);
+  const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
+  const [realtimeChannel, setRealtimeChannel] = useState<RealtimeChannel | null>(null);
+  const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
 
   useEffect(() => {
     loadPhaseInfo();
+    
     return () => {
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
+      // Cleanup Realtime subscription on unmount
+      if (realtimeChannel) {
+        console.log('Cleaning up Realtime channel');
+        realtimeChannel.unsubscribe();
       }
     };
   }, []);
@@ -272,6 +311,124 @@ export default function ContratacionesScreen() {
     }
   };
 
+  const subscribeToPaymentUpdates = async (orderId: string) => {
+    console.log('\n========== SUBSCRIBING TO REALTIME ==========');
+    console.log('Order ID:', orderId);
+
+    try {
+      // Unsubscribe from previous channel if exists
+      if (realtimeChannel) {
+        console.log('Unsubscribing from previous channel');
+        await realtimeChannel.unsubscribe();
+      }
+
+      // Get current session token
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      
+      if (!currentSession?.access_token) {
+        console.error('No session token available');
+        return;
+      }
+
+      console.log('Setting Realtime auth token');
+      await supabase.realtime.setAuth(currentSession.access_token);
+
+      // Create private channel for this payment
+      const channelName = `payment:${orderId}`;
+      console.log('Creating channel:', channelName);
+
+      const channel = supabase.channel(channelName, {
+        config: {
+          private: true,
+          broadcast: { ack: true },
+        },
+      });
+
+      // Subscribe to database changes
+      channel
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'payments',
+            filter: `order_id=eq.${orderId}`,
+          },
+          (payload) => {
+            console.log('\n========== REALTIME UPDATE RECEIVED ==========');
+            console.log('Event:', payload.eventType);
+            console.log('Payload:', JSON.stringify(payload, null, 2));
+
+            if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+              const record = payload.new as PaymentStatus;
+              console.log('Payment status updated:', record.status);
+              
+              setPaymentStatus(record);
+
+              // Handle payment completion
+              if (record.status === 'paid') {
+                console.log('Payment confirmed!');
+                Alert.alert(
+                  '¡Pago Confirmado!',
+                  `Tu pago ha sido confirmado exitosamente. Los MXI se han acreditado a tu cuenta.`,
+                  [
+                    {
+                      text: 'Ver Balance',
+                      onPress: () => router.push('/(tabs)/(home)'),
+                    },
+                  ]
+                );
+                
+                // Unsubscribe after successful payment
+                if (realtimeChannel) {
+                  realtimeChannel.unsubscribe();
+                  setRealtimeChannel(null);
+                  setIsRealtimeConnected(false);
+                }
+              } else if (record.status === 'failed' || record.status === 'expired') {
+                console.log('Payment failed/expired');
+                Alert.alert(
+                  'Pago No Completado',
+                  `El pago ha ${record.status === 'failed' ? 'fallado' : 'expirado'}. Por favor intenta nuevamente.`,
+                  [{ text: 'OK' }]
+                );
+                
+                // Unsubscribe after failed payment
+                if (realtimeChannel) {
+                  realtimeChannel.unsubscribe();
+                  setRealtimeChannel(null);
+                  setIsRealtimeConnected(false);
+                }
+              }
+            }
+          }
+        )
+        .subscribe((status) => {
+          console.log('Realtime subscription status:', status);
+          
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ Successfully subscribed to payment updates');
+            setIsRealtimeConnected(true);
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('❌ Realtime channel error');
+            setIsRealtimeConnected(false);
+          } else if (status === 'TIMED_OUT') {
+            console.error('❌ Realtime subscription timed out');
+            setIsRealtimeConnected(false);
+          } else if (status === 'CLOSED') {
+            console.log('Realtime channel closed');
+            setIsRealtimeConnected(false);
+          }
+        });
+
+      setRealtimeChannel(channel);
+      console.log('Realtime channel setup complete');
+    } catch (error) {
+      console.error('Error setting up Realtime subscription:', error);
+      setIsRealtimeConnected(false);
+    }
+  };
+
   const loadCurrencies = async () => {
     if (!session?.access_token) {
       Alert.alert('Error', 'Por favor inicia sesión para continuar');
@@ -282,6 +439,10 @@ export default function ContratacionesScreen() {
     try {
       const orderId = `MXI-${Date.now()}-${user?.id.substring(0, 8)}`;
       const usdtAmount = parseFloat(amount);
+
+      console.log('\n========== LOADING CURRENCIES ==========');
+      console.log('Order ID:', orderId);
+      console.log('Amount:', usdtAmount);
 
       const response = await fetch(
         `https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/create-payment-intent`,
@@ -323,6 +484,7 @@ export default function ContratacionesScreen() {
           }));
 
         setCurrencies(filteredCurrencies);
+        setCurrentOrderId(orderId);
         setShowCurrencyModal(true);
       } else {
         throw new Error('No se pudieron cargar las criptomonedas disponibles');
@@ -359,6 +521,11 @@ export default function ContratacionesScreen() {
       return;
     }
 
+    if (!currentOrderId) {
+      Alert.alert('Error', 'No se pudo generar el ID de orden');
+      return;
+    }
+
     const usdtAmount = parseFloat(amount);
 
     if (isNaN(usdtAmount) || usdtAmount < MIN_USDT || usdtAmount > MAX_USDT) {
@@ -371,14 +538,10 @@ export default function ContratacionesScreen() {
 
     setLoading(true);
     try {
-      const orderId = `MXI-${Date.now()}-${user?.id.substring(0, 8)}`;
-
-      console.log('Creating payment with:', {
-        order_id: orderId,
-        price_amount: usdtAmount,
-        price_currency: 'usd',
-        pay_currency: selectedCurrency,
-      });
+      console.log('\n========== CREATING PAYMENT ==========');
+      console.log('Order ID:', currentOrderId);
+      console.log('Amount:', usdtAmount);
+      console.log('Currency:', selectedCurrency);
 
       const response = await fetch(
         `https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/create-payment-intent`,
@@ -389,7 +552,7 @@ export default function ContratacionesScreen() {
             'Authorization': `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
-            order_id: orderId,
+            order_id: currentOrderId,
             price_amount: usdtAmount,
             price_currency: 'usd',
             pay_currency: selectedCurrency,
@@ -404,20 +567,36 @@ export default function ContratacionesScreen() {
         throw new Error(data.error || 'Error al crear el pago');
       }
 
-      if (data.intent?.invoice_url || data.intent?.nowpayment_invoice_url) {
-        const invoiceUrl = data.intent.invoice_url || data.intent.nowpayment_invoice_url;
+      if (data.intent?.invoice_url) {
+        const invoiceUrl = data.intent.invoice_url;
         
+        console.log('Opening invoice URL:', invoiceUrl);
+
+        // Subscribe to Realtime updates BEFORE opening the payment page
+        await subscribeToPaymentUpdates(currentOrderId);
+
         // Open payment URL in browser
         await WebBrowser.openBrowserAsync(invoiceUrl);
 
-        // Start polling for payment status
-        startPolling(orderId);
-
         Alert.alert(
           'Pago Iniciado',
-          'Se ha abierto la página de pago. Completa el pago y regresa a la app para ver el estado.',
+          'Se ha abierto la página de pago. Completa el pago y el estado se actualizará automáticamente en tiempo real.',
           [{ text: 'OK' }]
         );
+
+        // Set initial payment status
+        setPaymentStatus({
+          id: data.intent.id,
+          order_id: currentOrderId,
+          status: data.intent.status || 'waiting',
+          payment_status: data.intent.payment_status || 'waiting',
+          price_amount: usdtAmount,
+          pay_currency: selectedCurrency,
+          actually_paid: 0,
+          invoice_url: invoiceUrl,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
       } else {
         throw new Error('No se pudo obtener la URL de pago');
       }
@@ -430,93 +609,16 @@ export default function ContratacionesScreen() {
     }
   };
 
-  const startPolling = (orderId: string) => {
-    // Clear any existing interval
-    if (pollingInterval) {
-      clearInterval(pollingInterval);
-    }
-
-    // Poll every 5 seconds
-    const interval = setInterval(async () => {
-      await checkPaymentStatus(orderId);
-    }, 5000);
-
-    setPollingInterval(interval);
-
-    // Stop polling after 30 minutes
-    setTimeout(() => {
-      if (interval) {
-        clearInterval(interval);
-      }
-    }, 30 * 60 * 1000);
-  };
-
-  const checkPaymentStatus = async (orderId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('nowpayments_orders')
-        .select('*')
-        .eq('order_id', orderId)
-        .single();
-
-      if (error) {
-        console.error('Error checking payment status:', error);
-        return;
-      }
-
-      if (data) {
-        setPaymentStatus(data);
-
-        // Stop polling if payment is finished or failed
-        if (
-          data.status === 'finished' ||
-          data.status === 'confirmed' ||
-          data.status === 'failed' ||
-          data.status === 'expired' ||
-          data.status === 'cancelled'
-        ) {
-          if (pollingInterval) {
-            clearInterval(pollingInterval);
-            setPollingInterval(null);
-          }
-
-          if (data.status === 'finished' || data.status === 'confirmed') {
-            Alert.alert(
-              '¡Pago Confirmado!',
-              `Has recibido ${parseFloat(data.mxi_amount.toString()).toFixed(2)} MXI en tu cuenta.`,
-              [
-                {
-                  text: 'Ver Balance',
-                  onPress: () => router.push('/(tabs)/(home)'),
-                },
-              ]
-            );
-          } else if (data.status === 'failed' || data.status === 'expired') {
-            Alert.alert(
-              'Pago No Completado',
-              `El pago ha ${data.status === 'failed' ? 'fallado' : 'expirado'}. Por favor intenta nuevamente.`,
-              [{ text: 'OK' }]
-            );
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error checking payment status:', error);
-    }
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'finished':
-      case 'confirmed':
+      case 'paid':
         return colors.success;
       case 'failed':
       case 'expired':
-      case 'cancelled':
         return colors.error;
       case 'waiting':
       case 'pending':
-      case 'confirming':
+      case 'processing':
         return colors.warning;
       default:
         return colors.textSecondary;
@@ -525,14 +627,13 @@ export default function ContratacionesScreen() {
 
   const getStatusText = (status: string) => {
     const statusMap: { [key: string]: string } = {
+      pending: 'Pendiente',
       waiting: 'Esperando pago',
-      pending: 'Pago pendiente',
-      confirming: 'Confirmando pago',
-      confirmed: 'Pago confirmado',
-      finished: 'Completado',
+      processing: 'Procesando pago',
+      paid: 'Pago confirmado',
       failed: 'Fallido',
       expired: 'Expirado',
-      cancelled: 'Cancelado',
+      refunded: 'Reembolsado',
     };
     return statusMap[status] || status;
   };
@@ -560,6 +661,15 @@ export default function ContratacionesScreen() {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {isRealtimeConnected && (
+          <View style={styles.realtimeIndicator}>
+            <View style={styles.realtimeDot} />
+            <Text style={styles.realtimeIndicatorText}>
+              Actualizaciones en tiempo real activas
+            </Text>
+          </View>
+        )}
+
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Información del Pago</Text>
           <Text style={styles.infoText}>
@@ -616,16 +726,21 @@ export default function ContratacionesScreen() {
               Estado: {getStatusText(paymentStatus.status)}
             </Text>
             <Text style={styles.statusText}>
-              Monto: {parseFloat(paymentStatus.usdt_amount.toString()).toFixed(2)} USDT
-            </Text>
-            <Text style={styles.statusText}>
-              MXI: {parseFloat(paymentStatus.mxi_amount.toString()).toFixed(2)} MXI
+              Monto: {parseFloat(paymentStatus.price_amount.toString()).toFixed(2)} USDT
             </Text>
             {paymentStatus.pay_currency && (
               <Text style={styles.statusText}>
                 Moneda: {paymentStatus.pay_currency.toUpperCase()}
               </Text>
             )}
+            {paymentStatus.actually_paid > 0 && (
+              <Text style={styles.statusText}>
+                Pagado: {parseFloat(paymentStatus.actually_paid.toString()).toFixed(8)} {paymentStatus.pay_currency.toUpperCase()}
+              </Text>
+            )}
+            <Text style={[styles.statusText, { fontSize: 12, marginTop: 8 }]}>
+              Última actualización: {new Date(paymentStatus.updated_at).toLocaleString('es-ES')}
+            </Text>
           </View>
         )}
 
@@ -641,7 +756,10 @@ export default function ContratacionesScreen() {
             3. Completa el pago en la página de NOWPayments
           </Text>
           <Text style={styles.infoText}>
-            4. Los MXI se acreditarán automáticamente a tu cuenta
+            4. El estado se actualiza automáticamente en tiempo real
+          </Text>
+          <Text style={styles.infoText}>
+            5. Los MXI se acreditan automáticamente a tu cuenta
           </Text>
         </View>
 
@@ -658,6 +776,9 @@ export default function ContratacionesScreen() {
           </Text>
           <Text style={styles.infoText}>
             • Participa en el pool de liquidez
+          </Text>
+          <Text style={styles.infoText}>
+            • Actualizaciones de estado en tiempo real
           </Text>
         </View>
 
@@ -685,9 +806,9 @@ export default function ContratacionesScreen() {
               </View>
             ) : (
               <ScrollView style={{ maxHeight: 400 }}>
-                {currencies.map((currency) => (
+                {currencies.map((currency, index) => (
                   <TouchableOpacity
-                    key={currency.code}
+                    key={index}
                     style={[
                       styles.currencyButton,
                       selectedCurrency === currency.code && styles.currencyButtonSelected,
