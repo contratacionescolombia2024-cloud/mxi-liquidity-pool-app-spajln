@@ -7,171 +7,92 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface RequestBody {
+  order_id: string;
+  price_amount: number;
+  price_currency: string;
+  pay_currency?: string;
+}
+
 Deno.serve(async (req) => {
-  // Handle CORS preflight
+  // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  const requestId = crypto.randomUUID();
-  console.log(`[${requestId}] === CREATE PAYMENT INTENT - START ===`);
-  console.log(`[${requestId}] Timestamp:`, new Date().toISOString());
-  console.log(`[${requestId}] Method:`, req.method);
-  console.log(`[${requestId}] URL:`, req.url);
+  const requestId = crypto.randomUUID().substring(0, 8);
+  console.log(`\n========== [${requestId}] NEW REQUEST ==========`);
+  console.log(`Time: ${new Date().toISOString()}`);
+  console.log(`Method: ${req.method}`);
 
   try {
-    // STEP 1: Verify API Key exists
+    // 1. CHECK ENVIRONMENT VARIABLES
     const nowpaymentsApiKey = Deno.env.get('NOWPAYMENTS_API_KEY');
-    console.log(`[${requestId}] API Key check:`, nowpaymentsApiKey ? 'EXISTS' : 'MISSING');
-    
-    if (!nowpaymentsApiKey) {
-      console.error(`[${requestId}] CRITICAL: NOWPAYMENTS_API_KEY not found`);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Configuración del servidor incompleta - API Key no encontrada',
-          debug: 'NOWPAYMENTS_API_KEY environment variable is not set',
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-    console.log(`[${requestId}] ✓ API Key found (length: ${nowpaymentsApiKey.length})`);
-
-    // STEP 2: Authenticate user
-    const authHeader = req.headers.get('Authorization');
-    console.log(`[${requestId}] Auth header:`, authHeader ? 'EXISTS' : 'MISSING');
-    
-    if (!authHeader) {
-      console.error(`[${requestId}] No Authorization header`);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'No autorizado - falta token de autenticación',
-        }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
-    
-    console.log(`[${requestId}] Supabase URL:`, supabaseUrl ? 'EXISTS' : 'MISSING');
-    console.log(`[${requestId}] Supabase Anon Key:`, supabaseAnonKey ? 'EXISTS' : 'MISSING');
 
-    if (!supabaseUrl || !supabaseAnonKey) {
-      console.error(`[${requestId}] Missing Supabase credentials`);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Configuración del servidor incompleta - credenciales de Supabase',
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+    console.log(`[${requestId}] Env check:`, {
+      hasApiKey: !!nowpaymentsApiKey,
+      hasSupabaseUrl: !!supabaseUrl,
+      hasSupabaseAnonKey: !!supabaseAnonKey,
+    });
+
+    if (!nowpaymentsApiKey || !supabaseUrl || !supabaseAnonKey) {
+      throw new Error('Missing environment variables');
+    }
+
+    // 2. AUTHENTICATE USER
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('No authorization header');
     }
 
     const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseClient.auth.getUser();
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
 
     if (authError || !user) {
-      console.error(`[${requestId}] Auth error:`, authError?.message || 'No user');
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Sesión expirada o inválida',
-          debug: authError?.message,
-        }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+      console.error(`[${requestId}] Auth failed:`, authError?.message);
+      throw new Error('Authentication failed');
     }
-    console.log(`[${requestId}] ✓ User authenticated:`, user.id);
 
-    // STEP 3: Parse request body - SIMPLIFIED
-    let requestBody;
+    console.log(`[${requestId}] User authenticated: ${user.id}`);
+
+    // 3. PARSE REQUEST BODY
+    let body: RequestBody;
     try {
-      requestBody = await req.json();
-      console.log(`[${requestId}] Parsed request:`, JSON.stringify(requestBody));
+      body = await req.json();
+      console.log(`[${requestId}] Request body:`, JSON.stringify(body, null, 2));
     } catch (e) {
-      console.error(`[${requestId}] Failed to parse body:`, e.message);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Solicitud inválida - formato JSON incorrecto',
-          debug: e.message,
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+      console.error(`[${requestId}] JSON parse error:`, e);
+      throw new Error('Invalid JSON in request body');
     }
 
-    const { order_id, price_amount, price_currency, pay_currency } = requestBody;
+    // 4. VALIDATE REQUEST
+    if (!body.order_id || !body.price_amount || !body.price_currency) {
+      throw new Error('Missing required fields: order_id, price_amount, price_currency');
+    }
 
-    console.log(`[${requestId}] Parameters:`, {
-      order_id,
-      price_amount,
-      price_currency,
-      pay_currency: pay_currency || 'NOT PROVIDED',
+    const amount = Number(body.price_amount);
+    if (isNaN(amount) || amount < 3 || amount > 500000) {
+      throw new Error(`Invalid amount: ${body.price_amount}`);
+    }
+
+    console.log(`[${requestId}] Validated:`, {
+      order_id: body.order_id,
+      amount,
+      currency: body.price_currency,
+      pay_currency: body.pay_currency || 'NOT PROVIDED',
     });
 
-    // Validate required parameters
-    if (!order_id || !price_amount || !price_currency) {
-      console.error(`[${requestId}] Missing required parameters`);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Faltan parámetros requeridos (order_id, price_amount, price_currency)',
-          received: { order_id, price_amount, price_currency },
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    const amount = parseFloat(price_amount);
-    if (isNaN(amount) || amount < 3 || amount > 500000) {
-      console.error(`[${requestId}] Invalid amount:`, price_amount);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Monto inválido (debe estar entre 3 y 500,000 USDT)',
-          received: price_amount,
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    console.log(`[${requestId}] ✓ Request validated`);
-
-    // STEP 4: Determine action
-    if (!pay_currency) {
-      // ACTION A: Return available currencies
-      console.log(`[${requestId}] === ACTION A: Returning available currencies ===`);
-
-      const availableCurrencies = [
+    // 5. DETERMINE ACTION
+    if (!body.pay_currency) {
+      // RETURN AVAILABLE CURRENCIES
+      console.log(`[${requestId}] Returning available currencies`);
+      
+      const currencies = [
         'usdttrc20',
         'usdterc20',
         'usdtbep20',
@@ -181,17 +102,15 @@ Deno.serve(async (req) => {
         'trx',
       ];
 
-      console.log(`[${requestId}] ✓ Returning ${availableCurrencies.length} currencies`);
-
       return new Response(
         JSON.stringify({
           success: true,
           intent: {
-            id: order_id,
-            order_id: order_id,
+            id: body.order_id,
+            order_id: body.order_id,
             price_amount: amount,
-            price_currency: price_currency.toLowerCase(),
-            pay_currencies: availableCurrencies,
+            price_currency: body.price_currency.toLowerCase(),
+            pay_currencies: currencies,
             user_id: user.id,
             created_at: new Date().toISOString(),
           },
@@ -203,314 +122,153 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ACTION B: Create invoice with selected currency
-    console.log(`[${requestId}] === ACTION B: Creating invoice with ${pay_currency} ===`);
+    // 6. CREATE INVOICE
+    console.log(`[${requestId}] Creating invoice with ${body.pay_currency}`);
 
-    // Get phase data
-    console.log(`[${requestId}] Fetching metrics from database...`);
+    // Get phase info
     const { data: metrics, error: metricsError } = await supabaseClient
       .from('metrics')
       .select('current_phase, current_price_usdt')
       .single();
 
-    if (metricsError) {
-      console.error(`[${requestId}] Error fetching metrics:`, metricsError.message);
-      console.error(`[${requestId}] Metrics error details:`, JSON.stringify(metricsError));
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Error al obtener datos de fase',
-          debug: metricsError.message,
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+    if (metricsError || !metrics) {
+      console.error(`[${requestId}] Metrics error:`, metricsError);
+      throw new Error('Failed to fetch phase information');
     }
 
-    if (!metrics) {
-      console.error(`[${requestId}] No metrics found in database`);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'No se encontraron datos de fase en la base de datos',
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    const currentPhase = metrics.current_phase;
-    const pricePerMxi = parseFloat(metrics.current_price_usdt.toString());
+    const pricePerMxi = Number(metrics.current_price_usdt);
     const mxiAmount = amount / pricePerMxi;
 
-    console.log(`[${requestId}] Phase data:`, {
-      currentPhase,
+    console.log(`[${requestId}] Phase info:`, {
+      phase: metrics.current_phase,
       pricePerMxi,
-      amount,
       mxiAmount,
     });
 
-    // Create transaction history entry
-    console.log(`[${requestId}] Creating transaction history entry...`);
-    const { data: transaction, error: transactionError } = await supabaseClient
+    // Create transaction record
+    const { data: transaction, error: txError } = await supabaseClient
       .from('transaction_history')
       .insert({
         user_id: user.id,
         transaction_type: 'nowpayments_order',
-        order_id: order_id,
+        order_id: body.order_id,
         mxi_amount: mxiAmount,
         usdt_amount: amount,
         status: 'pending',
         metadata: {
-          phase: currentPhase,
+          phase: metrics.current_phase,
           price_per_mxi: pricePerMxi,
-          pay_currency: pay_currency,
+          pay_currency: body.pay_currency,
         },
       })
       .select()
       .single();
 
-    if (transactionError) {
-      console.error(`[${requestId}] Error creating transaction:`, transactionError.message);
-      console.error(`[${requestId}] Transaction error details:`, JSON.stringify(transactionError));
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Error al crear registro de transacción',
-          debug: transactionError.message,
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+    if (txError || !transaction) {
+      console.error(`[${requestId}] Transaction error:`, txError);
+      throw new Error('Failed to create transaction record');
     }
 
-    console.log(`[${requestId}] ✓ Transaction created:`, transaction.id);
+    console.log(`[${requestId}] Transaction created: ${transaction.id}`);
 
-    // Prepare invoice payload
+    // Call NOWPayments API
     const webhookUrl = `${supabaseUrl}/functions/v1/nowpayments-webhook`;
     const invoicePayload = {
       price_amount: amount,
       price_currency: 'usd',
-      pay_currency: pay_currency.toLowerCase(),
+      pay_currency: body.pay_currency.toLowerCase(),
       ipn_callback_url: webhookUrl,
-      order_id: order_id,
-      order_description: `Compra de ${mxiAmount.toFixed(2)} MXI - Fase ${currentPhase}`,
+      order_id: body.order_id,
+      order_description: `MXI Purchase - ${mxiAmount.toFixed(2)} MXI`,
     };
 
-    console.log(`[${requestId}] Invoice payload:`, JSON.stringify(invoicePayload));
-    console.log(`[${requestId}] Webhook URL:`, webhookUrl);
+    console.log(`[${requestId}] Calling NOWPayments API...`);
+    console.log(`[${requestId}] Payload:`, JSON.stringify(invoicePayload, null, 2));
 
-    // Call NOWPayments API
-    let invoiceResponse;
-    try {
-      console.log(`[${requestId}] Calling NOWPayments API: POST /v1/invoice`);
-      console.log(`[${requestId}] Using API Key: ${nowpaymentsApiKey.substring(0, 10)}...`);
-      
-      invoiceResponse = await fetch('https://api.nowpayments.io/v1/invoice', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': nowpaymentsApiKey,
-        },
-        body: JSON.stringify(invoicePayload),
-      });
+    const nowpaymentsResponse = await fetch('https://api.nowpayments.io/v1/invoice', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': nowpaymentsApiKey,
+      },
+      body: JSON.stringify(invoicePayload),
+    });
 
-      console.log(`[${requestId}] NOWPayments response status:`, invoiceResponse.status);
-      console.log(`[${requestId}] NOWPayments response headers:`, JSON.stringify(Object.fromEntries(invoiceResponse.headers.entries())));
-    } catch (fetchError) {
-      console.error(`[${requestId}] Network error calling NOWPayments:`, fetchError.message);
-      console.error(`[${requestId}] Fetch error stack:`, fetchError.stack);
+    console.log(`[${requestId}] NOWPayments status: ${nowpaymentsResponse.status}`);
 
+    const responseText = await nowpaymentsResponse.text();
+    console.log(`[${requestId}] NOWPayments response:`, responseText);
+
+    if (!nowpaymentsResponse.ok) {
       // Update transaction as failed
       await supabaseClient
         .from('transaction_history')
         .update({
           status: 'failed',
-          error_message: `Error de conexión: ${fetchError.message}`,
-          updated_at: new Date().toISOString(),
+          error_message: `NOWPayments error: ${nowpaymentsResponse.status}`,
         })
         .eq('id', transaction.id);
 
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Error de conexión con el servicio de pagos',
-          debug: fetchError.message,
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+      throw new Error(`NOWPayments API error: ${nowpaymentsResponse.status} - ${responseText}`);
     }
 
-    const invoiceResponseText = await invoiceResponse.text();
-    console.log(`[${requestId}] NOWPayments response body:`, invoiceResponseText);
-
-    if (!invoiceResponse.ok) {
-      console.error(`[${requestId}] NOWPayments API error:`, invoiceResponse.status);
-
-      let errorMessage = 'No se pudo generar el pago';
-      let errorDetails = invoiceResponseText;
-      
-      try {
-        const errorData = JSON.parse(invoiceResponseText);
-        errorMessage = errorData.message || errorData.error || errorMessage;
-        errorDetails = JSON.stringify(errorData);
-      } catch (e) {
-        console.log(`[${requestId}] Could not parse error response as JSON`);
-      }
-
-      // Update transaction as failed
-      await supabaseClient
-        .from('transaction_history')
-        .update({
-          status: 'failed',
-          error_message: `${errorMessage} (${invoiceResponse.status})`,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', transaction.id);
-
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: errorMessage,
-          debug: errorDetails,
-          status: invoiceResponse.status,
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    // Parse successful response
     let invoiceData;
     try {
-      invoiceData = JSON.parse(invoiceResponseText);
-      console.log(`[${requestId}] ✓ Invoice data parsed successfully`);
+      invoiceData = JSON.parse(responseText);
     } catch (e) {
-      console.error(`[${requestId}] Failed to parse invoice response:`, e.message);
-
-      await supabaseClient
-        .from('transaction_history')
-        .update({
-          status: 'failed',
-          error_message: 'Respuesta inválida del servicio de pagos',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', transaction.id);
-
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Respuesta inválida del servicio de pagos',
-          debug: e.message,
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+      console.error(`[${requestId}] Failed to parse NOWPayments response:`, e);
+      throw new Error('Invalid response from NOWPayments');
     }
 
-    console.log(`[${requestId}] Invoice data keys:`, Object.keys(invoiceData).join(', '));
-
-    // Extract invoice URL
-    const invoiceUrl = invoiceData.invoice_url;
-    if (!invoiceUrl) {
-      console.error(`[${requestId}] No invoice URL in response`);
-      console.error(`[${requestId}] Available fields:`, Object.keys(invoiceData).join(', '));
-
-      await supabaseClient
-        .from('transaction_history')
-        .update({
-          status: 'failed',
-          error_message: 'No se pudo obtener la URL de pago',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', transaction.id);
-
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'No se pudo obtener la URL de pago',
-          debug: `Available fields: ${Object.keys(invoiceData).join(', ')}`,
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+    if (!invoiceData.invoice_url) {
+      console.error(`[${requestId}] No invoice_url in response`);
+      throw new Error('No invoice URL in NOWPayments response');
     }
 
-    console.log(`[${requestId}] ✓ Invoice URL:`, invoiceUrl);
+    console.log(`[${requestId}] Invoice URL: ${invoiceData.invoice_url}`);
 
-    // Update transaction history
-    console.log(`[${requestId}] Updating transaction history...`);
+    // Update transaction
     await supabaseClient
       .from('transaction_history')
       .update({
         payment_id: invoiceData.id || null,
-        payment_url: invoiceUrl,
+        payment_url: invoiceData.invoice_url,
         status: 'waiting',
-        updated_at: new Date().toISOString(),
       })
       .eq('id', transaction.id);
 
-    // Store order in nowpayments_orders table
-    console.log(`[${requestId}] Storing order in nowpayments_orders...`);
-    const { data: order, error: orderError } = await supabaseClient
+    // Store in nowpayments_orders
+    await supabaseClient
       .from('nowpayments_orders')
       .insert({
         user_id: user.id,
-        order_id: order_id,
+        order_id: body.order_id,
         payment_id: invoiceData.id || null,
-        payment_url: invoiceUrl,
+        payment_url: invoiceData.invoice_url,
         mxi_amount: mxiAmount,
         usdt_amount: amount,
         price_per_mxi: pricePerMxi,
-        phase: currentPhase,
+        phase: metrics.current_phase,
         status: 'waiting',
-        pay_address: null,
+        pay_currency: body.pay_currency,
         pay_amount: amount,
-        pay_currency: pay_currency,
         expires_at: new Date(Date.now() + 3600000).toISOString(),
-      })
-      .select()
-      .single();
+      });
 
-    if (orderError) {
-      console.error(`[${requestId}] Error storing order:`, orderError.message);
-      console.warn(`[${requestId}] Invoice created but failed to store in DB`);
-    } else {
-      console.log(`[${requestId}] ✓ Order stored:`, order.id);
-    }
+    console.log(`[${requestId}] SUCCESS - Invoice created`);
 
-    console.log(`[${requestId}] === SUCCESS ===`);
-
-    // Return success response
     return new Response(
       JSON.stringify({
         success: true,
         intent: {
           id: invoiceData.id,
-          order_id: order_id,
-          invoice_url: invoiceUrl,
-          nowpayment_invoice_url: invoiceUrl,
+          order_id: body.order_id,
+          invoice_url: invoiceData.invoice_url,
           mxi_amount: mxiAmount,
           usdt_amount: amount,
           price_per_mxi: pricePerMxi,
-          phase: currentPhase,
-          pay_currency: pay_currency,
-          expires_at: order?.expires_at || new Date(Date.now() + 3600000).toISOString(),
+          phase: metrics.current_phase,
+          pay_currency: body.pay_currency,
         },
       }),
       {
@@ -518,21 +276,16 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
-  } catch (error) {
-    console.error(`[${requestId}] === UNEXPECTED ERROR ===`);
-    console.error(`[${requestId}] Error name:`, error.name);
-    console.error(`[${requestId}] Error message:`, error.message);
-    console.error(`[${requestId}] Error stack:`, error.stack);
+
+  } catch (error: any) {
+    console.error(`[${requestId}] ERROR:`, error.message);
+    console.error(`[${requestId}] Stack:`, error.stack);
 
     return new Response(
       JSON.stringify({
         success: false,
-        error: 'Error interno del servidor',
-        debug: {
-          name: error.name,
-          message: error.message,
-          stack: error.stack,
-        },
+        error: error.message || 'Internal server error',
+        requestId,
       }),
       {
         status: 500,

@@ -41,7 +41,6 @@ export default function DepositScreen() {
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<any>(null);
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
-  const [debugInfo, setDebugInfo] = useState<string>('');
 
   useEffect(() => {
     loadPhaseInfo();
@@ -74,12 +73,8 @@ export default function DepositScreen() {
   };
 
   const loadCurrencies = async () => {
-    console.log('=== LOAD CURRENCIES START ===');
-    console.log('Session exists:', !!session);
-    console.log('Access token exists:', !!session?.access_token);
-    console.log('User ID:', user?.id);
-    console.log('Amount:', amount);
-
+    console.log('\n========== LOAD CURRENCIES ==========');
+    
     if (!session?.access_token) {
       Alert.alert('Error', 'Por favor inicia sesión para continuar');
       return;
@@ -95,7 +90,6 @@ export default function DepositScreen() {
     }
 
     setLoadingCurrencies(true);
-    setDebugInfo('Iniciando carga de criptomonedas...');
 
     try {
       const orderId = `MXI-${Date.now()}-${user?.id.substring(0, 8)}`;
@@ -106,25 +100,21 @@ export default function DepositScreen() {
         price_currency: 'usd',
       };
 
-      console.log('Request body:', JSON.stringify(requestBody));
-      setDebugInfo(`Enviando petición con order_id: ${orderId}`);
+      console.log('Request:', JSON.stringify(requestBody, null, 2));
 
-      const url = 'https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/create-payment-intent';
-      console.log('Calling URL:', url);
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify(requestBody),
-      });
+      const response = await fetch(
+        'https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/create-payment-intent',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify(requestBody),
+        }
+      );
 
       console.log('Response status:', response.status);
-      console.log('Response headers:', JSON.stringify(Object.fromEntries(response.headers.entries())));
-      
-      setDebugInfo(`Respuesta recibida: ${response.status}`);
 
       const responseText = await response.text();
       console.log('Response text:', responseText);
@@ -132,56 +122,31 @@ export default function DepositScreen() {
       let data;
       try {
         data = JSON.parse(responseText);
-        console.log('Parsed response:', JSON.stringify(data));
       } catch (e) {
-        console.error('Failed to parse response:', e);
         throw new Error(`Respuesta inválida del servidor: ${responseText.substring(0, 100)}`);
       }
 
       if (!response.ok || !data.success) {
-        const errorMsg = data.error || 'Error al cargar criptomonedas';
-        const debugMsg = data.debug || '';
-        console.error('API Error:', errorMsg, debugMsg);
-        throw new Error(`${errorMsg}${debugMsg ? ` (${debugMsg})` : ''}`);
+        throw new Error(data.error || 'Error al cargar criptomonedas');
       }
 
       if (data.intent?.pay_currencies && Array.isArray(data.intent.pay_currencies)) {
-        // Filter to show only USDT variants and popular cryptos
-        const filteredCurrencies = data.intent.pay_currencies
-          .filter((code: string) => {
-            const lower = code.toLowerCase();
-            return lower.includes('usdt') || 
-                   lower === 'btc' || 
-                   lower === 'eth' || 
-                   lower === 'bnb' ||
-                   lower === 'trx';
-          })
-          .map((code: string) => ({
-            code: code,
-            name: getCurrencyName(code),
-          }));
+        const currencyList = data.intent.pay_currencies.map((code: string) => ({
+          code: code,
+          name: getCurrencyName(code),
+        }));
 
-        console.log('Filtered currencies:', filteredCurrencies);
-        setCurrencies(filteredCurrencies);
+        console.log('Currencies loaded:', currencyList.length);
+        setCurrencies(currencyList);
         setShowCurrencyModal(true);
-        setDebugInfo(`${filteredCurrencies.length} criptomonedas disponibles`);
       } else {
         throw new Error('No se pudieron cargar las criptomonedas disponibles');
       }
     } catch (error: any) {
       console.error('Error loading currencies:', error);
-      const errorMessage = error.message || 'Error al cargar criptomonedas disponibles';
-      setDebugInfo(`Error: ${errorMessage}`);
       Alert.alert(
-        'Error al Cargar Criptomonedas',
-        errorMessage,
-        [
-          {
-            text: 'Ver Detalles',
-            onPress: () => Alert.alert('Información de Debug', debugInfo),
-          },
-          { text: 'OK' },
-        ]
+        'Error',
+        error.message || 'Error al cargar criptomonedas disponibles'
       );
     } finally {
       setLoadingCurrencies(false);
@@ -202,7 +167,7 @@ export default function DepositScreen() {
   };
 
   const handlePayment = async () => {
-    console.log('=== HANDLE PAYMENT START ===');
+    console.log('\n========== HANDLE PAYMENT ==========');
     console.log('Selected currency:', selectedCurrency);
 
     if (!selectedCurrency) {
@@ -226,7 +191,6 @@ export default function DepositScreen() {
     }
 
     setLoading(true);
-    setDebugInfo('Creando pago...');
 
     try {
       const orderId = `MXI-${Date.now()}-${user?.id.substring(0, 8)}`;
@@ -238,8 +202,7 @@ export default function DepositScreen() {
         pay_currency: selectedCurrency,
       };
 
-      console.log('Creating payment with:', JSON.stringify(requestBody));
-      setDebugInfo(`Creando pago con ${selectedCurrency}...`);
+      console.log('Creating payment:', JSON.stringify(requestBody, null, 2));
 
       const response = await fetch(
         'https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/create-payment-intent',
@@ -254,36 +217,28 @@ export default function DepositScreen() {
       );
 
       console.log('Payment response status:', response.status);
-      setDebugInfo(`Respuesta: ${response.status}`);
 
       const responseText = await response.text();
-      console.log('Payment response text:', responseText);
+      console.log('Payment response:', responseText);
 
       let data;
       try {
         data = JSON.parse(responseText);
-        console.log('Payment response:', JSON.stringify(data));
       } catch (e) {
-        console.error('Failed to parse payment response:', e);
         throw new Error(`Respuesta inválida: ${responseText.substring(0, 100)}`);
       }
 
       if (!response.ok || !data.success) {
-        const errorMsg = data.error || 'Error al crear el pago';
-        const debugMsg = data.debug || '';
-        console.error('Payment API Error:', errorMsg, debugMsg);
-        throw new Error(`${errorMsg}${debugMsg ? ` (${debugMsg})` : ''}`);
+        throw new Error(data.error || 'Error al crear el pago');
       }
 
-      if (data.intent?.invoice_url || data.intent?.nowpayment_invoice_url) {
-        const invoiceUrl = data.intent.invoice_url || data.intent.nowpayment_invoice_url;
+      if (data.intent?.invoice_url) {
+        const invoiceUrl = data.intent.invoice_url;
         
         console.log('Opening invoice URL:', invoiceUrl);
-        setDebugInfo('Abriendo página de pago...');
 
         // Open payment URL in browser
-        const result = await WebBrowser.openBrowserAsync(invoiceUrl);
-        console.log('Browser result:', result);
+        await WebBrowser.openBrowserAsync(invoiceUrl);
 
         // Start polling for payment status
         startPolling(orderId);
@@ -293,25 +248,14 @@ export default function DepositScreen() {
           'Se ha abierto la página de pago. Completa el pago y regresa a la app para ver el estado.',
           [{ text: 'OK' }]
         );
-        
-        setDebugInfo('Esperando confirmación de pago...');
       } else {
         throw new Error('No se pudo obtener la URL de pago');
       }
     } catch (error: any) {
       console.error('Payment error:', error);
-      const errorMessage = error.message || 'Error al procesar el pago';
-      setDebugInfo(`Error: ${errorMessage}`);
       Alert.alert(
-        'Error al Procesar Pago',
-        errorMessage,
-        [
-          {
-            text: 'Ver Detalles',
-            onPress: () => Alert.alert('Información de Debug', debugInfo),
-          },
-          { text: 'OK' },
-        ]
+        'Error',
+        error.message || 'Error al procesar el pago'
       );
     } finally {
       setLoading(false);
@@ -320,19 +264,16 @@ export default function DepositScreen() {
   };
 
   const startPolling = (orderId: string) => {
-    // Clear any existing interval
     if (pollingInterval) {
       clearInterval(pollingInterval);
     }
 
-    // Poll every 5 seconds
     const interval = setInterval(async () => {
       await checkPaymentStatus(orderId);
     }, 5000);
 
     setPollingInterval(interval);
 
-    // Stop polling after 30 minutes
     setTimeout(() => {
       if (interval) {
         clearInterval(interval);
@@ -356,7 +297,6 @@ export default function DepositScreen() {
       if (data) {
         setPaymentStatus(data);
 
-        // Stop polling if payment is finished or failed
         if (
           data.status === 'finished' ||
           data.status === 'confirmed' ||
@@ -438,7 +378,6 @@ export default function DepositScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Balance Card */}
         <View style={[commonStyles.card, styles.balanceCard]}>
           <View style={styles.balanceHeader}>
             <IconSymbol 
@@ -453,16 +392,12 @@ export default function DepositScreen() {
           <Text style={styles.balanceSubtext}>${user?.usdtContributed.toFixed(2) || '0.00'} USDT Contribuido</Text>
         </View>
 
-        {/* Payment Form */}
         <View style={commonStyles.card}>
           <Text style={styles.sectionTitle}>Comprar MXI</Text>
           
           <View style={styles.priceInfo}>
             <Text style={styles.infoText}>
               Precio actual: {currentPrice.toFixed(2)} USDT por MXI
-            </Text>
-            <Text style={styles.infoText}>
-              Fase 1 - Precio: 0.40 USDT
             </Text>
             <Text style={styles.infoText}>
               Mínimo: {MIN_USDT} USDT | Máximo: {MAX_USDT.toLocaleString()} USDT
@@ -503,7 +438,7 @@ export default function DepositScreen() {
             {loadingCurrencies ? (
               <ActivityIndicator color="#000000" />
             ) : (
-              <>
+              <React.Fragment>
                 <IconSymbol
                   ios_icon_name="plus.circle.fill"
                   android_material_icon_name="add_circle"
@@ -511,21 +446,11 @@ export default function DepositScreen() {
                   color="#000000"
                 />
                 <Text style={styles.buyButtonText}>Continuar al Pago</Text>
-              </>
+              </React.Fragment>
             )}
           </TouchableOpacity>
-
-          {debugInfo && (
-            <TouchableOpacity
-              style={styles.debugButton}
-              onPress={() => Alert.alert('Debug Info', debugInfo)}
-            >
-              <Text style={styles.debugButtonText}>Ver Info de Debug</Text>
-            </TouchableOpacity>
-          )}
         </View>
 
-        {/* Payment Status */}
         {paymentStatus && (
           <View style={[commonStyles.card, styles.statusCard]}>
             <Text style={styles.statusTitle}>Estado del Pago</Text>
@@ -558,7 +483,6 @@ export default function DepositScreen() {
           </View>
         )}
 
-        {/* Information Card */}
         <View style={[commonStyles.card, styles.infoCard]}>
           <View style={styles.infoHeader}>
             <IconSymbol 
@@ -589,42 +513,9 @@ export default function DepositScreen() {
           </View>
         </View>
 
-        {/* Benefits Card */}
-        <View style={[commonStyles.card, styles.benefitsCard]}>
-          <View style={styles.infoHeader}>
-            <IconSymbol 
-              ios_icon_name="star.fill" 
-              android_material_icon_name="star" 
-              size={24} 
-              color={colors.primary} 
-            />
-            <Text style={styles.infoTitle}>Beneficios</Text>
-          </View>
-          <View style={styles.infoList}>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoBullet}>•</Text>
-              <Text style={styles.infoText}>Recibe MXI tokens inmediatamente después del pago</Text>
-            </View>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoBullet}>•</Text>
-              <Text style={styles.infoText}>Genera rendimientos del 3% mensual</Text>
-            </View>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoBullet}>•</Text>
-              <Text style={styles.infoText}>Gana comisiones por referidos (5%, 2%, 1%)</Text>
-            </View>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoBullet}>•</Text>
-              <Text style={styles.infoText}>Participa en el pool de liquidez</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Extra padding at bottom to avoid tab bar */}
         <View style={{ height: 120 }} />
       </ScrollView>
 
-      {/* Currency Selection Modal */}
       <Modal
         visible={showCurrencyModal}
         transparent={true}
@@ -644,9 +535,9 @@ export default function DepositScreen() {
               </View>
             ) : (
               <ScrollView style={{ maxHeight: 400 }}>
-                {currencies.map((currency) => (
+                {currencies.map((currency, index) => (
                   <TouchableOpacity
-                    key={currency.code}
+                    key={index}
                     style={[
                       styles.currencyButton,
                       selectedCurrency === currency.code && styles.currencyButtonSelected,
@@ -810,16 +701,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#000000',
   },
-  debugButton: {
-    marginTop: 8,
-    padding: 8,
-    alignItems: 'center',
-  },
-  debugButtonText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textDecorationLine: 'underline',
-  },
   statusCard: {
     backgroundColor: colors.cardBackground,
     borderWidth: 1,
@@ -846,11 +727,6 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   infoCard: {
-    backgroundColor: colors.primary + '10',
-    borderWidth: 1,
-    borderColor: colors.primary + '30',
-  },
-  benefitsCard: {
     backgroundColor: colors.primary + '10',
     borderWidth: 1,
     borderColor: colors.primary + '30',
