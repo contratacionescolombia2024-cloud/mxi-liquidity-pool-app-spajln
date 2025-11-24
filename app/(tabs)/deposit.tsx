@@ -41,6 +41,7 @@ export default function DepositScreen() {
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<any>(null);
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string>('');
 
   useEffect(() => {
     loadPhaseInfo();
@@ -73,37 +74,75 @@ export default function DepositScreen() {
   };
 
   const loadCurrencies = async () => {
+    console.log('=== LOAD CURRENCIES START ===');
+    console.log('Session exists:', !!session);
+    console.log('Access token exists:', !!session?.access_token);
+    console.log('User ID:', user?.id);
+    console.log('Amount:', amount);
+
     if (!session?.access_token) {
       Alert.alert('Error', 'Por favor inicia sesión para continuar');
       return;
     }
 
+    const usdtAmount = parseFloat(amount);
+    if (isNaN(usdtAmount) || usdtAmount < MIN_USDT || usdtAmount > MAX_USDT) {
+      Alert.alert(
+        'Monto inválido',
+        `El monto debe estar entre ${MIN_USDT} y ${MAX_USDT} USDT`
+      );
+      return;
+    }
+
     setLoadingCurrencies(true);
+    setDebugInfo('Iniciando carga de criptomonedas...');
+
     try {
       const orderId = `MXI-${Date.now()}-${user?.id.substring(0, 8)}`;
-      const usdtAmount = parseFloat(amount);
+      
+      const requestBody = {
+        order_id: orderId,
+        price_amount: usdtAmount,
+        price_currency: 'usd',
+      };
 
-      const response = await fetch(
-        `https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/create-payment-intent`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            order_id: orderId,
-            price_amount: usdtAmount,
-            price_currency: 'usd',
-          }),
-        }
-      );
+      console.log('Request body:', JSON.stringify(requestBody));
+      setDebugInfo(`Enviando petición con order_id: ${orderId}`);
 
-      const data = await response.json();
-      console.log('Currencies response:', data);
+      const url = 'https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/create-payment-intent';
+      console.log('Calling URL:', url);
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      console.log('Response status:', response.status);
+      console.log('Response headers:', JSON.stringify(Object.fromEntries(response.headers.entries())));
+      
+      setDebugInfo(`Respuesta recibida: ${response.status}`);
+
+      const responseText = await response.text();
+      console.log('Response text:', responseText);
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+        console.log('Parsed response:', JSON.stringify(data));
+      } catch (e) {
+        console.error('Failed to parse response:', e);
+        throw new Error(`Respuesta inválida del servidor: ${responseText.substring(0, 100)}`);
+      }
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Error al cargar criptomonedas');
+        const errorMsg = data.error || 'Error al cargar criptomonedas';
+        const debugMsg = data.debug || '';
+        console.error('API Error:', errorMsg, debugMsg);
+        throw new Error(`${errorMsg}${debugMsg ? ` (${debugMsg})` : ''}`);
       }
 
       if (data.intent?.pay_currencies && Array.isArray(data.intent.pay_currencies)) {
@@ -122,14 +161,28 @@ export default function DepositScreen() {
             name: getCurrencyName(code),
           }));
 
+        console.log('Filtered currencies:', filteredCurrencies);
         setCurrencies(filteredCurrencies);
         setShowCurrencyModal(true);
+        setDebugInfo(`${filteredCurrencies.length} criptomonedas disponibles`);
       } else {
         throw new Error('No se pudieron cargar las criptomonedas disponibles');
       }
     } catch (error: any) {
       console.error('Error loading currencies:', error);
-      Alert.alert('Error', error.message || 'Error al cargar criptomonedas disponibles');
+      const errorMessage = error.message || 'Error al cargar criptomonedas disponibles';
+      setDebugInfo(`Error: ${errorMessage}`);
+      Alert.alert(
+        'Error al Cargar Criptomonedas',
+        errorMessage,
+        [
+          {
+            text: 'Ver Detalles',
+            onPress: () => Alert.alert('Información de Debug', debugInfo),
+          },
+          { text: 'OK' },
+        ]
+      );
     } finally {
       setLoadingCurrencies(false);
     }
@@ -149,6 +202,9 @@ export default function DepositScreen() {
   };
 
   const handlePayment = async () => {
+    console.log('=== HANDLE PAYMENT START ===');
+    console.log('Selected currency:', selectedCurrency);
+
     if (!selectedCurrency) {
       Alert.alert('Error', 'Por favor selecciona una criptomoneda');
       return;
@@ -170,45 +226,64 @@ export default function DepositScreen() {
     }
 
     setLoading(true);
+    setDebugInfo('Creando pago...');
+
     try {
       const orderId = `MXI-${Date.now()}-${user?.id.substring(0, 8)}`;
 
-      console.log('Creating payment with:', {
+      const requestBody = {
         order_id: orderId,
         price_amount: usdtAmount,
         price_currency: 'usd',
         pay_currency: selectedCurrency,
-      });
+      };
+
+      console.log('Creating payment with:', JSON.stringify(requestBody));
+      setDebugInfo(`Creando pago con ${selectedCurrency}...`);
 
       const response = await fetch(
-        `https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/create-payment-intent`,
+        'https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/create-payment-intent',
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({
-            order_id: orderId,
-            price_amount: usdtAmount,
-            price_currency: 'usd',
-            pay_currency: selectedCurrency,
-          }),
+          body: JSON.stringify(requestBody),
         }
       );
 
-      const data = await response.json();
-      console.log('Payment response:', data);
+      console.log('Payment response status:', response.status);
+      setDebugInfo(`Respuesta: ${response.status}`);
+
+      const responseText = await response.text();
+      console.log('Payment response text:', responseText);
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+        console.log('Payment response:', JSON.stringify(data));
+      } catch (e) {
+        console.error('Failed to parse payment response:', e);
+        throw new Error(`Respuesta inválida: ${responseText.substring(0, 100)}`);
+      }
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Error al crear el pago');
+        const errorMsg = data.error || 'Error al crear el pago';
+        const debugMsg = data.debug || '';
+        console.error('Payment API Error:', errorMsg, debugMsg);
+        throw new Error(`${errorMsg}${debugMsg ? ` (${debugMsg})` : ''}`);
       }
 
       if (data.intent?.invoice_url || data.intent?.nowpayment_invoice_url) {
         const invoiceUrl = data.intent.invoice_url || data.intent.nowpayment_invoice_url;
         
+        console.log('Opening invoice URL:', invoiceUrl);
+        setDebugInfo('Abriendo página de pago...');
+
         // Open payment URL in browser
-        await WebBrowser.openBrowserAsync(invoiceUrl);
+        const result = await WebBrowser.openBrowserAsync(invoiceUrl);
+        console.log('Browser result:', result);
 
         // Start polling for payment status
         startPolling(orderId);
@@ -218,12 +293,26 @@ export default function DepositScreen() {
           'Se ha abierto la página de pago. Completa el pago y regresa a la app para ver el estado.',
           [{ text: 'OK' }]
         );
+        
+        setDebugInfo('Esperando confirmación de pago...');
       } else {
         throw new Error('No se pudo obtener la URL de pago');
       }
     } catch (error: any) {
       console.error('Payment error:', error);
-      Alert.alert('Error', error.message || 'Error al procesar el pago');
+      const errorMessage = error.message || 'Error al procesar el pago';
+      setDebugInfo(`Error: ${errorMessage}`);
+      Alert.alert(
+        'Error al Procesar Pago',
+        errorMessage,
+        [
+          {
+            text: 'Ver Detalles',
+            onPress: () => Alert.alert('Información de Debug', debugInfo),
+          },
+          { text: 'OK' },
+        ]
+      );
     } finally {
       setLoading(false);
       setShowCurrencyModal(false);
@@ -425,6 +514,15 @@ export default function DepositScreen() {
               </>
             )}
           </TouchableOpacity>
+
+          {debugInfo && (
+            <TouchableOpacity
+              style={styles.debugButton}
+              onPress={() => Alert.alert('Debug Info', debugInfo)}
+            >
+              <Text style={styles.debugButtonText}>Ver Info de Debug</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Payment Status */}
@@ -711,6 +809,16 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#000000',
+  },
+  debugButton: {
+    marginTop: 8,
+    padding: 8,
+    alignItems: 'center',
+  },
+  debugButtonText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textDecorationLine: 'underline',
   },
   statusCard: {
     backgroundColor: colors.cardBackground,
