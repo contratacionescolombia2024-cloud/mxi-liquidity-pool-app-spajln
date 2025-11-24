@@ -37,7 +37,7 @@ export default function DepositScreen() {
   const [loading, setLoading] = useState(false);
   const [loadingCurrencies, setLoadingCurrencies] = useState(false);
   const [mxiAmount, setMxiAmount] = useState(0);
-  const [currentPrice, setCurrentPrice] = useState(0.30);
+  const [currentPrice, setCurrentPrice] = useState(0.40);
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<any>(null);
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
@@ -373,6 +373,9 @@ export default function DepositScreen() {
               Precio actual: {currentPrice.toFixed(2)} USDT por MXI
             </Text>
             <Text style={styles.infoText}>
+              Fase 1 - Precio: 0.40 USDT
+            </Text>
+            <Text style={styles.infoText}>
               Mínimo: {MIN_USDT} USDT | Máximo: {MAX_USDT.toLocaleString()} USDT
             </Text>
           </View>
@@ -506,7 +509,7 @@ export default function DepositScreen() {
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>•</Text>
-              <Text style={styles.infoText}>Genera rendimientos del 0.005% por hora</Text>
+              <Text style={styles.infoText}>Genera rendimientos del 3% mensual</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>•</Text>

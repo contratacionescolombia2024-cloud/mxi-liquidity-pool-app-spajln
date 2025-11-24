@@ -42,6 +42,33 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
   },
+  phaseCard: {
+    backgroundColor: colors.primary + '20',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    alignItems: 'center',
+  },
+  phaseTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  phasePrice: {
+    fontSize: 42,
+    fontWeight: '900',
+    color: colors.primary,
+    marginBottom: 4,
+  },
+  phaseSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
   quickActionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -200,11 +227,20 @@ export default function HomeScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Yield Display */}
-        <YieldDisplay />
+        {/* Current Phase Price Card */}
+        {phaseInfo && (
+          <View style={styles.phaseCard}>
+            <Text style={styles.phaseTitle}>Fase {phaseInfo.currentPhase} - Precio Actual</Text>
+            <Text style={styles.phasePrice}>${phaseInfo.currentPriceUsdt.toFixed(2)}</Text>
+            <Text style={styles.phaseSubtitle}>USDT por MXI</Text>
+          </View>
+        )}
 
         {/* Launch Countdown */}
         <LaunchCountdown />
+
+        {/* Yield Display */}
+        <YieldDisplay />
 
         {/* Universal MXI Counter */}
         <UniversalMXICounter />
@@ -270,7 +306,7 @@ export default function HomeScreen() {
 
         {/* Stats Card */}
         <View style={styles.statsCard}>
-          <Text style={styles.statsTitle}>Estadísticas</Text>
+          <Text style={styles.statsTitle}>Estadísticas del Usuario</Text>
           <View style={styles.statRow}>
             <Text style={styles.statLabel}>Balance Total MXI</Text>
             <Text style={styles.statValue}>
@@ -297,19 +333,23 @@ export default function HomeScreen() {
             </Text>
           </View>
           <View style={styles.statRow}>
-            <Text style={styles.statLabel}>MXI Comprado</Text>
+            <Text style={styles.statLabel}>MXI Comprado Directamente</Text>
             <Text style={styles.statValue}>
               {(user.mxiPurchasedDirectly || 0).toFixed(2)}
             </Text>
           </View>
-          {phaseInfo && (
-            <View style={styles.statRow}>
-              <Text style={styles.statLabel}>Precio Actual</Text>
-              <Text style={styles.statValue}>
-                ${phaseInfo.currentPriceUsdt.toFixed(2)} USDT
-              </Text>
-            </View>
-          )}
+          <View style={styles.statRow}>
+            <Text style={styles.statLabel}>MXI de Comisiones Unificadas</Text>
+            <Text style={styles.statValue}>
+              {(user.mxiFromUnifiedCommissions || 0).toFixed(2)}
+            </Text>
+          </View>
+          <View style={styles.statRow}>
+            <Text style={styles.statLabel}>Rendimiento Acumulado</Text>
+            <Text style={styles.statValue}>
+              {user.accumulatedYield.toFixed(8)} MXI
+            </Text>
+          </View>
         </View>
 
         {/* Extra padding at bottom to avoid tab bar */}
