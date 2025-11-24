@@ -464,19 +464,24 @@ export default function ContratacionesScreen() {
       addDebugLog(`Sesión obtenida. User ID: ${sessionData.session.user.id}`);
       addDebugLog(`Token presente: ${sessionData.session.access_token ? 'Sí' : 'No'}`);
 
-      // Step 2: Prepare request
+      // Step 2: Generate unique order ID
+      const orderId = `${user?.id}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      addDebugLog(`Order ID generado: ${orderId}`);
+
+      // Step 3: Prepare request
       const requestUrl = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/create-payment-intent`;
       const requestBody = {
-        amount_fiat: parseFloat(amount),
-        fiat_currency: 'usd',
-        crypto_currency: 'usdteth',
+        order_id: orderId,
+        price_amount: parseFloat(amount),
+        price_currency: 'usd',
+        pay_currency: 'usdteth',
       };
 
       addDebugLog('Step 2: Preparando solicitud...');
       addDebugLog(`URL: ${requestUrl}`);
       addDebugLog(`Body: ${JSON.stringify(requestBody)}`);
 
-      // Step 3: Make request
+      // Step 4: Make request
       addDebugLog('Step 3: Enviando solicitud a Edge Function...');
       const startTime = Date.now();
 
@@ -493,12 +498,12 @@ export default function ContratacionesScreen() {
       addDebugLog(`Respuesta recibida en ${endTime - startTime}ms`);
       addDebugLog(`Status Code: ${response.status} ${response.statusText}`);
 
-      // Step 4: Parse response
+      // Step 5: Parse response
       addDebugLog('Step 4: Parseando respuesta...');
       let result;
       try {
         const responseText = await response.text();
-        addDebugLog(`Response Text: ${responseText}`);
+        addDebugLog(`Response Text (primeros 500 chars): ${responseText.substring(0, 500)}`);
         result = JSON.parse(responseText);
         addDebugLog(`Response JSON: ${JSON.stringify(result, null, 2)}`);
       } catch (parseError: any) {
@@ -506,7 +511,7 @@ export default function ContratacionesScreen() {
         throw new Error('Error al procesar la respuesta del servidor');
       }
 
-      // Step 5: Check for errors
+      // Step 6: Check for errors
       if (!response.ok || !result.success) {
         addDebugLog('Step 5: Error en la respuesta');
         
@@ -528,33 +533,35 @@ export default function ContratacionesScreen() {
       }
 
       addDebugLog('Step 6: Pago creado exitosamente');
-      addDebugLog(`Order ID: ${result.payment?.order_id}`);
-      addDebugLog(`Invoice URL: ${result.payment?.invoice_url}`);
+      addDebugLog(`Order ID: ${result.intent?.order_id}`);
+      addDebugLog(`Invoice URL: ${result.intent?.invoice_url}`);
 
       // Step 7: Open payment URL
-      if (result.payment.invoice_url) {
+      if (result.intent?.invoice_url) {
         addDebugLog('Step 7: Abriendo URL de pago...');
         
         try {
-          const supported = await Linking.canOpenURL(result.payment.invoice_url);
+          const supported = await Linking.canOpenURL(result.intent.invoice_url);
           addDebugLog(`URL soportada: ${supported}`);
           
           if (supported) {
-            const browserResult = await WebBrowser.openBrowserAsync(result.payment.invoice_url);
+            const browserResult = await WebBrowser.openBrowserAsync(result.intent.invoice_url, {
+              dismissButtonStyle: 'close',
+              presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+            });
             addDebugLog(`Browser result: ${browserResult.type}`);
           } else {
             addDebugLog('URL no soportada, intentando con Linking.openURL');
-            await Linking.openURL(result.payment.invoice_url);
+            await Linking.openURL(result.intent.invoice_url);
           }
         } catch (browserError: any) {
           addDebugLog(`Error abriendo navegador: ${browserError.message}`);
           Alert.alert(
             'Error al abrir navegador',
-            `No se pudo abrir el navegador automáticamente. URL: ${result.payment.invoice_url}`,
+            `No se pudo abrir el navegador automáticamente. URL: ${result.intent.invoice_url}`,
             [
               { text: 'Copiar URL', onPress: () => {
-                // In a real app, you'd use Clipboard here
-                console.log('URL to copy:', result.payment.invoice_url);
+                console.log('URL to copy:', result.intent.invoice_url);
               }},
               { text: 'OK' }
             ]
@@ -562,7 +569,7 @@ export default function ContratacionesScreen() {
         }
 
         // Start polling for status updates
-        startPolling(result.payment.order_id);
+        startPolling(result.intent.order_id);
 
         Alert.alert(
           'Pago Creado',
@@ -611,16 +618,28 @@ export default function ContratacionesScreen() {
 
         if (error) throw error;
 
-        if (data && (data.status === 'finished' || data.status === 'failed' || data.status === 'expired')) {
+        if (data && (data.status === 'finished' || data.status === 'confirmed' || data.status === 'failed' || data.status === 'expired')) {
           addDebugLog(`Pago finalizado con estado: ${data.status}`);
           clearInterval(interval);
           setPollingInterval(null);
           loadRecentPayments();
 
-          if (data.status === 'finished') {
+          if (data.status === 'finished' || data.status === 'confirmed') {
             Alert.alert(
               '¡Pago Completado!',
               `Has recibido ${parseFloat(data.mxi_amount).toFixed(2)} MXI tokens`,
+              [{ text: 'OK' }]
+            );
+          } else if (data.status === 'failed') {
+            Alert.alert(
+              'Pago Fallido',
+              'El pago no se pudo completar. Por favor, intenta nuevamente.',
+              [{ text: 'OK' }]
+            );
+          } else if (data.status === 'expired') {
+            Alert.alert(
+              'Pago Expirado',
+              'El tiempo para completar el pago ha expirado. Por favor, crea un nuevo pago.',
               [{ text: 'OK' }]
             );
           }
