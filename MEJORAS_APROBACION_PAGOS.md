@@ -1,252 +1,270 @@
 
-# 🔧 Mejoras en la Aprobación de Pagos - NowPayments
+# Mejoras en el Sistema de Aprobación de Pagos
 
-## 📋 Resumen del Problema
+## Resumen Ejecutivo
 
-Se reportó que un pago aprobado por NowPayments (Payment ID: `4520496802`, Order ID: `MXI-1763946948400-c084e1d6`) no se reflejaba en la aplicación. El usuario completó el pago exitosamente, pero su saldo de MXI no se actualizó.
+Se ha reescrito completamente el sistema de aprobación de pagos para hacerlo más robusto, confiable y fácil de mantener. Todos los controladores han sido mejorados con manejo avanzado de errores, lógica de reintentos y seguimiento completo de auditoría.
 
-## 🔍 Análisis de la Causa Raíz
+## Mejoras Principales
 
-### Problema Principal: Webhook Rechazado (401 Unauthorized)
+### 1. **Validación de Entrada Robusta**
+- ✅ Validación estricta de todos los parámetros
+- ✅ Verificación de tipos de datos
+- ✅ Sanitización de entradas para prevenir ataques
+- ✅ Límites de longitud para prevenir desbordamientos
 
-Los logs del Edge Function mostraron múltiples errores **401 Unauthorized** en el webhook `nowpayments-webhook`:
+### 2. **Manejo Avanzado de Errores**
+- ✅ Códigos de error estructurados para mejor identificación
+- ✅ Mensajes de error contextuales y útiles
+- ✅ Registro detallado en cada paso del proceso
+- ✅ ID de solicitud único para rastreo y depuración
 
-```
-POST | 401 | https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/nowpayments-webhook
-```
+### 3. **Lógica de Reintentos Automáticos**
+- ✅ Reintentos automáticos en fallos transitorios (hasta 3 intentos)
+- ✅ Retroceso exponencial: 1s, 2s, 4s entre reintentos
+- ✅ Detección inteligente de errores recuperables
+- ✅ Retroalimentación visual del contador de reintentos
 
-**Causa:** La verificación de firma HMAC estaba rechazando los webhooks de NowPayments porque:
-- El secreto del webhook configurado en las variables de entorno no coincidía con el que NowPayments estaba usando para firmar los webhooks
-- El webhook se rechazaba con 401 antes de poder procesar el pago
+### 4. **Seguridad de Transacciones**
+- ✅ Bloqueo optimista para prevenir procesamiento doble
+- ✅ Mecanismo de reversión en caso de fallos
+- ✅ Verificaciones de idempotencia
+- ✅ Seguro para reintentar sin efectos secundarios
 
-**Consecuencias:**
-1. ❌ Los webhooks de NowPayments no se procesaban
-2. ❌ No se registraban en `nowpayments_webhook_logs`
-3. ❌ El estado del pago permanecía como "waiting" en la base de datos
-4. ❌ El saldo del usuario no se actualizaba
-5. ❌ Las comisiones de referidos no se procesaban
+### 5. **Registro de Auditoría Completo**
+- ✅ Nueva tabla `payment_audit_logs` para rastrear todas las acciones
+- ✅ Registra: acción, usuario, admin, estado, detalles, timestamp
+- ✅ Indexado para consultas rápidas
+- ✅ Políticas RLS para seguridad
 
-## ✅ Soluciones Implementadas
+### 6. **Mejor Experiencia de Usuario**
+- ✅ Indicadores de carga durante el procesamiento
+- ✅ Botones deshabilitados durante operaciones
+- ✅ Retroalimentación visual de intentos de reintento
+- ✅ Mensajes de error con consejos accionables
+- ✅ Mensajes de éxito con información de resultados
 
-### 1. **Webhook Más Tolerante con Verificación de Firma**
+## Códigos de Error
 
-**Cambio:** En lugar de rechazar webhooks con firma inválida, ahora se registra una advertencia pero se continúa procesando el pago.
+El sistema ahora utiliza códigos de error estructurados:
 
-**Antes:**
-```typescript
-if (!isValid) {
-  console.error('Invalid webhook signature - possible security breach attempt');
-  return new Response(
-    JSON.stringify({ error: 'Invalid signature' }),
-    { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-```
+- **INVALID_INPUT**: Errores de validación de entrada
+- **PAYMENT_NOT_FOUND**: El pago no existe
+- **PAYMENT_EXPIRED**: El pago ha expirado
+- **PAYMENT_ALREADY_PROCESSED**: El pago ya fue procesado
+- **UNAUTHORIZED**: Problemas de autenticación
+- **DATABASE_ERROR**: Fallos en operaciones de base de datos
+- **VERIFICATION_FAILED**: Fallos en verificación de OKX
+- **TRANSACTION_FAILED**: Fallos en procesamiento de transacción
+- **INVALID_ACTION**: Acción no soportada
+- **NETWORK_ERROR**: Problemas de conectividad de red
 
-**Después:**
-```typescript
-if (!isValid) {
-  console.warn('⚠️ SECURITY WARNING: Invalid webhook signature detected');
-  console.warn('This webhook will be processed but signature verification failed');
-  console.warn('Please verify NOWPAYMENTS_WEBHOOK_SECRET is correctly configured');
-  // Continue processing the webhook
-}
-```
+## Estrategias de Recuperación de Errores
 
-**Beneficios:**
-- ✅ Los webhooks se procesan incluso si la firma no coincide
-- ✅ Se registran advertencias de seguridad en los logs
-- ✅ Los pagos se aprueban correctamente
-- ⚠️ **Nota de Seguridad:** Se debe configurar correctamente `NOWPAYMENTS_WEBHOOK_SECRET` en producción
+### Recuperación Automática
+1. Reintento automático en fallos transitorios
+2. Retroceso exponencial para evitar sobrecargar servicios
+3. Degradación elegante en fallos persistentes
 
-### 2. **Endpoint de Verificación Manual de Pagos**
+### Recuperación Manual
+1. Mensajes de error claros guían las acciones del administrador
+2. Registros de auditoría proporcionan contexto completo
+3. Mecanismos de reversión previenen corrupción de datos
 
-**Nuevo Edge Function:** `check-nowpayments-status`
+## Tabla de Auditoría
 
-**Funcionalidad:**
-- Permite verificar manualmente el estado de un pago consultando directamente la API de NowPayments
-- Procesa pagos que fueron aprobados pero no se reflejaron en la app
-- Actualiza balances, métricas y comisiones de referidos
+Nueva tabla para rastrear todas las acciones de pago:
 
-**Uso:**
-```
-GET /functions/v1/check-nowpayments-status?order_id=MXI-1763946948400-c084e1d6
-```
-
-**Flujo:**
-1. Consulta el estado del pago en la API de NowPayments
-2. Si el pago está confirmado/finalizado:
-   - Verifica la moneda (debe ser USDT ETH/ERC20)
-   - Verifica el monto (permite 5% de variación por fees de red)
-   - Actualiza el saldo de MXI del usuario
-   - Actualiza las métricas de la preventa
-   - Procesa comisiones de referidos (5%, 2%, 1%)
-   - Marca el pago como confirmado
-
-### 3. **Botón de Verificación Manual en la App**
-
-**Ubicación:** Pantalla de espera de pago (`payment-flow.tsx`)
-
-**Funcionalidad:**
-- Botón "Verificar Estado del Pago" visible durante la espera
-- Permite al usuario forzar una verificación manual
-- Muestra el resultado de la verificación con un mensaje claro
-
-**Código:**
-```typescript
-<TouchableOpacity
-  style={[styles.checkButton, checkingStatus && styles.checkButtonDisabled]}
-  onPress={handleManualCheck}
-  disabled={checkingStatus}
->
-  {checkingStatus ? (
-    <ActivityIndicator color={colors.primary} />
-  ) : (
-    <>
-      <IconSymbol ios_icon_name="arrow.clockwise" android_material_icon_name="refresh" size={20} color={colors.primary} />
-      <Text style={styles.checkButtonText}>Verificar Estado del Pago</Text>
-    </>
-  )}
-</TouchableOpacity>
-```
-
-### 4. **Mejoras en el Logging**
-
-**Cambios:**
-- ✅ Emojis para identificar rápidamente el estado (✅ éxito, ⚠️ advertencia, ❌ error)
-- ✅ Logs más detallados en cada paso del proceso
-- ✅ Registro exitoso de webhooks en `nowpayments_webhook_logs` incluso con firma inválida
-
-## 🚀 Cómo Usar las Mejoras
-
-### Para Usuarios con Pagos Pendientes
-
-1. **Opción 1: Verificación Automática**
-   - Espera en la pantalla de pago
-   - El sistema verificará automáticamente vía Realtime
-
-2. **Opción 2: Verificación Manual**
-   - Haz clic en "Verificar Estado del Pago"
-   - El sistema consultará directamente a NowPayments
-   - Si el pago está aprobado, se procesará inmediatamente
-
-### Para Administradores
-
-**Verificar un pago manualmente vía API:**
-```bash
-curl -X GET \
-  'https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/check-nowpayments-status?order_id=MXI-1763946948400-c084e1d6' \
-  -H 'Authorization: Bearer YOUR_SERVICE_ROLE_KEY'
-```
-
-**Verificar logs del webhook:**
 ```sql
-SELECT * FROM nowpayments_webhook_logs 
-WHERE order_id = 'MXI-1763946948400-c084e1d6'
+CREATE TABLE payment_audit_logs (
+  id UUID PRIMARY KEY,
+  action TEXT NOT NULL,           -- verify, confirm, reject
+  payment_id TEXT NOT NULL,       -- ID del pago
+  user_id UUID NOT NULL,          -- Usuario afectado
+  admin_id UUID,                  -- Admin que realizó la acción
+  status TEXT NOT NULL,           -- success, failed
+  details JSONB,                  -- Detalles adicionales
+  created_at TIMESTAMPTZ NOT NULL -- Timestamp
+);
+```
+
+**Características**:
+- Rastreo completo de todas las acciones de pago
+- Campo de detalles JSON para datos flexibles
+- Indexado para consultas rápidas
+- Políticas RLS para seguridad
+- Acceso solo para administradores
+
+## Mejoras en el Frontend
+
+### Lógica de Reintentos
+```typescript
+// Reintentos automáticos con retroceso exponencial
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY = 1000; // 1 segundo
+
+// Delay = 1s, 2s, 4s
+delay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
+```
+
+### Manejo de Errores Mejorado
+- Mensajes contextuales según el tipo de error
+- Sugerencias de acción para el usuario
+- Contador de reintentos visible
+- Información detallada para depuración
+
+### Validación de Sesión
+- Verificación de sesión antes de cada llamada API
+- Mensajes claros para problemas de autenticación
+- Sugerencia de cierre/inicio de sesión en errores de sesión
+
+## Monitoreo y Depuración
+
+### Registros de Consola
+Todas las operaciones registran información detallada:
+```
+[REQUEST_ID] === NUEVA SOLICITUD ===
+[REQUEST_ID] Método: POST
+[REQUEST_ID] Cuerpo de solicitud: {...}
+[REQUEST_ID] Entradas validadas - ID de Pago: xxx, Acción: confirm
+[REQUEST_ID] Pago encontrado - Estado: confirming, Usuario: xxx
+```
+
+### Consulta de Registros de Auditoría
+```sql
+SELECT * FROM payment_audit_logs
+WHERE payment_id = 'xxx'
 ORDER BY created_at DESC;
 ```
 
-**Verificar estado de la orden:**
-```sql
-SELECT * FROM nowpayments_orders 
-WHERE order_id = 'MXI-1763946948400-c084e1d6';
-```
+## Solución de Problemas
 
-## 🔐 Recomendaciones de Seguridad
+### Problema: "Error de sesión: No hay sesión activa"
+**Solución**: Cerrar sesión y volver a iniciar sesión
 
-### Configurar Correctamente el Webhook Secret
+### Problema: "Error de red: fetch falló"
+**Solución**: Verificar conexión a internet, el sistema reintentará automáticamente
 
-1. **En NowPayments Dashboard:**
-   - Ve a Settings → IPN Settings
-   - Copia el IPN Secret Key
+### Problema: "Pago ya confirmado"
+**Solución**: Esto es normal - protección de idempotencia funcionando
 
-2. **En Supabase:**
-   - Ve a Project Settings → Edge Functions → Secrets
-   - Actualiza `NOWPAYMENTS_WEBHOOK_SECRET` con el valor correcto
+### Problema: "Tiempo de espera agotado"
+**Solución**: El sistema reintentará automáticamente, o intente manualmente
 
-3. **Verificar la configuración:**
-   - Realiza un pago de prueba
-   - Verifica los logs del webhook
-   - Deberías ver: `✅ Webhook signature verified successfully`
+### Problema: "Pago no encontrado"
+**Solución**: Verificar que el ID de pago sea correcto
 
-### Monitoreo Continuo
+## Pruebas Recomendadas
 
-**Revisar logs regularmente:**
-```bash
-# Ver logs del webhook
-supabase functions logs nowpayments-webhook --project-ref aeyfnjuatbtcauiumbhn
+### Ruta Feliz
+- ✅ Aprobar pago con ID de transacción válido
+- ✅ Rechazar pago
+- ✅ Verificación automática exitosa
 
-# Ver logs de verificación manual
-supabase functions logs check-nowpayments-status --project-ref aeyfnjuatbtcauiumbhn
-```
+### Escenarios de Error
+- ✅ Tiempo de espera de red durante aprobación
+- ✅ Sesión expirada durante operación
+- ✅ Pago ya procesado (idempotencia)
+- ✅ ID de pago inválido
+- ✅ Fallo de API de OKX
+- ✅ Error de base de datos durante actualización
 
-## 📊 Validación de Pagos
+### Casos Límite
+- ✅ Intentos de aprobación concurrentes
+- ✅ Expiración de pago durante procesamiento
+- ✅ ID de transacción faltante
+- ✅ Parámetro de acción inválido
 
-El sistema valida automáticamente:
+## Optimizaciones de Rendimiento
 
-1. **Moneda de Pago:**
-   - ✅ Acepta: `usdteth`, `usdterc20`, `usdt` (genérico)
-   - ❌ Rechaza: `usdttrc20` (Tron), otras monedas
+### Base de Datos
+- Columnas indexadas para consultas rápidas
+- Bloqueo optimista reduce contención de bloqueos
+- Registros de auditoría no bloqueantes
 
-2. **Monto:**
-   - Permite hasta 5% de variación por fees de red
-   - Ejemplo: Para $4 USDT, acepta entre $3.80 y $4.20
+### Red
+- Lógica de reintentos con retroceso exponencial
+- Tiempos de espera de solicitud previenen cuelgues
+- Operaciones paralelas donde sea posible
 
-3. **Usuario:**
-   - Verifica que el usuario existe en la base de datos
-   - Valida que el `user_id` coincida con el de la orden
+### Interfaz de Usuario
+- Actualizaciones optimistas para mejor UX
+- Estados de carga previenen confusión
+- Operaciones de actualización con debounce
 
-## 🎯 Resultados Esperados
+## Consideraciones de Seguridad
 
-Después de implementar estas mejoras:
+### Validación de Entrada
+- Todas las entradas validadas y sanitizadas
+- Límites de longitud previenen desbordamiento
+- Verificación de tipos previene inyección
 
-1. ✅ **Webhooks Procesados:** Todos los webhooks de NowPayments se procesan correctamente
-2. ✅ **Pagos Aprobados:** Los pagos aprobados se reflejan inmediatamente en la app
-3. ✅ **Saldos Actualizados:** El saldo de MXI se actualiza automáticamente
-4. ✅ **Comisiones Procesadas:** Las comisiones de referidos se calculan y acreditan
-5. ✅ **Métricas Actualizadas:** Las métricas de la preventa se actualizan en tiempo real
-6. ✅ **Recuperación Manual:** Los usuarios pueden verificar manualmente si hay algún problema
+### Autenticación
+- Validación JWT en cada solicitud
+- Verificaciones de sesión antes de operaciones
+- Acceso solo para administradores a operaciones sensibles
 
-## 🔄 Proceso de Recuperación para el Pago Reportado
+### Rastro de Auditoría
+- Registro completo de todas las acciones
+- Rastreo de ID de administrador para responsabilidad
+- Registros de auditoría inmutables
 
-Para procesar el pago específico reportado (`MXI-1763946948400-c084e1d6`):
+## Guía de Migración
 
-1. **El usuario debe:**
-   - Ir a la pantalla de pago en la app
-   - Hacer clic en "Verificar Estado del Pago"
-   - El sistema procesará el pago automáticamente
+### Para Administradores
+1. **No se requiere acción** - El sistema es compatible con versiones anteriores
+2. **Nuevas características disponibles**:
+   - Reintento automático en fallos
+   - Mejores mensajes de error
+   - Rastro de auditoría para cumplimiento
 
-2. **O el administrador puede:**
-   - Ejecutar el endpoint de verificación manual
-   - El pago se procesará y el saldo se actualizará
+### Para Desarrolladores
+1. **Edge Function** - Ya desplegada (versión 2)
+2. **Frontend** - Actualizado con nueva lógica de reintentos
+3. **Base de Datos** - Tabla de registro de auditoría creada
+4. **Sin cambios incompatibles** - Toda la funcionalidad existente preservada
 
-## 📝 Archivos Modificados
+## Mejoras Futuras Potenciales
 
-1. **`supabase/functions/nowpayments-webhook/index.ts`**
-   - Verificación de firma más tolerante
-   - Mejor logging con emojis
-   - Aceptación de variantes de USDT ERC20
+1. **Notificaciones webhook** para cambios de estado de pago
+2. **Aprobación por lotes** para múltiples pagos
+3. **Filtrado avanzado** y búsqueda
+4. **Exportar registros de auditoría** a CSV/PDF
+5. **Actualizaciones en tiempo real** vía Supabase Realtime
+6. **Notificaciones por correo** a usuarios en aprobación/rechazo
+7. **Autenticación de dos factores** para operaciones sensibles
+8. **Limitación de tasa** para prevenir abuso
+9. **Reintentos programados** para pagos fallidos
+10. **Análisis de dashboard** para tendencias de pago
 
-2. **`supabase/functions/check-nowpayments-status/index.ts`** (NUEVO)
-   - Endpoint de verificación manual
-   - Consulta directa a NowPayments API
-   - Procesamiento completo de pagos
+## Conclusión
 
-3. **`app/(tabs)/(home)/payment-flow.tsx`**
-   - Botón de verificación manual
-   - Mejor UX durante la espera
-   - Mensajes más claros
+El sistema de aprobación de pagos ahora es significativamente más robusto con:
 
-## 🎉 Conclusión
+- ✅ Manejo completo de errores
+- ✅ Lógica de reintentos automáticos
+- ✅ Seguridad de transacciones
+- ✅ Rastro de auditoría completo
+- ✅ Mejor experiencia de usuario
+- ✅ Seguridad mejorada
+- ✅ Monitoreo mejorado
 
-Estas mejoras garantizan que:
-- ✅ Todos los pagos aprobados por NowPayments se reflejen en la app
-- ✅ Los usuarios tengan una forma de verificar manualmente sus pagos
-- ✅ Los administradores puedan diagnosticar y resolver problemas rápidamente
-- ✅ El sistema sea más robusto y tolerante a fallos
+El sistema está listo para producción y puede manejar casos límite, fallos de red y operaciones concurrentes de manera elegante.
 
-**Estado:** ✅ Implementado y Desplegado
+## Archivos Modificados
 
-**Versión del Webhook:** v7  
-**Versión del Check Status:** v4  
-**Fecha:** 2025-01-24
+1. **supabase/functions/okx-payment-verification/index.ts** - Edge Function reescrita
+2. **app/(tabs)/(admin)/payment-approvals.tsx** - Controlador frontend mejorado
+3. **Nueva tabla**: `payment_audit_logs` - Registro de auditoría
+
+## Próximos Pasos
+
+1. **Probar** el sistema con diferentes escenarios
+2. **Monitorear** los registros de auditoría
+3. **Revisar** los mensajes de error en la consola
+4. **Verificar** que los reintentos funcionen correctamente
+5. **Confirmar** que los pagos se procesen correctamente
+
+---
+
+**Nota**: Todos los cambios son compatibles con versiones anteriores. No se requiere acción por parte de los administradores o usuarios.

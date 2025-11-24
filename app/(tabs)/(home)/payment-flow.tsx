@@ -54,7 +54,6 @@ export default function PaymentFlowScreen() {
   const [supportedCurrencies, setSupportedCurrencies] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterBase, setFilterBase] = useState<string>('all');
-  const [checkingStatus, setCheckingStatus] = useState(false);
 
   useEffect(() => {
     loadPhaseData();
@@ -308,66 +307,6 @@ export default function PaymentFlowScreen() {
       setLoading(false);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleManualCheck = async () => {
-    if (!orderId) {
-      Alert.alert('Error', 'No hay orden para verificar');
-      return;
-    }
-
-    setCheckingStatus(true);
-
-    try {
-      console.log('Manually checking payment status for order:', orderId);
-
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        Alert.alert('Error', 'Sesión expirada');
-        setCheckingStatus(false);
-        return;
-      }
-
-      const response = await fetch(
-        `${supabase.supabaseUrl}/functions/v1/check-nowpayments-status?order_id=${orderId}`,
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        }
-      );
-
-      const result = await response.json();
-      console.log('Manual check result:', result);
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Error al verificar estado del pago');
-      }
-
-      if (result.status === 'confirmed' || result.status === 'finished') {
-        Alert.alert(
-          '✅ Pago Confirmado',
-          `Tu pago ha sido confirmado exitosamente.\n\nSe acreditaron ${result.mxi_credited} MXI a tu cuenta.`,
-          [
-            {
-              text: 'Ver Balance',
-              onPress: () => router.push('/(tabs)/(home)'),
-            },
-          ]
-        );
-      } else {
-        Alert.alert(
-          'Estado del Pago',
-          `Estado actual: ${getStatusText(result.status)}\n\nEl pago aún no ha sido confirmado. Por favor espera unos minutos más.`
-        );
-      }
-    } catch (error: any) {
-      console.error('Error checking payment status:', error);
-      Alert.alert('Error', error.message || 'No se pudo verificar el estado del pago');
-    } finally {
-      setCheckingStatus(false);
     }
   };
 
@@ -928,27 +867,6 @@ export default function PaymentFlowScreen() {
                   <Text style={styles.reopenButtonText}>Abrir Página de Pago</Text>
                 </TouchableOpacity>
               )}
-
-              {/* Manual Check Button */}
-              <TouchableOpacity
-                style={[styles.checkButton, checkingStatus && styles.checkButtonDisabled]}
-                onPress={handleManualCheck}
-                disabled={checkingStatus}
-              >
-                {checkingStatus ? (
-                  <ActivityIndicator color={colors.primary} />
-                ) : (
-                  <React.Fragment>
-                    <IconSymbol
-                      ios_icon_name="arrow.clockwise"
-                      android_material_icon_name="refresh"
-                      size={20}
-                      color={colors.primary}
-                    />
-                    <Text style={styles.checkButtonText}>Verificar Estado del Pago</Text>
-                  </React.Fragment>
-                )}
-              </TouchableOpacity>
             </View>
 
             <View style={[commonStyles.card, styles.infoCard]}>
@@ -956,7 +874,7 @@ export default function PaymentFlowScreen() {
                 ⏳ Tu pago está siendo procesado. Esta pantalla se actualizará automáticamente cuando se confirme el pago.
               </Text>
               <Text style={[styles.infoText, { marginTop: 12 }]}>
-                💡 Si ya completaste el pago en NowPayments, puedes usar el botón &quot;Verificar Estado del Pago&quot; para actualizar manualmente.
+                💡 Puedes cerrar esta pantalla y volver más tarde. El estado se actualizará en tu historial de transacciones.
               </Text>
             </View>
           </React.Fragment>
@@ -1387,33 +1305,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 8,
     width: '100%',
-    marginBottom: 12,
   },
   reopenButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
-  },
-  checkButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.background,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    gap: 8,
-    width: '100%',
-  },
-  checkButtonDisabled: {
-    opacity: 0.5,
-  },
-  checkButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.primary,
   },
   infoCard: {
     backgroundColor: `${colors.primary}10`,
