@@ -1,13 +1,5 @@
 
-import VestingCounter from '@/components/VestingCounter';
-import LaunchCountdown from '@/components/LaunchCountdown';
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
-import { IconSymbol } from '@/components/IconSymbol';
-import YieldDisplay from '@/components/YieldDisplay';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -16,371 +8,178 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
-  ActivityIndicator,
 } from 'react-native';
-import { colors, commonStyles } from '@/styles/commonStyles';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { useAuth } from '@/contexts/AuthContext';
+import { colors } from '@/styles/commonStyles';
+import { IconSymbol } from '@/components/IconSymbol';
+import { UniversalMXICounter } from '@/components/UniversalMXICounter';
+import { YieldDisplay } from '@/components/YieldDisplay';
+import { LaunchCountdown } from '@/components/LaunchCountdown';
 
-interface PhaseData {
-  totalTokensSold: number;
-  currentPhase: number;
-  currentPriceUsdt: number;
-  phase1TokensSold: number;
-  phase2TokensSold: number;
-  phase3TokensSold: number;
-}
-
-interface ReferralMetrics {
-  level1Count: number;
-  level2Count: number;
-  level3Count: number;
-  level1Earnings: number;
-  level2Earnings: number;
-  level3Earnings: number;
-  totalEarnings: number;
-  pendingCommissions: number;
-  availableToWithdraw: number;
-}
-
-interface ChallengeMetrics {
-  totalGamesPlayed: number;
-  totalWins: number;
-  totalLosses: number;
-  totalEarnings: number;
-  winRate: number;
-  averageEarnings: number;
-}
-
-interface Transaction {
-  id: string;
-  type: 'deposit' | 'withdrawal' | 'commission' | 'game_win' | 'game_loss';
-  amount: number;
-  currency: string;
-  status: string;
-  created_at: string;
-  description: string;
-}
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 48,
+    paddingBottom: 20,
+  },
+  greeting: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: colors.textSecondary,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  balanceCard: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  balanceLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  balanceAmount: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginBottom: 4,
+  },
+  balanceSubtext: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  buyButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 16,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  buyButtonText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#000000',
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 16,
+  },
+  actionButton: {
+    flex: 1,
+    minWidth: '47%',
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  actionIcon: {
+    marginBottom: 8,
+  },
+  actionLabel: {
+    fontSize: 13,
+    color: colors.text,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  statsCard: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  statsTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 16,
+  },
+  statRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  statLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  statValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  kycBanner: {
+    backgroundColor: 'rgba(255, 152, 0, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.warning,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  kycBannerText: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  kycBannerTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.warning,
+    marginBottom: 4,
+  },
+  kycBannerSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+});
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, getCurrentYield, claimYield, checkAdminStatus } = useAuth();
+  const { user, loading, checkWithdrawalEligibility, getPhaseInfo } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
-  const [currentYield, setCurrentYield] = useState(0);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [phaseData, setPhaseData] = useState<PhaseData | null>(null);
-  const [referralMetrics, setReferralMetrics] = useState<ReferralMetrics | null>(null);
-  const [challengeMetrics, setChallengeMetrics] = useState<ChallengeMetrics | null>(null);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loadingMetrics, setLoadingMetrics] = useState(true);
+  const [phaseInfo, setPhaseInfo] = useState<any>(null);
 
   useEffect(() => {
-    loadData();
-    checkAdmin();
-    
-    const interval = setInterval(() => {
-      if (user) {
-        setCurrentYield(getCurrentYield());
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
+    if (user) {
+      loadData();
+    }
   }, [user]);
 
   const loadData = async () => {
-    if (!user) return;
-    
-    console.log('Loading home screen data...');
-    setCurrentYield(getCurrentYield());
-    
-    // Load REAL metrics data from actual user purchases
-    const { data: usersData, error: usersError } = await supabase
-      .from('users')
-      .select('mxi_purchased_directly');
-    
-    if (usersError) {
-      console.error('Error loading users data:', usersError);
-    } else if (usersData) {
-      // Calculate REAL MXI sold from actual user purchases
-      const totalMxiSold = usersData.reduce((sum, u) => sum + parseFloat(u.mxi_purchased_directly?.toString() || '0'), 0);
-      
-      console.log('Real MXI sold from users:', totalMxiSold);
-      
-      // Get presale dates from database
-      const { data: metricsData } = await supabase
-        .from('metrics')
-        .select('pool_close_date')
-        .single();
-      
-      // FIXED: Use actual presale start date (today) and end date from database
-      const presaleStartDate = new Date(); // Start NOW
-      const presaleEndDate = new Date(metricsData?.pool_close_date || '2026-02-15T12:00:00Z');
-      const now = new Date();
-      
-      const totalDuration = presaleEndDate.getTime() - presaleStartDate.getTime();
-      const phaseDuration = totalDuration / 3;
-      
-      const phase1End = new Date(presaleStartDate.getTime() + phaseDuration);
-      const phase2End = new Date(phase1End.getTime() + phaseDuration);
-      
-      let currentPhase = 1;
-      let currentPrice = 0.40;
-      
-      if (now >= phase2End) {
-        currentPhase = 3;
-        currentPrice = 1.00;
-      } else if (now >= phase1End) {
-        currentPhase = 2;
-        currentPrice = 0.70;
-      }
-      
-      // Distribute MXI sold across phases
-      let phase1Sold = 0;
-      let phase2Sold = 0;
-      let phase3Sold = 0;
-      
-      if (currentPhase === 1) {
-        phase1Sold = totalMxiSold;
-      } else if (currentPhase === 2) {
-        phase1Sold = Math.min(totalMxiSold, 8333333);
-        phase2Sold = Math.max(0, totalMxiSold - 8333333);
-      } else {
-        phase1Sold = 8333333;
-        phase2Sold = 8333333;
-        phase3Sold = Math.max(0, totalMxiSold - 16666666);
-      }
-      
-      setPhaseData({
-        totalTokensSold: totalMxiSold,
-        currentPhase,
-        currentPriceUsdt: currentPrice,
-        phase1TokensSold: phase1Sold,
-        phase2TokensSold: phase2Sold,
-        phase3TokensSold: phase3Sold,
-      });
-    }
-
-    // Load referral metrics
-    await loadReferralMetrics();
-
-    // Load challenge metrics
-    await loadChallengeMetrics();
-
-    // Load transaction history
-    await loadTransactionHistory();
-  };
-
-  const loadReferralMetrics = async () => {
-    if (!user) return;
-
     try {
-      // Get referral counts by level
-      const { data: referrals, error: refError } = await supabase
-        .from('referrals')
-        .select('level, referred_id')
-        .eq('referrer_id', user.id);
-
-      if (refError) throw refError;
-
-      // Count referrals by level
-      const level1Count = referrals?.filter(r => r.level === 1).length || 0;
-      const level2Count = referrals?.filter(r => r.level === 2).length || 0;
-      const level3Count = referrals?.filter(r => r.level === 3).length || 0;
-
-      // Get total commission earnings from user's mxi_from_unified_commissions
-      const totalEarnings = user.mxiFromUnifiedCommissions || 0;
-
-      // Since we don't track individual level earnings in the new system,
-      // we'll estimate based on the commission rates (5%, 2%, 1%)
-      // This is an approximation for display purposes
-      const totalLevels = level1Count + level2Count + level3Count;
-      let level1Earnings = 0;
-      let level2Earnings = 0;
-      let level3Earnings = 0;
-
-      if (totalLevels > 0) {
-        // Weighted distribution based on commission rates
-        const totalWeight = (level1Count * 5) + (level2Count * 2) + (level3Count * 1);
-        if (totalWeight > 0) {
-          level1Earnings = (totalEarnings * (level1Count * 5)) / totalWeight;
-          level2Earnings = (totalEarnings * (level2Count * 2)) / totalWeight;
-          level3Earnings = (totalEarnings * (level3Count * 1)) / totalWeight;
-        }
-      }
-
-      // All commissions are available immediately in the unified system
-      const availableToWithdraw = totalEarnings;
-      const pendingCommissions = 0;
-
-      setReferralMetrics({
-        level1Count,
-        level2Count,
-        level3Count,
-        level1Earnings,
-        level2Earnings,
-        level3Earnings,
-        totalEarnings,
-        pendingCommissions,
-        availableToWithdraw,
-      });
+      await checkWithdrawalEligibility();
+      const info = await getPhaseInfo();
+      setPhaseInfo(info);
     } catch (error) {
-      console.error('Error loading referral metrics:', error);
+      console.error('Error loading data:', error);
     }
-  };
-
-  const loadChallengeMetrics = async () => {
-    if (!user) return;
-
-    try {
-      // Get challenge history
-      const { data: challenges, error: chalError } = await supabase
-        .from('challenge_history')
-        .select('result, amount_won, amount_lost')
-        .eq('user_id', user.id);
-
-      if (chalError) throw chalError;
-
-      // Get game results
-      const { data: gameResults, error: gameError } = await supabase
-        .from('game_results')
-        .select('rank, prize_won')
-        .eq('user_id', user.id);
-
-      if (gameError) throw gameError;
-
-      const totalGamesPlayed = (challenges?.length || 0) + (gameResults?.length || 0);
-      const challengeWins = challenges?.filter(c => c.result === 'win').length || 0;
-      const gameWins = gameResults?.filter(g => g.rank === 1).length || 0;
-      const totalWins = challengeWins + gameWins;
-      const totalLosses = totalGamesPlayed - totalWins;
-
-      const challengeEarnings = challenges?.reduce((sum, c) => sum + parseFloat(c.amount_won?.toString() || '0'), 0) || 0;
-      const gameEarnings = gameResults?.reduce((sum, g) => sum + parseFloat(g.prize_won?.toString() || '0'), 0) || 0;
-      const totalEarnings = challengeEarnings + gameEarnings;
-
-      const winRate = totalGamesPlayed > 0 ? (totalWins / totalGamesPlayed) * 100 : 0;
-      const averageEarnings = totalGamesPlayed > 0 ? totalEarnings / totalGamesPlayed : 0;
-
-      setChallengeMetrics({
-        totalGamesPlayed,
-        totalWins,
-        totalLosses,
-        totalEarnings,
-        winRate,
-        averageEarnings,
-      });
-    } catch (error) {
-      console.error('Error loading challenge metrics:', error);
-    } finally {
-      setLoadingMetrics(false);
-    }
-  };
-
-  const loadTransactionHistory = async () => {
-    if (!user) return;
-
-    try {
-      const transactionList: Transaction[] = [];
-
-      // Get withdrawals
-      const { data: withdrawals, error: wError } = await supabase
-        .from('withdrawals')
-        .select('id, amount, currency, status, created_at')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(5);
-
-      if (!wError && withdrawals) {
-        withdrawals.forEach(w => {
-          transactionList.push({
-            id: w.id,
-            type: 'withdrawal',
-            amount: parseFloat(w.amount.toString()),
-            currency: w.currency,
-            status: w.status,
-            created_at: w.created_at,
-            description: `Retiro de ${w.currency}`,
-          });
-        });
-      }
-
-      // Get contributions (deposits)
-      const { data: contributions, error: cError } = await supabase
-        .from('contributions')
-        .select('id, usdt_amount, mxi_amount, status, created_at')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(5);
-
-      if (!cError && contributions) {
-        contributions.forEach(c => {
-          transactionList.push({
-            id: c.id,
-            type: 'deposit',
-            amount: parseFloat(c.usdt_amount.toString()),
-            currency: 'USDT',
-            status: c.status,
-            created_at: c.created_at,
-            description: `Depósito - ${parseFloat(c.mxi_amount.toString()).toFixed(2)} MXI`,
-          });
-        });
-      }
-
-      // Get commissions
-      const { data: commissions, error: comError } = await supabase
-        .from('commissions')
-        .select('id, amount, level, status, created_at')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(5);
-
-      if (!comError && commissions) {
-        commissions.forEach(c => {
-          transactionList.push({
-            id: c.id,
-            type: 'commission',
-            amount: parseFloat(c.amount.toString()),
-            currency: 'MXI',
-            status: c.status,
-            created_at: c.created_at,
-            description: `Comisión Nivel ${c.level}`,
-          });
-        });
-      }
-
-      // Get game results
-      const { data: gameResults, error: gError } = await supabase
-        .from('game_results')
-        .select('id, prize_won, rank, created_at')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(5);
-
-      if (!gError && gameResults) {
-        gameResults.forEach(g => {
-          const prizeWon = parseFloat(g.prize_won?.toString() || '0');
-          transactionList.push({
-            id: g.id,
-            type: prizeWon > 0 ? 'game_win' : 'game_loss',
-            amount: prizeWon,
-            currency: 'MXI',
-            status: 'completed',
-            created_at: g.created_at,
-            description: g.rank === 1 ? `Victoria en Reto - Puesto ${g.rank}` : `Reto Completado - Puesto ${g.rank}`,
-          });
-        });
-      }
-
-      // Sort by date and take last 5
-      transactionList.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      setTransactions(transactionList.slice(0, 5));
-    } catch (error) {
-      console.error('Error loading transaction history:', error);
-    }
-  };
-
-  const checkAdmin = async () => {
-    const adminStatus = await checkAdminStatus();
-    setIsAdmin(adminStatus);
-    console.log('Admin status:', adminStatus);
   };
 
   const onRefresh = async () => {
@@ -389,948 +188,185 @@ export default function HomeScreen() {
     setRefreshing(false);
   };
 
-  const handleClaimYield = async () => {
-    if (currentYield === 0) {
-      Alert.alert('No Yield', 'No yield available to claim yet');
-      return;
-    }
-
-    Alert.alert(
-      'Claim Yield',
-      `Claim ${currentYield.toFixed(6)} MXI yield?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Claim',
-          onPress: async () => {
-            const result = await claimYield();
-            if (result.success) {
-              Alert.alert('Success', `Claimed ${result.yieldEarned?.toFixed(6)} MXI!`);
-              setCurrentYield(0);
-            } else {
-              Alert.alert('Error', result.error || 'Failed to claim yield');
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const formatNumber = (num: number): string => {
-    if (num >= 1000000) {
-      return `${(num / 1000000).toFixed(2)}M`;
-    } else if (num >= 1000) {
-      return `${(num / 1000).toFixed(2)}K`;
-    }
-    return num.toFixed(0);
-  };
-
-  const getTransactionIcon = (type: string) => {
-    switch (type) {
-      case 'deposit':
-        return { ios: 'arrow.down.circle.fill', android: 'arrow_circle_down', color: colors.success };
-      case 'withdrawal':
-        return { ios: 'arrow.up.circle.fill', android: 'arrow_circle_up', color: colors.error };
-      case 'commission':
-        return { ios: 'person.3.fill', android: 'group', color: colors.warning };
-      case 'game_win':
-        return { ios: 'trophy.fill', android: 'emoji_events', color: colors.accent };
-      case 'game_loss':
-        return { ios: 'gamecontroller.fill', android: 'sports_esports', color: colors.textSecondary };
-      default:
-        return { ios: 'circle.fill', android: 'circle', color: colors.textSecondary };
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return colors.success;
-      case 'pending':
-        return colors.warning;
-      case 'failed':
-        return colors.error;
-      default:
-        return colors.textSecondary;
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Ahora';
-    if (diffMins < 60) return `Hace ${diffMins}m`;
-    if (diffHours < 24) return `Hace ${diffHours}h`;
-    if (diffDays < 7) return `Hace ${diffDays}d`;
-    return date.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
-  };
-
-  if (!user) {
+  if (loading || !user) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading...</Text>
+        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+          <Text style={{ color: colors.text }}>Cargando...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  // Calculate MXI breakdown
-  const mxiPurchased = user.mxiPurchasedDirectly || 0;
-  const mxiFromCommissions = user.mxiFromUnifiedCommissions || 0;
-  const mxiFromChallenges = (user as any).mxi_from_challenges || 0;
-  const mxiVestingLocked = (user as any).mxi_vesting_locked || 0;
-  const totalMxiBalance = mxiPurchased + mxiFromCommissions + mxiFromChallenges + mxiVestingLocked;
-
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.header}>
+        <Text style={styles.greeting}>Hola, {user.name}</Text>
+        <Text style={styles.subtitle}>Bienvenido al Pool de Liquidez MXI</Text>
+      </View>
+
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Bienvenido,</Text>
-            <Text style={styles.userName}>{user.name}</Text>
-          </View>
+        {/* KYC Banner */}
+        {user.kycStatus !== 'approved' && (
           <TouchableOpacity
-            style={styles.profileButton}
-            onPress={() => router.push('/(tabs)/profile')}
+            style={styles.kycBanner}
+            onPress={() => router.push('/(tabs)/(home)/kyc-verification')}
           >
-            <IconSymbol ios_icon_name="person.circle.fill" android_material_icon_name="account_circle" size={40} color={colors.primary} />
+            <IconSymbol
+              ios_icon_name="exclamationmark.triangle.fill"
+              android_material_icon_name="warning"
+              size={24}
+              color={colors.warning}
+            />
+            <View style={styles.kycBannerText}>
+              <Text style={styles.kycBannerTitle}>Verificación KYC Requerida</Text>
+              <Text style={styles.kycBannerSubtitle}>
+                Completa tu verificación para poder retirar fondos
+              </Text>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron_right"
+              size={20}
+              color={colors.warning}
+            />
           </TouchableOpacity>
+        )}
+
+        {/* Balance Card */}
+        <View style={styles.balanceCard}>
+          <Text style={styles.balanceLabel}>Balance Total MXI</Text>
+          <Text style={styles.balanceAmount}>
+            {user.mxiBalance.toLocaleString('es-ES', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </Text>
+          <Text style={styles.balanceSubtext}>
+            USDT Contribuido: ${user.usdtContributed.toFixed(2)}
+          </Text>
         </View>
 
-        {/* Countdown to Launch */}
+        {/* Buy MXI Button */}
+        <TouchableOpacity
+          style={styles.buyButton}
+          onPress={() => router.push('/(tabs)/(home)/contrataciones')}
+        >
+          <IconSymbol
+            ios_icon_name="plus.circle.fill"
+            android_material_icon_name="add_circle"
+            size={24}
+            color="#000000"
+          />
+          <Text style={styles.buyButtonText}>Comprar MXI</Text>
+        </TouchableOpacity>
+
+        {/* Yield Display */}
+        <YieldDisplay />
+
+        {/* Launch Countdown */}
         <LaunchCountdown />
 
-        {/* MXI Balance with Breakdown */}
-        <View style={[commonStyles.card, styles.balanceCard]}>
-          <View style={styles.balanceHeader}>
-            <Text style={styles.balanceLabel}>Balance Total MXI</Text>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/(home)/vesting')}>
-              <IconSymbol ios_icon_name="info.circle" android_material_icon_name="info" size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.balanceAmount}>{totalMxiBalance.toFixed(2)}</Text>
-          <Text style={styles.balanceCurrency}>MXI</Text>
-          
-          <View style={styles.balanceDivider} />
-          
-          {/* MXI Breakdown Table */}
-          <View style={styles.breakdownContainer}>
-            <Text style={styles.breakdownTitle}>Desglose de Balance</Text>
-            
-            <View style={styles.breakdownRow}>
-              <View style={styles.breakdownItem}>
-                <IconSymbol 
-                  ios_icon_name="cart.fill" 
-                  android_material_icon_name="shopping_cart" 
-                  size={20} 
-                  color={colors.primary} 
-                />
-                <View style={styles.breakdownText}>
-                  <Text style={styles.breakdownLabel}>MXI Comprados</Text>
-                  <Text style={styles.breakdownSubtext}>Disponible para retos</Text>
-                </View>
-              </View>
-              <Text style={styles.breakdownValue}>{mxiPurchased.toFixed(2)}</Text>
-            </View>
+        {/* Universal MXI Counter */}
+        <UniversalMXICounter />
 
-            <View style={styles.breakdownRow}>
-              <View style={styles.breakdownItem}>
-                <IconSymbol 
-                  ios_icon_name="person.3.fill" 
-                  android_material_icon_name="group" 
-                  size={20} 
-                  color={colors.success} 
-                />
-                <View style={styles.breakdownText}>
-                  <Text style={styles.breakdownLabel}>MXI por Referidos</Text>
-                  <Text style={styles.breakdownSubtext}>De comisiones unificadas</Text>
-                </View>
-              </View>
-              <Text style={styles.breakdownValue}>{mxiFromCommissions.toFixed(2)}</Text>
-            </View>
+        {/* Quick Actions */}
+        <View style={styles.quickActionsGrid}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/(tabs)/(home)/referrals')}
+          >
+            <IconSymbol
+              ios_icon_name="person.2.fill"
+              android_material_icon_name="group"
+              size={32}
+              color={colors.primary}
+              style={styles.actionIcon}
+            />
+            <Text style={styles.actionLabel}>Referidos</Text>
+          </TouchableOpacity>
 
-            <View style={styles.breakdownRow}>
-              <View style={styles.breakdownItem}>
-                <IconSymbol 
-                  ios_icon_name="trophy.fill" 
-                  android_material_icon_name="emoji_events" 
-                  size={20} 
-                  color={colors.warning} 
-                />
-                <View style={styles.breakdownText}>
-                  <Text style={styles.breakdownLabel}>MXI por Retos</Text>
-                  <Text style={styles.breakdownSubtext}>Ganados en competencias</Text>
-                </View>
-              </View>
-              <Text style={styles.breakdownValue}>{mxiFromChallenges.toFixed(2)}</Text>
-            </View>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/(tabs)/(home)/payment-history')}
+          >
+            <IconSymbol
+              ios_icon_name="clock.fill"
+              android_material_icon_name="history"
+              size={32}
+              color={colors.primary}
+              style={styles.actionIcon}
+            />
+            <Text style={styles.actionLabel}>Historial</Text>
+          </TouchableOpacity>
 
-            <View style={styles.breakdownRow}>
-              <View style={styles.breakdownItem}>
-                <IconSymbol 
-                  ios_icon_name="lock.fill" 
-                  android_material_icon_name="lock" 
-                  size={20} 
-                  color={colors.accent} 
-                />
-                <View style={styles.breakdownText}>
-                  <Text style={styles.breakdownLabel}>MXI Vesting</Text>
-                  <Text style={styles.breakdownSubtext}>Bloqueado hasta lanzamiento</Text>
-                </View>
-              </View>
-              <Text style={styles.breakdownValue}>{mxiVestingLocked.toFixed(2)}</Text>
-            </View>
-          </View>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/(tabs)/(home)/vesting')}
+          >
+            <IconSymbol
+              ios_icon_name="chart.line.uptrend.xyaxis"
+              android_material_icon_name="trending_up"
+              size={32}
+              color={colors.primary}
+              style={styles.actionIcon}
+            />
+            <Text style={styles.actionLabel}>Vesting</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => router.push('/(tabs)/(home)/withdraw-mxi')}
+          >
+            <IconSymbol
+              ios_icon_name="arrow.up.circle.fill"
+              android_material_icon_name="upload"
+              size={32}
+              color={colors.primary}
+              style={styles.actionIcon}
+            />
+            <Text style={styles.actionLabel}>Retirar</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Vesting Counter - POSITIONED BELOW MXI BALANCE */}
-        <VestingCounter />
-
-        {/* MXI Sold Display - SHOWING REAL DATA */}
-        {phaseData && (
-          <View style={[commonStyles.card, styles.statsCard]}>
-            <Text style={styles.statsTitle}>📊 Estadísticas de Pre-Venta (Datos Reales)</Text>
-            <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <IconSymbol ios_icon_name="chart.bar.fill" android_material_icon_name="bar_chart" size={24} color={colors.primary} />
-                <Text style={styles.statValue}>{formatNumber(phaseData.totalTokensSold)}</Text>
-                <Text style={styles.statLabel}>MXI Vendidos</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <IconSymbol ios_icon_name="tag.fill" android_material_icon_name="local_offer" size={24} color={colors.success} />
-                <Text style={styles.statValue}>Fase {phaseData.currentPhase}</Text>
-                <Text style={styles.statLabel}>${phaseData.currentPriceUsdt.toFixed(2)} USDT</Text>
-              </View>
-            </View>
-            <View style={styles.progressSection}>
-              <View style={styles.progressHeader}>
-                <Text style={styles.progressLabel}>Progreso Total</Text>
-                <Text style={styles.progressPercentage}>
-                  {((phaseData.totalTokensSold / 25000000) * 100).toFixed(4)}%
-                </Text>
-              </View>
-              <View style={styles.progressBarContainer}>
-                <View 
-                  style={[
-                    styles.progressBar, 
-                    { width: `${Math.min((phaseData.totalTokensSold / 25000000) * 100, 100)}%` }
-                  ]} 
-                />
-              </View>
-              <View style={styles.progressFooter}>
-                <Text style={styles.progressText}>{formatNumber(phaseData.totalTokensSold)} MXI</Text>
-                <Text style={styles.progressText}>25,000,000 MXI</Text>
-              </View>
-            </View>
+        {/* Stats Card */}
+        <View style={styles.statsCard}>
+          <Text style={styles.statsTitle}>Estadísticas</Text>
+          <View style={styles.statRow}>
+            <Text style={styles.statLabel}>Referidos Activos</Text>
+            <Text style={styles.statValue}>{user.activeReferrals}</Text>
           </View>
-        )}
-
-        {/* Referral Metrics */}
-        {loadingMetrics ? (
-          <View style={[commonStyles.card, styles.loadingCard]}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Cargando métricas...</Text>
+          <View style={styles.statRow}>
+            <Text style={styles.statLabel}>Comisiones Disponibles</Text>
+            <Text style={styles.statValue}>
+              ${user.commissions.available.toFixed(2)}
+            </Text>
           </View>
-        ) : (
-          <React.Fragment>
-            <View style={[commonStyles.card, styles.metricsCard]}>
-              <View style={styles.metricsHeader}>
-                <IconSymbol 
-                  ios_icon_name="person.3.fill" 
-                  android_material_icon_name="group" 
-                  size={28} 
-                  color={colors.success} 
-                />
-                <Text style={styles.metricsTitle}>📊 Métricas de Referidos</Text>
-              </View>
-
-              <View style={styles.metricsGrid}>
-                <View style={styles.metricItem}>
-                  <View style={[styles.metricBadge, { backgroundColor: colors.success + '20' }]}>
-                    <Text style={[styles.metricBadgeText, { color: colors.success }]}>Nivel 1</Text>
-                  </View>
-                  <Text style={styles.metricValue}>{referralMetrics?.level1Count || 0}</Text>
-                  <Text style={styles.metricLabel}>Referidos</Text>
-                  <Text style={styles.metricEarnings}>{(referralMetrics?.level1Earnings || 0).toFixed(2)} MXI</Text>
-                  <Text style={styles.metricPercentage}>5% comisión</Text>
-                </View>
-
-                <View style={styles.metricItem}>
-                  <View style={[styles.metricBadge, { backgroundColor: colors.primary + '20' }]}>
-                    <Text style={[styles.metricBadgeText, { color: colors.primary }]}>Nivel 2</Text>
-                  </View>
-                  <Text style={styles.metricValue}>{referralMetrics?.level2Count || 0}</Text>
-                  <Text style={styles.metricLabel}>Referidos</Text>
-                  <Text style={styles.metricEarnings}>{(referralMetrics?.level2Earnings || 0).toFixed(2)} MXI</Text>
-                  <Text style={styles.metricPercentage}>2% comisión</Text>
-                </View>
-
-                <View style={styles.metricItem}>
-                  <View style={[styles.metricBadge, { backgroundColor: colors.warning + '20' }]}>
-                    <Text style={[styles.metricBadgeText, { color: colors.warning }]}>Nivel 3</Text>
-                  </View>
-                  <Text style={styles.metricValue}>{referralMetrics?.level3Count || 0}</Text>
-                  <Text style={styles.metricLabel}>Referidos</Text>
-                  <Text style={styles.metricEarnings}>{(referralMetrics?.level3Earnings || 0).toFixed(2)} MXI</Text>
-                  <Text style={styles.metricPercentage}>1% comisión</Text>
-                </View>
-              </View>
-
-              <View style={styles.metricsSummary}>
-                <View style={styles.summaryItem}>
-                  <Text style={styles.summaryLabel}>Total Ganado</Text>
-                  <Text style={[styles.summaryValue, { color: colors.success }]}>
-                    {(referralMetrics?.totalEarnings || 0).toFixed(2)} MXI
-                  </Text>
-                </View>
-                <View style={styles.summaryDivider} />
-                <View style={styles.summaryItem}>
-                  <Text style={styles.summaryLabel}>Pendiente</Text>
-                  <Text style={[styles.summaryValue, { color: colors.warning }]}>
-                    {(referralMetrics?.pendingCommissions || 0).toFixed(2)} MXI
-                  </Text>
-                </View>
-                <View style={styles.summaryDivider} />
-                <View style={styles.summaryItem}>
-                  <Text style={styles.summaryLabel}>Disponible</Text>
-                  <Text style={[styles.summaryValue, { color: colors.accent }]}>
-                    {(referralMetrics?.availableToWithdraw || 0).toFixed(2)} MXI
-                  </Text>
-                </View>
-              </View>
+          <View style={styles.statRow}>
+            <Text style={styles.statLabel}>MXI Comprado</Text>
+            <Text style={styles.statValue}>
+              {(user.mxiPurchasedDirectly || 0).toFixed(2)}
+            </Text>
+          </View>
+          {phaseInfo && (
+            <View style={styles.statRow}>
+              <Text style={styles.statLabel}>Precio Actual</Text>
+              <Text style={styles.statValue}>
+                ${phaseInfo.currentPriceUsdt.toFixed(2)} USDT
+              </Text>
             </View>
+          )}
+        </View>
 
-            {/* Challenge Metrics */}
-            <View style={[commonStyles.card, styles.metricsCard]}>
-              <View style={styles.metricsHeader}>
-                <IconSymbol 
-                  ios_icon_name="trophy.fill" 
-                  android_material_icon_name="emoji_events" 
-                  size={28} 
-                  color={colors.warning} 
-                />
-                <Text style={styles.metricsTitle}>🎮 Métricas de Retos</Text>
-              </View>
-
-              <View style={styles.challengeStats}>
-                <View style={styles.challengeStatRow}>
-                  <View style={styles.challengeStatItem}>
-                    <IconSymbol 
-                      ios_icon_name="gamecontroller.fill" 
-                      android_material_icon_name="sports_esports" 
-                      size={24} 
-                      color={colors.primary} 
-                    />
-                    <View style={styles.challengeStatText}>
-                      <Text style={styles.challengeStatValue}>{challengeMetrics?.totalGamesPlayed || 0}</Text>
-                      <Text style={styles.challengeStatLabel}>Juegos Totales</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.challengeStatItem}>
-                    <IconSymbol 
-                      ios_icon_name="checkmark.circle.fill" 
-                      android_material_icon_name="check_circle" 
-                      size={24} 
-                      color={colors.success} 
-                    />
-                    <View style={styles.challengeStatText}>
-                      <Text style={[styles.challengeStatValue, { color: colors.success }]}>
-                        {challengeMetrics?.totalWins || 0}
-                      </Text>
-                      <Text style={styles.challengeStatLabel}>Victorias</Text>
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.challengeStatRow}>
-                  <View style={styles.challengeStatItem}>
-                    <IconSymbol 
-                      ios_icon_name="xmark.circle.fill" 
-                      android_material_icon_name="cancel" 
-                      size={24} 
-                      color={colors.error} 
-                    />
-                    <View style={styles.challengeStatText}>
-                      <Text style={[styles.challengeStatValue, { color: colors.error }]}>
-                        {challengeMetrics?.totalLosses || 0}
-                      </Text>
-                      <Text style={styles.challengeStatLabel}>Derrotas</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.challengeStatItem}>
-                    <IconSymbol 
-                      ios_icon_name="percent" 
-                      android_material_icon_name="percent" 
-                      size={24} 
-                      color={colors.accent} 
-                    />
-                    <View style={styles.challengeStatText}>
-                      <Text style={[styles.challengeStatValue, { color: colors.accent }]}>
-                        {(challengeMetrics?.winRate || 0).toFixed(1)}%
-                      </Text>
-                      <Text style={styles.challengeStatLabel}>Tasa de Victoria</Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.challengeEarnings}>
-                <View style={styles.earningsItem}>
-                  <Text style={styles.earningsLabel}>Total Ganado</Text>
-                  <Text style={[styles.earningsValue, { color: colors.success }]}>
-                    {(challengeMetrics?.totalEarnings || 0).toFixed(2)} MXI
-                  </Text>
-                </View>
-                <View style={styles.summaryDivider} />
-                <View style={styles.earningsItem}>
-                  <Text style={styles.earningsLabel}>Promedio por Juego</Text>
-                  <Text style={[styles.earningsValue, { color: colors.primary }]}>
-                    {(challengeMetrics?.averageEarnings || 0).toFixed(2)} MXI
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Transaction History */}
-            <View style={[commonStyles.card, styles.transactionsCard]}>
-              <View style={styles.transactionsHeader}>
-                <IconSymbol 
-                  ios_icon_name="list.bullet.rectangle" 
-                  android_material_icon_name="receipt_long" 
-                  size={28} 
-                  color={colors.accent} 
-                />
-                <Text style={styles.transactionsTitle}>📜 Últimas Transacciones</Text>
-              </View>
-
-              {transactions.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <IconSymbol 
-                    ios_icon_name="tray" 
-                    android_material_icon_name="inbox" 
-                    size={48} 
-                    color={colors.textSecondary} 
-                  />
-                  <Text style={styles.emptyStateText}>No hay transacciones recientes</Text>
-                </View>
-              ) : (
-                <View style={styles.transactionsList}>
-                  {transactions.map((transaction, index) => {
-                    const icon = getTransactionIcon(transaction.type);
-                    return (
-                      <View key={index} style={styles.transactionItem}>
-                        <View style={[styles.transactionIcon, { backgroundColor: icon.color + '20' }]}>
-                          <IconSymbol 
-                            ios_icon_name={icon.ios} 
-                            android_material_icon_name={icon.android} 
-                            size={24} 
-                            color={icon.color} 
-                          />
-                        </View>
-                        <View style={styles.transactionDetails}>
-                          <Text style={styles.transactionDescription}>{transaction.description}</Text>
-                          <View style={styles.transactionMeta}>
-                            <Text style={styles.transactionDate}>{formatDate(transaction.created_at)}</Text>
-                            <View style={[styles.transactionStatus, { backgroundColor: getStatusColor(transaction.status) + '20' }]}>
-                              <Text style={[styles.transactionStatusText, { color: getStatusColor(transaction.status) }]}>
-                                {transaction.status === 'completed' ? 'Completado' : 
-                                 transaction.status === 'pending' ? 'Pendiente' : 
-                                 transaction.status === 'failed' ? 'Fallido' : transaction.status}
-                              </Text>
-                            </View>
-                          </View>
-                        </View>
-                        <View style={styles.transactionAmount}>
-                          <Text style={[
-                            styles.transactionAmountValue,
-                            { color: transaction.type === 'withdrawal' || transaction.type === 'game_loss' ? colors.error : colors.success }
-                          ]}>
-                            {transaction.type === 'withdrawal' || transaction.type === 'game_loss' ? '-' : '+'}
-                            {transaction.amount.toFixed(2)}
-                          </Text>
-                          <Text style={styles.transactionCurrency}>{transaction.currency}</Text>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
-            </View>
-          </React.Fragment>
-        )}
-
-        {user.yieldRatePerMinute > 0 && (
-          <YieldDisplay
-            currentYield={currentYield}
-            yieldRatePerMinute={user.yieldRatePerMinute}
-            onClaim={handleClaimYield}
-          />
-        )}
-
-        {isAdmin && (
-          <TouchableOpacity
-            style={[commonStyles.card, styles.adminCard]}
-            onPress={() => router.push('/(tabs)/(admin)')}
-          >
-            <View style={styles.adminContent}>
-              <IconSymbol ios_icon_name="shield.fill" android_material_icon_name="admin_panel_settings" size={32} color={colors.primary} />
-              <View style={styles.adminText}>
-                <Text style={styles.adminTitle}>Panel de Administrador</Text>
-                <Text style={styles.adminSubtitle}>Gestionar configuración del sistema</Text>
-              </View>
-              <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={24} color={colors.textSecondary} />
-            </View>
-          </TouchableOpacity>
-        )}
+        {/* Extra padding at bottom to avoid tab bar */}
+        <View style={{ height: 120 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    marginTop: 12,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    padding: 24,
-    paddingBottom: 100,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  greeting: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  userName: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  profileButton: {
-    padding: 4,
-  },
-  balanceCard: {
-    alignItems: 'center',
-    marginBottom: 16,
-    backgroundColor: `${colors.accent}15`,
-    borderWidth: 2,
-    borderColor: colors.accent,
-  },
-  balanceHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  balanceLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  balanceAmount: {
-    fontSize: 48,
-    fontWeight: '700',
-    color: colors.accent,
-    marginBottom: 4,
-  },
-  balanceCurrency: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.accent,
-  },
-  balanceDivider: {
-    width: '100%',
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: 16,
-  },
-  breakdownContainer: {
-    width: '100%',
-    gap: 12,
-  },
-  breakdownTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  breakdownRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  breakdownItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  breakdownText: {
-    flex: 1,
-  },
-  breakdownLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  breakdownSubtext: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  breakdownValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  loadingCard: {
-    alignItems: 'center',
-    padding: 40,
-    marginBottom: 16,
-  },
-  metricsCard: {
-    marginBottom: 16,
-    backgroundColor: colors.card,
-  },
-  metricsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
-  },
-  metricsTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  metricsGrid: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  metricItem: {
-    flex: 1,
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  metricBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  metricBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  metricValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  metricLabel: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  metricEarnings: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.success,
-    marginBottom: 2,
-  },
-  metricPercentage: {
-    fontSize: 10,
-    color: colors.textSecondary,
-  },
-  metricsSummary: {
-    flexDirection: 'row',
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 16,
-  },
-  summaryItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  summaryLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  summaryValue: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  summaryDivider: {
-    width: 1,
-    backgroundColor: colors.border,
-    marginHorizontal: 12,
-  },
-  challengeStats: {
-    gap: 12,
-    marginBottom: 16,
-  },
-  challengeStatRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  challengeStatItem: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  challengeStatText: {
-    flex: 1,
-  },
-  challengeStatValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 2,
-  },
-  challengeStatLabel: {
-    fontSize: 11,
-    color: colors.textSecondary,
-  },
-  challengeEarnings: {
-    flexDirection: 'row',
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 16,
-  },
-  earningsItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  earningsLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  earningsValue: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  transactionsCard: {
-    marginBottom: 16,
-  },
-  transactionsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
-  },
-  transactionsTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  emptyState: {
-    alignItems: 'center',
-    padding: 40,
-  },
-  emptyStateText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 12,
-  },
-  transactionsList: {
-    gap: 12,
-  },
-  transactionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  transactionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  transactionDetails: {
-    flex: 1,
-  },
-  transactionDescription: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  transactionMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  transactionDate: {
-    fontSize: 11,
-    color: colors.textSecondary,
-  },
-  transactionStatus: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  transactionStatusText: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  transactionAmount: {
-    alignItems: 'flex-end',
-  },
-  transactionAmountValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  transactionCurrency: {
-    fontSize: 11,
-    color: colors.textSecondary,
-  },
-  statsCard: {
-    marginBottom: 16,
-  },
-  statsTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 16,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 8,
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  statDivider: {
-    width: 1,
-    height: 60,
-    backgroundColor: colors.border,
-  },
-  progressSection: {
-    marginTop: 8,
-  },
-  progressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  progressLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  progressPercentage: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  progressBarContainer: {
-    height: 8,
-    backgroundColor: colors.border,
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 6,
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: 4,
-  },
-  progressFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  progressText: {
-    fontSize: 10,
-    color: colors.textSecondary,
-  },
-  adminCard: {
-    backgroundColor: colors.highlight,
-    borderWidth: 2,
-    borderColor: colors.primary,
-  },
-  adminContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  adminText: {
-    flex: 1,
-  },
-  adminTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  adminSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-});
