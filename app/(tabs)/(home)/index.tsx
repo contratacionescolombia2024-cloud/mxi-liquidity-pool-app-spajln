@@ -339,7 +339,17 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user, loading, checkWithdrawalEligibility, getPhaseInfo } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
-  const [phaseInfo, setPhaseInfo] = useState<any>(null);
+  const [phaseInfo, setPhaseInfo] = useState<any>({
+    currentPhase: 1,
+    currentPriceUsdt: 0.40,
+    phase1: { sold: 0, remaining: 8333333, allocation: 8333333 },
+    phase2: { sold: 0, remaining: 8333333, allocation: 8333333 },
+    phase3: { sold: 0, remaining: 8333334, allocation: 8333334 },
+    totalSold: 0,
+    totalRemaining: 25000000,
+    overallProgress: 0,
+    poolCloseDate: '2026-02-15T12:00:00Z',
+  });
   const [poolParticipants, setPoolParticipants] = useState(56527);
   const [commissions, setCommissions] = useState({ available: 0, total: 0 });
 
@@ -353,7 +363,9 @@ export default function HomeScreen() {
     try {
       await checkWithdrawalEligibility();
       const info = await getPhaseInfo();
-      setPhaseInfo(info);
+      if (info) {
+        setPhaseInfo(info);
+      }
 
       // Load pool participants count
       const { data: metricsData, error: metricsError } = await supabase
@@ -362,7 +374,7 @@ export default function HomeScreen() {
         .single();
 
       if (!metricsError && metricsData) {
-        setPoolParticipants(metricsData.total_members);
+        setPoolParticipants(metricsData.total_members || 56527);
 
         // Calculate phase info
         const phase1Allocation = 8333333;
@@ -382,15 +394,15 @@ export default function HomeScreen() {
         const overallProgress = (totalSold / totalAllocation) * 100;
 
         setPhaseInfo({
-          currentPhase: metricsData.current_phase,
-          currentPriceUsdt: parseFloat(metricsData.current_price_usdt),
+          currentPhase: metricsData.current_phase || 1,
+          currentPriceUsdt: parseFloat(metricsData.current_price_usdt || '0.40'),
           phase1: { sold: phase1Sold, remaining: phase1Remaining, allocation: phase1Allocation },
           phase2: { sold: phase2Sold, remaining: phase2Remaining, allocation: phase2Allocation },
           phase3: { sold: phase3Sold, remaining: phase3Remaining, allocation: phase3Allocation },
           totalSold,
           totalRemaining: totalAllocation - totalSold,
           overallProgress,
-          poolCloseDate: metricsData.pool_close_date,
+          poolCloseDate: metricsData.pool_close_date || '2026-02-15T12:00:00Z',
         });
       }
 
@@ -470,7 +482,7 @@ export default function HomeScreen() {
         )}
 
         {/* Current Phase Price Card */}
-        {phaseInfo && (
+        {phaseInfo && phaseInfo.currentPhase && phaseInfo.currentPriceUsdt !== undefined && (
           <View style={styles.phaseCard}>
             <Text style={styles.phaseTitle}>Fase {phaseInfo.currentPhase} - Precio Actual</Text>
             <Text style={styles.phasePrice}>${phaseInfo.currentPriceUsdt.toFixed(2)}</Text>
@@ -491,7 +503,7 @@ export default function HomeScreen() {
         <View style={styles.totalBalanceCard}>
           <Text style={styles.cardTitle}>Balance Total de MXI</Text>
           <Text style={styles.totalBalanceValue}>
-            {user.mxiBalance.toLocaleString('es-ES', {
+            {(user.mxiBalance || 0).toLocaleString('es-ES', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             })} MXI
@@ -560,7 +572,7 @@ export default function HomeScreen() {
                 color={colors.accent} 
               />
               <Text style={styles.commissionValue}>
-                {user.activeReferrals}
+                {user.activeReferrals || 0}
               </Text>
               <Text style={styles.commissionLabel}>Referidos Activos</Text>
             </View>
@@ -572,7 +584,7 @@ export default function HomeScreen() {
                 color={colors.warning} 
               />
               <Text style={styles.commissionValue}>
-                ${user.usdtContributed.toFixed(2)}
+                ${(user.usdtContributed || 0).toFixed(2)}
               </Text>
               <Text style={styles.commissionLabel}>USDT Contribuido</Text>
             </View>
@@ -580,14 +592,14 @@ export default function HomeScreen() {
         </View>
 
         {/* Phases and Progress Card */}
-        {phaseInfo && (
+        {phaseInfo && phaseInfo.phase1 && phaseInfo.phase2 && phaseInfo.phase3 && (
           <View style={styles.phasesCard}>
             <Text style={styles.cardTitle}>Fases y Progreso</Text>
             
             <View style={styles.currentPhaseInfo}>
-              <Text style={styles.currentPhaseLabel}>Fase Actual: {phaseInfo.currentPhase}</Text>
+              <Text style={styles.currentPhaseLabel}>Fase Actual: {phaseInfo.currentPhase || 1}</Text>
               <Text style={styles.currentPhasePrice}>
-                ${phaseInfo.currentPriceUsdt.toFixed(2)} USDT por MXI
+                ${(phaseInfo.currentPriceUsdt || 0.40).toFixed(2)} USDT por MXI
               </Text>
             </View>
 
@@ -595,28 +607,28 @@ export default function HomeScreen() {
               <View style={styles.phaseItem}>
                 <Text style={styles.phaseLabel}>Fase 1 (0.40 USDT)</Text>
                 <Text style={styles.phaseValue}>
-                  Vendidos: {phaseInfo.phase1.sold.toLocaleString()} MXI
+                  Vendidos: {(phaseInfo.phase1.sold || 0).toLocaleString('es-ES')} MXI
                 </Text>
                 <Text style={styles.phaseValue}>
-                  Restantes: {phaseInfo.phase1.remaining.toLocaleString()} MXI
+                  Restantes: {(phaseInfo.phase1.remaining || 8333333).toLocaleString('es-ES')} MXI
                 </Text>
               </View>
               <View style={styles.phaseItem}>
                 <Text style={styles.phaseLabel}>Fase 2 (0.70 USDT)</Text>
                 <Text style={styles.phaseValue}>
-                  Vendidos: {phaseInfo.phase2.sold.toLocaleString()} MXI
+                  Vendidos: {(phaseInfo.phase2.sold || 0).toLocaleString('es-ES')} MXI
                 </Text>
                 <Text style={styles.phaseValue}>
-                  Restantes: {phaseInfo.phase2.remaining.toLocaleString()} MXI
+                  Restantes: {(phaseInfo.phase2.remaining || 8333333).toLocaleString('es-ES')} MXI
                 </Text>
               </View>
               <View style={styles.phaseItem}>
                 <Text style={styles.phaseLabel}>Fase 3 (1.00 USDT)</Text>
                 <Text style={styles.phaseValue}>
-                  Vendidos: {phaseInfo.phase3.sold.toLocaleString()} MXI
+                  Vendidos: {(phaseInfo.phase3.sold || 0).toLocaleString('es-ES')} MXI
                 </Text>
                 <Text style={styles.phaseValue}>
-                  Restantes: {phaseInfo.phase3.remaining.toLocaleString()} MXI
+                  Restantes: {(phaseInfo.phase3.remaining || 8333334).toLocaleString('es-ES')} MXI
                 </Text>
               </View>
             </View>
@@ -627,15 +639,15 @@ export default function HomeScreen() {
                 <View 
                   style={[
                     styles.progressFill, 
-                    { width: `${Math.min(phaseInfo.overallProgress, 100)}%` }
+                    { width: `${Math.min(phaseInfo.overallProgress || 0, 100)}%` }
                   ]} 
                 />
               </View>
               <Text style={styles.progressText}>
-                {phaseInfo.overallProgress.toFixed(2)}% - {phaseInfo.totalSold.toLocaleString()} / 25,000,000 MXI
+                {(phaseInfo.overallProgress || 0).toFixed(2)}% - {(phaseInfo.totalSold || 0).toLocaleString('es-ES')} / 25,000,000 MXI
               </Text>
               <Text style={styles.progressSubtext}>
-                Saldo Restante: {phaseInfo.totalRemaining.toLocaleString()} MXI
+                Saldo Restante: {(phaseInfo.totalRemaining || 25000000).toLocaleString('es-ES')} MXI
               </Text>
             </View>
 
@@ -647,7 +659,7 @@ export default function HomeScreen() {
                 color={colors.textSecondary} 
               />
               <Text style={styles.poolCloseText}>
-                Cierre del Pool: {new Date(phaseInfo.poolCloseDate).toLocaleDateString('es-ES', {
+                Cierre del Pool: {new Date(phaseInfo.poolCloseDate || '2026-02-15T12:00:00Z').toLocaleDateString('es-ES', {
                   year: 'numeric',
                   month: 'long',
                   day: 'numeric',
