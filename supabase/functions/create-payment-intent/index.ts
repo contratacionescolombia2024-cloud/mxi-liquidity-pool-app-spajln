@@ -103,27 +103,17 @@ Deno.serve(async (req) => {
     }
     console.log(`[${requestId}] ✓ User authenticated:`, user.id);
 
-    // STEP 3: Parse request body
+    // STEP 3: Parse request body - SIMPLIFIED
     let requestBody;
-    const contentType = req.headers.get('Content-Type') || '';
-    console.log(`[${requestId}] Content-Type:`, contentType);
-
     try {
-      const bodyText = await req.text();
-      console.log(`[${requestId}] Raw body:`, bodyText);
-      
-      if (!bodyText || bodyText.trim() === '') {
-        throw new Error('Empty request body');
-      }
-      
-      requestBody = JSON.parse(bodyText);
+      requestBody = await req.json();
       console.log(`[${requestId}] Parsed request:`, JSON.stringify(requestBody));
     } catch (e) {
       console.error(`[${requestId}] Failed to parse body:`, e.message);
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Solicitud inválida - no se pudo leer el cuerpo de la petición',
+          error: 'Solicitud inválida - formato JSON incorrecto',
           debug: e.message,
         }),
         {
