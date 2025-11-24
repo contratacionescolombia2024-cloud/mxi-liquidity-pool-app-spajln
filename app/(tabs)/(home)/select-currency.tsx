@@ -74,6 +74,7 @@ export default function SelectCurrencyScreen() {
   const [selectedCurrency, setSelectedCurrency] = useState<string>('');
   const [orderId, setOrderId] = useState<string>('');
   const [intentId, setIntentId] = useState<string>('');
+  const [errorDetails, setErrorDetails] = useState<string>('');
 
   const mxiAmount = params.mxiAmount as string;
   const usdtAmount = params.usdtAmount as string;
@@ -95,12 +96,14 @@ export default function SelectCurrencyScreen() {
 
     try {
       setLoadingCurrencies(true);
+      setErrorDetails('');
 
       // Generate unique order ID
       const newOrderId = `MXI-${Date.now()}-${user.id.substring(0, 8)}`;
       setOrderId(newOrderId);
 
       console.log('Creating payment intent for order:', newOrderId);
+      console.log('Amount:', usdtAmount, 'USD');
 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -109,34 +112,69 @@ export default function SelectCurrencyScreen() {
         return;
       }
 
-      // Step 1: Create payment intent and get available currencies
-      const response = await fetch(
-        `${supabase.supabaseUrl}/functions/v1/create-paid-intent`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            order_id: newOrderId,
-            price_amount: parseFloat(usdtAmount),
-            price_currency: 'USD',
-          }),
-        }
-      );
+      console.log('Session token obtained');
 
-      const result = await response.json();
-      console.log('Payment intent created:', result);
+      // Step 1: Create payment intent and get available currencies
+      const apiUrl = `${supabase.supabaseUrl}/functions/v1/create-paid-intent`;
+      console.log('Calling API:', apiUrl);
+
+      const requestBody = {
+        order_id: newOrderId,
+        price_amount: parseFloat(usdtAmount),
+        price_currency: 'USD',
+      };
+      console.log('Request body:', JSON.stringify(requestBody, null, 2));
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      console.log('Response status:', response.status);
+      console.log('Response headers:', JSON.stringify(Object.fromEntries(response.headers.entries())));
+
+      const responseText = await response.text();
+      console.log('Response body (first 500 chars):', responseText.substring(0, 500));
+
+      let result;
+      try {
+        result = JSON.parse(responseText);
+        console.log('Parsed response:', JSON.stringify(result, null, 2));
+      } catch (parseError) {
+        console.error('Failed to parse response as JSON:', parseError);
+        throw new Error(`Respuesta inválida del servidor: ${responseText.substring(0, 100)}`);
+      }
 
       if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Error al crear intento de pago');
+        const errorMsg = result.error || 'Error al crear intento de pago';
+        const details = result.details ? JSON.stringify(result.details, null, 2) : '';
+        console.error('API error:', errorMsg);
+        console.error('Error details:', details);
+        
+        setErrorDetails(details);
+        throw new Error(errorMsg);
+      }
+
+      if (!result.intent) {
+        console.error('No intent in response:', result);
+        throw new Error('Respuesta inválida: falta información del intento de pago');
       }
 
       setIntentId(result.intent.id);
 
       // Process available currencies
       const currencies = result.intent.pay_currencies || [];
+      console.log('Received currencies:', currencies.length);
+
+      if (currencies.length === 0) {
+        console.error('No currencies available');
+        throw new Error('No se encontraron criptomonedas disponibles. Por favor intenta nuevamente más tarde.');
+      }
+
       const processedCurrencies: Currency[] = currencies.map((code: string) => {
         const upperCode = code.toUpperCase();
         const lowerCode = code.toLowerCase();
@@ -156,16 +194,35 @@ export default function SelectCurrencyScreen() {
       });
 
       setAvailableCurrencies(processedCurrencies);
-      console.log('Available currencies:', processedCurrencies.length);
+      console.log('Available currencies processed:', processedCurrencies.length);
     } catch (error: any) {
       console.error('Error initializing payment:', error);
+      console.error('Error stack:', error.stack);
+      
+      const errorMessage = error.message || 'No se pudo inicializar el pago. Por favor intenta nuevamente.';
+      
       Alert.alert(
-        'Error',
-        error.message || 'No se pudo inicializar el pago. Por favor intenta nuevamente.',
+        'Error al Cargar Criptomonedas',
+        errorMessage + (errorDetails ? `\n\nDetalles técnicos:\n${errorDetails}` : ''),
         [
+          {
+            text: 'Ver Detalles',
+            onPress: () => {
+              Alert.alert(
+                'Detalles del Error',
+                `Error: ${errorMessage}\n\nStack: ${error.stack || 'N/A'}\n\nDetalles: ${errorDetails || 'N/A'}`,
+                [{ text: 'OK' }]
+              );
+            },
+          },
+          {
+            text: 'Reintentar',
+            onPress: () => initializePayment(),
+          },
           {
             text: 'Volver',
             onPress: () => router.back(),
+            style: 'cancel',
           },
         ]
       );
@@ -395,6 +452,7 @@ export default function SelectCurrencyScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Cargando criptomonedas disponibles...</Text>
+          <Text style={styles.loadingSubtext}>Conectando con NOWPayments...</Text>
         </View>
       </SafeAreaView>
     );
@@ -416,7 +474,18 @@ export default function SelectCurrencyScreen() {
           />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Seleccionar Criptomoneda</Text>
-        <View style={styles.placeholder} />
+        <TouchableOpacity
+          style={styles.refreshButton}
+          onPress={initializePayment}
+          disabled={loading}
+        >
+          <IconSymbol
+            ios_icon_name="arrow.clockwise"
+            android_material_icon_name="refresh"
+            size={24}
+            color={colors.primary}
+          />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.content}>
@@ -478,8 +547,18 @@ export default function SelectCurrencyScreen() {
                 No se encontraron criptomonedas
               </Text>
               <Text style={styles.emptyStateSubtext}>
-                Intenta con otro término de búsqueda
+                {availableCurrencies.length === 0
+                  ? 'No hay criptomonedas disponibles. Por favor intenta nuevamente.'
+                  : 'Intenta con otro término de búsqueda'}
               </Text>
+              {availableCurrencies.length === 0 && (
+                <TouchableOpacity
+                  style={styles.retryButton}
+                  onPress={initializePayment}
+                >
+                  <Text style={styles.retryButtonText}>Reintentar</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : (
             <React.Fragment>
@@ -547,8 +626,8 @@ const styles = StyleSheet.create({
     color: colors.text,
     textAlign: 'center',
   },
-  placeholder: {
-    width: 40,
+  refreshButton: {
+    padding: 4,
   },
   loadingContainer: {
     flex: 1,
@@ -559,6 +638,13 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
+    color: colors.text,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  loadingSubtext: {
+    marginTop: 8,
+    fontSize: 14,
     color: colors.textSecondary,
     textAlign: 'center',
   },
@@ -707,6 +793,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 40,
+  },
+  retryButton: {
+    marginTop: 20,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
   infoCard: {
     backgroundColor: `${colors.primary}10`,

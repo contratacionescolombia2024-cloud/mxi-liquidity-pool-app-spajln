@@ -14,8 +14,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    console.log('=== Create Payment Intent (Step 1) ===');
+    console.log('=== Create Payment Intent (Step 1 - Fetch Currencies) ===');
     console.log('Request method:', req.method);
+    console.log('Request URL:', req.url);
 
     // Get Supabase client
     const supabaseClient = createClient(
@@ -54,7 +55,7 @@ Deno.serve(async (req) => {
     let requestBody;
     try {
       requestBody = await req.json();
-      console.log('Request body:', requestBody);
+      console.log('Request body:', JSON.stringify(requestBody, null, 2));
     } catch (e) {
       console.error('Failed to parse request body:', e);
       return new Response(
@@ -72,10 +73,11 @@ Deno.serve(async (req) => {
     const { order_id, price_amount, price_currency } = requestBody;
 
     if (!order_id || !price_amount || !price_currency) {
+      console.error('Missing required parameters:', { order_id, price_amount, price_currency });
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: 'Faltan parámetros requeridos' 
+          error: 'Faltan parámetros requeridos: order_id, price_amount, price_currency' 
         }),
         {
           status: 400,
@@ -90,11 +92,11 @@ Deno.serve(async (req) => {
     const nowpaymentsApiKey = Deno.env.get('NOWPAYMENTS_API_KEY');
     
     if (!nowpaymentsApiKey) {
-      console.error('NOWPAYMENTS_API_KEY not configured');
+      console.error('NOWPAYMENTS_API_KEY not configured in environment variables');
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: 'Error de configuración del servidor' 
+          error: 'Error de configuración del servidor. Por favor contacta al administrador.' 
         }),
         {
           status: 500,
@@ -103,8 +105,11 @@ Deno.serve(async (req) => {
       );
     }
 
+    console.log('API key found, length:', nowpaymentsApiKey.length);
+
     // Get available currencies from NOWPayments
-    console.log('Fetching available currencies from NOWPayments...');
+    console.log('Fetching available currencies from NOWPayments API...');
+    console.log('API endpoint: https://api.nowpayments.io/v1/currencies');
     
     let currenciesResponse;
     try {
@@ -112,15 +117,26 @@ Deno.serve(async (req) => {
         method: 'GET',
         headers: {
           'x-api-key': nowpaymentsApiKey,
+          'Content-Type': 'application/json',
         },
       });
+
+      console.log('NOWPayments currencies API response status:', currenciesResponse.status);
+      console.log('NOWPayments currencies API response headers:', JSON.stringify(Object.fromEntries(currenciesResponse.headers.entries())));
     } catch (fetchError: any) {
-      console.error('Error fetching currencies:', fetchError);
+      console.error('Fetch error when calling NOWPayments API:', fetchError);
+      console.error('Error name:', fetchError.name);
+      console.error('Error message:', fetchError.message);
+      console.error('Error stack:', fetchError.stack);
+      
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Error al obtener criptomonedas disponibles',
-          details: fetchError.message,
+          error: 'Error al conectar con el servicio de pagos. Por favor intenta nuevamente.',
+          details: {
+            message: fetchError.message,
+            type: fetchError.name,
+          },
         }),
         {
           status: 500,
@@ -128,15 +144,36 @@ Deno.serve(async (req) => {
         }
       );
     }
+
+    // Read response body
+    const responseText = await currenciesResponse.text();
+    console.log('NOWPayments raw response (first 500 chars):', responseText.substring(0, 500));
 
     if (!currenciesResponse.ok) {
-      const errorText = await currenciesResponse.text();
-      console.error('NOWPayments currencies API error:', errorText);
+      console.error('NOWPayments API error - Status:', currenciesResponse.status);
+      console.error('NOWPayments API error - Body:', responseText);
+      
+      let errorMessage = 'Error al obtener criptomonedas disponibles';
+      let errorDetails: any = { 
+        raw: responseText, 
+        status: currenciesResponse.status,
+        statusText: currenciesResponse.statusText,
+      };
+      
+      try {
+        const errorData = JSON.parse(responseText);
+        console.error('Parsed error data:', JSON.stringify(errorData, null, 2));
+        errorMessage = errorData.message || errorData.error || errorMessage;
+        errorDetails = errorData;
+      } catch (e) {
+        console.error('Could not parse error response as JSON:', e);
+      }
+
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Error al obtener criptomonedas disponibles',
-          details: errorText,
+          error: errorMessage,
+          details: errorDetails,
         }),
         {
           status: 500,
@@ -145,36 +182,107 @@ Deno.serve(async (req) => {
       );
     }
 
-    const currenciesData = await currenciesResponse.json();
-    console.log('Available currencies fetched:', currenciesData.currencies?.length || 0);
+    // Parse successful response
+    let currenciesData;
+    try {
+      currenciesData = JSON.parse(responseText);
+      console.log('Successfully parsed currencies data');
+      console.log('Number of currencies:', currenciesData.currencies?.length || 0);
+      
+      if (currenciesData.currencies && currenciesData.currencies.length > 0) {
+        console.log('First 10 currencies:', currenciesData.currencies.slice(0, 10).join(', '));
+      }
+    } catch (e) {
+      console.error('Failed to parse NOWPayments response as JSON:', e);
+      console.error('Response text:', responseText);
+      
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Respuesta inválida del servicio de pagos',
+          details: { 
+            raw: responseText,
+            parseError: e.message,
+          },
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Validate currencies data
+    if (!currenciesData.currencies || !Array.isArray(currenciesData.currencies)) {
+      console.error('Invalid currencies data structure:', currenciesData);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Estructura de datos inválida del servicio de pagos',
+          details: currenciesData,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    if (currenciesData.currencies.length === 0) {
+      console.warn('No currencies available from NOWPayments');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'No hay criptomonedas disponibles en este momento',
+          details: { message: 'Empty currencies list from API' },
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    console.log('Successfully fetched', currenciesData.currencies.length, 'currencies');
 
     // Return payment intent with available currencies
+    const responseData = {
+      success: true,
+      intent: {
+        id: order_id,
+        order_id: order_id,
+        price_amount: price_amount,
+        price_currency: price_currency,
+        pay_currencies: currenciesData.currencies,
+        user_id: user.id,
+        created_at: new Date().toISOString(),
+      },
+    };
+
+    console.log('Returning success response with', currenciesData.currencies.length, 'currencies');
+
     return new Response(
-      JSON.stringify({
-        success: true,
-        intent: {
-          id: order_id,
-          order_id: order_id,
-          price_amount: price_amount,
-          price_currency: price_currency,
-          pay_currencies: currenciesData.currencies || [],
-          user_id: user.id,
-          created_at: new Date().toISOString(),
-        },
-      }),
+      JSON.stringify(responseData),
       {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
   } catch (error: any) {
-    console.error('Error in create-paid-intent:', error);
+    console.error('=== UNEXPECTED ERROR in create-paid-intent ===');
+    console.error('Error type:', error.constructor.name);
+    console.error('Error message:', error.message);
     console.error('Error stack:', error.stack);
+    
     return new Response(
       JSON.stringify({
         success: false,
         error: 'Error interno del servidor',
-        details: error.message,
+        details: {
+          type: error.constructor.name,
+          message: error.message,
+          stack: error.stack,
+        },
       }),
       {
         status: 500,
