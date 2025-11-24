@@ -472,7 +472,7 @@ export default function ContratacionesScreen() {
       addDebugLog(`Order ID generado: ${orderId}`);
 
       // Step 3: Prepare request - USING CORRECT EDGE FUNCTION URL
-      const requestUrl = 'https://ienxcoudewmbuuldyecb.supabase.co/functions/v1/create-paid-intent';
+      const requestUrl = 'https://ienxcoudewmbuuldyecb.supabase.co/functions/v1/create-payment-intent';
       const requestBody = {
         order_id: orderId,
         price_amount: parseFloat(amount),
