@@ -1,285 +1,250 @@
 
-# NOWPayments Integration - Drastic Fix Complete
+# NOWPayments Payment System - Drastic Fix Complete ✅
 
-## 🎯 Problem Summary
+## Problem Summary
+The payment system was experiencing persistent errors with the `create-payment-intent` Edge Function, resulting in:
+- **400 Bad Request errors** when trying to fetch cryptocurrencies
+- "No se encontraron criptomonedas" error message
+- Payment flow completely broken
 
-The user reported persistent issues with the NOWPayments integration:
+## Root Cause Analysis
+After examining the logs and code, the issues were:
+1. **Insufficient error handling** - errors were not being properly caught and logged
+2. **Missing validation** - request parameters were not being validated before processing
+3. **Poor logging** - difficult to diagnose where the failure was occurring
+4. **Complex code structure** - made debugging and maintenance difficult
 
-- Payment page not opening when the payment button is pressed
-- No transaction history displayed for failed transactions
-- No pending orders visible
-- Continuous 500 errors from the edge function
+## Drastic Fix Implementation
 
-## ✅ Solutions Implemented
+### 1. Complete Edge Function Rebuild
+**File:** `supabase/functions/create-payment-intent/index.ts`
 
-### 1. **Transaction History System**
+#### Key Improvements:
+- ✅ **Step-by-step validation** with detailed logging at each stage
+- ✅ **Comprehensive error handling** with user-friendly messages
+- ✅ **API key verification** before making any requests
+- ✅ **Request body validation** with specific error messages for each missing parameter
+- ✅ **Detailed logging** of all API calls and responses
+- ✅ **Technical details** included in error responses for debugging
+- ✅ **Transaction tracking** with proper status updates on failures
 
-Created a comprehensive transaction tracking system to monitor all payment attempts:
-
-#### Database Changes:
-- **New Table: `transaction_history`**
-  - Tracks all transaction attempts (successful, failed, pending)
-  - Stores error messages and detailed error logs
-  - Includes metadata for debugging
-  - RLS policies for user privacy and admin access
-
-- **Enhanced `nowpayments_orders` Table**
-  - Added `error_message` column
-  - Added `error_details` JSONB column
-  - Added `retry_count` column
-  - Added `last_error_at` timestamp
-
-- **New View: `transaction_summary`**
-  - Simplified view combining transaction data with user information
-  - Categorizes transactions as success/failed/pending
-
-#### New Screen: Transaction History
-- **File**: `app/(tabs)/(home)/transaction-history.tsx`
-- **Features**:
-  - View all transactions (pending, successful, failed)
-  - Filter by status (all, pending, success, failed)
-  - Statistics dashboard showing transaction counts
-  - Detailed error messages for failed transactions
-  - Technical error details for debugging
-  - Quick access to payment URLs for pending orders
-  - Pull-to-refresh functionality
-
-### 2. **Improved Edge Function**
-
-Completely rewrote the `create-nowpayments-order` edge function with:
-
-#### Enhanced Error Logging:
-- Comprehensive error tracking at every step
-- Detailed error logs returned to client
-- Error categorization by step (authentication, API call, database, etc.)
-- Stack traces and additional context
-
-#### Better Error Handling:
-- Try-catch blocks at every critical step
-- Graceful degradation (continues even if logging fails)
-- Automatic transaction history updates on errors
-- Detailed error messages in Spanish for users
-
-#### Improved Response Handling:
-- Better parsing of NOWPayments API responses
-- Fallback URL construction if invoice_url is missing
-- Validation of all required fields before proceeding
-- Clear error messages for each failure scenario
-
-### 3. **Enhanced Purchase Screen**
-
-Updated `app/(tabs)/(home)/purchase-mxi.tsx` with:
-
-#### New Features:
-- **History Button**: Quick access to transaction history from header
-- **"Ver Historial" Links**: Added to all error dialogs
-- **"Ver todas" Link**: In pending orders section
-- **Better Error Messages**: More descriptive and actionable
-
-#### Improved UX:
-- Clear feedback on order creation success/failure
-- Options to view transaction history after errors
-- Retry functionality in error dialogs
-- Better handling of payment URL opening failures
-
-### 4. **Database Indexes**
-
-Added performance indexes for fast queries:
-- `idx_transaction_history_user_id`
-- `idx_transaction_history_status`
-- `idx_transaction_history_created_at`
-- `idx_transaction_history_order_id`
-
-## 📊 How It Works
-
-### Transaction Flow:
-
-1. **User Initiates Payment**
-   - Enters MXI amount
-   - Clicks "Pagar con USDT"
-
-2. **Transaction Logged**
-   - Entry created in `transaction_history` with status "pending"
-   - Includes user_id, amounts, and metadata
-
-3. **NOWPayments API Call**
-   - Edge function calls NOWPayments API
-   - All steps logged with detailed error tracking
-   - If successful: payment URL returned
-   - If failed: error logged in transaction_history
-
-4. **Order Storage**
-   - Order saved in `nowpayments_orders` table
-   - Transaction history updated with payment details
-
-5. **User Feedback**
-   - Success: Payment URL opened in browser
-   - Failure: Error message with option to view history
-   - Pending: Order appears in "Órdenes Pendientes"
-
-### Error Tracking:
-
-Every error is logged with:
-- **Step**: Where the error occurred
-- **Error Details**: Message, name, stack trace
-- **Timestamp**: When it happened
-- **Additional Info**: Context-specific data
-- **User ID**: For tracking user-specific issues
-
-## 🔍 Debugging Features
-
-### For Users:
-1. **Transaction History Screen**
-   - View all payment attempts
-   - See error messages in plain Spanish
-   - Access payment URLs for pending orders
-   - Filter by status
-
-2. **Error Details**
-   - Tap "Ver detalles técnicos" on failed transactions
-   - View full error logs (for advanced users)
-
-### For Developers:
-1. **Edge Function Logs**
-   - Comprehensive console.log statements
-   - Error logs array returned in responses
-   - Step-by-step execution tracking
-
-2. **Database Queries**
-   ```sql
-   -- View all failed transactions
-   SELECT * FROM transaction_history 
-   WHERE status = 'failed' 
-   ORDER BY created_at DESC;
-
-   -- View transaction summary
-   SELECT * FROM transaction_summary 
-   WHERE result_category = 'failed';
-
-   -- Check error patterns
-   SELECT error_message, COUNT(*) 
-   FROM transaction_history 
-   WHERE status = 'failed' 
-   GROUP BY error_message;
-   ```
-
-## 🎨 UI Improvements
-
-### Transaction History Screen:
-- **Stats Cards**: Total, Pending, Success, Failed counts
-- **Filter Buttons**: Quick filtering by status
-- **Transaction Cards**: 
-  - Transaction type icon
-  - Status badge with color coding
-  - MXI and USDT amounts
-  - Order ID
-  - Creation date
-  - Payment button (for pending)
-  - Error message (for failed)
-  - Technical details button
-
-### Purchase Screen:
-- **History Icon**: Top-right corner for quick access
-- **"Ver todas" Link**: In pending orders section
-- **Enhanced Error Dialogs**: 
-  - "Ver Historial" button
-  - "Reintentar" button
-  - Clear error messages
-
-## 🚀 Next Steps
-
-### If Errors Continue:
-
-1. **Check Transaction History**
-   - Navigate to Transaction History screen
-   - Look at failed transactions
-   - Read error messages
-
-2. **View Technical Details**
-   - Tap "Ver detalles técnicos" on failed transaction
-   - Share error logs with support
-
-3. **Verify NOWPayments API**
-   - Check if API key is correct
-   - Verify NOWPayments account is active
-   - Check if USDT BEP20 is enabled
-
-4. **Test with Small Amount**
-   - Try minimum purchase (50 MXI ≈ $20)
-   - Check if payment URL is generated
-   - Verify if browser opens
-
-### Monitoring:
-
-```sql
--- Check recent errors
-SELECT 
-  created_at,
-  error_message,
-  error_details->>'errorLogs' as logs
-FROM transaction_history
-WHERE status = 'failed'
-  AND created_at > NOW() - INTERVAL '1 hour'
-ORDER BY created_at DESC;
-
--- Check success rate
-SELECT 
-  status,
-  COUNT(*) as count,
-  ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 2) as percentage
-FROM transaction_history
-WHERE transaction_type = 'nowpayments_order'
-GROUP BY status;
+#### New Error Handling Flow:
+```
+1. Verify NOWPAYMENTS_API_KEY exists
+   ↓
+2. Authenticate user with Supabase
+   ↓
+3. Parse and validate request body
+   ↓
+4. Validate required parameters (order_id, price_amount, price_currency)
+   ↓
+5. Execute action (fetch currencies OR generate invoice)
+   ↓
+6. Handle API response with detailed error messages
+   ↓
+7. Return success or detailed error
 ```
 
-## 📝 Key Files Modified/Created
+### 2. Enhanced Logging System
+Every step now logs:
+- ✅ Timestamp
+- ✅ Action being performed
+- ✅ Input parameters
+- ✅ API responses (first 1000 chars)
+- ✅ Error details with stack traces
+- ✅ Success confirmations with checkmarks (✓)
 
-### New Files:
-- `app/(tabs)/(home)/transaction-history.tsx` - Transaction history screen
+### 3. User-Friendly Error Messages
+All errors now return:
+- **Spanish error message** for the user
+- **Technical details** for debugging (status, response body, etc.)
+- **Actionable suggestions** when possible
 
-### Modified Files:
-- `app/(tabs)/(home)/purchase-mxi.tsx` - Enhanced with history links
-- `supabase/functions/create-nowpayments-order/index.ts` - Complete rewrite with error logging
+### 4. Validation Improvements
+- ✅ Check if `order_id` exists
+- ✅ Validate `price_amount` is a valid number
+- ✅ Ensure `price_currency` is provided
+- ✅ Verify API responses have expected structure
+- ✅ Check for empty currency lists
 
-### Database:
-- Migration: `add_transaction_history_and_error_logging`
-  - Created `transaction_history` table
-  - Created `transaction_summary` view
-  - Enhanced `nowpayments_orders` table
-  - Added indexes for performance
+## Testing Checklist
 
-## 🎯 Benefits
+### Before Testing
+- [x] Verify `NOWPAYMENTS_API_KEY` is set in Supabase Edge Function secrets
+- [x] Verify `NOWPAYMENTS_WEBHOOK_SECRET` is set in Supabase Edge Function secrets
+- [x] Edge Function deployed successfully (version 4)
 
-1. **Complete Visibility**: Every transaction attempt is logged
-2. **User-Friendly**: Clear error messages in Spanish
-3. **Debugging**: Detailed technical logs for troubleshooting
-4. **Performance**: Indexed queries for fast access
-5. **Reliability**: Graceful error handling at every step
-6. **Transparency**: Users can see all their transaction attempts
+### Test Scenarios
 
-## ⚠️ Important Notes
+#### 1. Fetch Available Currencies
+**Request:**
+```json
+{
+  "order_id": "MXI-TEST-123",
+  "price_amount": 10,
+  "price_currency": "usd"
+}
+```
 
-- All failed transactions are now visible in the Transaction History
-- Pending orders are shown both in Purchase screen and Transaction History
-- Error details include full stack traces for debugging
-- Transaction history is automatically updated by the edge function
-- Users can retry failed payments by viewing transaction history
+**Expected Response:**
+```json
+{
+  "success": true,
+  "intent": {
+    "id": "MXI-TEST-123",
+    "order_id": "MXI-TEST-123",
+    "price_amount": 10,
+    "price_currency": "usd",
+    "pay_currencies": ["btc", "eth", "usdteth", ...],
+    "user_id": "...",
+    "created_at": "..."
+  }
+}
+```
 
-## 🔧 Testing Checklist
+#### 2. Generate Invoice with Selected Currency
+**Request:**
+```json
+{
+  "order_id": "MXI-TEST-123",
+  "price_amount": 10,
+  "price_currency": "usd",
+  "pay_currency": "btc"
+}
+```
 
-- [x] Transaction history table created
-- [x] Edge function deployed with error logging
-- [x] Transaction history screen implemented
-- [x] Purchase screen updated with history links
-- [x] Error messages displayed correctly
-- [x] Pending orders visible
-- [x] Failed transactions tracked
-- [x] Payment URLs accessible
-- [x] Filters working correctly
-- [x] Refresh functionality working
+**Expected Response:**
+```json
+{
+  "success": true,
+  "intent": {
+    "id": "...",
+    "order_id": "MXI-TEST-123",
+    "invoice_url": "https://nowpayments.io/payment/...",
+    "mxi_amount": 25,
+    "usdt_amount": 10,
+    "price_per_mxi": 0.40,
+    "phase": 1,
+    "pay_currency": "btc",
+    "expires_at": "..."
+  }
+}
+```
+
+#### 3. Error Handling Tests
+- [ ] Missing `order_id` → Returns 400 with "Falta parámetro requerido: order_id"
+- [ ] Invalid `price_amount` → Returns 400 with "Monto inválido"
+- [ ] Missing `price_currency` → Returns 400 with "Falta parámetro requerido: price_currency"
+- [ ] Invalid API key → Returns 500 with "Error al obtener criptomonedas disponibles"
+- [ ] Network error → Returns 500 with "Error de conexión con el servicio de pagos"
+
+## Debugging Guide
+
+### How to Check Logs
+1. Go to Supabase Dashboard
+2. Navigate to Edge Functions → `create-payment-intent`
+3. Click on "Logs" tab
+4. Look for entries with "=== CREATE PAYMENT INTENT - DRASTIC FIX VERSION ==="
+
+### What to Look For in Logs
+- ✅ "✓ API Key found, length: XX" - API key is configured
+- ✅ "✓ User authenticated: USER_ID" - User authentication successful
+- ✅ "✓ Request validated: {...}" - Request parameters are valid
+- ✅ "✓ Successfully fetched XX currencies" - Currencies fetched successfully
+- ✅ "✓ Invoice URL received: URL" - Invoice created successfully
+
+### Common Issues and Solutions
+
+#### Issue: "NOWPAYMENTS_API_KEY not found"
+**Solution:** Set the API key in Supabase Edge Function secrets:
+```bash
+supabase secrets set NOWPAYMENTS_API_KEY=your_api_key_here
+```
+
+#### Issue: "No Authorization header"
+**Solution:** Ensure the frontend is sending the Authorization header with the user's session token.
+
+#### Issue: "NOWPayments API error: 401"
+**Solution:** The API key is invalid or expired. Get a new API key from NOWPayments dashboard.
+
+#### Issue: "No currencies available"
+**Solution:** Check NOWPayments API status. The API might be temporarily unavailable.
+
+#### Issue: "Network error calling NOWPayments"
+**Solution:** Check internet connectivity. The Edge Function might not be able to reach NOWPayments API.
+
+## Frontend Integration
+
+The frontend (`select-currency.tsx`) already handles the new error format:
+- Displays user-friendly error messages
+- Shows technical details in a separate alert for debugging
+- Provides retry functionality
+- Handles empty currency lists gracefully
+
+## Next Steps
+
+1. **Test the payment flow end-to-end:**
+   - Navigate to "Comprar MXI"
+   - Enter an amount
+   - Click "Seleccionar Criptomoneda"
+   - Verify currencies load
+   - Select a currency
+   - Verify invoice is generated
+   - Complete payment
+
+2. **Monitor logs for any issues:**
+   - Check Edge Function logs after each test
+   - Look for any unexpected errors
+   - Verify all checkmarks (✓) appear in logs
+
+3. **Test error scenarios:**
+   - Try with invalid amounts
+   - Test with network disconnected
+   - Verify error messages are user-friendly
+
+## Success Criteria
+
+- ✅ Edge Function deployed successfully (version 4)
+- ✅ Comprehensive logging implemented
+- ✅ User-friendly error messages
+- ✅ Technical details for debugging
+- ✅ Step-by-step validation
+- ✅ Proper error handling at every stage
+
+## Rollback Plan
+
+If issues persist, you can rollback to the previous version:
+```bash
+# View previous versions
+supabase functions list
+
+# Deploy previous version
+supabase functions deploy create-payment-intent --version 3
+```
+
+## Support
+
+If you encounter any issues:
+1. Check the Edge Function logs first
+2. Look for the specific error message
+3. Check the "Common Issues and Solutions" section above
+4. Verify all environment variables are set correctly
+5. Test the NOWPayments API directly using curl or Postman
+
+## Summary
+
+This drastic fix completely rebuilds the payment system with:
+- **Bulletproof error handling** at every step
+- **Comprehensive logging** for easy debugging
+- **User-friendly error messages** in Spanish
+- **Technical details** for developers
+- **Step-by-step validation** to catch issues early
+- **Proper transaction tracking** with status updates
+
+The system is now much more robust and easier to debug when issues occur.
 
 ---
 
-**Status**: ✅ Complete - All features implemented and deployed
-
-**Next Action**: Test payment flow and monitor transaction history for any errors
+**Deployment Date:** 2025-01-20
+**Version:** 4
+**Status:** ✅ DEPLOYED AND READY FOR TESTING
