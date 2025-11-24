@@ -500,6 +500,20 @@ export default function ContratacionesScreen() {
         });
       } catch (fetchError: any) {
         addDebugLog(`Error en fetch: ${fetchError.message}`);
+        
+        const errorDetail: ErrorDetails = {
+          timestamp: new Date().toISOString(),
+          errorMessage: `Error de conexión: ${fetchError.message}`,
+          errorCode: 'FETCH_ERROR',
+          requestUrl,
+          requestBody,
+          authToken: sessionData.session.access_token.substring(0, 20) + '...',
+          userId: sessionData.session.user.id,
+          stackTrace: fetchError.stack,
+        };
+
+        setErrorDetails(errorDetail);
+        setShowErrorModal(true);
         throw new Error(`Error de conexión: ${fetchError.message}`);
       }
 
@@ -507,28 +521,49 @@ export default function ContratacionesScreen() {
       addDebugLog(`Respuesta recibida en ${endTime - startTime}ms`);
       addDebugLog(`Status Code: ${response.status} ${response.statusText}`);
 
-      // Step 5: Parse response
-      addDebugLog('Step 4: Parseando respuesta...');
+      // Step 5: Read response text first
+      addDebugLog('Step 4: Leyendo respuesta...');
       let responseText;
-      let result;
       
       try {
         responseText = await response.text();
-        addDebugLog(`Response Text (primeros 500 chars): ${responseText.substring(0, 500)}`);
+        addDebugLog(`Response Text (primeros 1000 chars): ${responseText.substring(0, 1000)}`);
       } catch (textError: any) {
         addDebugLog(`Error leyendo texto de respuesta: ${textError.message}`);
+        
+        const errorDetail: ErrorDetails = {
+          timestamp: new Date().toISOString(),
+          errorMessage: 'Error al leer la respuesta del servidor',
+          errorCode: 'RESPONSE_READ_ERROR',
+          statusCode: response.status,
+          requestUrl,
+          requestBody,
+          authToken: sessionData.session.access_token.substring(0, 20) + '...',
+          userId: sessionData.session.user.id,
+          stackTrace: textError.stack,
+        };
+
+        setErrorDetails(errorDetail);
+        setShowErrorModal(true);
         throw new Error('Error al leer la respuesta del servidor');
       }
 
+      // Step 6: Parse JSON
+      addDebugLog('Step 5: Parseando JSON...');
+      let result;
+      
       try {
         result = JSON.parse(responseText);
-        addDebugLog(`Response JSON parseado exitosamente`);
+        addDebugLog(`JSON parseado exitosamente`);
+        addDebugLog(`Success: ${result.success}`);
+        addDebugLog(`Error: ${result.error || 'none'}`);
+        addDebugLog(`Code: ${result.code || 'none'}`);
       } catch (parseError: any) {
         addDebugLog(`Error parseando JSON: ${parseError.message}`);
         
         const errorDetail: ErrorDetails = {
           timestamp: new Date().toISOString(),
-          errorMessage: 'El servidor devolvió una respuesta inválida',
+          errorMessage: 'El servidor devolvió una respuesta inválida (no es JSON válido)',
           errorCode: 'INVALID_JSON_RESPONSE',
           statusCode: response.status,
           requestUrl,
@@ -536,22 +571,24 @@ export default function ContratacionesScreen() {
           responseBody: responseText.substring(0, 1000),
           authToken: sessionData.session.access_token.substring(0, 20) + '...',
           userId: sessionData.session.user.id,
+          stackTrace: parseError.stack,
         };
 
         setErrorDetails(errorDetail);
         setShowErrorModal(true);
-        throw new Error('Error al procesar la respuesta del servidor');
+        throw new Error('El servidor devolvió una respuesta inválida');
       }
 
-      // Step 6: Check for errors
+      // Step 7: Check for errors in response
       if (!response.ok || !result.success) {
-        addDebugLog('Step 5: Error en la respuesta');
+        addDebugLog('Step 6: Error en la respuesta');
         addDebugLog(`Error code: ${result.code || 'UNKNOWN'}`);
         addDebugLog(`Error message: ${result.error || 'Unknown error'}`);
+        addDebugLog(`Request ID: ${result.requestId || 'none'}`);
         
         const errorDetail: ErrorDetails = {
           timestamp: new Date().toISOString(),
-          errorMessage: result.error || result.message || 'Error desconocido',
+          errorMessage: result.error || result.message || 'Error desconocido del servidor',
           errorCode: result.code || 'UNKNOWN',
           statusCode: response.status,
           requestUrl,
@@ -569,23 +606,28 @@ export default function ContratacionesScreen() {
         let userMessage = result.error || 'Error al crear el pago';
         
         if (result.code === 'MISSING_API_KEY') {
-          userMessage = 'Error de configuración del servidor. Contacta al soporte.';
+          userMessage = 'Error de configuración del servidor. Contacta al soporte técnico.';
         } else if (result.code === 'NOWPAYMENTS_API_ERROR') {
-          userMessage = 'Error del proveedor de pagos. Por favor, intenta nuevamente.';
+          userMessage = `Error del proveedor de pagos: ${result.details?.message || 'Error desconocido'}. Por favor, intenta nuevamente.`;
         } else if (result.code === 'INVALID_SESSION') {
-          userMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
+          userMessage = 'Tu sesión ha expirado. Por favor, cierra sesión e inicia sesión nuevamente.';
+        } else if (result.code === 'METRICS_ERROR') {
+          userMessage = 'Error al obtener información de fase. Por favor, intenta nuevamente.';
+        } else if (result.code === 'DATABASE_ERROR') {
+          userMessage = 'Error al guardar el pago. Por favor, intenta nuevamente.';
         }
         
         throw new Error(userMessage);
       }
 
-      addDebugLog('Step 6: Pago creado exitosamente');
+      addDebugLog('Step 7: Pago creado exitosamente');
       addDebugLog(`Order ID: ${result.intent?.order_id}`);
       addDebugLog(`Invoice URL: ${result.intent?.invoice_url}`);
+      addDebugLog(`Payment ID: ${result.intent?.payment_id}`);
 
-      // Step 7: Open payment URL
+      // Step 8: Open payment URL
       if (result.intent?.invoice_url) {
-        addDebugLog('Step 7: Abriendo URL de pago...');
+        addDebugLog('Step 8: Abriendo URL de pago...');
         
         try {
           const supported = await Linking.canOpenURL(result.intent.invoice_url);
@@ -626,6 +668,9 @@ export default function ContratacionesScreen() {
 
         setAmount('');
         loadRecentPayments();
+      } else {
+        addDebugLog('ERROR: No se recibió invoice_url en la respuesta');
+        throw new Error('No se recibió URL de pago del servidor');
       }
     } catch (error: any) {
       console.error('Error creating payment:', error);
