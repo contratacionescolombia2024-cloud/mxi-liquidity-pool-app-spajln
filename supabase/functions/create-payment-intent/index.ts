@@ -12,6 +12,9 @@ interface PaymentRequest {
   price_amount: number;
   price_currency: string;
   pay_currency: string;
+  invoice_id?: string; // Optional: if creating payment on existing invoice
+  payout_address?: string; // Optional: for crypto2crypto payments
+  payout_currency?: string; // Optional: for crypto2crypto payments
 }
 
 Deno.serve(async (req) => {
@@ -136,7 +139,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { order_id, price_amount, price_currency, pay_currency } = body;
+    const { order_id, price_amount, price_currency, pay_currency, invoice_id, payout_address, payout_currency } = body;
 
     if (!order_id || !price_amount || !price_currency || !pay_currency) {
       console.error(`[${requestId}] ERROR: Missing required fields`);
@@ -188,30 +191,72 @@ Deno.serve(async (req) => {
 
     console.log(`[${requestId}] Phase: ${currentPhase}, Price: ${pricePerMxi} USDT, MXI: ${mxiAmount}`);
 
-    // Step 5: Create NOWPayments invoice
-    console.log(`[${requestId}] Step 5: Creating NOWPayments invoice...`);
+    // Step 5: Get user email for NOWPayments
+    console.log(`[${requestId}] Step 5: Getting user email...`);
+    const { data: userData, error: userDataError } = await supabase
+      .from('users')
+      .select('email')
+      .eq('id', user.id)
+      .single();
+
+    const customerEmail = userData?.email || user.email || 'noreply@maxcoin.io';
+    console.log(`[${requestId}] Customer email: ${customerEmail}`);
+
+    // Step 6: Create NOWPayments invoice or payment
+    console.log(`[${requestId}] Step 6: Creating NOWPayments payment...`);
     
     // IMPORTANT: NOWPayments expects lowercase currency codes
     const normalizedPayCurrency = pay_currency.toLowerCase();
+    const normalizedPriceCurrency = price_currency.toLowerCase();
     
-    const nowPaymentsPayload = {
-      price_amount: price_amount,
-      price_currency: price_currency.toLowerCase(),
-      pay_currency: normalizedPayCurrency,
-      order_id: order_id,
-      order_description: `Purchase ${mxiAmount.toFixed(2)} MXI tokens`,
-      ipn_callback_url: `${SUPABASE_URL}/functions/v1/nowpayments-webhook`,
-      success_url: 'https://natively.dev',
-      cancel_url: 'https://natively.dev',
-    };
+    let nowPaymentsResponse;
+    let nowPaymentsPayload: any;
+    let apiEndpoint: string;
 
+    // Determine which API endpoint to use
+    if (invoice_id) {
+      // Use invoice-payment endpoint for existing invoice
+      console.log(`[${requestId}] Using invoice-payment endpoint with invoice_id: ${invoice_id}`);
+      apiEndpoint = 'https://api.nowpayments.io/v1/invoice-payment';
+      
+      nowPaymentsPayload = {
+        iid: invoice_id,
+        pay_currency: normalizedPayCurrency,
+        purchase_id: order_id,
+        order_description: `Purchase ${mxiAmount.toFixed(2)} MXI tokens`,
+        customer_email: customerEmail,
+      };
+
+      // Add payout info if provided (for crypto2crypto)
+      if (payout_address && payout_currency) {
+        nowPaymentsPayload.payout_address = payout_address;
+        nowPaymentsPayload.payout_currency = payout_currency.toLowerCase();
+        nowPaymentsPayload.payout_extra_id = null;
+      }
+    } else {
+      // Use standard invoice endpoint
+      console.log(`[${requestId}] Using standard invoice endpoint`);
+      apiEndpoint = 'https://api.nowpayments.io/v1/invoice';
+      
+      nowPaymentsPayload = {
+        price_amount: price_amount,
+        price_currency: normalizedPriceCurrency,
+        pay_currency: normalizedPayCurrency,
+        order_id: order_id,
+        order_description: `Purchase ${mxiAmount.toFixed(2)} MXI tokens`,
+        ipn_callback_url: `${SUPABASE_URL}/functions/v1/nowpayments-webhook`,
+        success_url: 'https://natively.dev',
+        cancel_url: 'https://natively.dev',
+      };
+    }
+
+    console.log(`[${requestId}] API Endpoint: ${apiEndpoint}`);
     console.log(`[${requestId}] NOWPayments payload:`, JSON.stringify(nowPaymentsPayload, null, 2));
     console.log(`[${requestId}] Using API key: ${NOWPAYMENTS_API_KEY.substring(0, 15)}...`);
 
-    let nowPaymentsResponse;
     try {
       console.log(`[${requestId}] Calling NOWPayments API...`);
-      nowPaymentsResponse = await fetch('https://api.nowpayments.io/v1/invoice', {
+      nowPaymentsResponse = await fetch(apiEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -330,16 +375,46 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Validate that we got the required fields from NOWPayments
-    if (!nowPaymentsData.id || !nowPaymentsData.invoice_url) {
-      console.error(`[${requestId}] ERROR: Missing required fields in NOWPayments response`);
+    // Handle different response structures based on endpoint used
+    let paymentId: string;
+    let invoiceUrl: string | null = null;
+    let payAddress: string | null = null;
+    let payAmount: number | null = null;
+    let paymentStatus: string;
+    let expirationDate: string | null = null;
+
+    if (invoice_id) {
+      // Response from invoice-payment endpoint
+      paymentId = nowPaymentsData.payment_id?.toString() || '';
+      paymentStatus = nowPaymentsData.payment_status || 'waiting';
+      payAddress = nowPaymentsData.pay_address || null;
+      payAmount = nowPaymentsData.pay_amount || null;
+      expirationDate = nowPaymentsData.expiration_estimate_date || null;
+      
+      // For invoice-payment, we need to construct the payment URL
+      if (paymentId) {
+        invoiceUrl = `https://nowpayments.io/payment/?iid=${invoice_id}&paymentId=${paymentId}`;
+      }
+    } else {
+      // Response from standard invoice endpoint
+      paymentId = nowPaymentsData.id?.toString() || '';
+      invoiceUrl = nowPaymentsData.invoice_url || null;
+      payAddress = nowPaymentsData.pay_address || null;
+      payAmount = nowPaymentsData.pay_amount || null;
+      paymentStatus = nowPaymentsData.payment_status || 'waiting';
+      expirationDate = nowPaymentsData.expiration_estimate_date || null;
+    }
+
+    // Validate that we got the required fields
+    if (!paymentId) {
+      console.error(`[${requestId}] ERROR: Missing payment_id in NOWPayments response`);
       console.error(`[${requestId}] Response data:`, nowPaymentsData);
       return new Response(
         JSON.stringify({
           success: false,
           error: 'Incomplete response from payment provider',
           code: 'NOWPAYMENTS_INCOMPLETE_RESPONSE',
-          details: 'Missing id or invoice_url',
+          details: 'Missing payment_id',
           received: nowPaymentsData,
           requestId: requestId,
         }),
@@ -350,26 +425,26 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[${requestId}] ✅ Invoice created: ${nowPaymentsData.id}`);
+    console.log(`[${requestId}] ✅ Payment created: ${paymentId}`);
 
-    // Step 6: Store payment in database
-    console.log(`[${requestId}] Step 6: Storing payment in database...`);
+    // Step 7: Store payment in database
+    console.log(`[${requestId}] Step 7: Storing payment in database...`);
     const paymentRecord = {
       user_id: user.id,
       order_id: order_id,
-      payment_id: nowPaymentsData.id?.toString() || null,
-      invoice_url: nowPaymentsData.invoice_url || null,
+      payment_id: paymentId,
+      invoice_url: invoiceUrl,
       price_amount: price_amount,
       price_currency: price_currency,
-      pay_amount: nowPaymentsData.pay_amount || null,
+      pay_amount: payAmount,
       pay_currency: normalizedPayCurrency,
-      pay_address: nowPaymentsData.pay_address || null,
+      pay_address: payAddress,
       mxi_amount: mxiAmount,
       price_per_mxi: pricePerMxi,
       phase: currentPhase,
       status: 'waiting',
-      payment_status: nowPaymentsData.payment_status || 'waiting',
-      expires_at: nowPaymentsData.expiration_estimate_date || null,
+      payment_status: paymentStatus,
+      expires_at: expirationDate,
     };
 
     console.log(`[${requestId}] Payment record:`, JSON.stringify(paymentRecord, null, 2));
@@ -399,23 +474,25 @@ Deno.serve(async (req) => {
 
     console.log(`[${requestId}] ✅ Payment stored: ${payment.id}`);
 
-    // Step 7: Return success response
-    console.log(`[${requestId}] Step 7: Returning success response`);
+    // Step 8: Return success response
+    console.log(`[${requestId}] Step 8: Returning success response`);
     const response = {
       success: true,
       intent: {
-        id: nowPaymentsData.id,
+        id: paymentId,
         order_id: order_id,
-        invoice_url: nowPaymentsData.invoice_url,
-        payment_id: nowPaymentsData.id,
-        pay_address: nowPaymentsData.pay_address,
-        pay_amount: nowPaymentsData.pay_amount,
+        invoice_url: invoiceUrl,
+        payment_id: paymentId,
+        pay_address: payAddress,
+        pay_amount: payAmount,
         pay_currency: normalizedPayCurrency,
         price_amount: price_amount,
         price_currency: price_currency,
         mxi_amount: mxiAmount,
-        payment_status: nowPaymentsData.payment_status || 'waiting',
-        expires_at: nowPaymentsData.expiration_estimate_date,
+        payment_status: paymentStatus,
+        expires_at: expirationDate,
+        network: nowPaymentsData.network || null,
+        network_precision: nowPaymentsData.network_precision || null,
       },
     };
 
