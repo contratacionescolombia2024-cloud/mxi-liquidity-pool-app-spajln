@@ -17,6 +17,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { UniversalMXICounter } from '@/components/UniversalMXICounter';
 import { YieldDisplay } from '@/components/YieldDisplay';
 import { LaunchCountdown } from '@/components/LaunchCountdown';
+import Footer from '@/components/Footer';
 import { supabase } from '@/lib/supabase';
 
 const styles = StyleSheet.create({
@@ -367,36 +368,6 @@ const styles = StyleSheet.create({
   commissionBarFill: {
     height: '100%',
     borderRadius: 2,
-  },
-  quickActionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 16,
-  },
-  actionButton: {
-    flex: 1,
-    minWidth: '47%',
-    backgroundColor: 'rgba(26, 31, 58, 0.6)',
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 215, 0, 0.2)',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  actionIcon: {
-    marginBottom: 8,
-  },
-  actionLabel: {
-    fontSize: 13,
-    color: colors.text,
-    fontWeight: '600',
-    textAlign: 'center',
   },
 });
 
@@ -940,36 +911,8 @@ export default function HomeScreen() {
         {/* Universal MXI Counter */}
         <UniversalMXICounter />
 
-        {/* Quick Actions - Only KYC and Soporte (removed Depositar and Retirar as they're in the floating menu) */}
-        <View style={styles.quickActionsGrid}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => router.push('/(tabs)/(home)/kyc-verification')}
-          >
-            <IconSymbol
-              ios_icon_name="checkmark.shield.fill"
-              android_material_icon_name="verified_user"
-              size={32}
-              color={colors.primary}
-              style={styles.actionIcon}
-            />
-            <Text style={styles.actionLabel}>KYC</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => router.push('/(tabs)/(home)/support')}
-          >
-            <IconSymbol
-              ios_icon_name="questionmark.circle.fill"
-              android_material_icon_name="help"
-              size={32}
-              color={colors.primary}
-              style={styles.actionIcon}
-            />
-            <Text style={styles.actionLabel}>Soporte</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Footer - Added at the end */}
+        <Footer />
 
         {/* Extra padding at bottom to avoid tab bar */}
         <View style={{ height: 120 }} />

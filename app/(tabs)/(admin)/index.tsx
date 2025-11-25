@@ -821,7 +821,7 @@ export default function AdminDashboard() {
               <View style={[styles.actionIcon, { backgroundColor: colors.accent + '20' }]}>
                 <IconSymbol ios_icon_name="envelope.fill" android_material_icon_name="mail" size={24} color={colors.accent} />
               </View>
-              <Text style={styles.actionLabel}>Mensajes</Text>
+              <Text style={styles.actionLabel}>Mensajes Soporte</Text>
             </TouchableOpacity>
 
             <TouchableOpacity

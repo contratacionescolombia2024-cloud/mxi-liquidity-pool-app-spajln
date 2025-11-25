@@ -72,6 +72,36 @@ export function UniversalMXICounter({ isAdmin = false }: UniversalMXICounterProp
   // Calculate session yield (current accumulation since last update)
   const sessionYield = Math.max(0, displayYield - user.accumulatedYield);
 
+  // Format small numbers with better readability
+  const formatSmallNumber = (num: number) => {
+    if (num === 0) return '0.00000000';
+    
+    // Convert to string with full precision
+    const str = num.toFixed(10);
+    
+    // Find first non-zero digit after decimal
+    const parts = str.split('.');
+    if (parts.length === 2) {
+      const decimals = parts[1];
+      let firstNonZero = -1;
+      for (let i = 0; i < decimals.length; i++) {
+        if (decimals[i] !== '0') {
+          firstNonZero = i;
+          break;
+        }
+      }
+      
+      // Show at least 8 significant digits after first non-zero
+      if (firstNonZero >= 0) {
+        const significantDigits = 8;
+        const endIndex = Math.min(firstNonZero + significantDigits, decimals.length);
+        return parts[0] + '.' + decimals.substring(0, endIndex);
+      }
+    }
+    
+    return num.toFixed(8);
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -153,21 +183,21 @@ export function UniversalMXICounter({ isAdmin = false }: UniversalMXICounterProp
             </View>
           </View>
 
-          {/* Rate Information */}
+          {/* Rate Information - Improved formatting */}
           <View style={styles.rateSection}>
             <View style={styles.rateItem}>
               <Text style={styles.rateLabel}>Por Segundo</Text>
-              <Text style={styles.rateValue}>{yieldPerSecond.toFixed(8)}</Text>
+              <Text style={styles.rateValue}>{formatSmallNumber(yieldPerSecond)}</Text>
             </View>
             <View style={styles.rateDivider} />
             <View style={styles.rateItem}>
               <Text style={styles.rateLabel}>Por Minuto</Text>
-              <Text style={styles.rateValue}>{(yieldPerSecond * 60).toFixed(8)}</Text>
+              <Text style={styles.rateValue}>{formatSmallNumber(yieldPerSecond * 60)}</Text>
             </View>
             <View style={styles.rateDivider} />
             <View style={styles.rateItem}>
               <Text style={styles.rateLabel}>Por Hora</Text>
-              <Text style={styles.rateValue}>{(yieldPerSecond * 3600).toFixed(6)}</Text>
+              <Text style={styles.rateValue}>{formatSmallNumber(yieldPerSecond * 3600)}</Text>
             </View>
           </View>
         </View>
@@ -438,14 +468,16 @@ const styles = StyleSheet.create({
   rateLabel: {
     fontSize: 10,
     color: colors.textSecondary,
-    marginBottom: 4,
+    marginBottom: 6,
     fontWeight: '600',
+    textAlign: 'center',
   },
   rateValue: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: colors.text,
     fontFamily: 'monospace',
+    textAlign: 'center',
   },
   emptyState: {
     alignItems: 'center',
