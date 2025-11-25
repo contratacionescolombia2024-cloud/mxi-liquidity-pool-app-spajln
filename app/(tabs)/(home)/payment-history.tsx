@@ -162,6 +162,66 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     flex: 1,
   },
+  requestVerificationButton: {
+    backgroundColor: '#FF9800',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  requestVerificationButtonDisabled: {
+    opacity: 0.5,
+  },
+  requestVerificationButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  infoBox: {
+    backgroundColor: '#2196F3' + '20',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#2196F3',
+    lineHeight: 18,
+  },
+  pendingVerificationBadge: {
+    backgroundColor: '#FF9800',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pendingVerificationText: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    flex: 1,
+  },
+  reviewingBadge: {
+    backgroundColor: '#2196F3',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  reviewingText: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    flex: 1,
+  },
 });
 
 export default function PaymentHistoryScreen() {
@@ -171,12 +231,15 @@ export default function PaymentHistoryScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [verifyingPayments, setVerifyingPayments] = useState<Set<string>>(new Set());
+  const [requestingVerification, setRequestingVerification] = useState<Set<string>>(new Set());
+  const [verificationRequests, setVerificationRequests] = useState<Map<string, any>>(new Map());
 
   useEffect(() => {
     loadPayments();
+    loadVerificationRequests();
 
     // Subscribe to payment updates
-    const channel = supabase
+    const paymentsChannel = supabase
       .channel('payment-history-updates')
       .on(
         'postgres_changes',
@@ -193,8 +256,27 @@ export default function PaymentHistoryScreen() {
       )
       .subscribe();
 
+    // Subscribe to verification request updates
+    const verificationsChannel = supabase
+      .channel('verification-requests-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'manual_verification_requests',
+          filter: `user_id=eq.${user?.id}`,
+        },
+        (payload) => {
+          console.log('Verification request update received:', payload);
+          loadVerificationRequests();
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(paymentsChannel);
+      supabase.removeChannel(verificationsChannel);
     };
   }, [user]);
 
@@ -216,9 +298,30 @@ export default function PaymentHistoryScreen() {
     }
   };
 
+  const loadVerificationRequests = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('manual_verification_requests')
+        .select('*')
+        .eq('user_id', user?.id);
+
+      if (error) throw error;
+
+      // Create a map of payment_id to verification request
+      const requestsMap = new Map();
+      (data || []).forEach((request: any) => {
+        requestsMap.set(request.payment_id, request);
+      });
+      setVerificationRequests(requestsMap);
+    } catch (error) {
+      console.error('Error loading verification requests:', error);
+    }
+  };
+
   const onRefresh = () => {
     setRefreshing(true);
     loadPayments();
+    loadVerificationRequests();
   };
 
   const verifyPayment = async (payment: any) => {
@@ -227,7 +330,6 @@ export default function PaymentHistoryScreen() {
       return;
     }
 
-    // Add to verifying set
     setVerifyingPayments(prev => new Set(prev).add(payment.id));
 
     try {
@@ -298,13 +400,79 @@ export default function PaymentHistoryScreen() {
         [{ text: 'OK' }]
       );
     } finally {
-      // Remove from verifying set
       setVerifyingPayments(prev => {
         const newSet = new Set(prev);
         newSet.delete(payment.id);
         return newSet;
       });
     }
+  };
+
+  const requestManualVerification = async (payment: any) => {
+    if (!user) {
+      Alert.alert('Error', 'Sesión no válida');
+      return;
+    }
+
+    Alert.alert(
+      'Solicitar Verificación Manual',
+      `¿Deseas solicitar la verificación manual de este pago?\n\n` +
+      `Monto: ${parseFloat(payment.price_amount).toFixed(2)} USDT\n` +
+      `MXI: ${parseFloat(payment.mxi_amount).toFixed(2)} MXI\n\n` +
+      `Un administrador revisará tu pago y lo aprobará manualmente. Este proceso puede tomar hasta 2 horas.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Solicitar',
+          onPress: async () => {
+            setRequestingVerification(prev => new Set(prev).add(payment.id));
+
+            try {
+              const { data, error } = await supabase
+                .from('manual_verification_requests')
+                .insert({
+                  payment_id: payment.id,
+                  user_id: user.id,
+                  order_id: payment.order_id,
+                  status: 'pending',
+                })
+                .select()
+                .single();
+
+              if (error) throw error;
+
+              Alert.alert(
+                '✅ Solicitud Enviada',
+                `Tu solicitud de verificación manual ha sido enviada exitosamente.\n\n` +
+                `Un administrador revisará tu pago en las próximas 2 horas y lo aprobará manualmente.\n\n` +
+                `Recibirás una notificación cuando tu pago sea verificado.`,
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => {
+                      loadVerificationRequests();
+                    },
+                  },
+                ]
+              );
+            } catch (error: any) {
+              console.error('Error requesting verification:', error);
+              Alert.alert(
+                'Error',
+                error.message || 'Error al solicitar la verificación manual',
+                [{ text: 'OK' }]
+              );
+            } finally {
+              setRequestingVerification(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(payment.id);
+                return newSet;
+              });
+            }
+          },
+        },
+      ]
+    );
   };
 
   const getStatusColor = (status: string) => {
@@ -353,6 +521,14 @@ export default function PaymentHistoryScreen() {
     return payment.status !== 'finished' && 
            payment.status !== 'confirmed' && 
            payment.payment_id;
+  };
+
+  const canRequestVerification = (payment: any) => {
+    // Can request if payment is not finished/confirmed and no pending request exists
+    const hasRequest = verificationRequests.has(payment.id);
+    return payment.status !== 'finished' && 
+           payment.status !== 'confirmed' && 
+           !hasRequest;
   };
 
   if (loading) {
@@ -423,7 +599,10 @@ export default function PaymentHistoryScreen() {
         >
           {payments.map((payment, index) => {
             const isVerifying = verifyingPayments.has(payment.id);
+            const isRequestingVerification = requestingVerification.has(payment.id);
             const showVerifyButton = canVerify(payment);
+            const showRequestButton = canRequestVerification(payment);
+            const verificationRequest = verificationRequests.get(payment.id);
 
             return (
               <View key={index} style={styles.paymentCard}>
@@ -524,14 +703,85 @@ export default function PaymentHistoryScreen() {
                             size={20}
                             color="#000000"
                           />
-                          <Text style={styles.verifyButtonText}>Verificar Pago</Text>
+                          <Text style={styles.verifyButtonText}>Verificar Pago Automáticamente</Text>
                         </>
                       )}
                     </TouchableOpacity>
                     <Text style={styles.verifyingText}>
-                      Si tu pago no se ha acreditado automáticamente, usa este botón para verificarlo manualmente.
+                      Si tu pago no se ha acreditado automáticamente, usa este botón para verificarlo.
                     </Text>
                   </>
+                )}
+
+                {showRequestButton && (
+                  <>
+                    <TouchableOpacity
+                      style={[
+                        styles.requestVerificationButton,
+                        isRequestingVerification && styles.requestVerificationButtonDisabled,
+                      ]}
+                      onPress={() => requestManualVerification(payment)}
+                      disabled={isRequestingVerification}
+                    >
+                      {isRequestingVerification ? (
+                        <>
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                          <Text style={styles.requestVerificationButtonText}>Enviando...</Text>
+                        </>
+                      ) : (
+                        <>
+                          <IconSymbol
+                            ios_icon_name="person.fill.checkmark"
+                            android_material_icon_name="admin_panel_settings"
+                            size={20}
+                            color="#FFFFFF"
+                          />
+                          <Text style={styles.requestVerificationButtonText}>
+                            Solicitar Verificación Manual
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                    <View style={styles.infoBox}>
+                      <IconSymbol
+                        ios_icon_name="info.circle.fill"
+                        android_material_icon_name="info"
+                        size={20}
+                        color="#2196F3"
+                      />
+                      <Text style={styles.infoText}>
+                        Si la verificación automática no funciona, puedes solicitar que un administrador revise y apruebe tu pago manualmente. El proceso puede tomar hasta 2 horas.
+                      </Text>
+                    </View>
+                  </>
+                )}
+
+                {verificationRequest && verificationRequest.status === 'pending' && (
+                  <View style={styles.pendingVerificationBadge}>
+                    <IconSymbol
+                      ios_icon_name="clock.fill"
+                      android_material_icon_name="schedule"
+                      size={20}
+                      color="#FFFFFF"
+                    />
+                    <Text style={styles.pendingVerificationText}>
+                      ⏳ Verificación manual solicitada. Un administrador revisará tu pago en las próximas 2 horas.
+                    </Text>
+                  </View>
+                )}
+
+                {verificationRequest && verificationRequest.status === 'reviewing' && (
+                  <View style={styles.reviewingBadge}>
+                    <IconSymbol
+                      ios_icon_name="eye.fill"
+                      android_material_icon_name="visibility"
+                      size={20}
+                      color="#FFFFFF"
+                    />
+                    <Text style={styles.reviewingText}>
+                      👀 Un administrador está revisando tu pago en este momento.
+                    </Text>
+                  </View>
                 )}
 
                 {(payment.status === 'finished' || payment.status === 'confirmed') && (

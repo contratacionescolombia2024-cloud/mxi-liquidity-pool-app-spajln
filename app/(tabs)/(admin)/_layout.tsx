@@ -19,6 +19,7 @@ export default function AdminLayout() {
       <Stack.Screen name="settings" />
       <Stack.Screen name="user-management" />
       <Stack.Screen name="manual-payment-credit" />
+      <Stack.Screen name="manual-verification-requests" />
     </Stack>
   );
 }

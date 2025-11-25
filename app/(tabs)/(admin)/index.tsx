@@ -34,6 +34,7 @@ interface AdminStats {
   totalUSDT: number;
   totalCommissions: number;
   totalYieldGenerated: number;
+  pendingVerifications: number;
 }
 
 interface PhaseMetrics {
@@ -495,6 +496,11 @@ export default function AdminDashboard() {
         .select('*')
         .single();
 
+      // Load manual verification requests
+      const { data: verificationData } = await supabase
+        .from('manual_verification_requests')
+        .select('status');
+
       // Calculate stats
       const pendingKYC = kycData?.filter((k) => k.status === 'pending').length || 0;
       const approvedKYC = kycData?.filter((k) => k.status === 'approved').length || 0;
@@ -505,6 +511,8 @@ export default function AdminDashboard() {
       const completedWithdrawals = withdrawalData?.filter((w) => w.status === 'completed').length || 0;
 
       const openMessages = messageData?.filter((m) => m.status === 'open').length || 0;
+
+      const pendingVerifications = verificationData?.filter((v) => v.status === 'pending' || v.status === 'reviewing').length || 0;
 
       const totalUsers = userData?.length || 0;
       const activeContributors = userData?.filter((u) => u.is_active_contributor).length || 0;
@@ -533,6 +541,7 @@ export default function AdminDashboard() {
         totalUSDT,
         totalCommissions,
         totalYieldGenerated,
+        pendingVerifications,
       });
 
       if (metricsData) {
@@ -585,10 +594,7 @@ export default function AdminDashboard() {
                 setResetModalVisible(false);
                 setConfirmationText('');
                 
-                // Force reload user data from AuthContext
-                // This will update the cached user data including admin balance
                 if (user?.id) {
-                  // Reload user data by fetching fresh data
                   const { data: freshUserData } = await supabase
                     .from('users')
                     .select('*')
@@ -598,10 +604,8 @@ export default function AdminDashboard() {
                   console.log('Fresh user data after reset:', freshUserData);
                 }
                 
-                // Reload stats
                 await loadStats();
                 
-                // Show success message
                 Alert.alert(
                   '✅ Actualización Completa',
                   'Todos los datos han sido actualizados. El balance del administrador ahora es 0.',
@@ -631,7 +635,7 @@ export default function AdminDashboard() {
 
   const getPhaseProgress = () => {
     if (!phaseMetrics) return 0;
-    const total = 25000000; // 25M total presale allocation
+    const total = 25000000;
     return ((phaseMetrics.totalTokensSold / total) * 100).toFixed(2);
   };
 
@@ -651,7 +655,6 @@ export default function AdminDashboard() {
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        {/* Header with Back Button */}
         <View style={styles.headerContainer}>
           <TouchableOpacity 
             style={styles.backButton}
@@ -672,12 +675,10 @@ export default function AdminDashboard() {
           </View>
         </View>
 
-        {/* Universal MXI Counter */}
         <View style={styles.counterSection}>
           <UniversalMXICounter isAdmin={true} />
         </View>
 
-        {/* DANGER ZONE - Reset All Users */}
         <View style={styles.dangerZone}>
           <Text style={styles.dangerZoneTitle}>⚠️ ZONA DE PELIGRO</Text>
           <Text style={styles.dangerZoneSubtitle}>
@@ -698,7 +699,6 @@ export default function AdminDashboard() {
           </TouchableOpacity>
         </View>
 
-        {/* Phase Metrics */}
         {phaseMetrics && (
           <View style={styles.phaseSection}>
             <Text style={styles.sectionTitle}>Métricas de Preventa</Text>
@@ -730,7 +730,6 @@ export default function AdminDashboard() {
           </View>
         )}
 
-        {/* Stats Grid */}
         <View style={styles.statsGrid}>
           <View style={styles.statCard}>
             <View style={styles.statHeader}>
@@ -765,10 +764,24 @@ export default function AdminDashboard() {
           </View>
         </View>
 
-        {/* Quick Actions */}
         <View style={styles.quickActionsSection}>
           <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
           <View style={styles.quickActionsGrid}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => router.push('/(tabs)/(admin)/manual-verification-requests')}
+            >
+              {stats && stats.pendingVerifications > 0 && (
+                <View style={styles.actionBadge}>
+                  <Text style={styles.actionBadgeText}>{stats.pendingVerifications}</Text>
+                </View>
+              )}
+              <View style={[styles.actionIcon, { backgroundColor: '#FF9800' + '20' }]}>
+                <IconSymbol ios_icon_name="person.fill.checkmark" android_material_icon_name="admin_panel_settings" size={24} color="#FF9800" />
+              </View>
+              <Text style={styles.actionLabel}>Verificaciones Manuales</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={styles.actionButton}
               onPress={() => router.push('/(tabs)/(admin)/user-management-advanced')}
@@ -867,7 +880,6 @@ export default function AdminDashboard() {
         </View>
       </ScrollView>
 
-      {/* Reset Confirmation Modal */}
       <Modal
         visible={resetModalVisible}
         transparent
