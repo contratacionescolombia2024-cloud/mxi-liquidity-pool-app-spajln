@@ -241,27 +241,28 @@ export function TotalMXIBalanceChart() {
       return PADDING.left + (index * barSpacing) + (barSpacing / 2);
     };
 
-    // Create smooth line path that starts from 0 and interconnects all points
+    // Create smooth line path that starts from (0,0) and connects all points
     const createSmoothPath = () => {
       if (balanceData.length === 0) return '';
       
       let path = '';
       
-      // Start from 0 on Y-axis at the first X position
-      const startX = xScale(0);
-      const startY = yScale(0);
-      path += `M ${startX} ${startY}`;
+      // Start from origin (0,0) - bottom left corner of chart
+      const originX = PADDING.left;
+      const originY = yScale(0);
+      path += `M ${originX} ${originY}`;
       
-      // Connect to all data points
+      // Connect to all data points with smooth curves
       balanceData.forEach((point, index) => {
         const x = xScale(index);
         const y = yScale(point.totalBalance);
         
         if (index === 0) {
-          // First point: draw straight line from 0 to first data point
-          path += ` L ${x} ${y}`;
+          // First point: smooth curve from origin to first data point
+          const cpX = (originX + x) / 2;
+          path += ` Q ${cpX} ${originY}, ${x} ${y}`;
         } else {
-          // Subsequent points: use smooth curve
+          // Subsequent points: use smooth curve between points
           const prevX = xScale(index - 1);
           const prevY = yScale(balanceData[index - 1].totalBalance);
           const cpX = (prevX + x) / 2;
@@ -282,7 +283,7 @@ export function TotalMXIBalanceChart() {
       const lastX = xScale(balanceData.length - 1);
       const baseY = yScale(0);
       path += ` L ${lastX} ${baseY}`;
-      path += ` L ${xScale(0)} ${baseY}`;
+      path += ` L ${PADDING.left} ${baseY}`;
       path += ' Z';
       
       return path;
@@ -347,7 +348,7 @@ export function TotalMXIBalanceChart() {
           opacity={0.4}
         />
 
-        {/* Main trend line with glow effect - starts from 0 and interconnects all points */}
+        {/* Main trend line with glow effect - starts from (0,0) and connects all points */}
         <Path
           d={createSmoothPath()}
           stroke="#ffdd00"
@@ -363,17 +364,17 @@ export function TotalMXIBalanceChart() {
           opacity={1}
         />
 
-        {/* Starting point at 0 */}
+        {/* Origin point at (0,0) */}
         <G>
           <Circle
-            cx={xScale(0)}
+            cx={PADDING.left}
             cy={yScale(0)}
             r="6"
             fill="#ffdd00"
             opacity={0.3}
           />
           <Circle
-            cx={xScale(0)}
+            cx={PADDING.left}
             cy={yScale(0)}
             r="3"
             fill="#00ff88"
