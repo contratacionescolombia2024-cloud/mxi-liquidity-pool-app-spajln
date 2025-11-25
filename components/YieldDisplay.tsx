@@ -57,7 +57,7 @@ export function YieldDisplay() {
     if (result.success) {
       Alert.alert(
         'Yield Claimed!',
-        `You have successfully claimed ${result.yieldEarned?.toFixed(8)} MXI and it has been added to your balance!`,
+        `You have successfully claimed ${result.yieldEarned?.toFixed(8)} MXI and it has been added to your vesting balance!`,
         [{ text: 'OK' }]
       );
       setCurrentYield(0);
@@ -72,6 +72,7 @@ export function YieldDisplay() {
 
   const yieldPerSecond = user.yieldRatePerMinute / 60;
   const totalYield = user.accumulatedYield + currentYield;
+  const mxiPurchased = user.mxiPurchasedDirectly || 0;
 
   return (
     <View style={styles.container}>
@@ -85,6 +86,16 @@ export function YieldDisplay() {
             ⚡ Generando {yieldPerSecond.toFixed(8)} MXI por segundo
           </Text>
         </View>
+      </View>
+
+      <View style={styles.sourceInfo}>
+        <View style={styles.sourceRow}>
+          <Text style={styles.sourceLabel}>🛒 MXI Comprados (Base de Vesting)</Text>
+          <Text style={styles.sourceValue}>{mxiPurchased.toFixed(2)} MXI</Text>
+        </View>
+        <Text style={styles.sourceNote}>
+          ℹ️ Solo el MXI comprado genera rendimiento de vesting
+        </Text>
       </View>
 
       <View style={styles.yieldSection}>
@@ -141,7 +152,7 @@ export function YieldDisplay() {
       <View style={styles.infoBox}>
         <Text style={styles.infoIcon}>ℹ️</Text>
         <Text style={styles.infoText}>
-          Tasa de minería: 0.005% por hora de tu inversión total. Para reclamar tu MXI minado, necesitas 5 referidos activos, 10 días de membresía y aprobación KYC (mismos requisitos que retiros de comisiones).
+          Tasa de minería: 0.005% por hora de tu MXI comprado. Solo el MXI comprado directamente genera rendimiento de vesting. Las comisiones NO generan vesting. Para reclamar tu MXI minado, necesitas 5 referidos activos, 10 días de membresía y aprobación KYC.
         </Text>
       </View>
     </View>
@@ -165,7 +176,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   iconContainer: {
     width: 56,
@@ -194,6 +205,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.success,
     fontWeight: '600',
+  },
+  sourceInfo: {
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  sourceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sourceLabel: {
+    fontSize: 13,
+    color: colors.text,
+    fontWeight: '600',
+    flex: 1,
+  },
+  sourceValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.primary,
+    fontFamily: 'monospace',
+  },
+  sourceNote: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
   },
   yieldSection: {
     backgroundColor: colors.background,

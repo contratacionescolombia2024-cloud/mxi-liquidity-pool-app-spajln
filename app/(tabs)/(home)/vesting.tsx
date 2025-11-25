@@ -87,6 +87,7 @@ export default function VestingScreen() {
   const releaseCount = vestingData?.release_count || 0;
   const isLaunched = poolStatus?.is_mxi_launched || false;
   const daysUntilLaunch = poolStatus?.days_until_launch || 0;
+  const mxiPurchased = userData?.mxi_purchased_directly || 0;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -104,6 +105,25 @@ export default function VestingScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={[styles.transparentCard, styles.sourceCard]}>
+          <View style={styles.sourceHeader}>
+            <IconSymbol
+              ios_icon_name="cart.fill"
+              android_material_icon_name="shopping_cart"
+              size={32}
+              color={colors.primary}
+            />
+            <Text style={styles.sourceTitle}>Fuente de Vesting</Text>
+          </View>
+          <Text style={styles.sourceText}>
+            El vesting se genera ÚNICAMENTE del MXI comprado directamente. Las comisiones NO generan vesting.
+          </Text>
+          <View style={styles.sourceValueBox}>
+            <Text style={styles.sourceLabel}>MXI Comprado (Base de Vesting)</Text>
+            <Text style={styles.sourceValue}>{mxiPurchased.toFixed(2)} MXI</Text>
+          </View>
+        </View>
+
         <View style={[styles.transparentCard, styles.mainCard]}>
           <View style={styles.iconContainer}>
             <IconSymbol
@@ -218,13 +238,16 @@ export default function VestingScreen() {
           <Text style={styles.descriptionTitle}>¿Qué es el Vesting?</Text>
           <Text style={styles.descriptionText}>
             El vesting es un mecanismo que libera gradualmente tus tokens MXI
-            obtenidos por yield/rendimiento. Esto garantiza estabilidad en el
+            obtenidos por yield/rendimiento del MXI comprado. Esto garantiza estabilidad en el
             mercado y protege el valor de la moneda.
           </Text>
           <Text style={styles.descriptionText}>
             {isLaunched 
               ? `Cada 10 días se libera el ${releasePercentage}% de tu saldo en vesting, que podrás retirar una vez cumplas los requisitos (5 referidos activos y KYC aprobado).`
               : `Una vez lanzada la moneda, cada 10 días se liberará el ${releasePercentage}% de tu saldo en vesting para retiro.`}
+          </Text>
+          <Text style={[styles.descriptionText, styles.importantNote]}>
+            ⚠️ Importante: Solo el MXI comprado directamente genera rendimiento de vesting. Las comisiones NO generan vesting.
           </Text>
         </View>
 
@@ -306,6 +329,44 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 1,
     borderColor: colors.primary + '20',
+  },
+  sourceCard: {
+    backgroundColor: 'rgba(255, 215, 0, 0.08)',
+    borderColor: colors.primary + '40',
+    borderWidth: 2,
+  },
+  sourceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  sourceTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  sourceText: {
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  sourceValueBox: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+  },
+  sourceLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  sourceValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.primary,
   },
   mainCard: {
     alignItems: 'center',
@@ -451,6 +512,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     lineHeight: 20,
+  },
+  importantNote: {
+    color: colors.warning,
+    fontWeight: '600',
+    marginTop: 8,
   },
   actionCard: {
     backgroundColor: 'rgba(76, 175, 80, 0.1)',
