@@ -10,7 +10,6 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-  Image,
 } from 'react-native';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -24,17 +23,55 @@ interface Currency {
   network: string;
   icon: string;
   color: string;
+  category: 'stablecoin' | 'major' | 'altcoin';
 }
 
-const SUPPORTED_CURRENCIES: Currency[] = [
-  { code: 'usdttrc20', name: 'USDT', network: 'TRC20 (Tron)', icon: '₮', color: '#26A17B' },
-  { code: 'usdtmatic', name: 'USDT', network: 'Polygon', icon: '₮', color: '#8247E5' },
-  { code: 'usdcsol', name: 'USDC', network: 'Solana', icon: '$', color: '#2775CA' },
-  { code: 'btc', name: 'Bitcoin', network: 'BTC', icon: '₿', color: '#F7931A' },
-  { code: 'eth', name: 'Ethereum', network: 'ETH', icon: 'Ξ', color: '#627EEA' },
-  { code: 'usdteth', name: 'USDT', network: 'ERC20 (Ethereum)', icon: '₮', color: '#627EEA' },
-  { code: 'bnbbsc', name: 'BNB', network: 'BSC', icon: 'B', color: '#F3BA2F' },
-  { code: 'usdtbsc', name: 'USDT', network: 'BEP20 (BSC)', icon: '₮', color: '#F3BA2F' },
+// Comprehensive list of supported currencies from NOWPayments
+const ALL_CURRENCIES: Currency[] = [
+  // Stablecoins
+  { code: 'usdttrc20', name: 'USDT', network: 'TRC20 (Tron)', icon: '₮', color: '#26A17B', category: 'stablecoin' },
+  { code: 'usdterc20', name: 'USDT', network: 'ERC20 (Ethereum)', icon: '₮', color: '#627EEA', category: 'stablecoin' },
+  { code: 'usdtbsc', name: 'USDT', network: 'BEP20 (BSC)', icon: '₮', color: '#F3BA2F', category: 'stablecoin' },
+  { code: 'usdtmatic', name: 'USDT', network: 'Polygon', icon: '₮', color: '#8247E5', category: 'stablecoin' },
+  { code: 'usdtsol', name: 'USDT', network: 'Solana', icon: '₮', color: '#14F195', category: 'stablecoin' },
+  { code: 'usdcmatic', name: 'USDC', network: 'Polygon', icon: '$', color: '#2775CA', category: 'stablecoin' },
+  { code: 'usdcsol', name: 'USDC', network: 'Solana', icon: '$', color: '#2775CA', category: 'stablecoin' },
+  { code: 'usdcerc20', name: 'USDC', network: 'ERC20 (Ethereum)', icon: '$', color: '#2775CA', category: 'stablecoin' },
+  { code: 'usdcbsc', name: 'USDC', network: 'BEP20 (BSC)', icon: '$', color: '#2775CA', category: 'stablecoin' },
+  { code: 'dai', name: 'DAI', network: 'Ethereum', icon: '◈', color: '#F5AC37', category: 'stablecoin' },
+  { code: 'busd', name: 'BUSD', network: 'BSC', icon: 'B$', color: '#F0B90B', category: 'stablecoin' },
+  
+  // Major Cryptocurrencies
+  { code: 'btc', name: 'Bitcoin', network: 'BTC', icon: '₿', color: '#F7931A', category: 'major' },
+  { code: 'eth', name: 'Ethereum', network: 'ETH', icon: 'Ξ', color: '#627EEA', category: 'major' },
+  { code: 'bnbbsc', name: 'BNB', network: 'BSC', icon: 'B', color: '#F3BA2F', category: 'major' },
+  { code: 'sol', name: 'Solana', network: 'SOL', icon: '◎', color: '#14F195', category: 'major' },
+  { code: 'matic', name: 'Polygon', network: 'MATIC', icon: 'P', color: '#8247E5', category: 'major' },
+  { code: 'ltc', name: 'Litecoin', network: 'LTC', icon: 'Ł', color: '#345D9D', category: 'major' },
+  { code: 'xrp', name: 'Ripple', network: 'XRP', icon: 'X', color: '#23292F', category: 'major' },
+  { code: 'ada', name: 'Cardano', network: 'ADA', icon: '₳', color: '#0033AD', category: 'major' },
+  { code: 'doge', name: 'Dogecoin', network: 'DOGE', icon: 'Ð', color: '#C2A633', category: 'major' },
+  { code: 'trx', name: 'Tron', network: 'TRX', icon: 'T', color: '#EB0029', category: 'major' },
+  
+  // Popular Altcoins
+  { code: 'avax', name: 'Avalanche', network: 'AVAX', icon: 'A', color: '#E84142', category: 'altcoin' },
+  { code: 'dot', name: 'Polkadot', network: 'DOT', icon: '●', color: '#E6007A', category: 'altcoin' },
+  { code: 'link', name: 'Chainlink', network: 'Ethereum', icon: 'L', color: '#2A5ADA', category: 'altcoin' },
+  { code: 'uni', name: 'Uniswap', network: 'Ethereum', icon: 'U', color: '#FF007A', category: 'altcoin' },
+  { code: 'atom', name: 'Cosmos', network: 'ATOM', icon: 'C', color: '#2E3148', category: 'altcoin' },
+  { code: 'xlm', name: 'Stellar', network: 'XLM', icon: 'S', color: '#000000', category: 'altcoin' },
+  { code: 'etc', name: 'Ethereum Classic', network: 'ETC', icon: 'E', color: '#328332', category: 'altcoin' },
+  { code: 'bch', name: 'Bitcoin Cash', network: 'BCH', icon: 'B', color: '#8DC351', category: 'altcoin' },
+  { code: 'xmr', name: 'Monero', network: 'XMR', icon: 'M', color: '#FF6600', category: 'altcoin' },
+  { code: 'zec', name: 'Zcash', network: 'ZEC', icon: 'Z', color: '#ECB244', category: 'altcoin' },
+  { code: 'dash', name: 'Dash', network: 'DASH', icon: 'D', color: '#008CE7', category: 'altcoin' },
+  { code: 'algo', name: 'Algorand', network: 'ALGO', icon: 'A', color: '#000000', category: 'altcoin' },
+  { code: 'vet', name: 'VeChain', network: 'VET', icon: 'V', color: '#15BDFF', category: 'altcoin' },
+  { code: 'ftm', name: 'Fantom', network: 'FTM', icon: 'F', color: '#1969FF', category: 'altcoin' },
+  { code: 'near', name: 'NEAR Protocol', network: 'NEAR', icon: 'N', color: '#000000', category: 'altcoin' },
+  { code: 'apt', name: 'Aptos', network: 'APT', icon: 'A', color: '#000000', category: 'altcoin' },
+  { code: 'arb', name: 'Arbitrum', network: 'ARB', icon: 'A', color: '#28A0F0', category: 'altcoin' },
+  { code: 'op', name: 'Optimism', network: 'OP', icon: 'O', color: '#FF0420', category: 'altcoin' },
 ];
 
 interface NowPaymentsModalProps {
@@ -51,10 +88,15 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
   const [paymentIntent, setPaymentIntent] = useState<any>(null);
   const [currentPrice, setCurrentPrice] = useState(0.4);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<'all' | 'stablecoin' | 'major' | 'altcoin'>('all');
 
   useEffect(() => {
     if (visible) {
       loadCurrentPrice();
+      resetModal();
     }
   }, [visible]);
 
@@ -80,6 +122,16 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
     }
   }, [paymentIntent]);
 
+  const resetModal = () => {
+    setStep('amount');
+    setUsdtAmount('');
+    setSelectedCurrency(null);
+    setPaymentIntent(null);
+    setTimeRemaining(null);
+    setSearchQuery('');
+    setSelectedCategory('all');
+  };
+
   const loadCurrentPrice = async () => {
     try {
       const { data, error } = await supabase
@@ -100,6 +152,27 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
     const amount = parseFloat(usdt);
     if (isNaN(amount) || amount <= 0) return 0;
     return amount / currentPrice;
+  };
+
+  const getFilteredCurrencies = (): Currency[] => {
+    let filtered = ALL_CURRENCIES;
+
+    // Filter by category
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter(c => c.category === selectedCategory);
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(c => 
+        c.name.toLowerCase().includes(query) ||
+        c.code.toLowerCase().includes(query) ||
+        c.network.toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
   };
 
   const handleCreatePayment = async () => {
@@ -191,8 +264,7 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
 
     try {
       console.log('Opening payment URL:', paymentIntent.invoice_url);
-      const result = await WebBrowser.openBrowserAsync(paymentIntent.invoice_url);
-      console.log('WebBrowser result:', result);
+      await WebBrowser.openBrowserAsync(paymentIntent.invoice_url);
     } catch (error: any) {
       console.error('Error opening browser:', error);
       Alert.alert(
@@ -203,11 +275,7 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
   };
 
   const handleClose = () => {
-    setStep('amount');
-    setUsdtAmount('');
-    setSelectedCurrency(null);
-    setPaymentIntent(null);
-    setTimeRemaining(null);
+    resetModal();
     onClose();
   };
 
@@ -241,6 +309,21 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
         )}
       </View>
 
+      <View style={styles.quickAmounts}>
+        <Text style={styles.quickAmountsLabel}>Montos rápidos:</Text>
+        <View style={styles.quickAmountsRow}>
+          {['20', '50', '100', '500', '1000'].map((amount, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.quickAmountButton}
+              onPress={() => setUsdtAmount(amount)}
+            >
+              <Text style={styles.quickAmountText}>${amount}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
       <TouchableOpacity
         style={[
           styles.primaryButton,
@@ -254,89 +337,208 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
           ios_icon_name="arrow.right"
           android_material_icon_name="arrow_forward"
           size={20}
-          color="#FFFFFF"
+          color="#000000"
         />
       </TouchableOpacity>
     </View>
   );
 
-  const renderCurrencyStep = () => (
-    <View style={styles.stepContainer}>
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => setStep('amount')}
-      >
-        <IconSymbol
-          ios_icon_name="arrow.left"
-          android_material_icon_name="arrow_back"
-          size={20}
-          color={colors.text}
-        />
-        <Text style={styles.backButtonText}>Volver</Text>
-      </TouchableOpacity>
+  const renderCurrencyStep = () => {
+    const filteredCurrencies = getFilteredCurrencies();
 
-      <Text style={styles.stepTitle}>🪙 Selecciona Criptomoneda</Text>
-      <Text style={styles.stepSubtitle}>
-        Elige la red y moneda con la que deseas pagar
-      </Text>
+    return (
+      <View style={styles.stepContainer}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => setStep('amount')}
+        >
+          <IconSymbol
+            ios_icon_name="arrow.left"
+            android_material_icon_name="arrow_back"
+            size={20}
+            color={colors.text}
+          />
+          <Text style={styles.backButtonText}>Volver</Text>
+        </TouchableOpacity>
 
-      <ScrollView style={styles.currencyList} showsVerticalScrollIndicator={false}>
-        {SUPPORTED_CURRENCIES.map((currency, index) => (
-          <TouchableOpacity
-            key={index}
-            style={[
-              styles.currencyItem,
-              selectedCurrency?.code === currency.code && {
-                backgroundColor: currency.color + '20',
-                borderColor: currency.color,
-                borderWidth: 2,
-              },
-            ]}
-            onPress={() => setSelectedCurrency(currency)}
-          >
-            <View style={[styles.currencyIcon, { backgroundColor: currency.color }]}>
-              <Text style={styles.currencyIconText}>{currency.icon}</Text>
-            </View>
-            <View style={styles.currencyInfo}>
-              <Text style={styles.currencyName}>{currency.name}</Text>
-              <Text style={styles.currencyNetwork}>{currency.network}</Text>
-            </View>
-            {selectedCurrency?.code === currency.code && (
+        <Text style={styles.stepTitle}>🪙 Selecciona Criptomoneda</Text>
+        <Text style={styles.stepSubtitle}>
+          {ALL_CURRENCIES.length}+ criptomonedas disponibles
+        </Text>
+
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <IconSymbol
+            ios_icon_name="magnifyingglass"
+            android_material_icon_name="search"
+            size={20}
+            color={colors.textSecondary}
+          />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar por nombre, código o red..."
+            placeholderTextColor="#666666"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
               <IconSymbol
-                ios_icon_name="checkmark.circle.fill"
-                android_material_icon_name="check_circle"
-                size={24}
-                color={currency.color}
+                ios_icon_name="xmark.circle.fill"
+                android_material_icon_name="cancel"
+                size={20}
+                color={colors.textSecondary}
               />
-            )}
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+            </TouchableOpacity>
+          )}
+        </View>
 
-      <TouchableOpacity
-        style={[
-          styles.primaryButton,
-          !selectedCurrency && styles.buttonDisabled,
-        ]}
-        onPress={handleCreatePayment}
-        disabled={!selectedCurrency || loading}
-      >
-        {loading ? (
-          <ActivityIndicator color="#FFFFFF" size="small" />
-        ) : (
-          <React.Fragment>
-            <Text style={styles.primaryButtonText}>Crear Pago</Text>
-            <IconSymbol
-              ios_icon_name="arrow.right"
-              android_material_icon_name="arrow_forward"
-              size={20}
-              color="#FFFFFF"
-            />
-          </React.Fragment>
-        )}
-      </TouchableOpacity>
-    </View>
-  );
+        {/* Category Filter */}
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={styles.categoryFilter}
+        >
+          <TouchableOpacity
+            style={[
+              styles.categoryButton,
+              selectedCategory === 'all' && styles.categoryButtonActive,
+            ]}
+            onPress={() => setSelectedCategory('all')}
+          >
+            <Text style={[
+              styles.categoryButtonText,
+              selectedCategory === 'all' && styles.categoryButtonTextActive,
+            ]}>
+              Todas
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.categoryButton,
+              selectedCategory === 'stablecoin' && styles.categoryButtonActive,
+            ]}
+            onPress={() => setSelectedCategory('stablecoin')}
+          >
+            <Text style={[
+              styles.categoryButtonText,
+              selectedCategory === 'stablecoin' && styles.categoryButtonTextActive,
+            ]}>
+              💵 Stablecoins
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.categoryButton,
+              selectedCategory === 'major' && styles.categoryButtonActive,
+            ]}
+            onPress={() => setSelectedCategory('major')}
+          >
+            <Text style={[
+              styles.categoryButtonText,
+              selectedCategory === 'major' && styles.categoryButtonTextActive,
+            ]}>
+              ⭐ Principales
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.categoryButton,
+              selectedCategory === 'altcoin' && styles.categoryButtonActive,
+            ]}
+            onPress={() => setSelectedCategory('altcoin')}
+          >
+            <Text style={[
+              styles.categoryButtonText,
+              selectedCategory === 'altcoin' && styles.categoryButtonTextActive,
+            ]}>
+              🔷 Altcoins
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+
+        {/* Results Count */}
+        <Text style={styles.resultsCount}>
+          {filteredCurrencies.length} {filteredCurrencies.length === 1 ? 'resultado' : 'resultados'}
+        </Text>
+
+        {/* Currency List */}
+        <ScrollView style={styles.currencyList} showsVerticalScrollIndicator={false}>
+          {filteredCurrencies.length > 0 ? (
+            filteredCurrencies.map((currency, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.currencyItem,
+                  selectedCurrency?.code === currency.code && {
+                    backgroundColor: currency.color + '20',
+                    borderColor: currency.color,
+                    borderWidth: 2,
+                  },
+                ]}
+                onPress={() => setSelectedCurrency(currency)}
+              >
+                <View style={[styles.currencyIcon, { backgroundColor: currency.color }]}>
+                  <Text style={styles.currencyIconText}>{currency.icon}</Text>
+                </View>
+                <View style={styles.currencyInfo}>
+                  <Text style={styles.currencyName}>{currency.name}</Text>
+                  <Text style={styles.currencyNetwork}>{currency.network}</Text>
+                  <Text style={styles.currencyCode}>{currency.code.toUpperCase()}</Text>
+                </View>
+                {selectedCurrency?.code === currency.code && (
+                  <IconSymbol
+                    ios_icon_name="checkmark.circle.fill"
+                    android_material_icon_name="check_circle"
+                    size={24}
+                    color={currency.color}
+                  />
+                )}
+              </TouchableOpacity>
+            ))
+          ) : (
+            <View style={styles.noResults}>
+              <IconSymbol
+                ios_icon_name="magnifyingglass"
+                android_material_icon_name="search_off"
+                size={48}
+                color={colors.textSecondary}
+              />
+              <Text style={styles.noResultsText}>
+                No se encontraron resultados
+              </Text>
+              <Text style={styles.noResultsSubtext}>
+                Intenta con otro término de búsqueda
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+
+        <TouchableOpacity
+          style={[
+            styles.primaryButton,
+            !selectedCurrency && styles.buttonDisabled,
+          ]}
+          onPress={handleCreatePayment}
+          disabled={!selectedCurrency || loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#000000" size="small" />
+          ) : (
+            <React.Fragment>
+              <Text style={styles.primaryButtonText}>Crear Pago</Text>
+              <IconSymbol
+                ios_icon_name="arrow.right"
+                android_material_icon_name="arrow_forward"
+                size={20}
+                color="#000000"
+              />
+            </React.Fragment>
+          )}
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   const renderPaymentStep = () => {
     if (!paymentIntent) return null;
@@ -550,7 +752,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   inputSection: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   label: {
     fontSize: 14,
@@ -590,6 +792,80 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
   },
+  quickAmounts: {
+    marginBottom: 24,
+  },
+  quickAmountsLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  quickAmountsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  quickAmountButton: {
+    backgroundColor: colors.cardBackground,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  quickAmountText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.cardBackground,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    gap: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: colors.text,
+  },
+  categoryFilter: {
+    marginBottom: 16,
+    maxHeight: 50,
+  },
+  categoryButton: {
+    backgroundColor: colors.cardBackground,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginRight: 8,
+  },
+  categoryButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  categoryButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  categoryButtonTextActive: {
+    color: '#000000',
+  },
+  resultsCount: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 12,
+    fontWeight: '600',
+  },
   currencyList: {
     maxHeight: 400,
     marginBottom: 16,
@@ -624,9 +900,31 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   currencyNetwork: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 2,
+  },
+  currencyCode: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontFamily: 'monospace',
+  },
+  noResults: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  noResultsText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  noResultsSubtext: {
     fontSize: 14,
     color: colors.textSecondary,
   },
