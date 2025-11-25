@@ -60,8 +60,8 @@ Deno.serve(async (req) => {
 
   try {
     // Get Supabase credentials
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const SUPABASE_URL = Deno.env?.get('SUPABASE_URL');
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env?.get('SUPABASE_SERVICE_ROLE_KEY');
 
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       console.error(`[${requestId}] ERROR: Supabase credentials not configured`);
@@ -166,13 +166,27 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get network-specific RPC URL from environment variable
-    const rpcUrl = Deno.env.get(networkConfig.rpcUrlEnvVar);
+    // Get network-specific RPC URL from environment variable with safe access
+    let rpcUrl: string | undefined;
+    try {
+      rpcUrl = Deno.env?.get(networkConfig.rpcUrlEnvVar);
+    } catch (envError) {
+      console.error(`[${requestId}] ERROR: Failed to access environment variable:`, envError);
+      rpcUrl = undefined;
+    }
     
     if (!rpcUrl) {
       console.error(`[${requestId}] ERROR: RPC URL not configured for ${network}`);
       console.error(`[${requestId}] Missing environment variable: ${networkConfig.rpcUrlEnvVar}`);
-      console.error(`[${requestId}] Available environment variables:`, Object.keys(Deno.env.toObject()));
+      console.error(`[${requestId}] Deno.env available:`, typeof Deno.env);
+      
+      // Try to list available environment variables (for debugging)
+      try {
+        const envKeys = Object.keys(Deno.env?.toObject() || {});
+        console.error(`[${requestId}] Available environment variables:`, envKeys);
+      } catch (e) {
+        console.error(`[${requestId}] Could not list environment variables:`, e);
+      }
       
       return new Response(
         JSON.stringify({

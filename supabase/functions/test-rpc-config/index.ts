@@ -13,14 +13,34 @@ Deno.serve(async (req) => {
 
   try {
     console.log('[TEST-RPC-CONFIG] Starting configuration test...');
+    console.log('[TEST-RPC-CONFIG] Deno.env available:', typeof Deno.env);
+    console.log('[TEST-RPC-CONFIG] Deno.env.get available:', typeof Deno.env?.get);
     
-    const ethRpcUrl = Deno.env.get('ETH_RPC_URL');
-    const bnbRpcUrl = Deno.env.get('BNB_RPC_URL');
-    const polygonRpcUrl = Deno.env.get('POLYGON_RPC_URL');
-
-    console.log('[TEST-RPC-CONFIG] ETH_RPC_URL:', ethRpcUrl ? 'SET' : 'NOT SET');
-    console.log('[TEST-RPC-CONFIG] BNB_RPC_URL:', bnbRpcUrl ? 'SET' : 'NOT SET');
-    console.log('[TEST-RPC-CONFIG] POLYGON_RPC_URL:', polygonRpcUrl ? 'SET' : 'NOT SET');
+    // Safely get environment variables with error handling
+    let ethRpcUrl: string | undefined;
+    let bnbRpcUrl: string | undefined;
+    let polygonRpcUrl: string | undefined;
+    
+    try {
+      ethRpcUrl = Deno.env?.get('ETH_RPC_URL');
+      console.log('[TEST-RPC-CONFIG] ETH_RPC_URL:', ethRpcUrl ? 'SET' : 'NOT SET');
+    } catch (e) {
+      console.error('[TEST-RPC-CONFIG] Error getting ETH_RPC_URL:', e);
+    }
+    
+    try {
+      bnbRpcUrl = Deno.env?.get('BNB_RPC_URL');
+      console.log('[TEST-RPC-CONFIG] BNB_RPC_URL:', bnbRpcUrl ? 'SET' : 'NOT SET');
+    } catch (e) {
+      console.error('[TEST-RPC-CONFIG] Error getting BNB_RPC_URL:', e);
+    }
+    
+    try {
+      polygonRpcUrl = Deno.env?.get('POLYGON_RPC_URL');
+      console.log('[TEST-RPC-CONFIG] POLYGON_RPC_URL:', polygonRpcUrl ? 'SET' : 'NOT SET');
+    } catch (e) {
+      console.error('[TEST-RPC-CONFIG] Error getting POLYGON_RPC_URL:', e);
+    }
 
     const config = {
       ETH_RPC_URL: {
@@ -102,6 +122,7 @@ Deno.serve(async (req) => {
     console.error('[TEST-RPC-CONFIG] Error:', error);
     console.error('[TEST-RPC-CONFIG] Error message:', error.message);
     console.error('[TEST-RPC-CONFIG] Error stack:', error.stack);
+    console.error('[TEST-RPC-CONFIG] Error name:', error.name);
     
     return new Response(
       JSON.stringify({
@@ -111,7 +132,9 @@ Deno.serve(async (req) => {
         details: {
           errorType: error.name,
           errorMessage: error.message,
-          timestamp: new Date().toISOString()
+          errorStack: error.stack,
+          timestamp: new Date().toISOString(),
+          help: 'This error suggests that environment variables are not properly configured. Please go to Supabase Dashboard → Settings → Edge Functions → Manage secrets and add ETH_RPC_URL, BNB_RPC_URL, and POLYGON_RPC_URL.'
         }
       }, null, 2),
       {
