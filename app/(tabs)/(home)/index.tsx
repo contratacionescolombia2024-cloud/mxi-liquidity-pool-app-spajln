@@ -44,30 +44,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
   },
-  kycBanner: {
-    backgroundColor: 'rgba(255, 152, 0, 0.1)',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.warning,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  kycBannerText: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  kycBannerTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.warning,
-    marginBottom: 4,
-  },
-  kycBannerSubtitle: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
   totalBalanceCard: {
     backgroundColor: 'rgba(255, 215, 0, 0.08)',
     borderRadius: 20,
@@ -513,39 +489,12 @@ export default function HomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
-        {/* KYC Banner */}
-        {user.kycStatus !== 'approved' && (
-          <TouchableOpacity
-            style={styles.kycBanner}
-            onPress={() => router.push('/(tabs)/(home)/kyc-verification')}
-          >
-            <IconSymbol
-              ios_icon_name="exclamationmark.triangle.fill"
-              android_material_icon_name="warning"
-              size={24}
-              color={colors.warning}
-            />
-            <View style={styles.kycBannerText}>
-              <Text style={styles.kycBannerTitle}>Verificación KYC Requerida</Text>
-              <Text style={styles.kycBannerSubtitle}>
-                Completa tu verificación para poder retirar fondos
-              </Text>
-            </View>
-            <IconSymbol
-              ios_icon_name="chevron.right"
-              android_material_icon_name="chevron_right"
-              size={20}
-              color={colors.warning}
-            />
-          </TouchableOpacity>
-        )}
-
-        {/* Launch Countdown - Moved here, right after KYC banner */}
+        {/* Launch Countdown */}
         <LaunchCountdown />
 
-        {/* Enhanced Total MXI Balance Card with Bars and Emoticons */}
+        {/* Enhanced Total MXI Balance Card with Bars and Emoticons - Changed title to "Vesting" */}
         <View style={styles.totalBalanceCard}>
-          <Text style={styles.cardTitle}>💰 Balance Total de MXI</Text>
+          <Text style={styles.cardTitle}>💰 Vesting</Text>
           <View style={styles.totalBalanceHeader}>
             <Text style={styles.totalBalanceValue}>
               {totalMxiBalance.toLocaleString('es-ES', {
