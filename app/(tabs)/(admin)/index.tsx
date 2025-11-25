@@ -781,6 +781,16 @@ export default function AdminDashboard() {
 
             <TouchableOpacity
               style={styles.actionButton}
+              onPress={() => router.push('/(tabs)/(admin)/manual-payment-credit')}
+            >
+              <View style={[styles.actionIcon, { backgroundColor: colors.warning + '20' }]}>
+                <IconSymbol ios_icon_name="creditcard.fill" android_material_icon_name="payment" size={24} color={colors.warning} />
+              </View>
+              <Text style={styles.actionLabel}>Acreditar Pago Manual</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionButton}
               onPress={() => router.push('/(tabs)/(admin)/kyc-approvals')}
             >
               {stats && stats.pendingKYC > 0 && (
