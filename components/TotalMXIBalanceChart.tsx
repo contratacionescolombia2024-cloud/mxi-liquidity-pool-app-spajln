@@ -241,21 +241,27 @@ export function TotalMXIBalanceChart() {
       return PADDING.left + (index * barSpacing) + (barSpacing / 2);
     };
 
-    // Create smooth line path that interconnects all points
+    // Create smooth line path that starts from 0 and interconnects all points
     const createSmoothPath = () => {
       if (balanceData.length === 0) return '';
       
       let path = '';
+      
+      // Start from 0 on Y-axis at the first X position
+      const startX = xScale(0);
+      const startY = yScale(0);
+      path += `M ${startX} ${startY}`;
+      
+      // Connect to all data points
       balanceData.forEach((point, index) => {
         const x = xScale(index);
         const y = yScale(point.totalBalance);
         
         if (index === 0) {
-          // Start from 0 on Y-axis
-          path += `M ${xScale(0)} ${yScale(0)}`;
+          // First point: draw straight line from 0 to first data point
           path += ` L ${x} ${y}`;
         } else {
-          // Connect to previous point with smooth curve
+          // Subsequent points: use smooth curve
           const prevX = xScale(index - 1);
           const prevY = yScale(balanceData[index - 1].totalBalance);
           const cpX = (prevX + x) / 2;
@@ -341,7 +347,7 @@ export function TotalMXIBalanceChart() {
           opacity={0.4}
         />
 
-        {/* Main trend line with glow effect - interconnects all points */}
+        {/* Main trend line with glow effect - starts from 0 and interconnects all points */}
         <Path
           d={createSmoothPath()}
           stroke="#ffdd00"
@@ -356,6 +362,24 @@ export function TotalMXIBalanceChart() {
           fill="none"
           opacity={1}
         />
+
+        {/* Starting point at 0 */}
+        <G>
+          <Circle
+            cx={xScale(0)}
+            cy={yScale(0)}
+            r="6"
+            fill="#ffdd00"
+            opacity={0.3}
+          />
+          <Circle
+            cx={xScale(0)}
+            cy={yScale(0)}
+            r="3"
+            fill="#00ff88"
+            opacity={1}
+          />
+        </G>
 
         {/* Data points with glow - show every few points for clarity */}
         {balanceData.filter((_, i) => i % Math.ceil(balanceData.length / 20) === 0).map((point, i) => {
