@@ -61,6 +61,7 @@ export default function DepositScreen() {
   const [selectedNetwork, setSelectedNetwork] = useState('ethereum');
   const [txHash, setTxHash] = useState('');
   const [loadingTx, setLoadingTx] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState('');
   const [directUsdtAmount, setDirectUsdtAmount] = useState('');
   const [directMxiAmount, setDirectMxiAmount] = useState(0);
 
@@ -101,20 +102,28 @@ export default function DepositScreen() {
   };
 
   const handleVerifyPayment = async () => {
+    console.log('🔍 [VERIFICAR] Iniciando verificación de pago...');
+    console.log('🔍 [VERIFICAR] TxHash:', txHash);
+    console.log('🔍 [VERIFICAR] Red seleccionada:', selectedNetwork);
+    console.log('🔍 [VERIFICAR] Usuario ID:', user?.id);
+
     if (!txHash.trim()) {
+      console.error('❌ [VERIFICAR] Error: Hash vacío');
       Alert.alert('Error', 'Por favor ingresa el hash de la transacción');
       return;
     }
 
     if (!txHash.startsWith('0x') || txHash.length !== 66) {
+      console.error('❌ [VERIFICAR] Error: Hash inválido - longitud:', txHash.length);
       Alert.alert(
         'Hash Inválido',
-        'El hash de transacción debe comenzar con 0x y tener 66 caracteres'
+        'El hash de transacción debe comenzar con 0x y tener 66 caracteres\n\nHash actual: ' + txHash.length + ' caracteres'
       );
       return;
     }
 
     const selectedNetworkData = NETWORKS.find(n => n.id === selectedNetwork);
+    console.log('🔍 [VERIFICAR] Datos de red:', selectedNetworkData);
 
     Alert.alert(
       '⚠️ Confirmar Red',
@@ -122,7 +131,8 @@ export default function DepositScreen() {
       [
         {
           text: 'Cancelar',
-          style: 'cancel'
+          style: 'cancel',
+          onPress: () => console.log('🔍 [VERIFICAR] Verificación cancelada por el usuario')
         },
         {
           text: 'Sí, verificar',
@@ -133,28 +143,60 @@ export default function DepositScreen() {
   };
 
   const performVerification = async () => {
+    const requestId = Date.now().toString().substring(-6);
+    console.log(`\n🚀 [${requestId}] ========== INICIANDO VERIFICACIÓN ==========`);
+    console.log(`🚀 [${requestId}] Timestamp:`, new Date().toISOString());
+    console.log(`🚀 [${requestId}] TxHash:`, txHash);
+    console.log(`🚀 [${requestId}] Red:`, selectedNetwork);
+    console.log(`🚀 [${requestId}] Usuario:`, user?.id);
+    console.log(`🚀 [${requestId}] Token de sesión:`, session?.access_token ? 'Presente' : 'Ausente');
+
     setLoadingTx(true);
+    setVerificationStatus('Conectando con el servidor...');
 
     try {
-      const response = await fetch(
-        'https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/verificar-tx',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token}`,
-          },
-          body: JSON.stringify({
-            txHash: txHash.trim(),
-            userId: user?.id,
-            network: selectedNetwork,
-          }),
-        }
-      );
+      const url = 'https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/verificar-tx';
+      const payload = {
+        txHash: txHash.trim(),
+        userId: user?.id,
+        network: selectedNetwork,
+      };
 
-      const data = await response.json();
+      console.log(`📤 [${requestId}] URL:`, url);
+      console.log(`📤 [${requestId}] Payload:`, JSON.stringify(payload, null, 2));
+
+      setVerificationStatus('Verificando transacción en blockchain...');
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      console.log(`📥 [${requestId}] Status HTTP:`, response.status);
+      console.log(`📥 [${requestId}] Status Text:`, response.statusText);
+
+      const responseText = await response.text();
+      console.log(`📥 [${requestId}] Response (raw):`, responseText);
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+        console.log(`📥 [${requestId}] Response (parsed):`, JSON.stringify(data, null, 2));
+      } catch (parseError) {
+        console.error(`❌ [${requestId}] Error parseando JSON:`, parseError);
+        throw new Error('Respuesta inválida del servidor: ' + responseText.substring(0, 100));
+      }
 
       if (data.ok) {
+        console.log(`✅ [${requestId}] ========== VERIFICACIÓN EXITOSA ==========`);
+        console.log(`✅ [${requestId}] USDT:`, data.usdt);
+        console.log(`✅ [${requestId}] MXI:`, data.mxi);
+        console.log(`✅ [${requestId}] Red:`, data.network);
+
         Alert.alert(
           '✅ Pago Confirmado',
           `Se acreditaron ${data.mxi.toFixed(2)} MXI a tu cuenta.\n\nRed: ${data.network}\nUSDT pagados: ${data.usdt.toFixed(2)}`,
@@ -172,50 +214,96 @@ export default function DepositScreen() {
           ]
         );
       } else {
+        console.error(`❌ [${requestId}] ========== VERIFICACIÓN FALLIDA ==========`);
+        console.error(`❌ [${requestId}] Error code:`, data.error);
+        console.error(`❌ [${requestId}] Error message:`, data.message);
+
         let errorMessage = '';
+        let errorTitle = 'Error de Verificación';
         
         switch (data.error) {
           case 'tx_not_found':
-            errorMessage = `Transacción no encontrada en ${NETWORKS.find(n => n.id === selectedNetwork)?.name}.\n\nVerifica que:\n• El hash sea correcto\n• La transacción esté en la red ${NETWORKS.find(n => n.id === selectedNetwork)?.name}\n• La transacción tenga al menos 1 confirmación`;
+            errorTitle = '🔍 Transacción No Encontrada';
+            errorMessage = `No se encontró la transacción en ${NETWORKS.find(n => n.id === selectedNetwork)?.name}.\n\n📋 Pasos para solucionar:\n\n1. Verifica que el hash sea correcto\n2. Asegúrate de que la transacción esté en la red ${NETWORKS.find(n => n.id === selectedNetwork)?.name}\n3. Espera a que la transacción tenga al menos 1 confirmación\n4. Verifica en un explorador de bloques:\n   • Ethereum: etherscan.io\n   • BNB Chain: bscscan.com\n   • Polygon: polygonscan.com`;
             break;
           case 'pocas_confirmaciones':
-            errorMessage = data.message || 'La transacción necesita más confirmaciones. Por favor intenta más tarde.';
+            errorTitle = '⏳ Esperando Confirmaciones';
+            errorMessage = `La transacción necesita más confirmaciones.\n\n${data.message || ''}\n\nConfirmaciones actuales: ${data.confirmations || 0}\nConfirmaciones requeridas: ${data.required || 3}\n\n⏰ Por favor espera unos minutos e intenta nuevamente.`;
             break;
           case 'monto_insuficiente':
-            errorMessage = `El monto mínimo es ${MIN_USDT_DIRECT} USDT. ${data.message || ''}`;
+            errorTitle = '💰 Monto Insuficiente';
+            errorMessage = `El monto mínimo es ${MIN_USDT_DIRECT} USDT.\n\n${data.message || ''}\n\nMonto recibido: ${data.usdt || 0} USDT\nMonto mínimo: ${data.minimum || MIN_USDT_DIRECT} USDT`;
             break;
           case 'ya_procesado':
-            errorMessage = 'Esta transacción ya ha sido procesada anteriormente.';
+            errorTitle = '✓ Ya Procesado';
+            errorMessage = 'Esta transacción ya ha sido procesada anteriormente.\n\nSi crees que esto es un error, contacta a soporte.';
             break;
           case 'no_transfer_found':
-            errorMessage = `No se encontró una transferencia USDT válida a la dirección receptora en ${NETWORKS.find(n => n.id === selectedNetwork)?.name}.`;
+            errorTitle = '❌ Transferencia No Válida';
+            errorMessage = `No se encontró una transferencia USDT válida a la dirección receptora.\n\n📋 Verifica:\n\n1. Que enviaste USDT (no otro token)\n2. Que la dirección receptora es correcta:\n   ${RECIPIENT_ADDRESS}\n3. Que la transacción está en ${NETWORKS.find(n => n.id === selectedNetwork)?.name}`;
             break;
           case 'tx_failed':
-            errorMessage = 'La transacción falló en la blockchain.';
+            errorTitle = '❌ Transacción Fallida';
+            errorMessage = 'La transacción falló en la blockchain.\n\nVerifica el estado de la transacción en un explorador de bloques.';
             break;
           case 'invalid_network':
-            errorMessage = data.message || 'Red no válida seleccionada.';
+            errorTitle = '🌐 Red No Válida';
+            errorMessage = data.message || 'Red no válida seleccionada.\n\nSelecciona una de las redes disponibles: Ethereum, BNB Chain o Polygon.';
             break;
           case 'rpc_not_configured':
-            errorMessage = `⚠️ Error de Configuración del Servidor\n\n${data.message}\n\nContacta al administrador para configurar el RPC de esta red.`;
+            errorTitle = '⚙️ Error de Configuración';
+            errorMessage = `Error de configuración del servidor.\n\n${data.message}\n\n⚠️ Contacta al administrador del sistema.`;
             break;
           case 'wrong_network':
-            errorMessage = data.message || 'El RPC está conectado a la red incorrecta.';
+            errorTitle = '🌐 Red Incorrecta';
+            errorMessage = data.message || 'El RPC está conectado a la red incorrecta.\n\nContacta al administrador del sistema.';
+            break;
+          case 'no_auth':
+          case 'invalid_session':
+          case 'unauthorized':
+            errorTitle = '🔐 Error de Autenticación';
+            errorMessage = 'Tu sesión ha expirado.\n\nPor favor cierra sesión y vuelve a iniciar sesión.';
+            break;
+          case 'missing_fields':
+            errorTitle = '📝 Datos Incompletos';
+            errorMessage = 'Faltan datos requeridos.\n\nAsegúrate de ingresar el hash de transacción.';
+            break;
+          case 'database_error':
+          case 'update_failed':
+          case 'user_not_found':
+            errorTitle = '💾 Error de Base de Datos';
+            errorMessage = `Error al procesar la transacción.\n\n${data.message || ''}\n\nPor favor intenta nuevamente o contacta a soporte.`;
+            break;
+          case 'rpc_connection_failed':
+            errorTitle = '🔌 Error de Conexión RPC';
+            errorMessage = `No se pudo conectar al nodo de blockchain.\n\n${data.message || ''}\n\nPor favor intenta nuevamente en unos minutos.`;
+            break;
+          case 'internal_error':
+            errorTitle = '⚠️ Error Interno';
+            errorMessage = `Error interno del servidor.\n\n${data.message || ''}\n\nPor favor intenta nuevamente o contacta a soporte.`;
             break;
           default:
-            errorMessage = data.message || 'Error al verificar el pago. Por favor intenta nuevamente.';
+            errorTitle = '❌ Error Desconocido';
+            errorMessage = data.message || 'Error al verificar el pago.\n\nPor favor intenta nuevamente o contacta a soporte.';
         }
 
-        Alert.alert('Error', errorMessage);
+        console.error(`❌ [${requestId}] Mostrando error al usuario:`, errorTitle);
+        Alert.alert(errorTitle, errorMessage);
       }
     } catch (error: any) {
-      console.error('Error verifying payment:', error);
+      console.error(`❌ [${requestId}] ========== ERROR DE CONEXIÓN ==========`);
+      console.error(`❌ [${requestId}] Error:`, error);
+      console.error(`❌ [${requestId}] Error message:`, error.message);
+      console.error(`❌ [${requestId}] Error stack:`, error.stack);
+
       Alert.alert(
-        'Error de Conexión',
-        'No se pudo conectar con el servidor. Por favor verifica tu conexión e intenta nuevamente.'
+        '🔌 Error de Conexión',
+        `No se pudo conectar con el servidor.\n\nDetalles técnicos:\n${error.message}\n\n📋 Pasos para solucionar:\n\n1. Verifica tu conexión a internet\n2. Intenta nuevamente en unos segundos\n3. Si el problema persiste, contacta a soporte`
       );
     } finally {
       setLoadingTx(false);
+      setVerificationStatus('');
+      console.log(`🏁 [${requestId}] ========== VERIFICACIÓN FINALIZADA ==========\n`);
     }
   };
 
@@ -304,7 +392,10 @@ export default function DepositScreen() {
                     borderWidth: 2,
                   }
                 ]}
-                onPress={() => setSelectedNetwork(network.id)}
+                onPress={() => {
+                  console.log('🌐 [RED] Cambiando red a:', network.id);
+                  setSelectedNetwork(network.id);
+                }}
               >
                 <View style={[styles.networkIcon, { backgroundColor: network.color }]}>
                   <Text style={styles.networkIconText}>{network.icon}</Text>
@@ -497,7 +588,10 @@ export default function DepositScreen() {
             placeholder="0x..."
             placeholderTextColor="#666666"
             value={txHash}
-            onChangeText={setTxHash}
+            onChangeText={(text) => {
+              console.log('📝 [INPUT] Hash ingresado:', text);
+              setTxHash(text);
+            }}
             autoCapitalize="none"
             autoCorrect={false}
             editable={!loadingTx}
@@ -507,19 +601,29 @@ export default function DepositScreen() {
           <Text style={styles.inputHint}>
             Pega el hash de tu transacción de {selectedNetworkData?.name} aquí
           </Text>
+          {txHash.length > 0 && (
+            <Text style={[styles.inputHint, { marginTop: 4, color: txHash.length === 66 ? colors.success : colors.warning }]}>
+              {txHash.length === 66 ? '✓ Longitud correcta' : `⚠️ ${txHash.length}/66 caracteres`}
+            </Text>
+          )}
         </View>
 
         <TouchableOpacity
           style={[
             styles.verifyButton,
             { backgroundColor: selectedNetworkData?.color || colors.primary },
-            loadingTx && styles.verifyButtonDisabled
+            (loadingTx || !txHash.trim()) && styles.verifyButtonDisabled
           ]}
           onPress={handleVerifyPayment}
           disabled={loadingTx || !txHash.trim()}
         >
           {loadingTx ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator color="#FFFFFF" size="small" />
+              {verificationStatus ? (
+                <Text style={styles.verifyButtonText}>{verificationStatus}</Text>
+              ) : null}
+            </View>
           ) : (
             <React.Fragment>
               <IconSymbol
@@ -964,6 +1068,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 12,
     marginBottom: 16,
+    minHeight: 56,
   },
   verifyButtonDisabled: {
     opacity: 0.5,
@@ -972,6 +1077,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   warningCard: {
     backgroundColor: 'rgba(255, 152, 0, 0.1)',
