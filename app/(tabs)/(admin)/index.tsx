@@ -18,7 +18,7 @@ import { useRouter } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { supabase } from '@/lib/supabase';
-import UniversalMXICounter from '@/components/UniversalMXICounter';
+import { UniversalMXICounter } from '@/components/UniversalMXICounter';
 
 interface AdminStats {
   pendingKYC: number;
