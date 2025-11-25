@@ -65,6 +65,7 @@ export default function DepositScreen() {
   const [directUsdtAmount, setDirectUsdtAmount] = useState('');
   const [directMxiAmount, setDirectMxiAmount] = useState(0);
   const [errorLog, setErrorLog] = useState<string[]>([]);
+  const [testingConfig, setTestingConfig] = useState(false);
 
   useEffect(() => {
     loadPhaseInfo();
@@ -106,6 +107,68 @@ export default function DepositScreen() {
     const timestamp = new Date().toLocaleTimeString();
     setErrorLog(prev => [...prev, `[${timestamp}] ${message}`]);
     console.log(`[ERROR LOG] ${message}`);
+  };
+
+  const testServerConfiguration = async () => {
+    console.log('🔧 [TEST CONFIG] Testing server configuration...');
+    setTestingConfig(true);
+    addErrorLog('Probando configuración del servidor...');
+
+    try {
+      const url = 'https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/test-rpc-config';
+      
+      console.log('🔧 [TEST CONFIG] Calling:', url);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      console.log('🔧 [TEST CONFIG] Response:', data);
+
+      if (data.ok) {
+        Alert.alert(
+          '✅ Configuración Correcta',
+          'Todas las URLs de RPC están configuradas correctamente.\n\n' +
+          `ETH: ${data.config.ETH_RPC_URL.status}\n` +
+          `BNB: ${data.config.BNB_RPC_URL.status}\n` +
+          `Polygon: ${data.config.POLYGON_RPC_URL.status}`
+        );
+        addErrorLog('✅ Configuración correcta');
+      } else {
+        const missingConfigs = [];
+        if (!data.config.ETH_RPC_URL.configured) missingConfigs.push('ETH_RPC_URL');
+        if (!data.config.BNB_RPC_URL.configured) missingConfigs.push('BNB_RPC_URL');
+        if (!data.config.POLYGON_RPC_URL.configured) missingConfigs.push('POLYGON_RPC_URL');
+
+        Alert.alert(
+          '⚠️ Configuración Incompleta',
+          `Faltan las siguientes variables de entorno:\n\n${missingConfigs.join('\n')}\n\n` +
+          `📋 Instrucciones:\n\n` +
+          `1. ${data.instructions.step1}\n` +
+          `2. ${data.instructions.step2}\n` +
+          `3. ${data.instructions.step3}\n\n` +
+          `Variables requeridas:\n${data.instructions.secrets.join('\n')}\n\n` +
+          `Estado actual:\n` +
+          `ETH: ${data.config.ETH_RPC_URL.status}\n` +
+          `BNB: ${data.config.BNB_RPC_URL.status}\n` +
+          `Polygon: ${data.config.POLYGON_RPC_URL.status}`,
+          [{ text: 'Entendido' }]
+        );
+        addErrorLog(`❌ Faltan configuraciones: ${missingConfigs.join(', ')}`);
+      }
+    } catch (error: any) {
+      console.error('🔧 [TEST CONFIG] Error:', error);
+      Alert.alert(
+        '❌ Error de Conexión',
+        `No se pudo probar la configuración del servidor.\n\nError: ${error.message}`
+      );
+      addErrorLog(`❌ Error probando configuración: ${error.message}`);
+    } finally {
+      setTestingConfig(false);
+    }
   };
 
   const handleVerifyPayment = async () => {
@@ -305,8 +368,8 @@ export default function DepositScreen() {
             errorMessage = data.message || 'Red no válida seleccionada.\n\nSelecciona una de las redes disponibles: Ethereum, BNB Chain o Polygon.';
             break;
           case 'rpc_not_configured':
-            errorTitle = '⚙️ Error de Configuración';
-            errorMessage = `Error de configuración del servidor.\n\n${data.message}\n\n⚠️ Contacta al administrador del sistema.`;
+            errorTitle = '⚙️ Error de Configuración del Servidor';
+            errorMessage = `${data.message}\n\n⚠️ Este es un error de configuración del servidor.\n\n📋 El administrador debe:\n\n1. Ir a Supabase Dashboard → Edge Functions → Secrets\n2. Configurar las siguientes variables:\n   • ETH_RPC_URL\n   • BNB_RPC_URL\n   • POLYGON_RPC_URL\n\n💡 Puedes usar el botón "Probar Configuración" para verificar el estado.`;
             break;
           case 'wrong_network':
             errorTitle = '🌐 Red Incorrecta';
@@ -429,6 +492,27 @@ export default function DepositScreen() {
             </React.Fragment>
           )}
         </View>
+
+        {/* Configuration Test Button */}
+        <TouchableOpacity
+          style={styles.testConfigButton}
+          onPress={testServerConfiguration}
+          disabled={testingConfig}
+        >
+          {testingConfig ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <React.Fragment>
+              <IconSymbol
+                ios_icon_name="wrench.and.screwdriver.fill"
+                android_material_icon_name="settings"
+                size={20}
+                color="#FFFFFF"
+              />
+              <Text style={styles.testConfigButtonText}>Probar Configuración del Servidor</Text>
+            </React.Fragment>
+          )}
+        </TouchableOpacity>
 
         {/* Network Selection */}
         <View style={[styles.networkCard, { borderColor: selectedNetworkData?.color }]}>
@@ -840,6 +924,21 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.primary + '30',
     marginVertical: 8,
+  },
+  testConfigButton: {
+    backgroundColor: '#FF6B35',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  testConfigButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   networkCard: {
     backgroundColor: colors.cardBackground,
