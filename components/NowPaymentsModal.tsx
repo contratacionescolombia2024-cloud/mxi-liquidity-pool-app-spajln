@@ -191,6 +191,7 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
 
     try {
       const orderId = `MXI-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      const mxiAmount = calculateMXI(usdtAmount);
       
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session) {
@@ -203,6 +204,33 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
         price_currency: 'usd',
         pay_currency: selectedCurrency.code,
       });
+
+      // Create transaction history record first
+      const { data: txHistory, error: txError } = await supabase
+        .from('transaction_history')
+        .insert({
+          user_id: userId,
+          transaction_type: 'nowpayments_order',
+          order_id: orderId,
+          mxi_amount: mxiAmount,
+          usdt_amount: amount,
+          status: 'pending',
+          metadata: {
+            pay_currency: selectedCurrency.code,
+            pay_currency_name: selectedCurrency.name,
+            network: selectedCurrency.network,
+            price_per_mxi: currentPrice,
+          },
+        })
+        .select()
+        .single();
+
+      if (txError) {
+        console.error('Error creating transaction history:', txError);
+        throw new Error('No se pudo crear el registro de transacción');
+      }
+
+      console.log('Transaction history created:', txHistory.id);
 
       const response = await fetch(
         'https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/create-payment-intent',
@@ -225,8 +253,36 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
       console.log('Payment intent response:', result);
 
       if (!response.ok || !result.success) {
+        // Update transaction history with error
+        await supabase
+          .from('transaction_history')
+          .update({
+            status: 'failed',
+            error_message: result.error || 'Error al crear el pago',
+            error_details: result,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', txHistory.id);
+
         throw new Error(result.error || 'Error al crear el pago');
       }
+
+      // Update transaction history with payment details
+      await supabase
+        .from('transaction_history')
+        .update({
+          payment_id: result.intent.payment_id,
+          payment_url: result.intent.invoice_url,
+          status: 'waiting',
+          metadata: {
+            ...txHistory.metadata,
+            pay_address: result.intent.pay_address,
+            pay_amount: result.intent.pay_amount,
+            expires_at: result.intent.expires_at,
+          },
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', txHistory.id);
 
       setPaymentIntent(result.intent);
       setStep('payment');
@@ -631,6 +687,9 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
           </Text>
           <Text style={styles.instructionText}>
             5. Recibirás una notificación cuando se acredite
+          </Text>
+          <Text style={styles.instructionText}>
+            6. Puedes verificar el estado en el historial de transacciones
           </Text>
         </View>
 

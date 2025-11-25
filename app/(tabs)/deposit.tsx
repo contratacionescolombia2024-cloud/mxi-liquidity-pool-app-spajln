@@ -44,8 +44,21 @@ export default function DepositScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Depositar</Text>
-        <Text style={styles.headerSubtitle}>Compra MXI con múltiples criptomonedas</Text>
+        <View>
+          <Text style={styles.headerTitle}>Depositar</Text>
+          <Text style={styles.headerSubtitle}>Compra MXI con múltiples criptomonedas</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.historyButton}
+          onPress={() => router.push('/(tabs)/(home)/transaction-history')}
+        >
+          <IconSymbol
+            ios_icon_name="clock.arrow.circlepath"
+            android_material_icon_name="history"
+            size={24}
+            color={colors.primary}
+          />
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -166,6 +179,33 @@ export default function DepositScreen() {
               color="#FFFFFF"
             />
           </View>
+        </TouchableOpacity>
+
+        {/* Transaction History Link */}
+        <TouchableOpacity
+          style={styles.historyLinkCard}
+          onPress={() => router.push('/(tabs)/(home)/transaction-history')}
+        >
+          <View style={styles.historyLinkContent}>
+            <IconSymbol
+              ios_icon_name="clock.arrow.circlepath"
+              android_material_icon_name="history"
+              size={32}
+              color={colors.primary}
+            />
+            <View style={styles.historyLinkText}>
+              <Text style={styles.historyLinkTitle}>Historial de Transacciones</Text>
+              <Text style={styles.historyLinkSubtitle}>
+                Ver, verificar y gestionar tus pagos
+              </Text>
+            </View>
+          </View>
+          <IconSymbol
+            ios_icon_name="chevron.right"
+            android_material_icon_name="chevron_right"
+            size={24}
+            color={colors.textSecondary}
+          />
         </TouchableOpacity>
 
         {/* Supported Currencies Preview */}
@@ -349,6 +389,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 20,
     borderBottomWidth: 1,
@@ -363,6 +406,13 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 14,
     color: colors.textSecondary,
+  },
+  historyButton: {
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: colors.cardBackground,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   scrollContent: {
     padding: 20,
@@ -430,7 +480,7 @@ const styles = StyleSheet.create({
     marginVertical: 12,
   },
   mainPaymentButton: {
-    marginBottom: 24,
+    marginBottom: 16,
     borderRadius: 20,
     overflow: 'hidden',
     shadowColor: '#667eea',
@@ -480,6 +530,35 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  historyLinkCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.cardBackground,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  historyLinkContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  historyLinkText: {
+    flex: 1,
+  },
+  historyLinkTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  historyLinkSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
   },
   currenciesPreviewCard: {
     backgroundColor: colors.cardBackground,
