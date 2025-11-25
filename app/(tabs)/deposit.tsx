@@ -221,7 +221,7 @@ export default function DepositScreen() {
               <View style={styles.stepContent}>
                 <Text style={styles.stepTitle}>Ingresa el Monto</Text>
                 <Text style={styles.stepDescription}>
-                  Especifica cuánto USDT deseas invertir (mínimo 20 USDT)
+                  Especifica cuánto USDT deseas invertir (mínimo 2 USDT)
                 </Text>
               </View>
             </View>

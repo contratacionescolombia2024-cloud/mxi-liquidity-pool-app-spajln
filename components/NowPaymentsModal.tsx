@@ -182,8 +182,8 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
     }
 
     const amount = parseFloat(usdtAmount);
-    if (isNaN(amount) || amount < 20) {
-      Alert.alert('Error', 'El monto mínimo es 20 USDT');
+    if (isNaN(amount) || amount < 2) {
+      Alert.alert('Error', 'El monto mínimo es 2 USDT');
       return;
     }
 
@@ -284,14 +284,14 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
     <ScrollView style={styles.stepContainer} showsVerticalScrollIndicator={false}>
       <Text style={styles.stepTitle}>💰 Ingresa el Monto</Text>
       <Text style={styles.stepSubtitle}>
-        Monto mínimo: 20 USDT
+        Monto mínimo: 2 USDT
       </Text>
 
       <View style={styles.inputSection}>
         <Text style={styles.label}>Monto en USDT</Text>
         <TextInput
           style={styles.input}
-          placeholder="Ej: 100"
+          placeholder="Ej: 10"
           placeholderTextColor="#666666"
           keyboardType="numeric"
           value={usdtAmount}
@@ -313,7 +313,7 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
       <View style={styles.quickAmounts}>
         <Text style={styles.quickAmountsLabel}>Montos rápidos:</Text>
         <View style={styles.quickAmountsRow}>
-          {['20', '50', '100', '500', '1000'].map((amount, index) => (
+          {['2', '5', '10', '50', '100', '500'].map((amount, index) => (
             <TouchableOpacity
               key={index}
               style={styles.quickAmountButton}
@@ -328,10 +328,10 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
       <TouchableOpacity
         style={[
           styles.primaryButton,
-          (!usdtAmount || parseFloat(usdtAmount) < 20) && styles.buttonDisabled,
+          (!usdtAmount || parseFloat(usdtAmount) < 2) && styles.buttonDisabled,
         ]}
         onPress={() => setStep('currency')}
-        disabled={!usdtAmount || parseFloat(usdtAmount) < 20}
+        disabled={!usdtAmount || parseFloat(usdtAmount) < 2}
       >
         <Text style={styles.primaryButtonText}>Continuar</Text>
         <IconSymbol
