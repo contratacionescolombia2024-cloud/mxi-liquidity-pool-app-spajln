@@ -12,8 +12,11 @@ import {
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/styles/commonStyles';
+import { useAuth } from '@/contexts/AuthContext';
+import { IconSymbol } from '@/components/IconSymbol';
 
 export default function ManualPaymentCredit() {
+  const { session } = useAuth();
   const [orderId, setOrderId] = useState('');
   const [loading, setLoading] = useState(false);
   const [paymentDetails, setPaymentDetails] = useState<any>(null);
@@ -59,45 +62,87 @@ export default function ManualPaymentCredit() {
     }
   };
 
-  const creditPayment = async () => {
-    if (!paymentDetails) return;
+  const verifyAndCreditPayment = async () => {
+    if (!paymentDetails || !session) return;
 
     Alert.alert(
-      'Confirmar Acreditación',
-      `¿Estás seguro de que deseas acreditar ${paymentDetails.mxi_amount} MXI al usuario ${paymentDetails.users.email}?`,
+      'Confirmar Verificación y Acreditación',
+      `¿Estás seguro de que deseas verificar y acreditar este pago?\n\n` +
+      `Usuario: ${paymentDetails.users.email}\n` +
+      `Monto: ${paymentDetails.mxi_amount} MXI\n\n` +
+      `Esta acción verificará el estado del pago con NOWPayments y lo acreditará si está confirmado.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Acreditar',
+          text: 'Verificar y Acreditar',
           style: 'destructive',
           onPress: async () => {
             setLoading(true);
             try {
-              // Execute the manual crediting SQL
-              const { error } = await supabase.rpc('manual_credit_payment', {
-                p_order_id: orderId.trim(),
-              });
+              console.log('🔍 Admin verifying payment:', orderId.trim());
 
-              if (error) {
-                throw error;
-              }
-
-              Alert.alert(
-                'Éxito',
-                `Pago acreditado exitosamente. ${paymentDetails.mxi_amount} MXI han sido agregados a la cuenta del usuario.`,
-                [
-                  {
-                    text: 'OK',
-                    onPress: () => {
-                      setOrderId('');
-                      setPaymentDetails(null);
-                    },
+              const response = await fetch(
+                'https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/manual-verify-payment',
+                {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'Content-Type': 'application/json',
                   },
-                ]
+                  body: JSON.stringify({
+                    order_id: orderId.trim(),
+                  }),
+                }
               );
+
+              const data = await response.json();
+              console.log('✅ Verification response:', data);
+
+              if (data.success) {
+                if (data.credited) {
+                  Alert.alert(
+                    '✅ Pago Acreditado',
+                    `El pago ha sido verificado y acreditado exitosamente.\n\n` +
+                    `${data.payment.mxi_amount} MXI han sido agregados a la cuenta del usuario.\n\n` +
+                    `Nuevo balance: ${data.payment.new_balance} MXI`,
+                    [
+                      {
+                        text: 'OK',
+                        onPress: () => {
+                          setOrderId('');
+                          setPaymentDetails(null);
+                        },
+                      },
+                    ]
+                  );
+                } else if (data.already_credited) {
+                  Alert.alert(
+                    'ℹ️ Ya Acreditado',
+                    'Este pago ya ha sido acreditado anteriormente.',
+                    [
+                      {
+                        text: 'OK',
+                        onPress: () => {
+                          setOrderId('');
+                          setPaymentDetails(null);
+                        },
+                      },
+                    ]
+                  );
+                } else {
+                  Alert.alert(
+                    'ℹ️ Estado Actualizado',
+                    `Estado del pago: ${data.payment.status}\n\n` +
+                    `El pago aún no ha sido confirmado por NOWPayments. No se puede acreditar en este momento.`,
+                    [{ text: 'OK' }]
+                  );
+                }
+              } else {
+                Alert.alert('Error', data.error || 'Error al verificar el pago');
+              }
             } catch (error: any) {
-              console.error('Error crediting payment:', error);
-              Alert.alert('Error', error.message || 'Error al acreditar el pago');
+              console.error('❌ Error verifying payment:', error);
+              Alert.alert('Error', error.message || 'Error al verificar el pago');
             } finally {
               setLoading(false);
             }
@@ -126,9 +171,21 @@ export default function ManualPaymentCredit() {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Acreditación Manual de Pagos</Text>
+        <Text style={styles.title}>Verificación y Acreditación Manual</Text>
         <Text style={styles.subtitle}>
-          Usa esta herramienta para acreditar manualmente pagos que no fueron procesados automáticamente por el webhook.
+          Usa esta herramienta para verificar y acreditar manualmente pagos que no fueron procesados automáticamente.
+        </Text>
+      </View>
+
+      <View style={styles.infoBox}>
+        <IconSymbol
+          ios_icon_name="info.circle.fill"
+          android_material_icon_name="info"
+          size={24}
+          color={colors.primary}
+        />
+        <Text style={styles.infoText}>
+          Esta herramienta verifica el estado del pago con NOWPayments y lo acredita automáticamente si está confirmado.
         </Text>
       </View>
 
@@ -151,7 +208,15 @@ export default function ManualPaymentCredit() {
           {searchLoading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonText}>Buscar Pago</Text>
+            <>
+              <IconSymbol
+                ios_icon_name="magnifyingglass"
+                android_material_icon_name="search"
+                size={20}
+                color="#000000"
+              />
+              <Text style={styles.buttonText}>Buscar Pago</Text>
+            </>
           )}
         </TouchableOpacity>
       </View>
@@ -167,7 +232,7 @@ export default function ManualPaymentCredit() {
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Payment ID:</Text>
-            <Text style={styles.detailValue}>{paymentDetails.payment_id}</Text>
+            <Text style={styles.detailValue}>{paymentDetails.payment_id || 'N/A'}</Text>
           </View>
 
           <View style={styles.detailRow}>
@@ -248,31 +313,64 @@ export default function ManualPaymentCredit() {
 
           {paymentDetails.status === 'confirmed' || paymentDetails.status === 'finished' ? (
             <View style={styles.warningBox}>
+              <IconSymbol
+                ios_icon_name="checkmark.circle.fill"
+                android_material_icon_name="check_circle"
+                size={24}
+                color="#4CAF50"
+              />
+              <Text style={styles.successText}>
+                ✅ Este pago ya ha sido acreditado. No se puede acreditar nuevamente.
+              </Text>
+            </View>
+          ) : !paymentDetails.payment_id ? (
+            <View style={styles.warningBox}>
+              <IconSymbol
+                ios_icon_name="exclamationmark.triangle.fill"
+                android_material_icon_name="warning"
+                size={24}
+                color="#FF9800"
+              />
               <Text style={styles.warningText}>
-                ⚠️ Este pago ya ha sido acreditado. No se puede acreditar nuevamente.
+                ⚠️ Este pago no tiene un Payment ID. No se puede verificar con NOWPayments.
               </Text>
             </View>
           ) : (
             <>
-              <View style={styles.infoBox}>
-                <Text style={styles.infoText}>
-                  Al acreditar este pago:
-                  {'\n'}• Se agregarán {paymentDetails.mxi_amount} MXI al balance del usuario
-                  {'\n'}• Se actualizarán las métricas globales
-                  {'\n'}• El estado del pago cambiará a "confirmed"
-                  {'\n'}• Esta acción no se puede deshacer
+              <View style={styles.actionInfoBox}>
+                <IconSymbol
+                  ios_icon_name="info.circle.fill"
+                  android_material_icon_name="info"
+                  size={24}
+                  color={colors.primary}
+                />
+                <Text style={styles.actionInfoText}>
+                  Al verificar este pago:{'\n'}
+                  • Se consultará el estado con NOWPayments{'\n'}
+                  • Si está confirmado, se agregarán {paymentDetails.mxi_amount} MXI al usuario{'\n'}
+                  • Se actualizarán las métricas globales{'\n'}
+                  • El estado del pago cambiará a "confirmed"{'\n'}
+                  • Esta acción no se puede deshacer
                 </Text>
               </View>
 
               <TouchableOpacity
                 style={[styles.creditButton, loading && styles.buttonDisabled]}
-                onPress={creditPayment}
+                onPress={verifyAndCreditPayment}
                 disabled={loading}
               >
                 {loading ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={styles.buttonText}>Acreditar Pago Manualmente</Text>
+                  <>
+                    <IconSymbol
+                      ios_icon_name="checkmark.circle.fill"
+                      android_material_icon_name="check_circle"
+                      size={20}
+                      color="#FFFFFF"
+                    />
+                    <Text style={styles.buttonText}>Verificar y Acreditar Pago</Text>
+                  </>
                 )}
               </TouchableOpacity>
             </>
@@ -283,14 +381,14 @@ export default function ManualPaymentCredit() {
       <View style={styles.instructionsSection}>
         <Text style={styles.sectionTitle}>Instrucciones</Text>
         <Text style={styles.instructionText}>
-          1. Ingresa el Order ID del pago que deseas acreditar
-          {'\n'}2. Haz clic en "Buscar Pago" para ver los detalles
-          {'\n'}3. Verifica que la información sea correcta
-          {'\n'}4. Haz clic en "Acreditar Pago Manualmente" para procesar
-          {'\n\n'}
+          1. Ingresa el Order ID del pago que deseas verificar{'\n'}
+          2. Haz clic en "Buscar Pago" para ver los detalles{'\n'}
+          3. Verifica que la información sea correcta{'\n'}
+          4. Haz clic en "Verificar y Acreditar Pago" para procesar{'\n'}
+          {'\n'}
           <Text style={styles.warningText}>
-            ⚠️ Advertencia: Solo usa esta herramienta cuando el webhook de NowPayments haya fallado.
-            Verifica siempre que el pago haya sido aprobado en NowPayments antes de acreditar manualmente.
+            ⚠️ Advertencia: Esta herramienta verifica automáticamente con NOWPayments antes de acreditar.
+            Solo acreditará si el pago está confirmado en NOWPayments.
           </Text>
         </Text>
       </View>
@@ -316,6 +414,21 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    backgroundColor: colors.primary + '20',
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    gap: 12,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.text,
     lineHeight: 20,
   },
   searchSection: {
@@ -346,12 +459,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 14,
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
   },
   buttonDisabled: {
     opacity: 0.5,
   },
   buttonText: {
-    color: '#fff',
+    color: '#000000',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -390,26 +506,38 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     marginVertical: 16,
   },
-  infoBox: {
+  actionInfoBox: {
+    flexDirection: 'row',
     backgroundColor: colors.primary + '20',
     borderRadius: 8,
     padding: 12,
     marginBottom: 16,
+    gap: 12,
   },
-  infoText: {
+  actionInfoText: {
+    flex: 1,
     fontSize: 13,
     color: colors.text,
     lineHeight: 20,
   },
   warningBox: {
+    flexDirection: 'row',
     backgroundColor: '#FF9800' + '20',
     borderRadius: 8,
     padding: 12,
     marginBottom: 16,
+    gap: 12,
   },
   warningText: {
+    flex: 1,
     fontSize: 13,
     color: '#FF9800',
+    lineHeight: 20,
+  },
+  successText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#4CAF50',
     lineHeight: 20,
   },
   creditButton: {
@@ -417,6 +545,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 14,
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
   },
   instructionsSection: {
     padding: 20,

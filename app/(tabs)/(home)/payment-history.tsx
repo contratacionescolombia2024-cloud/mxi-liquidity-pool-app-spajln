@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -123,14 +124,53 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  verifyButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  verifyButtonDisabled: {
+    opacity: 0.5,
+  },
+  verifyButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#000000',
+  },
+  verifyingText: {
+    fontSize: 12,
+    color: colors.primary,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  successBadge: {
+    backgroundColor: '#4CAF50',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  successText: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    flex: 1,
+  },
 });
 
 export default function PaymentHistoryScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [verifyingPayments, setVerifyingPayments] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadPayments();
@@ -181,6 +221,92 @@ export default function PaymentHistoryScreen() {
     loadPayments();
   };
 
+  const verifyPayment = async (payment: any) => {
+    if (!session) {
+      Alert.alert('Error', 'Sesión no válida');
+      return;
+    }
+
+    // Add to verifying set
+    setVerifyingPayments(prev => new Set(prev).add(payment.id));
+
+    try {
+      console.log('🔍 Verifying payment:', payment.order_id);
+
+      const response = await fetch(
+        'https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/manual-verify-payment',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            order_id: payment.order_id,
+          }),
+        }
+      );
+
+      const data = await response.json();
+      console.log('✅ Verification response:', data);
+
+      if (data.success) {
+        if (data.credited) {
+          Alert.alert(
+            '✅ Pago Verificado',
+            `Tu pago ha sido verificado y acreditado exitosamente.\n\n` +
+            `${data.payment.mxi_amount} MXI han sido agregados a tu cuenta.\n\n` +
+            `Nuevo balance: ${data.payment.new_balance} MXI`,
+            [
+              {
+                text: 'OK',
+                onPress: () => loadPayments(),
+              },
+            ]
+          );
+        } else if (data.already_credited) {
+          Alert.alert(
+            'ℹ️ Ya Acreditado',
+            'Este pago ya ha sido acreditado anteriormente.',
+            [{ text: 'OK' }]
+          );
+        } else {
+          Alert.alert(
+            'ℹ️ Estado Actualizado',
+            `Estado del pago: ${data.payment.status}\n\n` +
+            `El pago aún no ha sido confirmado por NOWPayments. Por favor, espera a que se confirme.`,
+            [
+              {
+                text: 'OK',
+                onPress: () => loadPayments(),
+              },
+            ]
+          );
+        }
+      } else {
+        Alert.alert(
+          'Error',
+          data.error || 'Error al verificar el pago',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error: any) {
+      console.error('❌ Error verifying payment:', error);
+      Alert.alert(
+        'Error',
+        'Error de conexión al verificar el pago. Por favor, intenta nuevamente.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      // Remove from verifying set
+      setVerifyingPayments(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(payment.id);
+        return newSet;
+      });
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'finished':
@@ -221,6 +347,12 @@ export default function PaymentHistoryScreen() {
       default:
         return status;
     }
+  };
+
+  const canVerify = (payment: any) => {
+    return payment.status !== 'finished' && 
+           payment.status !== 'confirmed' && 
+           payment.payment_id;
   };
 
   if (loading) {
@@ -289,83 +421,135 @@ export default function PaymentHistoryScreen() {
             />
           }
         >
-          {payments.map((payment, index) => (
-            <View key={index} style={styles.paymentCard}>
-              <View style={styles.paymentHeader}>
-                <Text style={styles.paymentAmount}>
-                  {parseFloat(payment.price_amount).toFixed(2)} USDT
-                </Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    { backgroundColor: getStatusColor(payment.status) },
-                  ]}
-                >
-                  <Text style={styles.statusText}>
-                    {getStatusText(payment.status)}
+          {payments.map((payment, index) => {
+            const isVerifying = verifyingPayments.has(payment.id);
+            const showVerifyButton = canVerify(payment);
+
+            return (
+              <View key={index} style={styles.paymentCard}>
+                <View style={styles.paymentHeader}>
+                  <Text style={styles.paymentAmount}>
+                    {parseFloat(payment.price_amount).toFixed(2)} USDT
                   </Text>
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      { backgroundColor: getStatusColor(payment.status) },
+                    ]}
+                  >
+                    <Text style={styles.statusText}>
+                      {getStatusText(payment.status)}
+                    </Text>
+                  </View>
                 </View>
-              </View>
 
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentLabel}>MXI Recibidos:</Text>
-                <Text style={styles.paymentValue}>
-                  {parseFloat(payment.mxi_amount).toFixed(2)} MXI
-                </Text>
-              </View>
-
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentLabel}>Precio por MXI:</Text>
-                <Text style={styles.paymentValue}>
-                  {parseFloat(payment.price_per_mxi).toFixed(2)} USDT
-                </Text>
-              </View>
-
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentLabel}>Fase:</Text>
-                <Text style={styles.paymentValue}>Fase {payment.phase}</Text>
-              </View>
-
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentLabel}>Moneda:</Text>
-                <Text style={styles.paymentValue}>
-                  {payment.pay_currency.toUpperCase()}
-                </Text>
-              </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentLabel}>Fecha:</Text>
-                <Text style={styles.paymentValue}>
-                  {new Date(payment.created_at).toLocaleString()}
-                </Text>
-              </View>
-
-              {payment.confirmed_at && (
                 <View style={styles.paymentRow}>
-                  <Text style={styles.paymentLabel}>Confirmado:</Text>
+                  <Text style={styles.paymentLabel}>MXI Recibidos:</Text>
                   <Text style={styles.paymentValue}>
-                    {new Date(payment.confirmed_at).toLocaleString()}
+                    {parseFloat(payment.mxi_amount).toFixed(2)} MXI
                   </Text>
                 </View>
-              )}
 
-              {payment.expires_at && payment.status === 'waiting' && (
                 <View style={styles.paymentRow}>
-                  <Text style={styles.paymentLabel}>Expira:</Text>
+                  <Text style={styles.paymentLabel}>Precio por MXI:</Text>
                   <Text style={styles.paymentValue}>
-                    {new Date(payment.expires_at).toLocaleString()}
+                    {parseFloat(payment.price_per_mxi).toFixed(2)} USDT
                   </Text>
                 </View>
-              )}
 
-              <View style={styles.orderIdContainer}>
-                <Text style={styles.orderIdLabel}>ID de Orden:</Text>
-                <Text style={styles.orderIdText}>{payment.order_id}</Text>
+                <View style={styles.paymentRow}>
+                  <Text style={styles.paymentLabel}>Fase:</Text>
+                  <Text style={styles.paymentValue}>Fase {payment.phase}</Text>
+                </View>
+
+                <View style={styles.paymentRow}>
+                  <Text style={styles.paymentLabel}>Moneda:</Text>
+                  <Text style={styles.paymentValue}>
+                    {payment.pay_currency.toUpperCase()}
+                  </Text>
+                </View>
+
+                <View style={styles.divider} />
+
+                <View style={styles.paymentRow}>
+                  <Text style={styles.paymentLabel}>Fecha:</Text>
+                  <Text style={styles.paymentValue}>
+                    {new Date(payment.created_at).toLocaleString()}
+                  </Text>
+                </View>
+
+                {payment.confirmed_at && (
+                  <View style={styles.paymentRow}>
+                    <Text style={styles.paymentLabel}>Confirmado:</Text>
+                    <Text style={styles.paymentValue}>
+                      {new Date(payment.confirmed_at).toLocaleString()}
+                    </Text>
+                  </View>
+                )}
+
+                {payment.expires_at && payment.status === 'waiting' && (
+                  <View style={styles.paymentRow}>
+                    <Text style={styles.paymentLabel}>Expira:</Text>
+                    <Text style={styles.paymentValue}>
+                      {new Date(payment.expires_at).toLocaleString()}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.orderIdContainer}>
+                  <Text style={styles.orderIdLabel}>ID de Orden:</Text>
+                  <Text style={styles.orderIdText}>{payment.order_id}</Text>
+                </View>
+
+                {showVerifyButton && (
+                  <>
+                    <TouchableOpacity
+                      style={[
+                        styles.verifyButton,
+                        isVerifying && styles.verifyButtonDisabled,
+                      ]}
+                      onPress={() => verifyPayment(payment)}
+                      disabled={isVerifying}
+                    >
+                      {isVerifying ? (
+                        <>
+                          <ActivityIndicator size="small" color="#000000" />
+                          <Text style={styles.verifyButtonText}>Verificando...</Text>
+                        </>
+                      ) : (
+                        <>
+                          <IconSymbol
+                            ios_icon_name="checkmark.circle.fill"
+                            android_material_icon_name="check_circle"
+                            size={20}
+                            color="#000000"
+                          />
+                          <Text style={styles.verifyButtonText}>Verificar Pago</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                    <Text style={styles.verifyingText}>
+                      Si tu pago no se ha acreditado automáticamente, usa este botón para verificarlo manualmente.
+                    </Text>
+                  </>
+                )}
+
+                {(payment.status === 'finished' || payment.status === 'confirmed') && (
+                  <View style={styles.successBadge}>
+                    <IconSymbol
+                      ios_icon_name="checkmark.circle.fill"
+                      android_material_icon_name="check_circle"
+                      size={20}
+                      color="#FFFFFF"
+                    />
+                    <Text style={styles.successText}>
+                      ✅ Pago acreditado exitosamente
+                    </Text>
+                  </View>
+                )}
               </View>
-            </View>
-          ))}
+            );
+          })}
 
           <View style={{ height: 100 }} />
         </ScrollView>
