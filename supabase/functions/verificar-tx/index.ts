@@ -55,27 +55,24 @@ const TRANSFER_TOPIC = ethers.id(TRANSFER_EVENT_SIGNATURE);
 // Helper function to get RPC URL for a network
 function getRpcUrl(network: string, networkConfig: any): string | undefined {
   // First, try to get the specific RPC URL for this network
-  let rpcUrl: string | undefined;
-  try {
-    rpcUrl = Deno.env?.get(networkConfig.rpcUrlEnvVar);
-  } catch (e) {
-    console.error(`Error getting ${networkConfig.rpcUrlEnvVar}:`, e);
+  const rpcUrl = Deno.env.get(networkConfig.rpcUrlEnvVar) || '';
+
+  // If found, return it
+  if (rpcUrl) {
+    return rpcUrl;
   }
 
   // If not found, try to construct from Alchemy API key
-  if (!rpcUrl && networkConfig.alchemyNetwork) {
-    try {
-      const alchemyApiKey = Deno.env?.get('ALCHEMY_API_KEY');
-      if (alchemyApiKey) {
-        rpcUrl = `https://${networkConfig.alchemyNetwork}.g.alchemy.com/v2/${alchemyApiKey}`;
-        console.log(`Constructed Alchemy RPC URL for ${network}`);
-      }
-    } catch (e) {
-      console.error('Error getting ALCHEMY_API_KEY:', e);
+  if (networkConfig.alchemyNetwork) {
+    const alchemyApiKey = Deno.env.get('ALCHEMY_API_KEY') || '';
+    if (alchemyApiKey) {
+      const constructedUrl = `https://${networkConfig.alchemyNetwork}.g.alchemy.com/v2/${alchemyApiKey}`;
+      console.log(`Constructed Alchemy RPC URL for ${network}`);
+      return constructedUrl;
     }
   }
 
-  return rpcUrl;
+  return undefined;
 }
 
 Deno.serve(async (req) => {
@@ -89,8 +86,8 @@ Deno.serve(async (req) => {
 
   try {
     // Get Supabase credentials
-    const SUPABASE_URL = Deno.env?.get('SUPABASE_URL');
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env?.get('SUPABASE_SERVICE_ROLE_KEY');
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       console.error(`[${requestId}] ERROR: Supabase credentials not configured`);
@@ -201,15 +198,6 @@ Deno.serve(async (req) => {
     if (!rpcUrl) {
       console.error(`[${requestId}] ERROR: RPC URL not configured for ${network}`);
       console.error(`[${requestId}] Missing environment variable: ${networkConfig.rpcUrlEnvVar} or ALCHEMY_API_KEY`);
-      console.error(`[${requestId}] Deno.env available:`, typeof Deno.env);
-      
-      // Try to list available environment variables (for debugging)
-      try {
-        const envKeys = Object.keys(Deno.env?.toObject() || {});
-        console.error(`[${requestId}] Available environment variables:`, envKeys);
-      } catch (e) {
-        console.error(`[${requestId}] Could not list environment variables:`, e);
-      }
       
       return new Response(
         JSON.stringify({

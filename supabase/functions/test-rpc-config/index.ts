@@ -13,42 +13,17 @@ Deno.serve(async (req) => {
 
   try {
     console.log('[TEST-RPC-CONFIG] Starting configuration test...');
-    console.log('[TEST-RPC-CONFIG] Deno.env available:', typeof Deno.env);
-    console.log('[TEST-RPC-CONFIG] Deno.env.get available:', typeof Deno.env?.get);
     
-    // Safely get environment variables with error handling
-    let ethRpcUrl: string | undefined;
-    let bnbRpcUrl: string | undefined;
-    let polygonRpcUrl: string | undefined;
-    let alchemyApiKey: string | undefined;
+    // Safely get environment variables
+    const ethRpcUrl = Deno.env.get('ETH_RPC_URL') || '';
+    const bnbRpcUrl = Deno.env.get('BNB_RPC_URL') || '';
+    const polygonRpcUrl = Deno.env.get('POLYGON_RPC_URL') || '';
+    const alchemyApiKey = Deno.env.get('ALCHEMY_API_KEY') || '';
     
-    try {
-      ethRpcUrl = Deno.env?.get('ETH_RPC_URL');
-      console.log('[TEST-RPC-CONFIG] ETH_RPC_URL:', ethRpcUrl ? 'SET' : 'NOT SET');
-    } catch (e) {
-      console.error('[TEST-RPC-CONFIG] Error getting ETH_RPC_URL:', e);
-    }
-    
-    try {
-      bnbRpcUrl = Deno.env?.get('BNB_RPC_URL');
-      console.log('[TEST-RPC-CONFIG] BNB_RPC_URL:', bnbRpcUrl ? 'SET' : 'NOT SET');
-    } catch (e) {
-      console.error('[TEST-RPC-CONFIG] Error getting BNB_RPC_URL:', e);
-    }
-    
-    try {
-      polygonRpcUrl = Deno.env?.get('POLYGON_RPC_URL');
-      console.log('[TEST-RPC-CONFIG] POLYGON_RPC_URL:', polygonRpcUrl ? 'SET' : 'NOT SET');
-    } catch (e) {
-      console.error('[TEST-RPC-CONFIG] Error getting POLYGON_RPC_URL:', e);
-    }
-
-    try {
-      alchemyApiKey = Deno.env?.get('ALCHEMY_API_KEY');
-      console.log('[TEST-RPC-CONFIG] ALCHEMY_API_KEY:', alchemyApiKey ? 'SET' : 'NOT SET');
-    } catch (e) {
-      console.error('[TEST-RPC-CONFIG] Error getting ALCHEMY_API_KEY:', e);
-    }
+    console.log('[TEST-RPC-CONFIG] ETH_RPC_URL:', ethRpcUrl ? 'SET' : 'NOT SET');
+    console.log('[TEST-RPC-CONFIG] BNB_RPC_URL:', bnbRpcUrl ? 'SET' : 'NOT SET');
+    console.log('[TEST-RPC-CONFIG] POLYGON_RPC_URL:', polygonRpcUrl ? 'SET' : 'NOT SET');
+    console.log('[TEST-RPC-CONFIG] ALCHEMY_API_KEY:', alchemyApiKey ? 'SET' : 'NOT SET');
 
     // Check if Ethereum can use Alchemy
     const ethConfigured = !!ethRpcUrl || !!alchemyApiKey;
@@ -105,6 +80,9 @@ Deno.serve(async (req) => {
         }
       },
       instructions: {
+        step1: 'Go to Supabase Dashboard → Your Project → Settings → Edge Functions',
+        step2: 'Click on "Manage secrets"',
+        step3: 'Add the required environment variables',
         quickStart: {
           title: '🚀 Quick Start with Alchemy (Recommended)',
           steps: [
@@ -143,19 +121,19 @@ Deno.serve(async (req) => {
           alchemy: {
             description: 'Best for Ethereum and Polygon',
             url: 'https://alchemy.com',
-            freeTeir: 'Yes - 300M compute units/month',
+            freeTier: 'Yes - 300M compute units/month',
             setup: 'Get API key and set as ALCHEMY_API_KEY'
           },
           binance: {
             description: 'Official BNB Chain RPC',
             url: 'https://bsc-dataseed.binance.org/',
-            freeTeir: 'Yes - Public endpoint',
+            freeTier: 'Yes - Public endpoint',
             setup: 'Set as BNB_RPC_URL'
           },
           llamaRPC: {
             description: 'Public Ethereum RPC',
             url: 'https://eth.llamarpc.com',
-            freeTeir: 'Yes - No signup required',
+            freeTier: 'Yes - No signup required',
             setup: 'Set as ETH_RPC_URL'
           }
         }
@@ -175,7 +153,6 @@ Deno.serve(async (req) => {
     console.error('[TEST-RPC-CONFIG] Error:', error);
     console.error('[TEST-RPC-CONFIG] Error message:', error.message);
     console.error('[TEST-RPC-CONFIG] Error stack:', error.stack);
-    console.error('[TEST-RPC-CONFIG] Error name:', error.name);
     
     return new Response(
       JSON.stringify({
