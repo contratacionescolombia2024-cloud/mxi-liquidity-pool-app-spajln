@@ -940,36 +940,8 @@ export default function HomeScreen() {
         {/* Universal MXI Counter */}
         <UniversalMXICounter />
 
-        {/* Quick Actions - Removed Referidos, Historial, and Vesting (they're in the floating menu) */}
+        {/* Quick Actions - Only KYC and Soporte (removed Depositar and Retirar as they're in the floating menu) */}
         <View style={styles.quickActionsGrid}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => router.push('/(tabs)/deposit')}
-          >
-            <IconSymbol
-              ios_icon_name="arrow.down.circle.fill"
-              android_material_icon_name="arrow_circle_down"
-              size={32}
-              color={colors.primary}
-              style={styles.actionIcon}
-            />
-            <Text style={styles.actionLabel}>Depositar</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => router.push('/(tabs)/(home)/withdraw-mxi')}
-          >
-            <IconSymbol
-              ios_icon_name="arrow.up.circle.fill"
-              android_material_icon_name="arrow_circle_up"
-              size={32}
-              color={colors.primary}
-              style={styles.actionIcon}
-            />
-            <Text style={styles.actionLabel}>Retirar</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => router.push('/(tabs)/(home)/kyc-verification')}
