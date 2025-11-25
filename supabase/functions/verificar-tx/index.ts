@@ -172,11 +172,22 @@ Deno.serve(async (req) => {
     if (!rpcUrl) {
       console.error(`[${requestId}] ERROR: RPC URL not configured for ${network}`);
       console.error(`[${requestId}] Missing environment variable: ${networkConfig.rpcUrlEnvVar}`);
+      console.error(`[${requestId}] Available environment variables:`, Object.keys(Deno.env.toObject()));
+      
       return new Response(
         JSON.stringify({
           ok: false,
           error: 'rpc_not_configured',
-          message: `RPC URL no configurado para ${networkConfig.name}. Variable requerida: ${networkConfig.rpcUrlEnvVar}`
+          message: `⚙️ Error de Configuración del Servidor\n\nLa variable de entorno ${networkConfig.rpcUrlEnvVar} no está configurada para ${networkConfig.name}.\n\n📋 Pasos para el administrador:\n\n1. Ir a Supabase Dashboard → Settings → Edge Functions\n2. Hacer clic en "Manage secrets"\n3. Agregar la variable: ${networkConfig.rpcUrlEnvVar}\n4. Valor sugerido:\n   • Ethereum: https://eth.llamarpc.com\n   • BNB Chain: https://bsc-dataseed.binance.org/\n   • Polygon: https://polygon-rpc.com/\n\n⚠️ Contacta al administrador del sistema para resolver este problema.`,
+          details: {
+            network: networkConfig.name,
+            missingVariable: networkConfig.rpcUrlEnvVar,
+            suggestedValues: {
+              ethereum: 'https://eth.llamarpc.com or Infura/Alchemy URL',
+              bnb: 'https://bsc-dataseed.binance.org/',
+              polygon: 'https://polygon-rpc.com/'
+            }
+          }
         }),
         {
           status: 500,
@@ -187,6 +198,7 @@ Deno.serve(async (req) => {
 
     console.log(`[${requestId}] Network: ${networkConfig.name}`);
     console.log(`[${requestId}] RPC URL Variable: ${networkConfig.rpcUrlEnvVar}`);
+    console.log(`[${requestId}] RPC URL (first 30 chars): ${rpcUrl.substring(0, 30)}...`);
     console.log(`[${requestId}] TxHash: ${txHash}`);
     console.log(`[${requestId}] USDT Contract: ${networkConfig.usdtContract}`);
     console.log(`[${requestId}] Decimals: ${networkConfig.decimals}`);
@@ -219,7 +231,28 @@ Deno.serve(async (req) => {
 
     // Connect to blockchain RPC - Each network uses its own RPC endpoint
     console.log(`[${requestId}] Connecting to ${networkConfig.name} RPC...`);
-    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    let provider;
+    
+    try {
+      provider = new ethers.JsonRpcProvider(rpcUrl);
+    } catch (providerError) {
+      console.error(`[${requestId}] ERROR: Failed to create provider:`, providerError);
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          error: 'rpc_connection_failed',
+          message: `No se pudo crear la conexión al RPC de ${networkConfig.name}. Verifica que la URL del RPC sea válida.`,
+          details: {
+            error: providerError.message,
+            rpcUrl: rpcUrl.substring(0, 30) + '...'
+          }
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
 
     // Verify we're connected to the correct network
     try {
@@ -232,7 +265,7 @@ Deno.serve(async (req) => {
           JSON.stringify({
             ok: false,
             error: 'wrong_network',
-            message: `El RPC está conectado a la red incorrecta. Se esperaba ${networkConfig.name} (Chain ID: ${networkConfig.chainId})`
+            message: `El RPC está conectado a la red incorrecta. Se esperaba ${networkConfig.name} (Chain ID: ${networkConfig.chainId}), pero se obtuvo Chain ID: ${networkInfo.chainId}`
           }),
           {
             status: 500,
@@ -240,13 +273,17 @@ Deno.serve(async (req) => {
           }
         );
       }
-    } catch (error) {
-      console.error(`[${requestId}] ERROR: Failed to verify network:`, error);
+    } catch (networkError) {
+      console.error(`[${requestId}] ERROR: Failed to verify network:`, networkError);
       return new Response(
         JSON.stringify({
           ok: false,
           error: 'rpc_connection_failed',
-          message: `No se pudo conectar al RPC de ${networkConfig.name}. Verifica la configuración.`
+          message: `No se pudo conectar al RPC de ${networkConfig.name}. Verifica la configuración del servidor.`,
+          details: {
+            error: networkError.message,
+            network: networkConfig.name
+          }
         }),
         {
           status: 500,
@@ -494,13 +531,18 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error(`[${requestId}] ========== ERROR ==========`);
     console.error(`[${requestId}] Error:`, error);
-    console.error(`[${requestId}] Stack:`, error.stack);
+    console.error(`[${requestId}] Error message:`, error.message);
+    console.error(`[${requestId}] Error stack:`, error.stack);
 
     return new Response(
       JSON.stringify({
         ok: false,
         error: 'internal_error',
-        message: error.message || 'Error interno del servidor'
+        message: error.message || 'Error interno del servidor',
+        details: {
+          errorType: error.name,
+          timestamp: new Date().toISOString()
+        }
       }),
       {
         status: 500,
