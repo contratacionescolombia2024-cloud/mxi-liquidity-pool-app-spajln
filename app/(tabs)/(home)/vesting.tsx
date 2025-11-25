@@ -100,7 +100,7 @@ export default function VestingScreen() {
             color={colors.text}
           />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Vesting MXI</Text>
+        <Text style={styles.headerTitle}>Balance MXI (Vesting)</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -113,10 +113,12 @@ export default function VestingScreen() {
               size={32}
               color={colors.primary}
             />
-            <Text style={styles.sourceTitle}>Fuente de Vesting</Text>
+            <Text style={styles.sourceTitle}>⚠️ Fuente de Vesting</Text>
           </View>
           <Text style={styles.sourceText}>
-            El vesting se genera ÚNICAMENTE del MXI comprado directamente. Las comisiones NO generan vesting.
+            El vesting se genera ÚNICAMENTE del MXI comprado directamente con USDT. 
+            Las comisiones NO generan vesting. Este gráfico representa el crecimiento 
+            personal del usuario en MXI: compras, gastos, pérdidas, etc.
           </Text>
           <View style={styles.sourceValueBox}>
             <Text style={styles.sourceLabel}>MXI Comprado (Base de Vesting)</Text>
@@ -247,7 +249,9 @@ export default function VestingScreen() {
               : `Una vez lanzada la moneda, cada 10 días se liberará el ${releasePercentage}% de tu saldo en vesting para retiro.`}
           </Text>
           <Text style={[styles.descriptionText, styles.importantNote]}>
-            ⚠️ Importante: Solo el MXI comprado directamente genera rendimiento de vesting. Las comisiones NO generan vesting.
+            ⚠️ Importante: Solo el MXI comprado directamente genera rendimiento de vesting. 
+            Las comisiones NO generan vesting. El gráfico "Balance MXI" muestra tu crecimiento 
+            personal en MXI, no el vesting en sí.
           </Text>
         </View>
 
@@ -333,7 +337,7 @@ const styles = StyleSheet.create({
   sourceCard: {
     backgroundColor: 'rgba(255, 215, 0, 0.08)',
     borderColor: 'rgba(255, 215, 0, 0.3)',
-    borderWidth: 1,
+    borderWidth: 2,
   },
   sourceHeader: {
     flexDirection: 'row',
@@ -351,6 +355,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     lineHeight: 20,
     marginBottom: 16,
+    fontWeight: '600',
   },
   sourceValueBox: {
     backgroundColor: colors.background,
@@ -517,6 +522,11 @@ const styles = StyleSheet.create({
     color: colors.warning,
     fontWeight: '600',
     marginTop: 8,
+    backgroundColor: 'rgba(255, 193, 7, 0.1)',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 193, 7, 0.3)',
   },
   actionCard: {
     backgroundColor: 'rgba(76, 175, 80, 0.08)',

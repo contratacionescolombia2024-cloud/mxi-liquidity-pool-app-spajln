@@ -17,7 +17,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { UniversalMXICounter } from '@/components/UniversalMXICounter';
 import { YieldDisplay } from '@/components/YieldDisplay';
 import { LaunchCountdown } from '@/components/LaunchCountdown';
-import { VestingCandlestickChart } from '@/components/VestingCandlestickChart';
+import { TotalMXIBalanceChart } from '@/components/TotalMXIBalanceChart';
 import Footer from '@/components/Footer';
 import { supabase } from '@/lib/supabase';
 
@@ -45,110 +45,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
   },
-  balanceBreakdownCard: {
-    backgroundColor: 'rgba(99, 102, 241, 0.08)',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.3)',
-    shadowColor: '#6366F1',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  totalBalanceDisplay: {
-    backgroundColor: 'rgba(99, 102, 241, 0.15)',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.3)',
-  },
-  totalBalanceLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  totalBalanceAmount: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#6366F1',
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 16,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  totalBalanceHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-    gap: 12,
-  },
-  totalBalanceValue: {
-    fontSize: 48,
-    fontWeight: '900',
-    color: colors.primary,
-    textAlign: 'center',
-  },
-  totalBalanceUnit: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  balanceBreakdown: {
-    gap: 12,
-    marginTop: 20,
-  },
-  breakdownRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 12,
-    padding: 12,
-    gap: 12,
-  },
-  breakdownIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 215, 0, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  breakdownContent: {
-    flex: 1,
-  },
-  breakdownLabel: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  breakdownBar: {
-    height: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  breakdownBarFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  breakdownValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-  },
   phasesCard: {
     backgroundColor: 'rgba(99, 102, 241, 0.08)',
     borderRadius: 20,
@@ -161,6 +57,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 6,
     elevation: 3,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   currentPhaseInfo: {
     backgroundColor: 'rgba(99, 102, 241, 0.15)',
@@ -386,7 +290,6 @@ export default function HomeScreen() {
     poolCloseDate: '2026-02-15T12:00:00Z',
   });
   const [commissions, setCommissions] = useState({ available: 0, total: 0 });
-  const [saldoMxi, setSaldoMxi] = useState(0);
 
   useEffect(() => {
     if (user) {
@@ -452,17 +355,6 @@ export default function HomeScreen() {
         const total = commissionsData.reduce((sum, c) => sum + parseFloat(c.amount), 0);
         setCommissions({ available, total });
       }
-
-      // Load saldo_mxi
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('saldo_mxi')
-        .eq('id', user?.id)
-        .single();
-
-      if (!userError && userData) {
-        setSaldoMxi(parseFloat(userData.saldo_mxi || 0));
-      }
     } catch (error) {
       console.error('Error loading data:', error);
     }
@@ -484,20 +376,6 @@ export default function HomeScreen() {
     );
   }
 
-  // Calculate total MXI balance
-  const totalMxiBalance = user.mxiBalance || 0;
-  const mxiPurchased = user.mxiPurchasedDirectly || 0;
-  const mxiVesting = user.mxiVestingLocked || 0;
-  const mxiChallenges = user.mxiFromChallenges || 0;
-  const mxiCommissions = user.mxiFromUnifiedCommissions || 0;
-
-  // Calculate percentages for bars
-  const maxValue = Math.max(mxiPurchased, mxiVesting, mxiChallenges, mxiCommissions, 1);
-  const purchasedPercent = (mxiPurchased / maxValue) * 100;
-  const vestingPercent = (mxiVesting / maxValue) * 100;
-  const challengesPercent = (mxiChallenges / maxValue) * 100;
-  const commissionsPercent = (mxiCommissions / maxValue) * 100;
-
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -515,120 +393,8 @@ export default function HomeScreen() {
         {/* Launch Countdown */}
         <LaunchCountdown />
 
-        {/* Professional Vesting Candlestick Chart - Replaces old Vesting display */}
-        <VestingCandlestickChart />
-
-        {/* MXI Balance Breakdown Card */}
-        <View style={styles.balanceBreakdownCard}>
-          <Text style={styles.cardTitle}>📊 Desglose de Balance MXI</Text>
-          <View style={styles.totalBalanceDisplay}>
-            <Text style={styles.totalBalanceLabel}>Balance Total</Text>
-            <Text style={styles.totalBalanceAmount}>
-              {totalMxiBalance.toLocaleString('es-ES', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })} MXI
-            </Text>
-          </View>
-          
-          <View style={styles.balanceBreakdown}>
-            {/* MXI Comprados */}
-            <View style={styles.breakdownRow}>
-              <View style={styles.breakdownIcon}>
-                <Text style={{ fontSize: 20 }}>🛒</Text>
-              </View>
-              <View style={styles.breakdownContent}>
-                <Text style={styles.breakdownLabel}>MXI Comprados</Text>
-                <View style={styles.breakdownBar}>
-                  <View 
-                    style={[
-                      styles.breakdownBarFill, 
-                      { 
-                        width: `${purchasedPercent}%`,
-                        backgroundColor: '#10b981'
-                      }
-                    ]} 
-                  />
-                </View>
-              </View>
-              <Text style={styles.breakdownValue}>
-                {mxiPurchased.toFixed(2)}
-              </Text>
-            </View>
-
-            {/* MXI de Vesting */}
-            <View style={styles.breakdownRow}>
-              <View style={styles.breakdownIcon}>
-                <Text style={{ fontSize: 20 }}>🔒</Text>
-              </View>
-              <View style={styles.breakdownContent}>
-                <Text style={styles.breakdownLabel}>MXI de Vesting</Text>
-                <View style={styles.breakdownBar}>
-                  <View 
-                    style={[
-                      styles.breakdownBarFill, 
-                      { 
-                        width: `${vestingPercent}%`,
-                        backgroundColor: '#6366F1'
-                      }
-                    ]} 
-                  />
-                </View>
-              </View>
-              <Text style={styles.breakdownValue}>
-                {mxiVesting.toFixed(2)}
-              </Text>
-            </View>
-
-            {/* MXI de Torneos */}
-            <View style={styles.breakdownRow}>
-              <View style={styles.breakdownIcon}>
-                <Text style={{ fontSize: 20 }}>🏆</Text>
-              </View>
-              <View style={styles.breakdownContent}>
-                <Text style={styles.breakdownLabel}>MXI de Torneos</Text>
-                <View style={styles.breakdownBar}>
-                  <View 
-                    style={[
-                      styles.breakdownBarFill, 
-                      { 
-                        width: `${challengesPercent}%`,
-                        backgroundColor: '#F59E0B'
-                      }
-                    ]} 
-                  />
-                </View>
-              </View>
-              <Text style={styles.breakdownValue}>
-                {mxiChallenges.toFixed(2)}
-              </Text>
-            </View>
-
-            {/* MXI de Comisiones */}
-            <View style={styles.breakdownRow}>
-              <View style={styles.breakdownIcon}>
-                <Text style={{ fontSize: 20 }}>💵</Text>
-              </View>
-              <View style={styles.breakdownContent}>
-                <Text style={styles.breakdownLabel}>MXI de Comisiones</Text>
-                <View style={styles.breakdownBar}>
-                  <View 
-                    style={[
-                      styles.breakdownBarFill, 
-                      { 
-                        width: `${commissionsPercent}%`,
-                        backgroundColor: '#A855F7'
-                      }
-                    ]} 
-                  />
-                </View>
-              </View>
-              <Text style={styles.breakdownValue}>
-                {mxiCommissions.toFixed(2)}
-              </Text>
-            </View>
-          </View>
-        </View>
+        {/* NEW: Total MXI Balance Chart with Timeframe Options */}
+        <TotalMXIBalanceChart />
 
         {/* Enhanced Commissions and Referrals Card */}
         <View style={styles.commissionsCard}>
@@ -743,7 +509,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Enhanced Phases and Progress Card - Translucent with different color */}
+        {/* Enhanced Phases and Progress Card */}
         {phaseInfo && phaseInfo.phase1 && phaseInfo.phase2 && phaseInfo.phase3 && (
           <View style={styles.phasesCard}>
             <Text style={styles.cardTitle}>🚀 Fases y Progreso</Text>
@@ -883,10 +649,10 @@ export default function HomeScreen() {
         {/* Yield Display */}
         <YieldDisplay />
 
-        {/* Universal MXI Counter */}
+        {/* Universal MXI Counter - Shows vesting from purchased MXI only */}
         <UniversalMXICounter />
 
-        {/* Footer - Added at the end */}
+        {/* Footer */}
         <Footer />
 
         {/* Extra padding at bottom to avoid tab bar */}
