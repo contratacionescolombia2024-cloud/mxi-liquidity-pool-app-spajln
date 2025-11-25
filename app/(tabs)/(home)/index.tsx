@@ -17,6 +17,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { UniversalMXICounter } from '@/components/UniversalMXICounter';
 import { YieldDisplay } from '@/components/YieldDisplay';
 import { LaunchCountdown } from '@/components/LaunchCountdown';
+import { VestingCandlestickChart } from '@/components/VestingCandlestickChart';
 import Footer from '@/components/Footer';
 import { supabase } from '@/lib/supabase';
 
@@ -44,18 +45,40 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
   },
-  totalBalanceCard: {
-    backgroundColor: 'rgba(255, 215, 0, 0.08)',
+  balanceBreakdownCard: {
+    backgroundColor: 'rgba(99, 102, 241, 0.08)',
     borderRadius: 20,
-    padding: 24,
+    padding: 20,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 215, 0, 0.3)',
-    shadowColor: colors.primary,
+    borderColor: 'rgba(99, 102, 241, 0.3)',
+    shadowColor: '#6366F1',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 6,
     elevation: 4,
+  },
+  totalBalanceDisplay: {
+    backgroundColor: 'rgba(99, 102, 241, 0.15)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(99, 102, 241, 0.3)',
+  },
+  totalBalanceLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  totalBalanceAmount: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#6366F1',
   },
   cardTitle: {
     fontSize: 16,
@@ -492,17 +515,20 @@ export default function HomeScreen() {
         {/* Launch Countdown */}
         <LaunchCountdown />
 
-        {/* Enhanced Total MXI Balance Card with Bars and Emoticons - Changed title to "Vesting" */}
-        <View style={styles.totalBalanceCard}>
-          <Text style={styles.cardTitle}>💰 Vesting</Text>
-          <View style={styles.totalBalanceHeader}>
-            <Text style={styles.totalBalanceValue}>
+        {/* Professional Vesting Candlestick Chart - Replaces old Vesting display */}
+        <VestingCandlestickChart />
+
+        {/* MXI Balance Breakdown Card */}
+        <View style={styles.balanceBreakdownCard}>
+          <Text style={styles.cardTitle}>📊 Desglose de Balance MXI</Text>
+          <View style={styles.totalBalanceDisplay}>
+            <Text style={styles.totalBalanceLabel}>Balance Total</Text>
+            <Text style={styles.totalBalanceAmount}>
               {totalMxiBalance.toLocaleString('es-ES', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
-              })}
+              })} MXI
             </Text>
-            <Text style={styles.totalBalanceUnit}>MXI</Text>
           </View>
           
           <View style={styles.balanceBreakdown}>
