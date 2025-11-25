@@ -675,23 +675,6 @@ export function TotalMXIBalanceChart() {
           </View>
         </View>
       </View>
-
-      {/* Info */}
-      <View style={styles.infoBox}>
-        <IconSymbol
-          ios_icon_name="info.circle.fill"
-          android_material_icon_name="info"
-          size={16}
-          color="#00ff88"
-        />
-        <Text style={styles.infoText}>
-          Este gráfico muestra el crecimiento total de tu cartera MXI en tiempo real, 
-          incluyendo compras, comisiones, premios de torneos y vesting acumulado. 
-          La línea inicia desde 0 e interconecta todos los puntos. La escala vertical 
-          es 2x el total de MXI para un balance visual óptimo. El vesting se genera 
-          SOLO del MXI comprado directamente.
-        </Text>
-      </View>
     </View>
   );
 }
@@ -922,21 +905,5 @@ const styles = StyleSheet.create({
     color: '#ffdd00',
     textAlign: 'right',
     fontWeight: '700',
-  },
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    padding: 12,
-    borderRadius: 8,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 255, 136, 0.2)',
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 11,
-    color: '#00ff88',
-    lineHeight: 16,
   },
 });

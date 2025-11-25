@@ -9,6 +9,7 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -31,6 +32,7 @@ export default function RetirosScreen() {
   const router = useRouter();
   const { user, checkWithdrawalEligibility, checkMXIWithdrawalEligibility } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [withdrawalType, setWithdrawalType] = useState<WithdrawalType>('commissions');
   const [amount, setAmount] = useState('');
   const [walletAddress, setWalletAddress] = useState('');
@@ -49,42 +51,68 @@ export default function RetirosScreen() {
     loadData();
   }, []);
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
+
   const loadData = async () => {
     if (!user) return;
 
     setLoading(true);
 
-    const commissionEligible = await checkWithdrawalEligibility();
-    setCanWithdrawCommission(commissionEligible);
+    try {
+      const commissionEligible = await checkWithdrawalEligibility();
+      setCanWithdrawCommission(commissionEligible);
 
-    const mxiEligible = await checkMXIWithdrawalEligibility();
-    setCanWithdrawMXI(mxiEligible);
+      const mxiEligible = await checkMXIWithdrawalEligibility();
+      setCanWithdrawMXI(mxiEligible);
 
-    const { data: userData } = await supabase
-      .from('users')
-      .select('mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges, mxi_vesting_locked')
-      .eq('id', user.id)
-      .single();
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges, mxi_vesting_locked, commissions_available')
+        .eq('id', user.id)
+        .single();
 
-    const { data: poolData } = await supabase
-      .from('metrics')
-      .select('mxi_launch_date')
-      .single();
+      if (userError) {
+        console.error('Error loading user data:', userError);
+      }
 
-    const mxiLaunchDate = poolData?.mxi_launch_date ? new Date(poolData.mxi_launch_date) : null;
-    const isLaunched = mxiLaunchDate ? new Date() > mxiLaunchDate : false;
+      const { data: poolData, error: poolError } = await supabase
+        .from('metrics')
+        .select('mxi_launch_date')
+        .single();
 
-    setPoolStatus({ isLaunched, mxiLaunchDate });
+      if (poolError) {
+        console.error('Error loading pool data:', poolError);
+      }
 
-    setBalanceBreakdown({
-      mxiPurchased: userData?.mxi_purchased_directly || 0,
-      mxiCommissions: userData?.mxi_from_unified_commissions || 0,
-      mxiTournaments: userData?.mxi_from_challenges || 0,
-      mxiVesting: userData?.mxi_vesting_locked || 0,
-      commissionsUSDT: user.commissions.available,
-    });
+      const mxiLaunchDate = poolData?.mxi_launch_date ? new Date(poolData.mxi_launch_date) : null;
+      const isLaunched = mxiLaunchDate ? new Date() > mxiLaunchDate : false;
 
-    setLoading(false);
+      setPoolStatus({ isLaunched, mxiLaunchDate });
+
+      setBalanceBreakdown({
+        mxiPurchased: parseFloat(userData?.mxi_purchased_directly || '0'),
+        mxiCommissions: parseFloat(userData?.mxi_from_unified_commissions || '0'),
+        mxiTournaments: parseFloat(userData?.mxi_from_challenges || '0'),
+        mxiVesting: parseFloat(userData?.mxi_vesting_locked || '0'),
+        commissionsUSDT: parseFloat(userData?.commissions_available || '0'),
+      });
+
+      console.log('Balance breakdown loaded:', {
+        mxiPurchased: userData?.mxi_purchased_directly,
+        mxiCommissions: userData?.mxi_from_unified_commissions,
+        mxiTournaments: userData?.mxi_from_challenges,
+        mxiVesting: userData?.mxi_vesting_locked,
+        commissionsUSDT: userData?.commissions_available,
+      });
+    } catch (error) {
+      console.error('Error in loadData:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleWithdraw = async () => {
@@ -275,10 +303,22 @@ export default function RetirosScreen() {
           <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Retiros</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity onPress={onRefresh} style={styles.refreshButton}>
+          <IconSymbol ios_icon_name="arrow.clockwise" android_material_icon_name="refresh" size={24} color={colors.primary} />
+        </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
         {/* Balance Overview */}
         <View style={[commonStyles.card, styles.balanceCard]}>
           <Text style={styles.sectionTitle}>💰 Resumen de Saldos</Text>
@@ -539,6 +579,12 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  refreshButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
