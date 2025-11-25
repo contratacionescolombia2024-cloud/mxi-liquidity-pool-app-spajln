@@ -328,12 +328,12 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: colors.primary + '20',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   sourceCard: {
     backgroundColor: 'rgba(255, 215, 0, 0.08)',
-    borderColor: colors.primary + '40',
-    borderWidth: 2,
+    borderColor: 'rgba(255, 215, 0, 0.3)',
+    borderWidth: 1,
   },
   sourceHeader: {
     flexDirection: 'row',
@@ -372,13 +372,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 32,
     backgroundColor: 'rgba(255, 215, 0, 0.04)',
-    borderColor: colors.primary + '30',
+    borderColor: 'rgba(255, 215, 0, 0.3)',
   },
   iconContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: colors.primary + '15',
+    backgroundColor: `${colors.primary}15`,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -401,9 +401,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   warningCard: {
-    backgroundColor: 'rgba(255, 193, 7, 0.1)',
-    borderColor: colors.warning + '40',
-    borderWidth: 2,
+    backgroundColor: 'rgba(255, 193, 7, 0.08)',
+    borderColor: 'rgba(255, 193, 7, 0.3)',
+    borderWidth: 1,
   },
   warningHeader: {
     flexDirection: 'row',
@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     height: 80,
-    backgroundColor: colors.border + '40',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   statLabel: {
     fontSize: 12,
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border + '20',
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
   infoLabel: {
     fontSize: 14,
@@ -519,9 +519,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   actionCard: {
-    backgroundColor: 'rgba(76, 175, 80, 0.1)',
-    borderColor: colors.success + '40',
-    borderWidth: 2,
+    backgroundColor: 'rgba(76, 175, 80, 0.08)',
+    borderColor: 'rgba(76, 175, 80, 0.3)',
+    borderWidth: 1,
   },
   actionContent: {
     flexDirection: 'row',
