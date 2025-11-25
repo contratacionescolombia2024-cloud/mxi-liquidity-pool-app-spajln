@@ -34,12 +34,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoContainer: {
-    alignItems: 'center',
-    marginBottom: 16,
+    position: 'absolute',
+    top: 48,
+    right: 20,
+    zIndex: 10,
   },
   logo: {
-    width: 200,
-    height: 200,
+    width: 40,
+    height: 40,
     resizeMode: 'contain',
   },
   greeting: {
@@ -433,13 +435,15 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Logo positioned absolutely in top right corner */}
+      <View style={styles.logoContainer}>
+        <Image
+          source={require('@/assets/images/904cc327-48f3-4ea1-90a4-6fd4d39a1c11.jpeg')}
+          style={styles.logo}
+        />
+      </View>
+
       <View style={styles.header}>
-        <View style={styles.logoContainer}>
-          <Image
-            source={require('@/assets/images/904cc327-48f3-4ea1-90a4-6fd4d39a1c11.jpeg')}
-            style={styles.logo}
-          />
-        </View>
         <Text style={styles.greeting}>Hola, {user.name}</Text>
       </View>
 
