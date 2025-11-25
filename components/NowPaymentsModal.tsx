@@ -264,7 +264,8 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
 
     try {
       console.log('Opening payment URL:', paymentIntent.invoice_url);
-      await WebBrowser.openBrowserAsync(paymentIntent.invoice_url);
+      const result = await WebBrowser.openBrowserAsync(paymentIntent.invoice_url);
+      console.log('Browser result:', result);
     } catch (error: any) {
       console.error('Error opening browser:', error);
       Alert.alert(
@@ -280,7 +281,7 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
   };
 
   const renderAmountStep = () => (
-    <View style={styles.stepContainer}>
+    <ScrollView style={styles.stepContainer} showsVerticalScrollIndicator={false}>
       <Text style={styles.stepTitle}>💰 Ingresa el Monto</Text>
       <Text style={styles.stepSubtitle}>
         Monto mínimo: 20 USDT
@@ -340,130 +341,132 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
           color="#000000"
         />
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 
   const renderCurrencyStep = () => {
     const filteredCurrencies = getFilteredCurrencies();
 
     return (
-      <View style={styles.stepContainer}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => setStep('amount')}
-        >
-          <IconSymbol
-            ios_icon_name="arrow.left"
-            android_material_icon_name="arrow_back"
-            size={20}
-            color={colors.text}
-          />
-          <Text style={styles.backButtonText}>Volver</Text>
-        </TouchableOpacity>
+      <View style={styles.currencyStepContainer}>
+        <View style={styles.currencyHeader}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => setStep('amount')}
+          >
+            <IconSymbol
+              ios_icon_name="arrow.left"
+              android_material_icon_name="arrow_back"
+              size={20}
+              color={colors.text}
+            />
+            <Text style={styles.backButtonText}>Volver</Text>
+          </TouchableOpacity>
 
-        <Text style={styles.stepTitle}>🪙 Selecciona Criptomoneda</Text>
-        <Text style={styles.stepSubtitle}>
-          {ALL_CURRENCIES.length}+ criptomonedas disponibles
-        </Text>
+          <Text style={styles.stepTitle}>🪙 Selecciona Criptomoneda</Text>
+          <Text style={styles.stepSubtitle}>
+            {ALL_CURRENCIES.length}+ criptomonedas disponibles
+          </Text>
 
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <IconSymbol
-            ios_icon_name="magnifyingglass"
-            android_material_icon_name="search"
-            size={20}
-            color={colors.textSecondary}
-          />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar por nombre, código o red..."
-            placeholderTextColor="#666666"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <IconSymbol
-                ios_icon_name="xmark.circle.fill"
-                android_material_icon_name="cancel"
-                size={20}
-                color={colors.textSecondary}
-              />
+          <View style={styles.searchContainer}>
+            <IconSymbol
+              ios_icon_name="magnifyingglass"
+              android_material_icon_name="search"
+              size={20}
+              color={colors.textSecondary}
+            />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Buscar por nombre, código o red..."
+              placeholderTextColor="#666666"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <IconSymbol
+                  ios_icon_name="xmark.circle.fill"
+                  android_material_icon_name="cancel"
+                  size={20}
+                  color={colors.textSecondary}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            style={styles.categoryFilter}
+          >
+            <TouchableOpacity
+              style={[
+                styles.categoryButton,
+                selectedCategory === 'all' && styles.categoryButtonActive,
+              ]}
+              onPress={() => setSelectedCategory('all')}
+            >
+              <Text style={[
+                styles.categoryButtonText,
+                selectedCategory === 'all' && styles.categoryButtonTextActive,
+              ]}>
+                Todas
+              </Text>
             </TouchableOpacity>
-          )}
+            <TouchableOpacity
+              style={[
+                styles.categoryButton,
+                selectedCategory === 'stablecoin' && styles.categoryButtonActive,
+              ]}
+              onPress={() => setSelectedCategory('stablecoin')}
+            >
+              <Text style={[
+                styles.categoryButtonText,
+                selectedCategory === 'stablecoin' && styles.categoryButtonTextActive,
+              ]}>
+                💵 Stablecoins
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.categoryButton,
+                selectedCategory === 'major' && styles.categoryButtonActive,
+              ]}
+              onPress={() => setSelectedCategory('major')}
+            >
+              <Text style={[
+                styles.categoryButtonText,
+                selectedCategory === 'major' && styles.categoryButtonTextActive,
+              ]}>
+                ⭐ Principales
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.categoryButton,
+                selectedCategory === 'altcoin' && styles.categoryButtonActive,
+              ]}
+              onPress={() => setSelectedCategory('altcoin')}
+            >
+              <Text style={[
+                styles.categoryButtonText,
+                selectedCategory === 'altcoin' && styles.categoryButtonTextActive,
+              ]}>
+                🔷 Altcoins
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+
+          <Text style={styles.resultsCount}>
+            {filteredCurrencies.length} {filteredCurrencies.length === 1 ? 'resultado' : 'resultados'}
+          </Text>
         </View>
 
-        {/* Category Filter */}
         <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          style={styles.categoryFilter}
+          style={styles.currencyList} 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.currencyListContent}
         >
-          <TouchableOpacity
-            style={[
-              styles.categoryButton,
-              selectedCategory === 'all' && styles.categoryButtonActive,
-            ]}
-            onPress={() => setSelectedCategory('all')}
-          >
-            <Text style={[
-              styles.categoryButtonText,
-              selectedCategory === 'all' && styles.categoryButtonTextActive,
-            ]}>
-              Todas
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.categoryButton,
-              selectedCategory === 'stablecoin' && styles.categoryButtonActive,
-            ]}
-            onPress={() => setSelectedCategory('stablecoin')}
-          >
-            <Text style={[
-              styles.categoryButtonText,
-              selectedCategory === 'stablecoin' && styles.categoryButtonTextActive,
-            ]}>
-              💵 Stablecoins
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.categoryButton,
-              selectedCategory === 'major' && styles.categoryButtonActive,
-            ]}
-            onPress={() => setSelectedCategory('major')}
-          >
-            <Text style={[
-              styles.categoryButtonText,
-              selectedCategory === 'major' && styles.categoryButtonTextActive,
-            ]}>
-              ⭐ Principales
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.categoryButton,
-              selectedCategory === 'altcoin' && styles.categoryButtonActive,
-            ]}
-            onPress={() => setSelectedCategory('altcoin')}
-          >
-            <Text style={[
-              styles.categoryButtonText,
-              selectedCategory === 'altcoin' && styles.categoryButtonTextActive,
-            ]}>
-              🔷 Altcoins
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
-
-        {/* Results Count */}
-        <Text style={styles.resultsCount}>
-          {filteredCurrencies.length} {filteredCurrencies.length === 1 ? 'resultado' : 'resultados'}
-        </Text>
-
-        {/* Currency List */}
-        <ScrollView style={styles.currencyList} showsVerticalScrollIndicator={false}>
           {filteredCurrencies.length > 0 ? (
             filteredCurrencies.map((currency, index) => (
               <TouchableOpacity
@@ -514,28 +517,30 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
           )}
         </ScrollView>
 
-        <TouchableOpacity
-          style={[
-            styles.primaryButton,
-            !selectedCurrency && styles.buttonDisabled,
-          ]}
-          onPress={handleCreatePayment}
-          disabled={!selectedCurrency || loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#000000" size="small" />
-          ) : (
-            <React.Fragment>
-              <Text style={styles.primaryButtonText}>Crear Pago</Text>
-              <IconSymbol
-                ios_icon_name="arrow.right"
-                android_material_icon_name="arrow_forward"
-                size={20}
-                color="#000000"
-              />
-            </React.Fragment>
-          )}
-        </TouchableOpacity>
+        <View style={styles.currencyFooter}>
+          <TouchableOpacity
+            style={[
+              styles.primaryButton,
+              !selectedCurrency && styles.buttonDisabled,
+            ]}
+            onPress={handleCreatePayment}
+            disabled={!selectedCurrency || loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#000000" size="small" />
+            ) : (
+              <React.Fragment>
+                <Text style={styles.primaryButtonText}>Continuar al Pago</Text>
+                <IconSymbol
+                  ios_icon_name="arrow.right"
+                  android_material_icon_name="arrow_forward"
+                  size={20}
+                  color="#000000"
+                />
+              </React.Fragment>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
     );
   };
@@ -729,6 +734,21 @@ const styles = StyleSheet.create({
   stepContainer: {
     padding: 20,
   },
+  currencyStepContainer: {
+    flex: 1,
+    maxHeight: '100%',
+  },
+  currencyHeader: {
+    padding: 20,
+    paddingBottom: 12,
+  },
+  currencyFooter: {
+    padding: 20,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
+  },
   stepTitle: {
     fontSize: 24,
     fontWeight: '700',
@@ -867,8 +887,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   currencyList: {
-    maxHeight: 400,
-    marginBottom: 16,
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  currencyListContent: {
+    paddingBottom: 20,
   },
   currencyItem: {
     flexDirection: 'row',
