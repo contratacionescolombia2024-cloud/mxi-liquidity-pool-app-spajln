@@ -64,6 +64,7 @@ export default function DepositScreen() {
   const [verificationStatus, setVerificationStatus] = useState('');
   const [directUsdtAmount, setDirectUsdtAmount] = useState('');
   const [directMxiAmount, setDirectMxiAmount] = useState(0);
+  const [errorLog, setErrorLog] = useState<string[]>([]);
 
   useEffect(() => {
     loadPhaseInfo();
@@ -101,29 +102,56 @@ export default function DepositScreen() {
     }
   };
 
+  const addErrorLog = (message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setErrorLog(prev => [...prev, `[${timestamp}] ${message}`]);
+    console.log(`[ERROR LOG] ${message}`);
+  };
+
   const handleVerifyPayment = async () => {
-    console.log('🔍 [VERIFICAR] Iniciando verificación de pago...');
+    console.log('🔍 [VERIFICAR] ========== BOTÓN PRESIONADO ==========');
+    addErrorLog('Botón de verificación presionado');
+    
     console.log('🔍 [VERIFICAR] TxHash:', txHash);
     console.log('🔍 [VERIFICAR] Red seleccionada:', selectedNetwork);
     console.log('🔍 [VERIFICAR] Usuario ID:', user?.id);
+    console.log('🔍 [VERIFICAR] Sesión presente:', !!session);
+    console.log('🔍 [VERIFICAR] Token presente:', !!session?.access_token);
+
+    addErrorLog(`TxHash: ${txHash.substring(0, 20)}...`);
+    addErrorLog(`Red: ${selectedNetwork}`);
+    addErrorLog(`Usuario: ${user?.id}`);
 
     if (!txHash.trim()) {
       console.error('❌ [VERIFICAR] Error: Hash vacío');
+      addErrorLog('ERROR: Hash vacío');
       Alert.alert('Error', 'Por favor ingresa el hash de la transacción');
       return;
     }
 
     if (!txHash.startsWith('0x') || txHash.length !== 66) {
       console.error('❌ [VERIFICAR] Error: Hash inválido - longitud:', txHash.length);
+      addErrorLog(`ERROR: Hash inválido - longitud ${txHash.length}`);
       Alert.alert(
         'Hash Inválido',
-        'El hash de transacción debe comenzar con 0x y tener 66 caracteres\n\nHash actual: ' + txHash.length + ' caracteres'
+        `El hash de transacción debe comenzar con 0x y tener 66 caracteres\n\nHash actual: ${txHash.length} caracteres`
+      );
+      return;
+    }
+
+    if (!session || !session.access_token) {
+      console.error('❌ [VERIFICAR] Error: No hay sesión activa');
+      addErrorLog('ERROR: No hay sesión activa');
+      Alert.alert(
+        'Error de Sesión',
+        'No hay una sesión activa. Por favor cierra sesión y vuelve a iniciar sesión.'
       );
       return;
     }
 
     const selectedNetworkData = NETWORKS.find(n => n.id === selectedNetwork);
     console.log('🔍 [VERIFICAR] Datos de red:', selectedNetworkData);
+    addErrorLog(`Red seleccionada: ${selectedNetworkData?.name}`);
 
     Alert.alert(
       '⚠️ Confirmar Red',
@@ -132,7 +160,10 @@ export default function DepositScreen() {
         {
           text: 'Cancelar',
           style: 'cancel',
-          onPress: () => console.log('🔍 [VERIFICAR] Verificación cancelada por el usuario')
+          onPress: () => {
+            console.log('🔍 [VERIFICAR] Verificación cancelada por el usuario');
+            addErrorLog('Verificación cancelada por el usuario');
+          }
         },
         {
           text: 'Sí, verificar',
@@ -143,8 +174,10 @@ export default function DepositScreen() {
   };
 
   const performVerification = async () => {
-    const requestId = Date.now().toString().substring(-6);
+    const requestId = Date.now().toString().substring(7);
     console.log(`\n🚀 [${requestId}] ========== INICIANDO VERIFICACIÓN ==========`);
+    addErrorLog(`Iniciando verificación [${requestId}]`);
+    
     console.log(`🚀 [${requestId}] Timestamp:`, new Date().toISOString());
     console.log(`🚀 [${requestId}] TxHash:`, txHash);
     console.log(`🚀 [${requestId}] Red:`, selectedNetwork);
@@ -153,6 +186,7 @@ export default function DepositScreen() {
 
     setLoadingTx(true);
     setVerificationStatus('Conectando con el servidor...');
+    addErrorLog('Estado: Conectando con el servidor');
 
     try {
       const url = 'https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/verificar-tx';
@@ -164,8 +198,14 @@ export default function DepositScreen() {
 
       console.log(`📤 [${requestId}] URL:`, url);
       console.log(`📤 [${requestId}] Payload:`, JSON.stringify(payload, null, 2));
+      addErrorLog(`Llamando a Edge Function: ${url}`);
+      addErrorLog(`Payload: ${JSON.stringify(payload)}`);
 
       setVerificationStatus('Verificando transacción en blockchain...');
+      addErrorLog('Estado: Verificando en blockchain');
+
+      console.log(`📤 [${requestId}] Iniciando fetch...`);
+      const fetchStartTime = Date.now();
 
       const response = await fetch(url, {
         method: 'POST',
@@ -176,18 +216,28 @@ export default function DepositScreen() {
         body: JSON.stringify(payload),
       });
 
+      const fetchEndTime = Date.now();
+      const fetchDuration = fetchEndTime - fetchStartTime;
+      console.log(`📥 [${requestId}] Fetch completado en ${fetchDuration}ms`);
+      addErrorLog(`Fetch completado en ${fetchDuration}ms`);
+
       console.log(`📥 [${requestId}] Status HTTP:`, response.status);
       console.log(`📥 [${requestId}] Status Text:`, response.statusText);
+      addErrorLog(`HTTP Status: ${response.status} ${response.statusText}`);
 
       const responseText = await response.text();
       console.log(`📥 [${requestId}] Response (raw):`, responseText);
+      addErrorLog(`Response length: ${responseText.length} caracteres`);
 
       let data;
       try {
         data = JSON.parse(responseText);
         console.log(`📥 [${requestId}] Response (parsed):`, JSON.stringify(data, null, 2));
-      } catch (parseError) {
+        addErrorLog(`Response parseado exitosamente`);
+      } catch (parseError: any) {
         console.error(`❌ [${requestId}] Error parseando JSON:`, parseError);
+        addErrorLog(`ERROR parseando JSON: ${parseError.message}`);
+        addErrorLog(`Response raw: ${responseText.substring(0, 200)}`);
         throw new Error('Respuesta inválida del servidor: ' + responseText.substring(0, 100));
       }
 
@@ -196,6 +246,7 @@ export default function DepositScreen() {
         console.log(`✅ [${requestId}] USDT:`, data.usdt);
         console.log(`✅ [${requestId}] MXI:`, data.mxi);
         console.log(`✅ [${requestId}] Red:`, data.network);
+        addErrorLog(`✅ ÉXITO: ${data.mxi} MXI acreditados`);
 
         Alert.alert(
           '✅ Pago Confirmado',
@@ -209,6 +260,7 @@ export default function DepositScreen() {
               text: 'OK',
               onPress: () => {
                 setTxHash('');
+                setErrorLog([]);
               },
             },
           ]
@@ -217,6 +269,8 @@ export default function DepositScreen() {
         console.error(`❌ [${requestId}] ========== VERIFICACIÓN FALLIDA ==========`);
         console.error(`❌ [${requestId}] Error code:`, data.error);
         console.error(`❌ [${requestId}] Error message:`, data.message);
+        addErrorLog(`❌ ERROR: ${data.error}`);
+        addErrorLog(`Mensaje: ${data.message}`);
 
         let errorMessage = '';
         let errorTitle = 'Error de Verificación';
@@ -295,15 +349,17 @@ export default function DepositScreen() {
       console.error(`❌ [${requestId}] Error:`, error);
       console.error(`❌ [${requestId}] Error message:`, error.message);
       console.error(`❌ [${requestId}] Error stack:`, error.stack);
+      addErrorLog(`❌ ERROR DE CONEXIÓN: ${error.message}`);
 
       Alert.alert(
         '🔌 Error de Conexión',
-        `No se pudo conectar con el servidor.\n\nDetalles técnicos:\n${error.message}\n\n📋 Pasos para solucionar:\n\n1. Verifica tu conexión a internet\n2. Intenta nuevamente en unos segundos\n3. Si el problema persiste, contacta a soporte`
+        `No se pudo conectar con el servidor.\n\nDetalles técnicos:\n${error.message}\n\n📋 Pasos para solucionar:\n\n1. Verifica tu conexión a internet\n2. Intenta nuevamente en unos segundos\n3. Si el problema persiste, contacta a soporte\n\n🔍 Ver log de errores en la parte inferior de la pantalla`
       );
     } finally {
       setLoadingTx(false);
       setVerificationStatus('');
       console.log(`🏁 [${requestId}] ========== VERIFICACIÓN FINALIZADA ==========\n`);
+      addErrorLog(`Verificación finalizada [${requestId}]`);
     }
   };
 
@@ -394,6 +450,7 @@ export default function DepositScreen() {
                 ]}
                 onPress={() => {
                   console.log('🌐 [RED] Cambiando red a:', network.id);
+                  addErrorLog(`Red cambiada a: ${network.name}`);
                   setSelectedNetwork(network.id);
                 }}
               >
@@ -616,6 +673,7 @@ export default function DepositScreen() {
           ]}
           onPress={handleVerifyPayment}
           disabled={loadingTx || !txHash.trim()}
+          activeOpacity={0.7}
         >
           {loadingTx ? (
             <View style={styles.loadingContainer}>
@@ -638,6 +696,34 @@ export default function DepositScreen() {
             </React.Fragment>
           )}
         </TouchableOpacity>
+
+        {/* Error Log Display */}
+        {errorLog.length > 0 && (
+          <View style={styles.errorLogCard}>
+            <View style={styles.errorLogHeader}>
+              <IconSymbol
+                ios_icon_name="exclamationmark.triangle.fill"
+                android_material_icon_name="bug_report"
+                size={20}
+                color={colors.warning}
+              />
+              <Text style={styles.errorLogTitle}>Log de Depuración</Text>
+              <TouchableOpacity
+                onPress={() => setErrorLog([])}
+                style={styles.clearLogButton}
+              >
+                <Text style={styles.clearLogText}>Limpiar</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.errorLogScroll} nestedScrollEnabled>
+              {errorLog.map((log, index) => (
+                <Text key={index} style={styles.errorLogText}>
+                  {log}
+                </Text>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         <View style={styles.warningCard}>
           <IconSymbol
@@ -1082,6 +1168,48 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  errorLogCard: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: colors.warning,
+    maxHeight: 300,
+  },
+  errorLogHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  errorLogTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  clearLogButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: colors.warning + '20',
+    borderRadius: 6,
+  },
+  clearLogText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.warning,
+  },
+  errorLogScroll: {
+    maxHeight: 200,
+  },
+  errorLogText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontFamily: 'monospace',
+    marginBottom: 4,
+    lineHeight: 16,
   },
   warningCard: {
     backgroundColor: 'rgba(255, 152, 0, 0.1)',
