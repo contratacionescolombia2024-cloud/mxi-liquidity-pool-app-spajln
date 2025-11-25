@@ -23,15 +23,15 @@ Deno.serve(async (req) => {
     console.log(`[${requestId}] Step 1: Validating environment...`);
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const IPN_SECRET_KEY = Deno.env.get('IPN_SECRET_KEY');
+    const NOWPAYMENTS_IPN_SECRET = Deno.env.get('NOWPAYMENTS_IPN_SECRET');
 
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       console.error(`[${requestId}] ERROR: Supabase credentials not configured`);
       throw new Error('Supabase credentials not configured');
     }
 
-    if (!IPN_SECRET_KEY) {
-      console.error(`[${requestId}] ERROR: IPN_SECRET_KEY not configured`);
+    if (!NOWPAYMENTS_IPN_SECRET) {
+      console.error(`[${requestId}] ERROR: NOWPAYMENTS_IPN_SECRET not configured`);
       return new Response('Unauthorized', { 
         status: 401,
         headers: corsHeaders 
@@ -39,6 +39,7 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[${requestId}] ✅ Environment validated`);
+    console.log(`[${requestId}] IPN Secret configured: ${NOWPAYMENTS_IPN_SECRET.substring(0, 10)}...`);
 
     // Step 2: Verify JWT signature BEFORE processing body
     console.log(`[${requestId}] Step 2: Verifying JWT signature...`);
@@ -57,7 +58,7 @@ Deno.serve(async (req) => {
     // Verify JWT with HS256 algorithm
     try {
       const encoder = new TextEncoder();
-      const keyData = encoder.encode(IPN_SECRET_KEY);
+      const keyData = encoder.encode(NOWPAYMENTS_IPN_SECRET);
       const cryptoKey = await crypto.subtle.importKey(
         'raw',
         keyData,
@@ -66,16 +67,16 @@ Deno.serve(async (req) => {
         ['verify']
       );
 
-      // Verify the JWT using djwt
+      // Verify the JWT using djwt - NOWPayments does NOT send exp field
       await djwt.verify(signature, cryptoKey, {
         algorithms: ['HS256'],
-        // NOWPayments does NOT send exp field, so we ignore expiration
         ignoreExpiration: true,
       });
 
       console.log(`[${requestId}] ✅ JWT signature verified successfully`);
     } catch (jwtError) {
       console.error(`[${requestId}] ERROR: JWT verification failed:`, jwtError);
+      console.error(`[${requestId}] JWT Error details:`, jwtError.message);
       return new Response('Unauthorized', { 
         status: 401,
         headers: corsHeaders 
@@ -122,6 +123,7 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[${requestId}] ✅ Payment found: ${payment.id}`);
+    console.log(`[${requestId}] Payment details: User ${payment.user_id}, Amount ${payment.mxi_amount} MXI`);
 
     // Step 6: Update payment status
     console.log(`[${requestId}] Step 6: Updating payment status...`);
