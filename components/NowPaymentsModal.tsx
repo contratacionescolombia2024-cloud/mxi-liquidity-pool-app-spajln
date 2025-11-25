@@ -12,12 +12,15 @@ import {
   Alert,
   Linking,
   Platform,
+  Dimensions,
 } from 'react-native';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface Currency {
   code: string;
@@ -452,7 +455,7 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
     const filteredCurrencies = getFilteredCurrencies();
 
     return (
-      <View style={styles.currencyStepContainer}>
+      <View style={styles.fullScreenContainer}>
         <View style={styles.currencyHeader}>
           <TouchableOpacity
             style={styles.backButton}
@@ -783,50 +786,42 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
     <Modal
       visible={visible}
       animationType="slide"
-      transparent={true}
+      transparent={false}
       onRequestClose={handleClose}
+      statusBarTranslucent={true}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Pago Multi-Crypto</Text>
-            <TouchableOpacity onPress={handleClose} style={styles.closeIcon}>
-              <IconSymbol
-                ios_icon_name="xmark.circle.fill"
-                android_material_icon_name="close"
-                size={28}
-                color={colors.textSecondary}
-              />
-            </TouchableOpacity>
-          </View>
-
-          {step === 'amount' && renderAmountStep()}
-          {step === 'currency' && renderCurrencyStep()}
-          {step === 'payment' && renderPaymentStep()}
+      <View style={styles.modalContainer}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>Pago Multi-Crypto</Text>
+          <TouchableOpacity onPress={handleClose} style={styles.closeIcon}>
+            <IconSymbol
+              ios_icon_name="xmark.circle.fill"
+              android_material_icon_name="close"
+              size={28}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
         </View>
+
+        {step === 'amount' && renderAmountStep()}
+        {step === 'currency' && renderCurrencyStep()}
+        {step === 'payment' && renderPaymentStep()}
       </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  modalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
     backgroundColor: colors.background,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '90%',
-    paddingBottom: 40,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
+    paddingTop: Platform.OS === 'android' ? 48 : 20,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
@@ -839,11 +834,11 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   stepContainer: {
+    flex: 1,
     padding: 20,
   },
-  currencyStepContainer: {
+  fullScreenContainer: {
     flex: 1,
-    maxHeight: '100%',
   },
   currencyHeader: {
     padding: 20,
