@@ -17,6 +17,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import * as Clipboard2 from 'expo-clipboard';
+import NowPaymentsModal from '@/components/NowPaymentsModal';
 
 const MIN_USDT_DIRECT = 20;
 const MXI_RATE = 2.5;
@@ -66,6 +67,9 @@ export default function DepositScreen() {
   const [directMxiAmount, setDirectMxiAmount] = useState(0);
   const [errorLog, setErrorLog] = useState<string[]>([]);
   const [testingConfig, setTestingConfig] = useState(false);
+
+  // NowPayments modal state
+  const [showNowPaymentsModal, setShowNowPaymentsModal] = useState(false);
 
   useEffect(() => {
     loadPhaseInfo();
@@ -431,7 +435,7 @@ export default function DepositScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Depositar USDT</Text>
+        <Text style={styles.headerTitle}>Depositar</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -491,6 +495,48 @@ export default function DepositScreen() {
               )}
             </React.Fragment>
           )}
+        </View>
+
+        {/* NowPayments Multi-Crypto Button */}
+        <TouchableOpacity
+          style={styles.nowPaymentsButton}
+          onPress={() => setShowNowPaymentsModal(true)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.nowPaymentsIconContainer}>
+            <IconSymbol
+              ios_icon_name="creditcard.fill"
+              android_material_icon_name="payment"
+              size={32}
+              color="#FFFFFF"
+            />
+          </View>
+          <View style={styles.nowPaymentsContent}>
+            <Text style={styles.nowPaymentsTitle}>💳 Pago Multi-Crypto</Text>
+            <Text style={styles.nowPaymentsSubtitle}>
+              BTC, ETH, USDT (TRC20, ERC20, BEP20, Polygon), USDC, BNB y más
+            </Text>
+            <View style={styles.nowPaymentsBadges}>
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>✓ Múltiples Redes</Text>
+              </View>
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>✓ Confirmación Automática</Text>
+              </View>
+            </View>
+          </View>
+          <IconSymbol
+            ios_icon_name="chevron.right"
+            android_material_icon_name="chevron_right"
+            size={24}
+            color="#FFFFFF"
+          />
+        </TouchableOpacity>
+
+        <View style={styles.divider}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>O paga con verificación manual</Text>
+          <View style={styles.dividerLine} />
         </View>
 
         {/* Configuration Test Button */}
@@ -841,6 +887,13 @@ export default function DepositScreen() {
 
         <View style={{ height: 120 }} />
       </ScrollView>
+
+      {/* NowPayments Modal */}
+      <NowPaymentsModal
+        visible={showNowPaymentsModal}
+        onClose={() => setShowNowPaymentsModal(false)}
+        userId={user?.id || ''}
+      />
     </SafeAreaView>
   );
 }
@@ -924,6 +977,78 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.primary + '30',
     marginVertical: 8,
+  },
+  nowPaymentsButton: {
+    backgroundColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    backgroundColor: '#667eea',
+    borderRadius: 16,
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#764ba2',
+    shadowColor: '#667eea',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  nowPaymentsIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  nowPaymentsContent: {
+    flex: 1,
+  },
+  nowPaymentsTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  nowPaymentsSubtitle: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginBottom: 8,
+    lineHeight: 16,
+  },
+  nowPaymentsBadges: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  badge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: '600',
   },
   testConfigButton: {
     backgroundColor: '#FF6B35',
