@@ -19,6 +19,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
+import PaymentStatusPoller from '@/components/PaymentStatusPoller';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -382,6 +383,26 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
     }
   };
 
+  const handlePaymentConfirmed = () => {
+    Alert.alert(
+      '✅ Pago Confirmado',
+      'Tu pago ha sido confirmado y los MXI han sido acreditados a tu cuenta.',
+      [
+        {
+          text: 'Ver Saldo',
+          onPress: () => {
+            handleClose();
+            // Navigate to balance screen
+          },
+        },
+        {
+          text: 'OK',
+          onPress: handleClose,
+        },
+      ]
+    );
+  };
+
   const handleClose = () => {
     resetModal();
     onClose();
@@ -659,6 +680,12 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
       <ScrollView style={styles.stepContainer} showsVerticalScrollIndicator={false}>
         <Text style={styles.stepTitle}>💳 Completa el Pago</Text>
         
+        {/* Automatic Payment Status Poller */}
+        <PaymentStatusPoller
+          orderId={paymentIntent.order_id}
+          onPaymentConfirmed={handlePaymentConfirmed}
+        />
+
         {timeRemaining !== null && (
           <View style={[
             styles.timerBox,
@@ -740,7 +767,7 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
             5. Recibirás una notificación cuando se acredite
           </Text>
           <Text style={styles.instructionText}>
-            6. Puedes verificar el estado en el historial de transacciones
+            6. El sistema verifica el estado cada 30 segundos
           </Text>
         </View>
 
