@@ -17,7 +17,7 @@ interface BalanceDataPoint {
   timestamp: Date;
   mxiPurchased: number;
   mxiCommissions: number;
-  mxiChallenges: number;
+  mxiTournaments: number;
   mxiVesting: number;
   totalBalance: number;
 }
@@ -135,7 +135,7 @@ export function TotalMXIBalanceChart() {
         timestamp: new Date(item.timestamp),
         mxiPurchased: parseFloat(item.mxi_purchased || '0'),
         mxiCommissions: parseFloat(item.mxi_commissions || '0'),
-        mxiChallenges: parseFloat(item.mxi_challenges || '0'),
+        mxiTournaments: parseFloat(item.mxi_challenges || '0'),
         mxiVesting: parseFloat(item.mxi_vesting || '0'),
         totalBalance: parseFloat(item.total_balance || '0'),
       }));
@@ -159,7 +159,7 @@ export function TotalMXIBalanceChart() {
 
     const mxiPurchased = user.mxiPurchasedDirectly || 0;
     const mxiCommissions = user.mxiFromUnifiedCommissions || 0;
-    const mxiChallenges = user.mxiFromChallenges || 0;
+    const mxiTournaments = user.mxiFromChallenges || 0;
     const mxiVesting = user.mxiVestingLocked || 0;
 
     const MONTHLY_YIELD_PERCENTAGE = 0.03;
@@ -179,9 +179,9 @@ export function TotalMXIBalanceChart() {
         timestamp,
         mxiPurchased,
         mxiCommissions,
-        mxiChallenges,
+        mxiTournaments,
         mxiVesting: vestingAtPoint,
-        totalBalance: mxiPurchased + mxiCommissions + mxiChallenges + vestingAtPoint,
+        totalBalance: mxiPurchased + mxiCommissions + mxiTournaments + vestingAtPoint,
       });
 
       cumulativeVesting += yieldPerInterval;
@@ -216,19 +216,24 @@ export function TotalMXIBalanceChart() {
       );
     }
 
-    // Calculate scales
-    const maxTotal = Math.max(...balanceData.map(d => d.totalBalance), 1);
-    const minTotal = Math.min(...balanceData.map(d => d.totalBalance), 0);
-    const valueRange = maxTotal - minTotal || 1;
+    // Calculate total MXI from all sources
+    const currentTotal = balanceData.length > 0 
+      ? balanceData[balanceData.length - 1].totalBalance 
+      : 0;
+
+    // Y-axis scale: 2x the total MXI for balanced view
+    const maxY = currentTotal * 2;
+    const minY = 0; // Always start from 0
 
     const chartWidth = CHART_WIDTH - PADDING.left - PADDING.right;
     const chartHeight = CHART_HEIGHT - PADDING.top - PADDING.bottom;
     const barWidth = Math.max(2, (chartWidth / balanceData.length) - 2);
     const barSpacing = chartWidth / balanceData.length;
 
-    // Y-axis scale
+    // Y-axis scale - always starts from 0
     const yScale = (value: number) => {
-      return PADDING.top + chartHeight - ((value - minTotal) / valueRange) * chartHeight;
+      if (maxY === 0) return PADDING.top + chartHeight;
+      return PADDING.top + chartHeight - ((value - minY) / (maxY - minY)) * chartHeight;
     };
 
     // X-axis scale
@@ -236,7 +241,7 @@ export function TotalMXIBalanceChart() {
       return PADDING.left + (index * barSpacing) + (barSpacing / 2);
     };
 
-    // Create smooth line path for the main trend
+    // Create smooth line path that interconnects all points
     const createSmoothPath = () => {
       if (balanceData.length === 0) return '';
       
@@ -246,15 +251,33 @@ export function TotalMXIBalanceChart() {
         const y = yScale(point.totalBalance);
         
         if (index === 0) {
-          path += `M ${x} ${y}`;
+          // Start from 0 on Y-axis
+          path += `M ${xScale(0)} ${yScale(0)}`;
+          path += ` L ${x} ${y}`;
         } else {
-          // Smooth curve using quadratic bezier
+          // Connect to previous point with smooth curve
           const prevX = xScale(index - 1);
           const prevY = yScale(balanceData[index - 1].totalBalance);
           const cpX = (prevX + x) / 2;
           path += ` Q ${cpX} ${prevY}, ${x} ${y}`;
         }
       });
+      
+      return path;
+    };
+
+    // Create area fill path
+    const createAreaPath = () => {
+      if (balanceData.length === 0) return '';
+      
+      let path = createSmoothPath();
+      
+      // Close the path to create filled area
+      const lastX = xScale(balanceData.length - 1);
+      const baseY = yScale(0);
+      path += ` L ${lastX} ${baseY}`;
+      path += ` L ${xScale(0)} ${baseY}`;
+      path += ' Z';
       
       return path;
     };
@@ -285,7 +308,7 @@ export function TotalMXIBalanceChart() {
         {/* Grid lines with futuristic glow */}
         {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
           const y = PADDING.top + chartHeight * ratio;
-          const value = maxTotal - (valueRange * ratio);
+          const value = maxY - ((maxY - minY) * ratio);
           return (
             <G key={`grid-${i}`}>
               <Line
@@ -311,28 +334,14 @@ export function TotalMXIBalanceChart() {
           );
         })}
 
-        {/* Vertical bars with gradient (background) */}
-        {balanceData.map((point, index) => {
-          const x = xScale(index);
-          const baseY = yScale(minTotal);
-          const topY = yScale(point.totalBalance);
-          const barHeight = baseY - topY;
+        {/* Area fill under the line */}
+        <Path
+          d={createAreaPath()}
+          fill="url(#areaGradient)"
+          opacity={0.4}
+        />
 
-          return (
-            <G key={`bar-${index}`}>
-              <Rect
-                x={x - barWidth / 2}
-                y={topY}
-                width={barWidth}
-                height={barHeight}
-                fill="url(#areaGradient)"
-                opacity={0.4}
-              />
-            </G>
-          );
-        })}
-
-        {/* Main trend line with glow effect */}
+        {/* Main trend line with glow effect - interconnects all points */}
         <Path
           d={createSmoothPath()}
           stroke="#ffdd00"
@@ -348,7 +357,7 @@ export function TotalMXIBalanceChart() {
           opacity={1}
         />
 
-        {/* Data points with glow */}
+        {/* Data points with glow - show every few points for clarity */}
         {balanceData.filter((_, i) => i % Math.ceil(balanceData.length / 20) === 0).map((point, i) => {
           const index = balanceData.indexOf(point);
           const x = xScale(index);
@@ -442,16 +451,16 @@ export function TotalMXIBalanceChart() {
 
   const currentTotal = balanceData.length > 0 
     ? balanceData[balanceData.length - 1].totalBalance 
-    : (user?.mxiBalance || 0);
+    : (user?.mxiBalance || 0) + currentVesting;
 
   const currentBreakdown = balanceData.length > 0
     ? balanceData[balanceData.length - 1]
     : {
         mxiPurchased: user?.mxiPurchasedDirectly || 0,
         mxiCommissions: user?.mxiFromUnifiedCommissions || 0,
-        mxiChallenges: user?.mxiFromChallenges || 0,
+        mxiTournaments: user?.mxiFromChallenges || 0,
         mxiVesting: currentVesting,
-        totalBalance: (user?.mxiBalance || 0) + currentVesting,
+        totalBalance: (user?.mxiPurchasedDirectly || 0) + (user?.mxiFromUnifiedCommissions || 0) + (user?.mxiFromChallenges || 0) + currentVesting,
       };
 
   return (
@@ -564,14 +573,14 @@ export function TotalMXIBalanceChart() {
                 style={[
                   styles.breakdownBarFill, 
                   { 
-                    width: `${(currentBreakdown.mxiPurchased / currentTotal) * 100}%`,
+                    width: `${currentTotal > 0 ? (currentBreakdown.mxiPurchased / currentTotal) * 100 : 0}%`,
                     backgroundColor: '#00ff88'
                   }
                 ]} 
               />
             </View>
             <Text style={styles.breakdownPercentage}>
-              {((currentBreakdown.mxiPurchased / currentTotal) * 100).toFixed(1)}%
+              {currentTotal > 0 ? ((currentBreakdown.mxiPurchased / currentTotal) * 100).toFixed(1) : '0.0'}%
             </Text>
           </View>
 
@@ -594,14 +603,14 @@ export function TotalMXIBalanceChart() {
                 style={[
                   styles.breakdownBarFill, 
                   { 
-                    width: `${(currentBreakdown.mxiCommissions / currentTotal) * 100}%`,
+                    width: `${currentTotal > 0 ? (currentBreakdown.mxiCommissions / currentTotal) * 100 : 0}%`,
                     backgroundColor: '#A855F7'
                   }
                 ]} 
               />
             </View>
             <Text style={styles.breakdownPercentage}>
-              {((currentBreakdown.mxiCommissions / currentTotal) * 100).toFixed(1)}%
+              {currentTotal > 0 ? ((currentBreakdown.mxiCommissions / currentTotal) * 100).toFixed(1) : '0.0'}%
             </Text>
           </View>
 
@@ -614,7 +623,7 @@ export function TotalMXIBalanceChart() {
               <Text style={styles.breakdownLabel}>MXI Torneos</Text>
             </View>
             <Text style={styles.breakdownValue}>
-              {currentBreakdown.mxiChallenges.toLocaleString('es-ES', {
+              {currentBreakdown.mxiTournaments.toLocaleString('es-ES', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}
@@ -624,14 +633,14 @@ export function TotalMXIBalanceChart() {
                 style={[
                   styles.breakdownBarFill, 
                   { 
-                    width: `${(currentBreakdown.mxiChallenges / currentTotal) * 100}%`,
+                    width: `${currentTotal > 0 ? (currentBreakdown.mxiTournaments / currentTotal) * 100 : 0}%`,
                     backgroundColor: '#ffdd00'
                   }
                 ]} 
               />
             </View>
             <Text style={styles.breakdownPercentage}>
-              {((currentBreakdown.mxiChallenges / currentTotal) * 100).toFixed(1)}%
+              {currentTotal > 0 ? ((currentBreakdown.mxiTournaments / currentTotal) * 100).toFixed(1) : '0.0'}%
             </Text>
           </View>
 
@@ -654,14 +663,14 @@ export function TotalMXIBalanceChart() {
                 style={[
                   styles.breakdownBarFill, 
                   { 
-                    width: `${(currentBreakdown.mxiVesting / currentTotal) * 100}%`,
+                    width: `${currentTotal > 0 ? (currentBreakdown.mxiVesting / currentTotal) * 100 : 0}%`,
                     backgroundColor: '#6366F1'
                   }
                 ]} 
               />
             </View>
             <Text style={styles.breakdownPercentage}>
-              {((currentBreakdown.mxiVesting / currentTotal) * 100).toFixed(1)}%
+              {currentTotal > 0 ? ((currentBreakdown.mxiVesting / currentTotal) * 100).toFixed(1) : '0.0'}%
             </Text>
           </View>
         </View>
@@ -678,7 +687,9 @@ export function TotalMXIBalanceChart() {
         <Text style={styles.infoText}>
           Este gráfico muestra el crecimiento total de tu cartera MXI en tiempo real, 
           incluyendo compras, comisiones, premios de torneos y vesting acumulado. 
-          El vesting se genera SOLO del MXI comprado directamente.
+          La línea inicia desde 0 e interconecta todos los puntos. La escala vertical 
+          es 2x el total de MXI para un balance visual óptimo. El vesting se genera 
+          SOLO del MXI comprado directamente.
         </Text>
       </View>
     </View>
