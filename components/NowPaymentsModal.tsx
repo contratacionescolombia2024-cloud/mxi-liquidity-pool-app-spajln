@@ -16,6 +16,7 @@ import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import * as Clipboard from 'expo-clipboard';
+import * as WebBrowser from 'expo-web-browser';
 
 interface Currency {
   code: string;
@@ -180,6 +181,25 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleOpenPaymentPage = async () => {
+    if (!paymentIntent?.invoice_url) {
+      Alert.alert('Error', 'No hay URL de pago disponible');
+      return;
+    }
+
+    try {
+      console.log('Opening payment URL:', paymentIntent.invoice_url);
+      const result = await WebBrowser.openBrowserAsync(paymentIntent.invoice_url);
+      console.log('WebBrowser result:', result);
+    } catch (error: any) {
+      console.error('Error opening browser:', error);
+      Alert.alert(
+        'Error al Abrir Navegador',
+        `No se pudo abrir el navegador.\n\nError: ${error.message}\n\nPuedes copiar la dirección de pago manualmente y realizar la transacción desde tu wallet.`
+      );
+    }
   };
 
   const handleClose = () => {
@@ -410,23 +430,7 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
         {paymentIntent.invoice_url && (
           <TouchableOpacity
             style={styles.invoiceButton}
-            onPress={() => {
-              // Open invoice URL in browser
-              Alert.alert(
-                'Abrir Página de Pago',
-                '¿Deseas abrir la página de pago de NOWPayments?',
-                [
-                  { text: 'Cancelar', style: 'cancel' },
-                  {
-                    text: 'Abrir',
-                    onPress: () => {
-                      // In a real app, use Linking.openURL(paymentIntent.invoice_url)
-                      console.log('Open URL:', paymentIntent.invoice_url);
-                    },
-                  },
-                ]
-              );
-            }}
+            onPress={handleOpenPaymentPage}
           >
             <IconSymbol
               ios_icon_name="link"
