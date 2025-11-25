@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Dimensions, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Svg, Rect, Line, Text as SvgText, G, Path } from 'react-native-svg';
+import { Svg, Rect, Line, Text as SvgText, G, Path, Defs, LinearGradient, Stop, Circle } from 'react-native-svg';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
@@ -207,7 +207,7 @@ export function TotalMXIBalanceChart() {
     }
   };
 
-  const renderBarChart = () => {
+  const renderFuturisticChart = () => {
     if (balanceData.length === 0) {
       return (
         <View style={styles.emptyChart}>
@@ -236,9 +236,53 @@ export function TotalMXIBalanceChart() {
       return PADDING.left + (index * barSpacing) + (barSpacing / 2);
     };
 
+    // Create smooth line path for the main trend
+    const createSmoothPath = () => {
+      if (balanceData.length === 0) return '';
+      
+      let path = '';
+      balanceData.forEach((point, index) => {
+        const x = xScale(index);
+        const y = yScale(point.totalBalance);
+        
+        if (index === 0) {
+          path += `M ${x} ${y}`;
+        } else {
+          // Smooth curve using quadratic bezier
+          const prevX = xScale(index - 1);
+          const prevY = yScale(balanceData[index - 1].totalBalance);
+          const cpX = (prevX + x) / 2;
+          path += ` Q ${cpX} ${prevY}, ${x} ${y}`;
+        }
+      });
+      
+      return path;
+    };
+
     return (
       <Svg width={CHART_WIDTH} height={CHART_HEIGHT}>
-        {/* Grid lines */}
+        <Defs>
+          {/* Green gradient for main line */}
+          <LinearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0%" stopColor="#00ff88" stopOpacity="1" />
+            <Stop offset="100%" stopColor="#00cc66" stopOpacity="1" />
+          </LinearGradient>
+          
+          {/* Yellow gradient for glow */}
+          <LinearGradient id="yellowGradient" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0%" stopColor="#ffdd00" stopOpacity="0.8" />
+            <Stop offset="100%" stopColor="#ffaa00" stopOpacity="0.6" />
+          </LinearGradient>
+
+          {/* Area fill gradient */}
+          <LinearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0%" stopColor="#00ff88" stopOpacity="0.3" />
+            <Stop offset="50%" stopColor="#00cc66" stopOpacity="0.15" />
+            <Stop offset="100%" stopColor="#008844" stopOpacity="0.05" />
+          </LinearGradient>
+        </Defs>
+
+        {/* Grid lines with futuristic glow */}
         {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
           const y = PADDING.top + chartHeight * ratio;
           const value = maxTotal - (valueRange * ratio);
@@ -249,16 +293,17 @@ export function TotalMXIBalanceChart() {
                 y1={y}
                 x2={CHART_WIDTH - PADDING.right}
                 y2={y}
-                stroke="rgba(255, 255, 255, 0.1)"
+                stroke="rgba(0, 255, 136, 0.15)"
                 strokeWidth="1"
                 strokeDasharray="4,4"
               />
               <SvgText
                 x={PADDING.left - 8}
                 y={y + 4}
-                fill={colors.textSecondary}
+                fill="#00ff88"
                 fontSize="10"
                 textAnchor="end"
+                fontWeight="600"
               >
                 {value.toFixed(2)}
               </SvgText>
@@ -266,71 +311,67 @@ export function TotalMXIBalanceChart() {
           );
         })}
 
-        {/* Stacked bars */}
+        {/* Vertical bars with gradient (background) */}
         {balanceData.map((point, index) => {
           const x = xScale(index);
           const baseY = yScale(minTotal);
-          
-          // Calculate heights for each segment
-          const purchasedHeight = ((point.mxiPurchased / valueRange) * chartHeight);
-          const commissionsHeight = ((point.mxiCommissions / valueRange) * chartHeight);
-          const challengesHeight = ((point.mxiChallenges / valueRange) * chartHeight);
-          const vestingHeight = ((point.mxiVesting / valueRange) * chartHeight);
-
-          let currentY = baseY;
+          const topY = yScale(point.totalBalance);
+          const barHeight = baseY - topY;
 
           return (
             <G key={`bar-${index}`}>
-              {/* MXI Purchased (Green) */}
-              {point.mxiPurchased > 0 && (
-                <Rect
-                  x={x - barWidth / 2}
-                  y={currentY - purchasedHeight}
-                  width={barWidth}
-                  height={purchasedHeight}
-                  fill="#10b981"
-                  opacity={0.9}
-                />
-              )}
-              {(currentY -= purchasedHeight)}
+              <Rect
+                x={x - barWidth / 2}
+                y={topY}
+                width={barWidth}
+                height={barHeight}
+                fill="url(#areaGradient)"
+                opacity={0.4}
+              />
+            </G>
+          );
+        })}
 
-              {/* MXI Commissions (Purple) */}
-              {point.mxiCommissions > 0 && (
-                <Rect
-                  x={x - barWidth / 2}
-                  y={currentY - commissionsHeight}
-                  width={barWidth}
-                  height={commissionsHeight}
-                  fill="#A855F7"
-                  opacity={0.9}
-                />
-              )}
-              {(currentY -= commissionsHeight)}
+        {/* Main trend line with glow effect */}
+        <Path
+          d={createSmoothPath()}
+          stroke="#ffdd00"
+          strokeWidth="4"
+          fill="none"
+          opacity={0.3}
+        />
+        <Path
+          d={createSmoothPath()}
+          stroke="url(#greenGradient)"
+          strokeWidth="3"
+          fill="none"
+          opacity={1}
+        />
 
-              {/* MXI Challenges (Orange) */}
-              {point.mxiChallenges > 0 && (
-                <Rect
-                  x={x - barWidth / 2}
-                  y={currentY - challengesHeight}
-                  width={barWidth}
-                  height={challengesHeight}
-                  fill="#F59E0B"
-                  opacity={0.9}
-                />
-              )}
-              {(currentY -= challengesHeight)}
-
-              {/* MXI Vesting (Blue) */}
-              {point.mxiVesting > 0 && (
-                <Rect
-                  x={x - barWidth / 2}
-                  y={currentY - vestingHeight}
-                  width={barWidth}
-                  height={vestingHeight}
-                  fill="#6366F1"
-                  opacity={0.9}
-                />
-              )}
+        {/* Data points with glow */}
+        {balanceData.filter((_, i) => i % Math.ceil(balanceData.length / 20) === 0).map((point, i) => {
+          const index = balanceData.indexOf(point);
+          const x = xScale(index);
+          const y = yScale(point.totalBalance);
+          
+          return (
+            <G key={`point-${i}`}>
+              {/* Outer glow */}
+              <Circle
+                cx={x}
+                cy={y}
+                r="6"
+                fill="#ffdd00"
+                opacity={0.3}
+              />
+              {/* Inner point */}
+              <Circle
+                cx={x}
+                cy={y}
+                r="3"
+                fill="#00ff88"
+                opacity={1}
+              />
             </G>
           );
         })}
@@ -346,9 +387,10 @@ export function TotalMXIBalanceChart() {
               key={`x-label-${i}`}
               x={x}
               y={CHART_HEIGHT - PADDING.bottom + 20}
-              fill={colors.textSecondary}
+              fill="#00ff88"
               fontSize="9"
               textAnchor="middle"
+              fontWeight="600"
             >
               {label}
             </SvgText>
@@ -359,9 +401,10 @@ export function TotalMXIBalanceChart() {
         <SvgText
           x={15}
           y={CHART_HEIGHT / 2}
-          fill={colors.textSecondary}
+          fill="#00ff88"
           fontSize="11"
           textAnchor="middle"
+          fontWeight="700"
           transform={`rotate(-90, 15, ${CHART_HEIGHT / 2})`}
         >
           MXI Total
@@ -426,14 +469,14 @@ export function TotalMXIBalanceChart() {
             })}
           </Text>
           <Text style={styles.currentUnit}>MXI</Text>
-          <View style={[styles.changeBadge, { backgroundColor: isPositive ? '#10b98120' : '#ef444420' }]}>
+          <View style={[styles.changeBadge, { backgroundColor: isPositive ? '#00ff8820' : '#ff004420' }]}>
             <IconSymbol
               ios_icon_name={isPositive ? 'arrow.up' : 'arrow.down'}
               android_material_icon_name={isPositive ? 'arrow_upward' : 'arrow_downward'}
               size={12}
-              color={isPositive ? '#10b981' : '#ef4444'}
+              color={isPositive ? '#00ff88' : '#ff0044'}
             />
-            <Text style={[styles.changeText, { color: isPositive ? '#10b981' : '#ef4444' }]}>
+            <Text style={[styles.changeText, { color: isPositive ? '#00ff88' : '#ff0044' }]}>
               {isPositive ? '+' : ''}{change.toFixed(2)} ({percentage >= 0 ? '+' : ''}{percentage.toFixed(2)}%)
             </Text>
           </View>
@@ -468,11 +511,11 @@ export function TotalMXIBalanceChart() {
         <View style={styles.chartContainer}>
           {loading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={colors.primary} />
+              <ActivityIndicator size="large" color="#00ff88" />
               <Text style={styles.loadingText}>Cargando gráfico...</Text>
             </View>
           ) : (
-            renderBarChart()
+            renderFuturisticChart()
           )}
         </View>
       </ScrollView>
@@ -480,7 +523,7 @@ export function TotalMXIBalanceChart() {
       {/* Legend */}
       <View style={styles.legend}>
         <View style={styles.legendItem}>
-          <View style={[styles.legendColor, { backgroundColor: '#10b981' }]} />
+          <View style={[styles.legendColor, { backgroundColor: '#00ff88' }]} />
           <Text style={styles.legendText}>Comprados</Text>
         </View>
         <View style={styles.legendItem}>
@@ -488,7 +531,7 @@ export function TotalMXIBalanceChart() {
           <Text style={styles.legendText}>Comisiones</Text>
         </View>
         <View style={styles.legendItem}>
-          <View style={[styles.legendColor, { backgroundColor: '#F59E0B' }]} />
+          <View style={[styles.legendColor, { backgroundColor: '#ffdd00' }]} />
           <Text style={styles.legendText}>Torneos</Text>
         </View>
         <View style={styles.legendItem}>
@@ -499,13 +542,13 @@ export function TotalMXIBalanceChart() {
 
       {/* Detailed Breakdown */}
       <View style={styles.breakdownSection}>
-        <Text style={styles.breakdownTitle}>Desglose de Balance MXI</Text>
+        <Text style={styles.breakdownTitle}>📊 Desglose de Balance MXI</Text>
         
         <View style={styles.breakdownGrid}>
           {/* MXI Comprados */}
           <View style={styles.breakdownCard}>
             <View style={styles.breakdownHeader}>
-              <View style={[styles.breakdownIcon, { backgroundColor: '#10b98120' }]}>
+              <View style={[styles.breakdownIcon, { backgroundColor: '#00ff8820' }]}>
                 <Text style={{ fontSize: 20 }}>🛒</Text>
               </View>
               <Text style={styles.breakdownLabel}>MXI Comprados</Text>
@@ -522,7 +565,7 @@ export function TotalMXIBalanceChart() {
                   styles.breakdownBarFill, 
                   { 
                     width: `${(currentBreakdown.mxiPurchased / currentTotal) * 100}%`,
-                    backgroundColor: '#10b981'
+                    backgroundColor: '#00ff88'
                   }
                 ]} 
               />
@@ -565,7 +608,7 @@ export function TotalMXIBalanceChart() {
           {/* MXI Torneos */}
           <View style={styles.breakdownCard}>
             <View style={styles.breakdownHeader}>
-              <View style={[styles.breakdownIcon, { backgroundColor: '#F59E0B20' }]}>
+              <View style={[styles.breakdownIcon, { backgroundColor: '#ffdd0020' }]}>
                 <Text style={{ fontSize: 20 }}>🏆</Text>
               </View>
               <Text style={styles.breakdownLabel}>MXI Torneos</Text>
@@ -582,7 +625,7 @@ export function TotalMXIBalanceChart() {
                   styles.breakdownBarFill, 
                   { 
                     width: `${(currentBreakdown.mxiChallenges / currentTotal) * 100}%`,
-                    backgroundColor: '#F59E0B'
+                    backgroundColor: '#ffdd00'
                   }
                 ]} 
               />
@@ -630,7 +673,7 @@ export function TotalMXIBalanceChart() {
           ios_icon_name="info.circle.fill"
           android_material_icon_name="info"
           size={16}
-          color={colors.primary}
+          color="#00ff88"
         />
         <Text style={styles.infoText}>
           Este gráfico muestra el crecimiento total de tu cartera MXI en tiempo real, 
@@ -644,17 +687,17 @@ export function TotalMXIBalanceChart() {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: 'rgba(99, 102, 241, 0.08)',
+    backgroundColor: 'rgba(0, 20, 20, 0.95)',
     borderRadius: 20,
     padding: 20,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.3)',
-    shadowColor: '#6366F1',
+    borderWidth: 2,
+    borderColor: 'rgba(0, 255, 136, 0.3)',
+    shadowColor: '#00ff88',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
   },
   header: {
     flexDirection: 'row',
@@ -668,12 +711,15 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: colors.text,
+    color: '#00ff88',
     marginBottom: 4,
+    textShadowColor: 'rgba(0, 255, 136, 0.5)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
   },
   subtitle: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: '#ffdd00',
     fontWeight: '600',
   },
   headerRight: {
@@ -682,13 +728,16 @@ const styles = StyleSheet.create({
   currentValue: {
     fontSize: 28,
     fontWeight: '900',
-    color: colors.primary,
+    color: '#00ff88',
     fontFamily: 'monospace',
+    textShadowColor: 'rgba(0, 255, 136, 0.8)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 15,
   },
   currentUnit: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.text,
+    color: '#ffdd00',
     marginBottom: 6,
   },
   changeBadge: {
@@ -698,6 +747,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 136, 0.3)',
   },
   changeText: {
     fontSize: 11,
@@ -705,10 +756,12 @@ const styles = StyleSheet.create({
   },
   timeRangeSelector: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     borderRadius: 12,
     padding: 4,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 136, 0.2)',
   },
   timeRangeButton: {
     flex: 1,
@@ -718,23 +771,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   timeRangeButtonActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: 'rgba(0, 255, 136, 0.2)',
+    borderWidth: 1,
+    borderColor: '#00ff88',
   },
   timeRangeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: colors.textSecondary,
+    color: 'rgba(0, 255, 136, 0.5)',
   },
   timeRangeTextActive: {
-    color: '#000000',
+    color: '#00ff88',
+    fontWeight: '700',
   },
   chartScroll: {
     marginBottom: 16,
   },
   chartContainer: {
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
     borderRadius: 12,
     padding: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 136, 0.2)',
   },
   emptyChart: {
     width: CHART_WIDTH,
@@ -744,7 +802,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    color: colors.textSecondary,
+    color: '#00ff88',
   },
   loadingContainer: {
     width: CHART_WIDTH,
@@ -755,7 +813,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 14,
-    color: colors.textSecondary,
+    color: '#00ff88',
   },
   legend: {
     flexDirection: 'row',
@@ -764,8 +822,10 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 20,
     paddingVertical: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 136, 0.2)',
   },
   legendItem: {
     flexDirection: 'row',
@@ -779,7 +839,7 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 11,
-    color: colors.text,
+    color: '#00ff88',
     fontWeight: '600',
   },
   breakdownSection: {
@@ -788,9 +848,12 @@ const styles = StyleSheet.create({
   breakdownTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.text,
+    color: '#00ff88',
     marginBottom: 16,
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 255, 136, 0.5)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
   },
   breakdownGrid: {
     flexDirection: 'row',
@@ -800,11 +863,11 @@ const styles = StyleSheet.create({
   breakdownCard: {
     flex: 1,
     minWidth: '45%',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(0, 255, 136, 0.2)',
   },
   breakdownHeader: {
     flexDirection: 'row',
@@ -821,20 +884,20 @@ const styles = StyleSheet.create({
   },
   breakdownLabel: {
     fontSize: 11,
-    color: colors.textSecondary,
+    color: '#ffdd00',
     fontWeight: '600',
     flex: 1,
   },
   breakdownValue: {
     fontSize: 18,
     fontWeight: '900',
-    color: colors.text,
+    color: '#00ff88',
     marginBottom: 8,
     fontFamily: 'monospace',
   },
   breakdownBar: {
     height: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(0, 255, 136, 0.1)',
     borderRadius: 3,
     overflow: 'hidden',
     marginBottom: 6,
@@ -845,22 +908,24 @@ const styles = StyleSheet.create({
   },
   breakdownPercentage: {
     fontSize: 10,
-    color: colors.textSecondary,
+    color: '#ffdd00',
     textAlign: 'right',
     fontWeight: '700',
   },
   infoBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
     padding: 12,
     borderRadius: 8,
     gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 136, 0.2)',
   },
   infoText: {
     flex: 1,
     fontSize: 11,
-    color: colors.textSecondary,
+    color: '#00ff88',
     lineHeight: 16,
   },
 });

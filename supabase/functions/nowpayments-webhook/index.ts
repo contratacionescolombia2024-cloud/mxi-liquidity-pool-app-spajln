@@ -1,6 +1,7 @@
 
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import * as djwt from 'https://deno.land/x/djwt@v3.0.2/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,24 +23,74 @@ Deno.serve(async (req) => {
     console.log(`[${requestId}] Step 1: Validating environment...`);
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const NOWPAYMENTS_IPN_SECRET = Deno.env.get('NOWPAYMENTS_IPN_SECRET');
+    const IPN_SECRET_KEY = Deno.env.get('IPN_SECRET_KEY');
 
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       console.error(`[${requestId}] ERROR: Supabase credentials not configured`);
       throw new Error('Supabase credentials not configured');
     }
 
+    if (!IPN_SECRET_KEY) {
+      console.error(`[${requestId}] ERROR: IPN_SECRET_KEY not configured`);
+      return new Response('Unauthorized', { 
+        status: 401,
+        headers: corsHeaders 
+      });
+    }
+
     console.log(`[${requestId}] ✅ Environment validated`);
 
-    // Step 2: Parse webhook payload
-    console.log(`[${requestId}] Step 2: Parsing webhook payload...`);
+    // Step 2: Verify JWT signature BEFORE processing body
+    console.log(`[${requestId}] Step 2: Verifying JWT signature...`);
+    const signature = req.headers.get('x-nowpayments-sig');
+    
+    if (!signature) {
+      console.error(`[${requestId}] ERROR: Missing x-nowpayments-sig header`);
+      return new Response('Unauthorized', { 
+        status: 401,
+        headers: corsHeaders 
+      });
+    }
+
+    console.log(`[${requestId}] Signature header found: ${signature.substring(0, 20)}...`);
+
+    // Verify JWT with HS256 algorithm
+    try {
+      const encoder = new TextEncoder();
+      const keyData = encoder.encode(IPN_SECRET_KEY);
+      const cryptoKey = await crypto.subtle.importKey(
+        'raw',
+        keyData,
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['verify']
+      );
+
+      // Verify the JWT using djwt
+      await djwt.verify(signature, cryptoKey, {
+        algorithms: ['HS256'],
+        // NOWPayments does NOT send exp field, so we ignore expiration
+        ignoreExpiration: true,
+      });
+
+      console.log(`[${requestId}] ✅ JWT signature verified successfully`);
+    } catch (jwtError) {
+      console.error(`[${requestId}] ERROR: JWT verification failed:`, jwtError);
+      return new Response('Unauthorized', { 
+        status: 401,
+        headers: corsHeaders 
+      });
+    }
+
+    // Step 3: Parse webhook payload (AFTER verification)
+    console.log(`[${requestId}] Step 3: Parsing webhook payload...`);
     const payload = await req.json();
     console.log(`[${requestId}] Webhook payload:`, JSON.stringify(payload, null, 2));
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Step 3: Log webhook
-    console.log(`[${requestId}] Step 3: Logging webhook...`);
+    // Step 4: Log webhook
+    console.log(`[${requestId}] Step 4: Logging webhook...`);
     await supabase.from('payment_webhook_logs').insert({
       payment_id: payload.payment_id?.toString() || null,
       order_id: payload.order_id || null,
@@ -49,51 +100,6 @@ Deno.serve(async (req) => {
     });
 
     console.log(`[${requestId}] ✅ Webhook logged`);
-
-    // Step 4: Verify HMAC signature (if secret is configured)
-    if (NOWPAYMENTS_IPN_SECRET) {
-      console.log(`[${requestId}] Step 4: Verifying HMAC signature...`);
-      const receivedSignature = req.headers.get('x-nowpayments-sig');
-      
-      if (!receivedSignature) {
-        console.warn(`[${requestId}] WARNING: No signature provided`);
-      } else {
-        const sortedPayload = JSON.stringify(
-          Object.keys(payload)
-            .sort()
-            .reduce((obj: any, key: string) => {
-              obj[key] = payload[key];
-              return obj;
-            }, {})
-        );
-
-        const encoder = new TextEncoder();
-        const keyData = encoder.encode(NOWPAYMENTS_IPN_SECRET);
-        const messageData = encoder.encode(sortedPayload);
-
-        const cryptoKey = await crypto.subtle.importKey(
-          'raw',
-          keyData,
-          { name: 'HMAC', hash: 'SHA-512' },
-          false,
-          ['sign']
-        );
-
-        const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
-        const expectedSignature = Array.from(new Uint8Array(signature))
-          .map(b => b.toString(16).padStart(2, '0'))
-          .join('');
-
-        if (receivedSignature !== expectedSignature) {
-          console.error(`[${requestId}] ERROR: Invalid signature`);
-          throw new Error('Invalid webhook signature');
-        }
-
-        console.log(`[${requestId}] ✅ Signature verified`);
-      }
-    } else {
-      console.warn(`[${requestId}] WARNING: IPN secret not configured, skipping signature verification`);
-    }
 
     // Step 5: Find payment record
     console.log(`[${requestId}] Step 5: Finding payment record...`);
