@@ -13,6 +13,7 @@ const NETWORKS = {
   ethereum: {
     name: 'Ethereum (ERC20)',
     rpcUrlEnvVar: 'ETH_RPC_URL',
+    alchemyNetwork: 'eth-mainnet',
     usdtContract: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
     decimals: 6,
     chainId: 1
@@ -20,6 +21,7 @@ const NETWORKS = {
   bnb: {
     name: 'BNB Chain (BEP20)',
     rpcUrlEnvVar: 'BNB_RPC_URL',
+    alchemyNetwork: null, // Alchemy doesn't support BNB
     usdtContract: '0x55d398326f99059fF775485246999027B3197955',
     decimals: 18,
     chainId: 56
@@ -27,6 +29,7 @@ const NETWORKS = {
   polygon: {
     name: 'Polygon (Matic)',
     rpcUrlEnvVar: 'POLYGON_RPC_URL',
+    alchemyNetwork: 'polygon-mainnet',
     usdtContract: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
     decimals: 6,
     chainId: 137
@@ -48,6 +51,32 @@ const REQUIRED_CONFIRMATIONS = 3;
 // USDT Transfer event signature
 const TRANSFER_EVENT_SIGNATURE = 'Transfer(address,address,uint256)';
 const TRANSFER_TOPIC = ethers.id(TRANSFER_EVENT_SIGNATURE);
+
+// Helper function to get RPC URL for a network
+function getRpcUrl(network: string, networkConfig: any): string | undefined {
+  // First, try to get the specific RPC URL for this network
+  let rpcUrl: string | undefined;
+  try {
+    rpcUrl = Deno.env?.get(networkConfig.rpcUrlEnvVar);
+  } catch (e) {
+    console.error(`Error getting ${networkConfig.rpcUrlEnvVar}:`, e);
+  }
+
+  // If not found, try to construct from Alchemy API key
+  if (!rpcUrl && networkConfig.alchemyNetwork) {
+    try {
+      const alchemyApiKey = Deno.env?.get('ALCHEMY_API_KEY');
+      if (alchemyApiKey) {
+        rpcUrl = `https://${networkConfig.alchemyNetwork}.g.alchemy.com/v2/${alchemyApiKey}`;
+        console.log(`Constructed Alchemy RPC URL for ${network}`);
+      }
+    } catch (e) {
+      console.error('Error getting ALCHEMY_API_KEY:', e);
+    }
+  }
+
+  return rpcUrl;
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -166,18 +195,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get network-specific RPC URL from environment variable with safe access
-    let rpcUrl: string | undefined;
-    try {
-      rpcUrl = Deno.env?.get(networkConfig.rpcUrlEnvVar);
-    } catch (envError) {
-      console.error(`[${requestId}] ERROR: Failed to access environment variable:`, envError);
-      rpcUrl = undefined;
-    }
+    // Get network-specific RPC URL (supports both direct URL and Alchemy API key)
+    const rpcUrl = getRpcUrl(network, networkConfig);
     
     if (!rpcUrl) {
       console.error(`[${requestId}] ERROR: RPC URL not configured for ${network}`);
-      console.error(`[${requestId}] Missing environment variable: ${networkConfig.rpcUrlEnvVar}`);
+      console.error(`[${requestId}] Missing environment variable: ${networkConfig.rpcUrlEnvVar} or ALCHEMY_API_KEY`);
       console.error(`[${requestId}] Deno.env available:`, typeof Deno.env);
       
       // Try to list available environment variables (for debugging)
@@ -192,15 +215,11 @@ Deno.serve(async (req) => {
         JSON.stringify({
           ok: false,
           error: 'rpc_not_configured',
-          message: `⚙️ Error de Configuración del Servidor\n\nLa variable de entorno ${networkConfig.rpcUrlEnvVar} no está configurada para ${networkConfig.name}.\n\n📋 Pasos para el administrador:\n\n1. Ir a Supabase Dashboard → Settings → Edge Functions\n2. Hacer clic en "Manage secrets"\n3. Agregar la variable: ${networkConfig.rpcUrlEnvVar}\n4. Valor sugerido:\n   • Ethereum: https://eth.llamarpc.com\n   • BNB Chain: https://bsc-dataseed.binance.org/\n   • Polygon: https://polygon-rpc.com/\n\n⚠️ Contacta al administrador del sistema para resolver este problema.`,
+          message: `⚙️ Error de Configuración del Servidor\n\nNo se encontró configuración RPC para ${networkConfig.name}.\n\n📋 Opciones de configuración:\n\n**Opción 1: Usar Alchemy (Recomendado para Ethereum y Polygon)**\n1. Ir a Supabase Dashboard → Settings → Edge Functions\n2. Hacer clic en "Manage secrets"\n3. Agregar: ALCHEMY_API_KEY\n4. Valor: Tu clave API de Alchemy (ej: -lEOTdd5GorChO7dTiJD9)\n\n**Opción 2: Configurar RPC específico**\n1. Agregar la variable: ${networkConfig.rpcUrlEnvVar}\n2. Valores sugeridos:\n   • Ethereum: https://eth.llamarpc.com\n   • BNB Chain: https://bsc-dataseed.binance.org/\n   • Polygon: https://polygon-rpc.com/\n\n⚠️ Contacta al administrador del sistema para resolver este problema.`,
           details: {
             network: networkConfig.name,
-            missingVariable: networkConfig.rpcUrlEnvVar,
-            suggestedValues: {
-              ethereum: 'https://eth.llamarpc.com or Infura/Alchemy URL',
-              bnb: 'https://bsc-dataseed.binance.org/',
-              polygon: 'https://polygon-rpc.com/'
-            }
+            missingVariables: [networkConfig.rpcUrlEnvVar, 'ALCHEMY_API_KEY'],
+            supportsAlchemy: !!networkConfig.alchemyNetwork
           }
         }),
         {
@@ -211,7 +230,6 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[${requestId}] Network: ${networkConfig.name}`);
-    console.log(`[${requestId}] RPC URL Variable: ${networkConfig.rpcUrlEnvVar}`);
     console.log(`[${requestId}] RPC URL (first 30 chars): ${rpcUrl.substring(0, 30)}...`);
     console.log(`[${requestId}] TxHash: ${txHash}`);
     console.log(`[${requestId}] USDT Contract: ${networkConfig.usdtContract}`);
