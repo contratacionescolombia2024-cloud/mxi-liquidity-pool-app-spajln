@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
       console.log(`[${requestId}] ✅ Webhook logged`);
     }
 
-    // Step 4: Verify JWT signature (if IPN secret is configured)
+    // Step 4: Verify JWT signature (if IPN secret is configured) - BUT DON'T FAIL IF MISSING
     if (NOWPAYMENTS_IPN_SECRET) {
       console.log(`[${requestId}] Step 4: Verifying JWT signature...`);
       console.log(`[${requestId}] IPN Secret configured: ${NOWPAYMENTS_IPN_SECRET.substring(0, 10)}...`);
@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
       
       if (!signature) {
         console.warn(`[${requestId}] WARNING: Missing x-nowpayments-sig header`);
-        console.warn(`[${requestId}] Continuing without signature verification...`);
+        console.warn(`[${requestId}] Continuing without signature verification (webhook might be from test)...`);
       } else {
         console.log(`[${requestId}] Signature header found: ${signature.substring(0, 20)}...`);
 
@@ -313,7 +313,7 @@ Deno.serve(async (req) => {
         requestId: requestId,
       }),
       {
-        status: 500,
+        status: 200, // Return 200 to NOWPayments so they don't retry
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );

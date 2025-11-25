@@ -235,60 +235,65 @@ export default function PaymentHistoryScreen() {
   const [verificationRequests, setVerificationRequests] = useState<Map<string, any>>(new Map());
 
   useEffect(() => {
-    loadPayments();
-    loadVerificationRequests();
+    if (user) {
+      loadPayments();
+      loadVerificationRequests();
 
-    // Subscribe to payment updates
-    const paymentsChannel = supabase
-      .channel('payment-history-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'payments',
-          filter: `user_id=eq.${user?.id}`,
-        },
-        (payload) => {
-          console.log('Payment update received:', payload);
-          loadPayments();
-        }
-      )
-      .subscribe();
+      // Subscribe to payment updates
+      const paymentsChannel = supabase
+        .channel('payment-history-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'payments',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            console.log('Payment update received:', payload);
+            loadPayments();
+          }
+        )
+        .subscribe();
 
-    // Subscribe to verification request updates
-    const verificationsChannel = supabase
-      .channel('verification-requests-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'manual_verification_requests',
-          filter: `user_id=eq.${user?.id}`,
-        },
-        (payload) => {
-          console.log('Verification request update received:', payload);
-          loadVerificationRequests();
-        }
-      )
-      .subscribe();
+      // Subscribe to verification request updates
+      const verificationsChannel = supabase
+        .channel('verification-requests-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'manual_verification_requests',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            console.log('Verification request update received:', payload);
+            loadVerificationRequests();
+          }
+        )
+        .subscribe();
 
-    return () => {
-      supabase.removeChannel(paymentsChannel);
-      supabase.removeChannel(verificationsChannel);
-    };
+      return () => {
+        supabase.removeChannel(paymentsChannel);
+        supabase.removeChannel(verificationsChannel);
+      };
+    }
   }, [user]);
 
   const loadPayments = async () => {
+    if (!user) return;
+    
     try {
       const { data, error } = await supabase
         .from('payments')
         .select('*')
-        .eq('user_id', user?.id)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+      console.log('Loaded payments:', data?.length || 0);
       setPayments(data || []);
     } catch (error) {
       console.error('Error loading payments:', error);
@@ -299,11 +304,13 @@ export default function PaymentHistoryScreen() {
   };
 
   const loadVerificationRequests = async () => {
+    if (!user) return;
+    
     try {
       const { data, error } = await supabase
         .from('manual_verification_requests')
         .select('*')
-        .eq('user_id', user?.id);
+        .eq('user_id', user.id);
 
       if (error) throw error;
 
@@ -312,6 +319,7 @@ export default function PaymentHistoryScreen() {
       (data || []).forEach((request: any) => {
         requestsMap.set(request.payment_id, request);
       });
+      console.log('Loaded verification requests:', requestsMap.size);
       setVerificationRequests(requestsMap);
     } catch (error) {
       console.error('Error loading verification requests:', error);
