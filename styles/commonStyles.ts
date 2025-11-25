@@ -1,20 +1,28 @@
 
 import { StyleSheet } from 'react-native';
 
+// Updated color scheme to match Balance Total MXI chart
 export const colors = {
-  primary: '#FFD700',
-  secondary: '#FFA500',
-  accent: '#FF6B35',
+  // Primary colors matching the MXI chart
+  primary: '#00ff88',        // Bright green from chart
+  secondary: '#ffdd00',      // Yellow from chart
+  accent: '#6366F1',         // Indigo for accents
   success: '#10b981',
   warning: '#FF9800',
-  error: '#F44336',
-  background: '#000000',
-  card: '#1A1F3A',
-  cardBackground: '#1A1F3A',
+  error: '#ff0044',
+  background: '#000000',     // Dark background
+  card: '#001414',           // Dark teal card background
+  cardBackground: 'rgba(0, 20, 20, 0.95)',  // Matching chart card
   text: '#FFFFFF',
   textSecondary: '#A0A0A0',
-  border: '#2A2F4A',
-  highlight: 'rgba(255, 215, 0, 0.1)',
+  border: 'rgba(0, 255, 136, 0.3)',  // Green border matching chart
+  highlight: 'rgba(0, 255, 136, 0.1)',
+  
+  // Chart-specific colors
+  chartGreen: '#00ff88',
+  chartYellow: '#ffdd00',
+  chartPurple: '#A855F7',
+  chartIndigo: '#6366F1',
 };
 
 export const commonStyles = StyleSheet.create({
@@ -27,6 +35,8 @@ export const commonStyles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   label: {
     fontSize: 14,

@@ -10,6 +10,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Linking,
+  Platform,
 } from 'react-native';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -319,14 +321,60 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
     }
 
     try {
-      console.log('Opening payment URL:', paymentIntent.invoice_url);
-      const result = await WebBrowser.openBrowserAsync(paymentIntent.invoice_url);
-      console.log('Browser result:', result);
-    } catch (error: any) {
-      console.error('Error opening browser:', error);
+      console.log('🌐 [PAYMENT] Opening payment URL:', paymentIntent.invoice_url);
+      
+      // Try multiple methods to open the URL
+      if (Platform.OS === 'web') {
+        // For web, open in new tab
+        window.open(paymentIntent.invoice_url, '_blank');
+        console.log('✅ [PAYMENT] Opened in new tab (web)');
+      } else {
+        // For mobile, try WebBrowser first
+        try {
+          const result = await WebBrowser.openBrowserAsync(paymentIntent.invoice_url, {
+            dismissButtonStyle: 'close',
+            presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+            controlsColor: colors.primary,
+            toolbarColor: colors.background,
+          });
+          console.log('✅ [PAYMENT] WebBrowser result:', result);
+        } catch (webBrowserError: any) {
+          console.error('❌ [PAYMENT] WebBrowser failed:', webBrowserError);
+          
+          // Fallback to Linking
+          const canOpen = await Linking.canOpenURL(paymentIntent.invoice_url);
+          if (canOpen) {
+            await Linking.openURL(paymentIntent.invoice_url);
+            console.log('✅ [PAYMENT] Opened with Linking');
+          } else {
+            throw new Error('No se puede abrir la URL');
+          }
+        }
+      }
+      
+      // Show success message
       Alert.alert(
-        'Error al Abrir Navegador',
-        `No se pudo abrir el navegador.\n\nError: ${error.message}\n\nPuedes copiar la dirección de pago manualmente y realizar la transacción desde tu wallet.`
+        '✅ Página de Pago Abierta',
+        'La página de pago se ha abierto en tu navegador. Completa el pago y regresa aquí para verificar el estado.',
+        [{ text: 'OK' }]
+      );
+    } catch (error: any) {
+      console.error('❌ [PAYMENT] Error opening browser:', error);
+      
+      // Show detailed error with copy option
+      Alert.alert(
+        '⚠️ No se pudo abrir el navegador',
+        `Puedes copiar la URL y abrirla manualmente en tu navegador:\n\n${paymentIntent.invoice_url}`,
+        [
+          {
+            text: 'Copiar URL',
+            onPress: () => copyToClipboard(paymentIntent.invoice_url, 'URL de pago'),
+          },
+          {
+            text: 'Cancelar',
+            style: 'cancel',
+          },
+        ]
       );
     }
   };
