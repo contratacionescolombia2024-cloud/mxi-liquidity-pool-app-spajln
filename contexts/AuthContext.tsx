@@ -40,6 +40,7 @@ interface User {
   releasePercentage?: number;
   mxiPurchasedDirectly?: number;
   mxiFromUnifiedCommissions?: number;
+  mxiFromChallenges?: number;
 }
 
 interface PoolStatus {
@@ -241,9 +242,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         releasePercentage: scheduleData ? parseFloat(scheduleData.release_percentage?.toString() || '10') : 10,
         mxiPurchasedDirectly: parseFloat(userData.mxi_purchased_directly?.toString() || '0'),
         mxiFromUnifiedCommissions: parseFloat(userData.mxi_from_unified_commissions?.toString() || '0'),
+        mxiFromChallenges: parseFloat(userData.mxi_from_challenges?.toString() || '0'),
       };
 
       console.log('User data loaded successfully');
+      console.log('MXI Breakdown:', {
+        purchased: mappedUser.mxiPurchasedDirectly,
+        commissions: mappedUser.mxiFromUnifiedCommissions,
+        challenges: mappedUser.mxiFromChallenges,
+        vesting: mappedUser.accumulatedYield,
+        total: (mappedUser.mxiPurchasedDirectly || 0) + (mappedUser.mxiFromUnifiedCommissions || 0) + (mappedUser.mxiFromChallenges || 0) + mappedUser.accumulatedYield
+      });
+      
       setUser(mappedUser);
       setIsAuthenticated(true);
       setLoading(false);
