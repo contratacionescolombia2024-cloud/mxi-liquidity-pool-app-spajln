@@ -19,6 +19,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 
 type DocumentType = 'passport' | 'national_id' | 'drivers_license';
 
@@ -169,25 +170,49 @@ export default function KYCVerificationScreen() {
       const fileName = `${user.id}/${side}_${Date.now()}.${fileExt}`;
       console.log(`[${timestamp}] Target filename:`, fileName);
 
-      // Fetch the image as a blob
-      console.log(`[${timestamp}] Fetching image as blob...`);
-      const response = await fetch(uri);
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+      let fileData: any;
+      let contentType = `image/${fileExt}`;
+
+      if (Platform.OS === 'web') {
+        // Web platform: use fetch and blob
+        console.log(`[${timestamp}] Web platform: Fetching image as blob...`);
+        const response = await fetch(uri);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+        }
+        
+        fileData = await response.blob();
+        console.log(`[${timestamp}] Blob created successfully`);
+        console.log(`[${timestamp}] Blob size:`, fileData.size, 'bytes');
+        console.log(`[${timestamp}] Blob type:`, fileData.type);
+      } else {
+        // Native platform: use FileSystem to read as base64 and convert to ArrayBuffer
+        console.log(`[${timestamp}] Native platform: Reading file with FileSystem...`);
+        
+        const base64 = await FileSystem.readAsStringAsync(uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        
+        console.log(`[${timestamp}] File read as base64, length:`, base64.length);
+        
+        // Convert base64 to ArrayBuffer
+        const binaryString = atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        fileData = bytes.buffer;
+        
+        console.log(`[${timestamp}] ArrayBuffer created, size:`, fileData.byteLength, 'bytes');
       }
-      
-      const blob = await response.blob();
-      console.log(`[${timestamp}] Blob created successfully`);
-      console.log(`[${timestamp}] Blob size:`, blob.size, 'bytes');
-      console.log(`[${timestamp}] Blob type:`, blob.type);
 
       // Upload to Supabase Storage
       console.log(`[${timestamp}] Uploading to Supabase storage bucket: kyc-documents`);
       const { data, error } = await supabase.storage
         .from('kyc-documents')
-        .upload(fileName, blob, {
-          contentType: `image/${fileExt}`,
+        .upload(fileName, fileData, {
+          contentType: contentType,
           upsert: true,
         });
 
@@ -479,6 +504,9 @@ export default function KYCVerificationScreen() {
                   <IconSymbol ios_icon_name="exclamationmark.triangle" android_material_icon_name="warning" size={18} color={colors.error} />
                   <Text style={styles.rejectionText}>
                     Razón de Rechazo: {kycData.rejection_reason}
+                  </Text>
+                  <Text style={styles.rejectionHint}>
+                    Por favor corrige los problemas mencionados y vuelve a enviar tu verificación.
                   </Text>
                 </View>
               )}
@@ -834,8 +862,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   rejectionNotice: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: 'column',
     gap: 8,
     marginTop: 12,
     padding: 12,
@@ -845,10 +872,16 @@ const styles = StyleSheet.create({
     borderLeftColor: colors.error,
   },
   rejectionText: {
-    flex: 1,
+    fontSize: 13,
+    color: colors.text,
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  rejectionHint: {
     fontSize: 12,
     color: colors.textSecondary,
     lineHeight: 18,
+    fontStyle: 'italic',
   },
   infoCard: {
     flexDirection: 'row',

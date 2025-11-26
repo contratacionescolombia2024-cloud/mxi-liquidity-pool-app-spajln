@@ -32,6 +32,7 @@ interface KYCVerification {
   submitted_at: string;
   user_email: string;
   user_name: string;
+  rejection_reason?: string;
 }
 
 export default function KYCApprovalsScreen() {
@@ -43,6 +44,7 @@ export default function KYCApprovalsScreen() {
   const [adminNotes, setAdminNotes] = useState('');
   const [processing, setProcessing] = useState(false);
   const [filter, setFilter] = useState<'pending' | 'all'>('pending');
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
 
   useEffect(() => {
     loadVerifications();
@@ -85,12 +87,12 @@ export default function KYCApprovalsScreen() {
 
   const handleApprove = async (kycId: string, userId: string) => {
     Alert.alert(
-      'Approve KYC',
-      'Are you sure you want to approve this KYC verification?',
+      'Aprobar KYC',
+      '¿Estás seguro de que quieres aprobar esta verificación KYC?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Approve',
+          text: 'Aprobar',
           onPress: async () => {
             try {
               setProcessing(true);
@@ -126,13 +128,13 @@ export default function KYCApprovalsScreen() {
 
               if (userError) throw userError;
 
-              Alert.alert('Success', 'KYC verification approved successfully');
+              Alert.alert('Éxito', 'Verificación KYC aprobada exitosamente');
               setSelectedKYC(null);
               setAdminNotes('');
               loadVerifications();
             } catch (error) {
               console.error('Error approving KYC:', error);
-              Alert.alert('Error', 'Failed to approve KYC verification');
+              Alert.alert('Error', 'Error al aprobar verificación KYC');
             } finally {
               setProcessing(false);
             }
@@ -144,17 +146,17 @@ export default function KYCApprovalsScreen() {
 
   const handleReject = async (kycId: string, userId: string) => {
     if (!adminNotes.trim()) {
-      Alert.alert('Error', 'Please provide a reason for rejection');
+      Alert.alert('Error', 'Por favor proporciona una razón para el rechazo');
       return;
     }
 
     Alert.alert(
-      'Reject KYC',
-      'Are you sure you want to reject this KYC verification?',
+      'Rechazar KYC',
+      '¿Estás seguro de que quieres rechazar esta verificación KYC? El usuario podrá volver a enviar sus documentos.',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Reject',
+          text: 'Rechazar',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -181,7 +183,7 @@ export default function KYCApprovalsScreen() {
 
               if (kycError) throw kycError;
 
-              // Update user KYC status
+              // Update user KYC status to rejected so they can resubmit
               const { error: userError } = await supabase
                 .from('users')
                 .update({
@@ -191,13 +193,16 @@ export default function KYCApprovalsScreen() {
 
               if (userError) throw userError;
 
-              Alert.alert('Success', 'KYC verification rejected');
+              Alert.alert(
+                'Verificación Rechazada', 
+                'La verificación KYC ha sido rechazada. El usuario recibirá una notificación con la razón del rechazo y podrá volver a enviar sus documentos.'
+              );
               setSelectedKYC(null);
               setAdminNotes('');
               loadVerifications();
             } catch (error) {
               console.error('Error rejecting KYC:', error);
-              Alert.alert('Error', 'Failed to reject KYC verification');
+              Alert.alert('Error', 'Error al rechazar verificación KYC');
             } finally {
               setProcessing(false);
             }
@@ -211,11 +216,11 @@ export default function KYCApprovalsScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <IconSymbol name="chevron.left" size={24} color={colors.primary} />
+          <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <View style={styles.headerText}>
-          <Text style={styles.title}>KYC Approvals</Text>
-          <Text style={styles.subtitle}>{verifications.length} verification(s)</Text>
+          <Text style={styles.title}>Aprobaciones KYC</Text>
+          <Text style={styles.subtitle}>{verifications.length} verificación(es)</Text>
         </View>
       </View>
 
@@ -225,7 +230,7 @@ export default function KYCApprovalsScreen() {
           onPress={() => setFilter('pending')}
         >
           <Text style={[styles.filterText, filter === 'pending' && styles.filterTextActive]}>
-            Pending
+            Pendientes
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -233,7 +238,7 @@ export default function KYCApprovalsScreen() {
           onPress={() => setFilter('all')}
         >
           <Text style={[styles.filterText, filter === 'all' && styles.filterTextActive]}>
-            All
+            Todas
           </Text>
         </TouchableOpacity>
       </View>
@@ -244,8 +249,8 @@ export default function KYCApprovalsScreen() {
         </View>
       ) : verifications.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <IconSymbol name="checkmark.seal" size={64} color={colors.textSecondary} />
-          <Text style={styles.emptyText}>No KYC verifications to review</Text>
+          <IconSymbol ios_icon_name="checkmark.seal" android_material_icon_name="verified" size={64} color={colors.textSecondary} />
+          <Text style={styles.emptyText}>No hay verificaciones KYC para revisar</Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -253,7 +258,10 @@ export default function KYCApprovalsScreen() {
             <TouchableOpacity
               key={kyc.id}
               style={[commonStyles.card, styles.kycCard]}
-              onPress={() => setSelectedKYC(kyc)}
+              onPress={() => {
+                setSelectedKYC(kyc);
+                setAdminNotes(kyc.rejection_reason || '');
+              }}
             >
               <View style={styles.kycHeader}>
                 <View style={styles.kycInfo}>
@@ -268,17 +276,18 @@ export default function KYCApprovalsScreen() {
                 </View>
               </View>
               <Text style={styles.kycDate}>
-                Submitted: {new Date(kyc.submitted_at).toLocaleString()}
+                Enviado: {new Date(kyc.submitted_at).toLocaleString()}
               </Text>
               <View style={styles.kycActions}>
-                <IconSymbol name="chevron.right" size={20} color={colors.primary} />
-                <Text style={styles.reviewText}>Tap to review</Text>
+                <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={20} color={colors.primary} />
+                <Text style={styles.reviewText}>Toca para revisar</Text>
               </View>
             </TouchableOpacity>
           ))}
         </ScrollView>
       )}
 
+      {/* Review Modal */}
       <Modal
         visible={selectedKYC !== null}
         animationType="slide"
@@ -289,16 +298,16 @@ export default function KYCApprovalsScreen() {
           <View style={styles.modalContent}>
             <ScrollView>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>KYC Verification Review</Text>
+                <Text style={styles.modalTitle}>Revisión de Verificación KYC</Text>
                 <TouchableOpacity onPress={() => setSelectedKYC(null)}>
-                  <IconSymbol name="xmark.circle.fill" size={28} color={colors.textSecondary} />
+                  <IconSymbol ios_icon_name="xmark.circle.fill" android_material_icon_name="cancel" size={28} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
 
               {selectedKYC && (
                 <>
                   <View style={styles.detailSection}>
-                    <Text style={styles.detailLabel}>Full Name</Text>
+                    <Text style={styles.detailLabel}>Nombre Completo</Text>
                     <Text style={styles.detailValue}>{selectedKYC.full_name}</Text>
                   </View>
 
@@ -308,20 +317,65 @@ export default function KYCApprovalsScreen() {
                   </View>
 
                   <View style={styles.detailSection}>
-                    <Text style={styles.detailLabel}>Document Type</Text>
-                    <Text style={styles.detailValue}>{selectedKYC.document_type.toUpperCase()}</Text>
+                    <Text style={styles.detailLabel}>Tipo de Documento</Text>
+                    <Text style={styles.detailValue}>
+                      {selectedKYC.document_type === 'national_id' ? 'Cédula' :
+                       selectedKYC.document_type === 'passport' ? 'Pasaporte' : 'Licencia de Conducir'}
+                    </Text>
                   </View>
 
                   <View style={styles.detailSection}>
-                    <Text style={styles.detailLabel}>Document Number</Text>
+                    <Text style={styles.detailLabel}>Número de Documento</Text>
                     <Text style={styles.detailValue}>{selectedKYC.document_number}</Text>
                   </View>
 
+                  {selectedKYC.document_front_url && (
+                    <View style={styles.detailSection}>
+                      <Text style={styles.detailLabel}>Documento Frontal</Text>
+                      <TouchableOpacity 
+                        style={styles.imagePreview}
+                        onPress={() => setViewingImage(selectedKYC.document_front_url)}
+                      >
+                        <Image 
+                          source={{ uri: selectedKYC.document_front_url }} 
+                          style={styles.documentImage}
+                        />
+                        <View style={styles.imageOverlay}>
+                          <IconSymbol ios_icon_name="eye.fill" android_material_icon_name="visibility" size={24} color="#fff" />
+                          <Text style={styles.imageOverlayText}>Toca para ampliar</Text>
+                        </View>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {selectedKYC.document_back_url && (
+                    <View style={styles.detailSection}>
+                      <Text style={styles.detailLabel}>Documento Trasero</Text>
+                      <TouchableOpacity 
+                        style={styles.imagePreview}
+                        onPress={() => setViewingImage(selectedKYC.document_back_url)}
+                      >
+                        <Image 
+                          source={{ uri: selectedKYC.document_back_url }} 
+                          style={styles.documentImage}
+                        />
+                        <View style={styles.imageOverlay}>
+                          <IconSymbol ios_icon_name="eye.fill" android_material_icon_name="visibility" size={24} color="#fff" />
+                          <Text style={styles.imageOverlayText}>Toca para ampliar</Text>
+                        </View>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
                   <View style={styles.detailSection}>
-                    <Text style={styles.detailLabel}>Admin Notes</Text>
+                    <Text style={styles.detailLabel}>
+                      {selectedKYC.status === 'rejected' ? 'Razón de Rechazo' : 'Notas del Administrador'}
+                    </Text>
                     <TextInput
                       style={styles.notesInput}
-                      placeholder="Add notes or rejection reason..."
+                      placeholder={selectedKYC.status === 'rejected' 
+                        ? "Explica por qué se rechazó y qué debe corregir el usuario..." 
+                        : "Agrega notas o razón de rechazo..."}
                       placeholderTextColor={colors.textSecondary}
                       value={adminNotes}
                       onChangeText={setAdminNotes}
@@ -341,8 +395,8 @@ export default function KYCApprovalsScreen() {
                           <ActivityIndicator color="#fff" />
                         ) : (
                           <>
-                            <IconSymbol name="checkmark.circle.fill" size={20} color="#fff" />
-                            <Text style={styles.buttonText}>Approve</Text>
+                            <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={20} color="#fff" />
+                            <Text style={styles.buttonText}>Aprobar</Text>
                           </>
                         )}
                       </TouchableOpacity>
@@ -356,17 +410,50 @@ export default function KYCApprovalsScreen() {
                           <ActivityIndicator color="#fff" />
                         ) : (
                           <>
-                            <IconSymbol name="xmark.circle.fill" size={20} color="#fff" />
-                            <Text style={styles.buttonText}>Reject</Text>
+                            <IconSymbol ios_icon_name="xmark.circle.fill" android_material_icon_name="cancel" size={20} color="#fff" />
+                            <Text style={styles.buttonText}>Rechazar</Text>
                           </>
                         )}
                       </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {selectedKYC.status === 'rejected' && (
+                    <View style={styles.rejectedInfo}>
+                      <IconSymbol ios_icon_name="info.circle" android_material_icon_name="info" size={20} color={colors.warning} />
+                      <Text style={styles.rejectedInfoText}>
+                        Esta verificación fue rechazada. El usuario puede volver a enviar sus documentos corregidos.
+                      </Text>
                     </View>
                   )}
                 </>
               )}
             </ScrollView>
           </View>
+        </View>
+      </Modal>
+
+      {/* Image Viewer Modal */}
+      <Modal
+        visible={viewingImage !== null}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setViewingImage(null)}
+      >
+        <View style={styles.imageViewerOverlay}>
+          <TouchableOpacity 
+            style={styles.imageViewerClose}
+            onPress={() => setViewingImage(null)}
+          >
+            <IconSymbol ios_icon_name="xmark.circle.fill" android_material_icon_name="cancel" size={36} color="#fff" />
+          </TouchableOpacity>
+          {viewingImage && (
+            <Image 
+              source={{ uri: viewingImage }} 
+              style={styles.fullImage}
+              resizeMode="contain"
+            />
+          )}
         </View>
       </Modal>
     </SafeAreaView>
@@ -542,6 +629,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.text,
   },
+  imagePreview: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  documentImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  imageOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  imageOverlayText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   notesInput: {
     backgroundColor: colors.card,
     borderRadius: 12,
@@ -576,5 +691,36 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  rejectedInfo: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    padding: 16,
+    backgroundColor: colors.warning + '20',
+    borderRadius: 12,
+    marginTop: 16,
+  },
+  rejectedInfoText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.text,
+    lineHeight: 18,
+  },
+  imageViewerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageViewerClose: {
+    position: 'absolute',
+    top: 50,
+    right: 24,
+    zIndex: 10,
+  },
+  fullImage: {
+    width: '100%',
+    height: '100%',
   },
 });
