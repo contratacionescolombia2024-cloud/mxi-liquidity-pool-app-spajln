@@ -287,10 +287,13 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 12,
+    marginTop: 0,
   },
   buttonHalf: {
     flex: 1,
+  },
+  fullWidthButton: {
+    width: '100%',
   },
 });
 
@@ -366,6 +369,7 @@ export default function PaymentHistoryScreen() {
 
       if (error) throw error;
       console.log('Loaded payments:', data?.length || 0);
+      console.log('Payment statuses:', data?.map(p => ({ order_id: p.order_id, status: p.status, payment_id: p.payment_id })));
       setPayments(data || []);
     } catch (error) {
       console.error('Error loading payments:', error);
@@ -707,23 +711,31 @@ export default function PaymentHistoryScreen() {
     // Payment is pending if it's waiting, pending, or confirming
     // NOT if it's finished, confirmed, failed, expired, or cancelled
     const pendingStatuses = ['waiting', 'pending', 'confirming'];
-    return pendingStatuses.includes(payment.status);
+    const result = pendingStatuses.includes(payment.status);
+    console.log(`isPendingPayment for ${payment.order_id}: status=${payment.status}, result=${result}`);
+    return result;
   };
 
   const canVerify = (payment: any) => {
-    return isPendingPayment(payment) && payment.payment_id;
+    const result = isPendingPayment(payment) && payment.payment_id;
+    console.log(`canVerify for ${payment.order_id}: isPending=${isPendingPayment(payment)}, hasPaymentId=${!!payment.payment_id}, result=${result}`);
+    return result;
   };
 
   const canRequestVerification = (payment: any, verificationRequest: any) => {
     // Can request if payment is pending and no active request exists
-    return isPendingPayment(payment) && 
+    const result = isPendingPayment(payment) && 
            (!verificationRequest || 
             verificationRequest.status === 'rejected');
+    console.log(`canRequestVerification for ${payment.order_id}: isPending=${isPendingPayment(payment)}, hasRequest=${!!verificationRequest}, requestStatus=${verificationRequest?.status}, result=${result}`);
+    return result;
   };
 
   const canCancel = (payment: any) => {
     // Can cancel if payment is pending (not finished, confirmed, or already cancelled)
-    return isPendingPayment(payment);
+    const result = isPendingPayment(payment);
+    console.log(`canCancel for ${payment.order_id}: result=${result}`);
+    return result;
   };
 
   if (loading) {
@@ -801,6 +813,16 @@ export default function PaymentHistoryScreen() {
             const showVerifyButton = canVerify(payment);
             const showRequestButton = canRequestVerification(payment, verificationRequest);
             const showCancelButton = canCancel(payment);
+
+            console.log(`Rendering payment ${payment.order_id}:`, {
+              isPending,
+              showVerifyButton,
+              showRequestButton,
+              showCancelButton,
+              status: payment.status,
+              payment_id: payment.payment_id,
+              verificationRequest: verificationRequest?.status,
+            });
 
             return (
               <View key={index} style={styles.paymentCard}>
@@ -917,75 +939,68 @@ export default function PaymentHistoryScreen() {
                       </React.Fragment>
                     )}
 
-                    {/* Manual Verification Request Button and Cancel Button in Row */}
-                    {(showRequestButton || showCancelButton) && (
-                      <View style={styles.buttonRow}>
-                        {/* Manual Verification Request Button */}
-                        {showRequestButton && (
-                          <View style={styles.buttonHalf}>
-                            <TouchableOpacity
-                              style={[
-                                styles.requestVerificationButton,
-                                isRequestingVerification && styles.requestVerificationButtonDisabled,
-                              ]}
-                              onPress={() => requestManualVerification(payment)}
-                              disabled={isRequestingVerification}
-                            >
-                              {isRequestingVerification ? (
-                                <React.Fragment>
-                                  <ActivityIndicator size="small" color="#FFFFFF" />
-                                  <Text style={styles.requestVerificationButtonText}>Enviando...</Text>
-                                </React.Fragment>
-                              ) : (
-                                <React.Fragment>
-                                  <IconSymbol
-                                    ios_icon_name="person.fill.checkmark"
-                                    android_material_icon_name="admin_panel_settings"
-                                    size={20}
-                                    color="#FFFFFF"
-                                  />
-                                  <Text style={styles.requestVerificationButtonText}>
-                                    Verificación Manual
-                                  </Text>
-                                </React.Fragment>
-                              )}
-                            </TouchableOpacity>
-                          </View>
+                    {/* Manual Verification Request Button */}
+                    {showRequestButton && (
+                      <TouchableOpacity
+                        style={[
+                          styles.requestVerificationButton,
+                          styles.fullWidthButton,
+                          isRequestingVerification && styles.requestVerificationButtonDisabled,
+                        ]}
+                        onPress={() => requestManualVerification(payment)}
+                        disabled={isRequestingVerification}
+                      >
+                        {isRequestingVerification ? (
+                          <React.Fragment>
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                            <Text style={styles.requestVerificationButtonText}>Enviando...</Text>
+                          </React.Fragment>
+                        ) : (
+                          <React.Fragment>
+                            <IconSymbol
+                              ios_icon_name="person.fill.checkmark"
+                              android_material_icon_name="admin_panel_settings"
+                              size={20}
+                              color="#FFFFFF"
+                            />
+                            <Text style={styles.requestVerificationButtonText}>
+                              Solicitar Verificación Manual
+                            </Text>
+                          </React.Fragment>
                         )}
+                      </TouchableOpacity>
+                    )}
 
-                        {/* Cancel Button */}
-                        {showCancelButton && (
-                          <View style={styles.buttonHalf}>
-                            <TouchableOpacity
-                              style={[
-                                styles.cancelButton,
-                                isCanceling && styles.cancelButtonDisabled,
-                              ]}
-                              onPress={() => cancelPayment(payment)}
-                              disabled={isCanceling}
-                            >
-                              {isCanceling ? (
-                                <React.Fragment>
-                                  <ActivityIndicator size="small" color="#FFFFFF" />
-                                  <Text style={styles.cancelButtonText}>Cancelando...</Text>
-                                </React.Fragment>
-                              ) : (
-                                <React.Fragment>
-                                  <IconSymbol
-                                    ios_icon_name="xmark.circle.fill"
-                                    android_material_icon_name="cancel"
-                                    size={20}
-                                    color="#FFFFFF"
-                                  />
-                                  <Text style={styles.cancelButtonText}>
-                                    Cancelar
-                                  </Text>
-                                </React.Fragment>
-                              )}
-                            </TouchableOpacity>
-                          </View>
+                    {/* Cancel Button */}
+                    {showCancelButton && (
+                      <TouchableOpacity
+                        style={[
+                          styles.cancelButton,
+                          styles.fullWidthButton,
+                          isCanceling && styles.cancelButtonDisabled,
+                        ]}
+                        onPress={() => cancelPayment(payment)}
+                        disabled={isCanceling}
+                      >
+                        {isCanceling ? (
+                          <React.Fragment>
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                            <Text style={styles.cancelButtonText}>Cancelando...</Text>
+                          </React.Fragment>
+                        ) : (
+                          <React.Fragment>
+                            <IconSymbol
+                              ios_icon_name="xmark.circle.fill"
+                              android_material_icon_name="cancel"
+                              size={20}
+                              color="#FFFFFF"
+                            />
+                            <Text style={styles.cancelButtonText}>
+                              Cancelar Pago
+                            </Text>
+                          </React.Fragment>
                         )}
-                      </View>
+                      </TouchableOpacity>
                     )}
 
                     {showRequestButton && (
