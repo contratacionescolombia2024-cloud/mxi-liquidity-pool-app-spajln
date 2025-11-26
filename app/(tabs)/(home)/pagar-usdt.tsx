@@ -56,6 +56,7 @@ export default function PagarUSDTScreen() {
   const [txHash, setTxHash] = useState('');
   const [loading, setLoading] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState('');
+  const [requestingManualVerification, setRequestingManualVerification] = useState(false);
 
   const copyAddress = async () => {
     try {
@@ -308,6 +309,184 @@ export default function PagarUSDTScreen() {
     }
   };
 
+  // 🆕 NEW: Request Manual Verification with Transaction Hash
+  const handleRequestManualVerification = async () => {
+    console.log('📝 [MANUAL] Iniciando solicitud de verificación manual...');
+    console.log('📝 [MANUAL] TxHash:', txHash);
+    console.log('📝 [MANUAL] Red seleccionada:', selectedNetwork);
+    console.log('📝 [MANUAL] Usuario ID:', user?.id);
+
+    if (!txHash.trim()) {
+      console.error('❌ [MANUAL] Error: Hash vacío');
+      Alert.alert('Error', 'Por favor ingresa el hash de la transacción');
+      return;
+    }
+
+    if (!txHash.startsWith('0x') || txHash.length !== 66) {
+      console.error('❌ [MANUAL] Error: Hash inválido - longitud:', txHash.length);
+      Alert.alert(
+        'Hash Inválido',
+        'El hash de transacción debe comenzar con 0x y tener 66 caracteres\n\nHash actual: ' + txHash.length + ' caracteres'
+      );
+      return;
+    }
+
+    const selectedNetworkData = NETWORKS.find(n => n.id === selectedNetwork);
+
+    Alert.alert(
+      '📋 Solicitar Verificación Manual',
+      `¿Deseas enviar una solicitud de verificación manual al administrador?\n\n` +
+      `Red: ${selectedNetworkData?.name} (${selectedNetworkData?.label})\n` +
+      `Hash: ${txHash.substring(0, 10)}...${txHash.substring(txHash.length - 8)}\n\n` +
+      `Un administrador revisará tu transacción y la aprobará manualmente. Este proceso puede tomar hasta 2 horas.`,
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Enviar Solicitud',
+          onPress: () => performManualVerificationRequest(),
+        },
+      ]
+    );
+  };
+
+  const performManualVerificationRequest = async () => {
+    const requestId = Date.now().toString().substring(-6);
+    console.log(`\n📝 [${requestId}] ========== INICIANDO SOLICITUD MANUAL ==========`);
+    console.log(`📝 [${requestId}] Timestamp:`, new Date().toISOString());
+    console.log(`📝 [${requestId}] TxHash:`, txHash);
+    console.log(`📝 [${requestId}] Red:`, selectedNetwork);
+    console.log(`📝 [${requestId}] Usuario:`, user?.id);
+
+    setRequestingManualVerification(true);
+
+    try {
+      // Check for duplicate hash first
+      console.log(`🔍 [${requestId}] Verificando hash duplicado...`);
+      const { data: existingPayments, error: duplicateError } = await supabase
+        .from('payments')
+        .select('id, order_id, user_id, estado, mxi')
+        .eq('tx_hash', txHash.trim())
+        .limit(1);
+
+      if (duplicateError) {
+        console.error(`❌ [${requestId}] Error verificando duplicados:`, duplicateError);
+        throw new Error('Error al verificar duplicados en la base de datos');
+      }
+
+      if (existingPayments && existingPayments.length > 0) {
+        const existingPayment = existingPayments[0];
+        console.error(`❌ [${requestId}] Hash duplicado encontrado:`, existingPayment);
+        
+        Alert.alert(
+          '⚠️ Hash Duplicado',
+          `Este hash de transacción ya ha sido registrado anteriormente.\n\n` +
+          `Orden: ${existingPayment.order_id}\n` +
+          `Estado: ${existingPayment.estado}\n\n` +
+          `No puedes usar el mismo hash de transacción dos veces.`,
+          [{ text: 'OK' }]
+        );
+        setRequestingManualVerification(false);
+        return;
+      }
+
+      console.log(`✅ [${requestId}] Hash no duplicado, creando solicitud...`);
+
+      // Create a payment record with the transaction hash
+      const orderId = `MXI-MANUAL-${Date.now()}`;
+      const selectedNetworkData = NETWORKS.find(n => n.id === selectedNetwork);
+
+      const { data: paymentData, error: paymentError } = await supabase
+        .from('payments')
+        .insert({
+          user_id: user?.id,
+          order_id: orderId,
+          tx_hash: txHash.trim(),
+          price_amount: 0, // Will be filled by admin
+          price_currency: 'usd',
+          pay_currency: selectedNetworkData?.label.toLowerCase() || 'eth',
+          mxi_amount: 0, // Will be calculated by admin
+          price_per_mxi: 0.40, // Current phase price
+          phase: 1, // Current phase
+          status: 'pending',
+          estado: 'pending',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (paymentError) {
+        console.error(`❌ [${requestId}] Error creando pago:`, paymentError);
+        throw paymentError;
+      }
+
+      console.log(`✅ [${requestId}] Pago creado:`, paymentData);
+
+      // Create manual verification request
+      const { data: verificationData, error: verificationError } = await supabase
+        .from('manual_verification_requests')
+        .insert({
+          payment_id: paymentData.id,
+          user_id: user?.id,
+          order_id: orderId,
+          status: 'pending',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (verificationError) {
+        console.error(`❌ [${requestId}] Error creando solicitud:`, verificationError);
+        throw verificationError;
+      }
+
+      console.log(`✅ [${requestId}] Solicitud creada:`, verificationData);
+      console.log(`✅ [${requestId}] ========== SOLICITUD MANUAL EXITOSA ==========`);
+
+      Alert.alert(
+        '✅ Solicitud Enviada',
+        `Tu solicitud de verificación manual ha sido enviada exitosamente.\n\n` +
+        `Orden: ${orderId}\n` +
+        `Red: ${selectedNetworkData?.name}\n` +
+        `Hash: ${txHash.substring(0, 10)}...${txHash.substring(txHash.length - 8)}\n\n` +
+        `Un administrador revisará tu transacción en las próximas 2 horas y la aprobará manualmente.\n\n` +
+        `Puedes ver el estado de tu solicitud en el historial de transacciones.`,
+        [
+          {
+            text: 'Ver Historial',
+            onPress: () => router.push('/(tabs)/(home)/payment-history'),
+          },
+          {
+            text: 'OK',
+            onPress: () => {
+              setTxHash('');
+              router.back();
+            },
+          },
+        ]
+      );
+    } catch (error: any) {
+      console.error(`❌ [${requestId}] ========== ERROR EN SOLICITUD MANUAL ==========`);
+      console.error(`❌ [${requestId}] Error:`, error);
+      console.error(`❌ [${requestId}] Error message:`, error.message);
+
+      Alert.alert(
+        '❌ Error',
+        `No se pudo enviar la solicitud de verificación manual.\n\n` +
+        `Detalles: ${error.message}\n\n` +
+        `Por favor intenta nuevamente o contacta a soporte.`,
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setRequestingManualVerification(false);
+      console.log(`🏁 [${requestId}] ========== SOLICITUD MANUAL FINALIZADA ==========\n`);
+    }
+  };
+
   const selectedNetworkData = NETWORKS.find(n => n.id === selectedNetwork);
 
   return (
@@ -511,7 +690,7 @@ export default function PagarUSDTScreen() {
             }}
             autoCapitalize="none"
             autoCorrect={false}
-            editable={!loading}
+            editable={!loading && !requestingManualVerification}
             multiline
             numberOfLines={3}
           />
@@ -525,14 +704,15 @@ export default function PagarUSDTScreen() {
           )}
         </View>
 
+        {/* Automatic Verification Button */}
         <TouchableOpacity
           style={[
             styles.verifyButton,
             { backgroundColor: selectedNetworkData?.color || colors.primary },
-            (loading || !txHash.trim()) && styles.verifyButtonDisabled
+            (loading || requestingManualVerification || !txHash.trim()) && styles.verifyButtonDisabled
           ]}
           onPress={handleVerifyPayment}
-          disabled={loading || !txHash.trim()}
+          disabled={loading || requestingManualVerification || !txHash.trim()}
         >
           {loading ? (
             <View style={styles.loadingContainer}>
@@ -550,7 +730,36 @@ export default function PagarUSDTScreen() {
                 color="#FFFFFF"
               />
               <Text style={styles.verifyButtonText}>
-                Verificar en {selectedNetworkData?.name}
+                Verificar Automáticamente
+              </Text>
+            </React.Fragment>
+          )}
+        </TouchableOpacity>
+
+        {/* 🆕 NEW: Manual Verification Request Button */}
+        <TouchableOpacity
+          style={[
+            styles.manualVerifyButton,
+            (loading || requestingManualVerification || !txHash.trim()) && styles.manualVerifyButtonDisabled
+          ]}
+          onPress={handleRequestManualVerification}
+          disabled={loading || requestingManualVerification || !txHash.trim()}
+        >
+          {requestingManualVerification ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator color="#FFFFFF" size="small" />
+              <Text style={styles.manualVerifyButtonText}>Enviando Solicitud...</Text>
+            </View>
+          ) : (
+            <React.Fragment>
+              <IconSymbol
+                ios_icon_name="person.fill.checkmark"
+                android_material_icon_name="admin_panel_settings"
+                size={24}
+                color="#FFFFFF"
+              />
+              <Text style={styles.manualVerifyButtonText}>
+                Solicitar Verificación Manual
               </Text>
             </React.Fragment>
           )}
@@ -585,6 +794,9 @@ export default function PagarUSDTScreen() {
             </Text>
             <Text style={styles.warningText}>
               • ⚠️ NO PUEDES USAR EL MISMO HASH DOS VECES - Sistema anti-duplicados activo
+            </Text>
+            <Text style={styles.warningText}>
+              • 📋 Si la verificación automática falla, usa la verificación manual
             </Text>
           </View>
         </View>
@@ -869,13 +1081,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
-    marginBottom: 16,
+    marginBottom: 12,
     minHeight: 56,
   },
   verifyButtonDisabled: {
     opacity: 0.5,
   },
   verifyButtonText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  manualVerifyButton: {
+    backgroundColor: '#FF9800',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 16,
+    minHeight: 56,
+    borderWidth: 2,
+    borderColor: '#FFB74D',
+  },
+  manualVerifyButtonDisabled: {
+    opacity: 0.5,
+  },
+  manualVerifyButtonText: {
     fontSize: 18,
     fontWeight: '700',
     color: '#FFFFFF',

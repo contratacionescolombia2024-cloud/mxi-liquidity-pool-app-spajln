@@ -215,6 +215,39 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
   },
+  totalMxiDeliveredCard: {
+    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(76, 175, 80, 0.4)',
+  },
+  totalMxiDeliveredHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  totalMxiDeliveredTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#4CAF50',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  totalMxiDeliveredValue: {
+    fontSize: 36,
+    fontWeight: '900',
+    color: '#4CAF50',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  totalMxiDeliveredSubtext: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
   poolCloseInfo: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -244,6 +277,7 @@ export default function HomeScreen() {
     overallProgress: 0,
     poolCloseDate: '2026-02-15T12:00:00Z',
   });
+  const [totalMxiDelivered, setTotalMxiDelivered] = useState(0);
 
   // Animated value for header
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -311,6 +345,21 @@ export default function HomeScreen() {
           overallProgress,
           poolCloseDate: metricsData.pool_close_date || '2026-02-15T12:00:00Z',
         });
+      }
+
+      // 🆕 Load total MXI delivered to ALL users
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('mxi_balance');
+
+      if (!usersError && usersData) {
+        const totalMxi = usersData.reduce((sum, user) => {
+          return sum + parseFloat(user.mxi_balance || '0');
+        }, 0);
+        console.log('📊 Total MXI delivered to all users:', totalMxi);
+        setTotalMxiDelivered(totalMxi);
+      } else {
+        console.error('❌ Error loading total MXI delivered:', usersError);
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -495,6 +544,30 @@ export default function HomeScreen() {
                   de 25,000,000 MXI
                 </Text>
               </View>
+            </View>
+
+            {/* 🆕 Total MXI Delivered to All Users */}
+            <View style={styles.totalMxiDeliveredCard}>
+              <View style={styles.totalMxiDeliveredHeader}>
+                <IconSymbol 
+                  ios_icon_name="chart.bar.fill" 
+                  android_material_icon_name="bar_chart" 
+                  size={24} 
+                  color="#4CAF50" 
+                />
+                <Text style={styles.totalMxiDeliveredTitle}>
+                  💰 Total MXI Entregados
+                </Text>
+              </View>
+              <Text style={styles.totalMxiDeliveredValue}>
+                {totalMxiDelivered.toLocaleString('es-ES', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </Text>
+              <Text style={styles.totalMxiDeliveredSubtext}>
+                MXI entregados a todos los usuarios del proyecto
+              </Text>
             </View>
 
             <View style={styles.poolCloseInfo}>
