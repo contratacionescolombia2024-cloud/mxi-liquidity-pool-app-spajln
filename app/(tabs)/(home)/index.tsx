@@ -263,6 +263,28 @@ const styles = StyleSheet.create({
   },
 });
 
+// Helper function to extract first name and first last name
+const getShortName = (fullName: string): string => {
+  if (!fullName) return '';
+  
+  // Split the name by spaces
+  const nameParts = fullName.trim().split(/\s+/);
+  
+  // If there's only one part, return it
+  if (nameParts.length === 1) {
+    return nameParts[0];
+  }
+  
+  // If there are two parts, return both (first name + last name)
+  if (nameParts.length === 2) {
+    return `${nameParts[0]} ${nameParts[1]}`;
+  }
+  
+  // If there are more than two parts, return first and last
+  // This handles cases like "Camilo Andress Lopez" -> "Camilo Lopez"
+  return `${nameParts[0]} ${nameParts[nameParts.length - 1]}`;
+};
+
 export default function HomeScreen() {
   const { user, loading, checkWithdrawalEligibility, getPhaseInfo } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
@@ -459,6 +481,9 @@ export default function HomeScreen() {
     );
   }
 
+  // Get the short version of the user's name (first name + first last name)
+  const shortName = getShortName(user.name);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Animated Header with Logo and User Name */}
@@ -480,7 +505,7 @@ export default function HomeScreen() {
           </View>
           <View style={styles.headerTextContainer}>
             <Text style={styles.greeting} numberOfLines={2}>
-              Hola, {user.name}
+              Hola, {shortName}
             </Text>
             <Text style={styles.userName}>Bienvenido a MXI Pool</Text>
           </View>
