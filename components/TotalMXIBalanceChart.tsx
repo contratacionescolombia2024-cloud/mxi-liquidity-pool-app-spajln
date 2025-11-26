@@ -474,9 +474,10 @@ export function TotalMXIBalanceChart() {
   const { change, percentage } = getChangeData();
   const isPositive = change >= 0;
 
+  // FIXED: Calculate the TOTAL MXI balance from ALL sources
   const currentTotal = balanceData.length > 0 
     ? balanceData[balanceData.length - 1].totalBalance 
-    : (user?.mxiBalance || 0) + currentVesting;
+    : (user?.mxiPurchasedDirectly || 0) + (user?.mxiFromUnifiedCommissions || 0) + (user?.mxiFromChallenges || 0) + currentVesting;
 
   const currentBreakdown = balanceData.length > 0
     ? balanceData[balanceData.length - 1]
@@ -492,7 +493,7 @@ export function TotalMXIBalanceChart() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.title}>📊 Balance MXI</Text>
+          <Text style={styles.title}>📊 Balance MXI Total</Text>
           <Text style={styles.subtitle}>Actualización en Tiempo Real</Text>
         </View>
         <View style={styles.headerRight}>
