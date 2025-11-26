@@ -310,51 +310,23 @@ export default function HomeScreen() {
         setPhaseInfo(info);
       }
 
-      // Load pool participants count and phase info
-      const { data: metricsData, error: metricsError } = await supabase
-        .from('metrics')
-        .select('*')
-        .single();
-
-      if (!metricsError && metricsData) {
-        // Calculate phase info
-        const phase1Allocation = 8333333;
-        const phase2Allocation = 8333333;
-        const phase3Allocation = 8333334;
-
-        const phase1Sold = parseFloat(metricsData.phase_1_tokens_sold || '0');
-        const phase2Sold = parseFloat(metricsData.phase_2_tokens_sold || '0');
-        const phase3Sold = parseFloat(metricsData.phase_3_tokens_sold || '0');
-
-        const phase1Remaining = phase1Allocation - phase1Sold;
-        const phase2Remaining = phase2Allocation - phase2Sold;
-        const phase3Remaining = phase3Allocation - phase3Sold;
-
-        const totalSold = phase1Sold + phase2Sold + phase3Sold;
-        const totalAllocation = 25000000;
-        const overallProgress = (totalSold / totalAllocation) * 100;
-
-        setPhaseInfo({
-          currentPhase: metricsData.current_phase || 1,
-          currentPriceUsdt: parseFloat(metricsData.current_price_usdt || '0.40'),
-          phase1: { sold: phase1Sold, remaining: phase1Remaining, allocation: phase1Allocation },
-          phase2: { sold: phase2Sold, remaining: phase2Remaining, allocation: phase2Allocation },
-          phase3: { sold: phase3Sold, remaining: phase3Remaining, allocation: phase3Allocation },
-          totalSold,
-          totalRemaining: totalAllocation - totalSold,
-          overallProgress,
-          poolCloseDate: metricsData.pool_close_date || '2026-02-15T12:00:00Z',
-        });
-      }
-
-      // 🆕 Load total MXI delivered to ALL users - SUM ALL MXI SOURCES
+      // 🔧 FIX: Calculate phase progress directly from users table
+      // This ensures the progress bar shows actual MXI purchased
       const { data: usersData, error: usersError } = await supabase
         .from('users')
         .select('mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges, mxi_vesting_locked');
 
       if (!usersError && usersData) {
-        // Calculate total MXI from ALL sources
-        const totalMxi = usersData.reduce((sum, user) => {
+        // Calculate total MXI purchased (this drives the phase progress)
+        const totalMxiPurchased = usersData.reduce((sum, user) => {
+          const purchased = parseFloat(user.mxi_purchased_directly || '0');
+          return sum + purchased;
+        }, 0);
+
+        console.log('📊 Total MXI purchased by all users:', totalMxiPurchased);
+
+        // Calculate total MXI from ALL sources (for the "Total MXI Entregados" card)
+        const totalMxiAllSources = usersData.reduce((sum, user) => {
           const purchased = parseFloat(user.mxi_purchased_directly || '0');
           const commissions = parseFloat(user.mxi_from_unified_commissions || '0');
           const challenges = parseFloat(user.mxi_from_challenges || '0');
@@ -363,10 +335,103 @@ export default function HomeScreen() {
           return sum + purchased + commissions + challenges + vesting;
         }, 0);
         
-        console.log('📊 Total MXI delivered to all users (all sources):', totalMxi);
-        setTotalMxiDelivered(totalMxi);
+        console.log('📊 Total MXI delivered to all users (all sources):', totalMxiAllSources);
+        setTotalMxiDelivered(totalMxiAllSources);
+
+        // Phase allocations
+        const phase1Allocation = 8333333;
+        const phase2Allocation = 8333333;
+        const phase3Allocation = 8333334;
+        const totalAllocation = 25000000;
+
+        // Phase prices
+        const phase1Price = 0.40;
+        const phase2Price = 0.70;
+        const phase3Price = 1.00;
+
+        // Calculate how many MXI were sold in each phase based on total purchased
+        // We need to distribute the purchased MXI across phases
+        let remainingMxi = totalMxiPurchased;
+        let phase1Sold = 0;
+        let phase2Sold = 0;
+        let phase3Sold = 0;
+        let currentPhase = 1;
+        let currentPrice = phase1Price;
+
+        // Phase 1
+        if (remainingMxi > 0) {
+          phase1Sold = Math.min(remainingMxi, phase1Allocation);
+          remainingMxi -= phase1Sold;
+        }
+
+        // Phase 2
+        if (remainingMxi > 0) {
+          phase2Sold = Math.min(remainingMxi, phase2Allocation);
+          remainingMxi -= phase2Sold;
+          currentPhase = 2;
+          currentPrice = phase2Price;
+        }
+
+        // Phase 3
+        if (remainingMxi > 0) {
+          phase3Sold = Math.min(remainingMxi, phase3Allocation);
+          remainingMxi -= phase3Sold;
+          currentPhase = 3;
+          currentPrice = phase3Price;
+        }
+
+        // If phase 1 is not complete, we're in phase 1
+        if (phase1Sold < phase1Allocation) {
+          currentPhase = 1;
+          currentPrice = phase1Price;
+        }
+        // If phase 1 is complete but phase 2 is not, we're in phase 2
+        else if (phase2Sold < phase2Allocation) {
+          currentPhase = 2;
+          currentPrice = phase2Price;
+        }
+        // Otherwise we're in phase 3
+        else {
+          currentPhase = 3;
+          currentPrice = phase3Price;
+        }
+
+        const phase1Remaining = phase1Allocation - phase1Sold;
+        const phase2Remaining = phase2Allocation - phase2Sold;
+        const phase3Remaining = phase3Allocation - phase3Sold;
+
+        const totalSold = phase1Sold + phase2Sold + phase3Sold;
+        const overallProgress = (totalSold / totalAllocation) * 100;
+
+        console.log('📊 Phase breakdown:', {
+          phase1Sold,
+          phase2Sold,
+          phase3Sold,
+          totalSold,
+          overallProgress: overallProgress.toFixed(2) + '%',
+          currentPhase,
+          currentPrice,
+        });
+
+        // Get pool close date from metrics
+        const { data: metricsData } = await supabase
+          .from('metrics')
+          .select('pool_close_date')
+          .single();
+
+        setPhaseInfo({
+          currentPhase,
+          currentPriceUsdt: currentPrice,
+          phase1: { sold: phase1Sold, remaining: phase1Remaining, allocation: phase1Allocation },
+          phase2: { sold: phase2Sold, remaining: phase2Remaining, allocation: phase2Allocation },
+          phase3: { sold: phase3Sold, remaining: phase3Remaining, allocation: phase3Allocation },
+          totalSold,
+          totalRemaining: totalAllocation - totalSold,
+          overallProgress,
+          poolCloseDate: metricsData?.pool_close_date || '2026-02-15T12:00:00Z',
+        });
       } else {
-        console.error('❌ Error loading total MXI delivered:', usersError);
+        console.error('❌ Error loading users data:', usersError);
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -460,17 +525,17 @@ export default function HomeScreen() {
                     style={[
                       styles.phaseProgressFill, 
                       { 
-                        width: `${((phaseInfo.phase1.sold || 0) / (phaseInfo.phase1.allocation || 1)) * 100}%`
+                        width: `${Math.min(((phaseInfo.phase1.sold || 0) / (phaseInfo.phase1.allocation || 1)) * 100, 100)}%`
                       }
                     ]} 
                   />
                 </View>
                 <View style={styles.phaseStats}>
                   <Text style={styles.phaseValue}>
-                    Vendidos: {(phaseInfo.phase1.sold || 0).toLocaleString('es-ES')}
+                    Vendidos: {(phaseInfo.phase1.sold || 0).toLocaleString('es-ES', { maximumFractionDigits: 2 })}
                   </Text>
                   <Text style={styles.phaseValue}>
-                    Restantes: {(phaseInfo.phase1.remaining || 8333333).toLocaleString('es-ES')}
+                    Restantes: {(phaseInfo.phase1.remaining || 8333333).toLocaleString('es-ES', { maximumFractionDigits: 0 })}
                   </Text>
                 </View>
               </View>
@@ -486,17 +551,17 @@ export default function HomeScreen() {
                     style={[
                       styles.phaseProgressFill, 
                       { 
-                        width: `${((phaseInfo.phase2.sold || 0) / (phaseInfo.phase2.allocation || 1)) * 100}%`
+                        width: `${Math.min(((phaseInfo.phase2.sold || 0) / (phaseInfo.phase2.allocation || 1)) * 100, 100)}%`
                       }
                     ]} 
                   />
                 </View>
                 <View style={styles.phaseStats}>
                   <Text style={styles.phaseValue}>
-                    Vendidos: {(phaseInfo.phase2.sold || 0).toLocaleString('es-ES')}
+                    Vendidos: {(phaseInfo.phase2.sold || 0).toLocaleString('es-ES', { maximumFractionDigits: 2 })}
                   </Text>
                   <Text style={styles.phaseValue}>
-                    Restantes: {(phaseInfo.phase2.remaining || 8333333).toLocaleString('es-ES')}
+                    Restantes: {(phaseInfo.phase2.remaining || 8333333).toLocaleString('es-ES', { maximumFractionDigits: 0 })}
                   </Text>
                 </View>
               </View>
@@ -512,17 +577,17 @@ export default function HomeScreen() {
                     style={[
                       styles.phaseProgressFill, 
                       { 
-                        width: `${((phaseInfo.phase3.sold || 0) / (phaseInfo.phase3.allocation || 1)) * 100}%`
+                        width: `${Math.min(((phaseInfo.phase3.sold || 0) / (phaseInfo.phase3.allocation || 1)) * 100, 100)}%`
                       }
                     ]} 
                   />
                 </View>
                 <View style={styles.phaseStats}>
                   <Text style={styles.phaseValue}>
-                    Vendidos: {(phaseInfo.phase3.sold || 0).toLocaleString('es-ES')}
+                    Vendidos: {(phaseInfo.phase3.sold || 0).toLocaleString('es-ES', { maximumFractionDigits: 2 })}
                   </Text>
                   <Text style={styles.phaseValue}>
-                    Restantes: {(phaseInfo.phase3.remaining || 8333334).toLocaleString('es-ES')}
+                    Restantes: {(phaseInfo.phase3.remaining || 8333334).toLocaleString('es-ES', { maximumFractionDigits: 0 })}
                   </Text>
                 </View>
               </View>
@@ -535,17 +600,19 @@ export default function HomeScreen() {
                 <View 
                   style={[
                     styles.progressBar, 
-                    { width: `${Math.min(phaseInfo.overallProgress || 0, 100)}%` }
+                    { width: `${Math.max(Math.min(phaseInfo.overallProgress || 0, 100), 0.5)}%` }
                   ]}
                 >
-                  <Text style={styles.progressBarText}>
-                    {(phaseInfo.overallProgress || 0).toFixed(1)}%
-                  </Text>
+                  {(phaseInfo.overallProgress || 0) > 0 && (
+                    <Text style={styles.progressBarText}>
+                      {(phaseInfo.overallProgress || 0).toFixed(2)}%
+                    </Text>
+                  )}
                 </View>
               </View>
               <View style={styles.progressStats}>
                 <Text style={styles.progressText}>
-                  {(phaseInfo.totalSold || 0).toLocaleString('es-ES')} MXI
+                  {(phaseInfo.totalSold || 0).toLocaleString('es-ES', { maximumFractionDigits: 2 })} MXI
                 </Text>
                 <Text style={styles.progressSubtext}>
                   de 25,000,000 MXI
