@@ -492,8 +492,8 @@ export function TotalMXIBalanceChart() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.title}>📊 Balance Total MXI</Text>
-          <Text style={styles.subtitle}>Crecimiento de Cartera en Tiempo Real</Text>
+          <Text style={styles.title}>📊 Balance MXI</Text>
+          <Text style={styles.subtitle}>Actualización en Tiempo Real</Text>
         </View>
         <View style={styles.headerRight}>
           <Text style={styles.currentValue}>
@@ -669,13 +669,13 @@ export function TotalMXIBalanceChart() {
             </Text>
           </View>
 
-          {/* MXI Vesting */}
+          {/* MXI Vesting - Real-time updates */}
           <View style={styles.breakdownCard}>
             <View style={styles.breakdownHeader}>
               <View style={[styles.breakdownIcon, { backgroundColor: '#6366F120' }]}>
                 <Text style={{ fontSize: 20 }}>🔒</Text>
               </View>
-              <Text style={styles.breakdownLabel}>MXI Vesting</Text>
+              <Text style={styles.breakdownLabel}>Vesting (Tiempo Real)</Text>
             </View>
             <Text style={styles.breakdownValue}>
               {currentBreakdown.mxiVesting.toLocaleString('es-ES', {
@@ -697,6 +697,10 @@ export function TotalMXIBalanceChart() {
             <Text style={styles.breakdownPercentage}>
               {currentTotal > 0 ? ((currentBreakdown.mxiVesting / currentTotal) * 100).toFixed(1) : '0.0'}%
             </Text>
+            <View style={styles.liveIndicator}>
+              <View style={styles.liveDot} />
+              <Text style={styles.liveText}>Actualizando cada segundo</Text>
+            </View>
           </View>
         </View>
       </View>
@@ -930,5 +934,35 @@ const styles = StyleSheet.create({
     color: '#ffdd00',
     textAlign: 'right',
     fontWeight: '700',
+  },
+  liveIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    backgroundColor: 'rgba(0, 255, 136, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 136, 0.3)',
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#00ff88',
+    shadowColor: '#00ff88',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  liveText: {
+    fontSize: 9,
+    color: '#00ff88',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 });

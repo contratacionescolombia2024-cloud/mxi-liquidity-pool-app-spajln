@@ -31,35 +31,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 48,
     paddingBottom: 20,
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
   },
   logoContainer: {
-    position: 'absolute',
-    top: 52,
-    left: 16,
-    zIndex: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    borderRadius: 12,
-    padding: 8,
-    borderWidth: 2,
-    borderColor: colors.primary,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    overflow: 'hidden',
+    backgroundColor: 'transparent',
   },
   logo: {
-    width: 50,
-    height: 50,
-    resizeMode: 'contain',
+    width: 60,
+    height: 60,
+    resizeMode: 'cover',
+  },
+  headerTextContainer: {
+    flex: 1,
   },
   greeting: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
     color: colors.text,
-    marginBottom: 8,
-    textAlign: 'center',
   },
-  subtitle: {
-    fontSize: 16,
+  userName: {
+    fontSize: 14,
     color: colors.textSecondary,
-    textAlign: 'center',
+    marginTop: 2,
   },
   content: {
     flex: 1,
@@ -443,16 +442,18 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Logo positioned absolutely in top LEFT corner with better visibility */}
-      <View style={styles.logoContainer}>
-        <Image
-          source={require('@/assets/images/904cc327-48f3-4ea1-90a4-6fd4d39a1c11.jpeg')}
-          style={styles.logo}
-        />
-      </View>
-
+      {/* Header with Logo and User Name */}
       <View style={styles.header}>
-        <Text style={styles.greeting}>Hola, {user.name}</Text>
+        <View style={styles.logoContainer}>
+          <Image
+            source={require('@/assets/images/904cc327-48f3-4ea1-90a4-6fd4d39a1c11.jpeg')}
+            style={styles.logo}
+          />
+        </View>
+        <View style={styles.headerTextContainer}>
+          <Text style={styles.greeting}>Hola, {user.name}</Text>
+          <Text style={styles.userName}>Bienvenido a MXI Pool</Text>
+        </View>
       </View>
 
       <ScrollView
@@ -768,7 +769,7 @@ export default function HomeScreen() {
         {/* Yield Display */}
         <YieldDisplay />
 
-        {/* Universal MXI Counter - Shows vesting from purchased MXI only */}
+        {/* Universal MXI Counter - Shows vesting from purchased MXI only with real-time updates */}
         <UniversalMXICounter />
 
         {/* Footer */}
