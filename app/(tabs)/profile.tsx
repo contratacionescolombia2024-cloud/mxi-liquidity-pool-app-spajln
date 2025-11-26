@@ -14,7 +14,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, commonStyles } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
-import { supabase } from '@/lib/supabase';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -22,9 +21,6 @@ export default function ProfileScreen() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingAdmin, setCheckingAdmin] = useState(true);
-  const [commissions, setCommissions] = useState({ available: 0, total: 0 });
-  const [phaseInfo, setPhaseInfo] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -36,73 +32,6 @@ export default function ProfileScreen() {
     };
     checkAdmin();
   }, [user]);
-
-  useEffect(() => {
-    if (user) {
-      loadData();
-    }
-  }, [user]);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      
-      // Load commissions data
-      const { data: commissionsData, error: commissionsError } = await supabase
-        .from('commissions')
-        .select('amount, status')
-        .eq('user_id', user?.id);
-
-      if (!commissionsError && commissionsData) {
-        const available = commissionsData
-          .filter(c => c.status === 'available')
-          .reduce((sum, c) => sum + parseFloat(c.amount), 0);
-        const total = commissionsData.reduce((sum, c) => sum + parseFloat(c.amount), 0);
-        setCommissions({ available, total });
-      }
-
-      // Load phase info
-      const { data: metricsData, error: metricsError } = await supabase
-        .from('metrics')
-        .select('*')
-        .single();
-
-      if (!metricsError && metricsData) {
-        const phase1Allocation = 8333333;
-        const phase2Allocation = 8333333;
-        const phase3Allocation = 8333334;
-
-        const phase1Sold = parseFloat(metricsData.phase_1_tokens_sold || '0');
-        const phase2Sold = parseFloat(metricsData.phase_2_tokens_sold || '0');
-        const phase3Sold = parseFloat(metricsData.phase_3_tokens_sold || '0');
-
-        const phase1Remaining = phase1Allocation - phase1Sold;
-        const phase2Remaining = phase2Allocation - phase2Sold;
-        const phase3Remaining = phase3Allocation - phase3Sold;
-
-        const totalSold = phase1Sold + phase2Sold + phase3Sold;
-        const totalAllocation = 25000000;
-        const overallProgress = (totalSold / totalAllocation) * 100;
-
-        setPhaseInfo({
-          currentPhase: metricsData.current_phase,
-          currentPriceUsdt: parseFloat(metricsData.current_price_usdt),
-          phase1: { sold: phase1Sold, remaining: phase1Remaining, allocation: phase1Allocation },
-          phase2: { sold: phase2Sold, remaining: phase2Remaining, allocation: phase2Allocation },
-          phase3: { sold: phase3Sold, remaining: phase3Remaining, allocation: phase3Allocation },
-          totalSold,
-          totalRemaining: totalAllocation - totalSold,
-          overallProgress,
-          poolCloseDate: metricsData.pool_close_date,
-        });
-      }
-
-      setLoading(false);
-    } catch (error) {
-      console.error('Error loading data:', error);
-      setLoading(false);
-    }
-  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -123,7 +52,7 @@ export default function ProfileScreen() {
     );
   };
 
-  if (!user || loading) {
+  if (!user) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
@@ -248,141 +177,6 @@ export default function ProfileScreen() {
             </View>
           </View>
         </View>
-
-        {/* Commissions and Referrals Card */}
-        <View style={[commonStyles.card, styles.commissionsCard]}>
-          <Text style={styles.cardTitle}>Comisiones y Referidos</Text>
-          <View style={styles.commissionsGrid}>
-            <View style={styles.commissionItem}>
-              <IconSymbol 
-                ios_icon_name="dollarsign.circle.fill" 
-                android_material_icon_name="attach_money" 
-                size={32} 
-                color={colors.success} 
-              />
-              <Text style={styles.commissionValue}>
-                ${commissions.available.toFixed(2)}
-              </Text>
-              <Text style={styles.commissionLabel}>Disponibles</Text>
-            </View>
-            <View style={styles.commissionItem}>
-              <IconSymbol 
-                ios_icon_name="chart.bar.fill" 
-                android_material_icon_name="bar_chart" 
-                size={32} 
-                color={colors.primary} 
-              />
-              <Text style={styles.commissionValue}>
-                ${commissions.total.toFixed(2)}
-              </Text>
-              <Text style={styles.commissionLabel}>Total Comisiones</Text>
-            </View>
-            <View style={styles.commissionItem}>
-              <IconSymbol 
-                ios_icon_name="person.3.fill" 
-                android_material_icon_name="group" 
-                size={32} 
-                color={colors.accent} 
-              />
-              <Text style={styles.commissionValue}>
-                {user.activeReferrals}
-              </Text>
-              <Text style={styles.commissionLabel}>Referidos Activos</Text>
-            </View>
-            <View style={styles.commissionItem}>
-              <IconSymbol 
-                ios_icon_name="banknote.fill" 
-                android_material_icon_name="payments" 
-                size={32} 
-                color={colors.warning} 
-              />
-              <Text style={styles.commissionValue}>
-                ${user.usdtContributed.toFixed(2)}
-              </Text>
-              <Text style={styles.commissionLabel}>USDT Contribuido</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Phases and Progress Card */}
-        {phaseInfo && (
-          <View style={[commonStyles.card, styles.phasesCard]}>
-            <Text style={styles.cardTitle}>Fases y Progreso</Text>
-            
-            <View style={styles.currentPhaseInfo}>
-              <Text style={styles.currentPhaseLabel}>Fase Actual: {phaseInfo.currentPhase}</Text>
-              <Text style={styles.currentPhasePrice}>
-                ${phaseInfo.currentPriceUsdt.toFixed(2)} USDT por MXI
-              </Text>
-            </View>
-
-            <View style={styles.phasesList}>
-              <View style={styles.phaseItem}>
-                <Text style={styles.phaseLabel}>Fase 1 (0.40 USDT)</Text>
-                <Text style={styles.phaseValue}>
-                  Vendidos: {phaseInfo.phase1.sold.toLocaleString()} MXI
-                </Text>
-                <Text style={styles.phaseValue}>
-                  Restantes: {phaseInfo.phase1.remaining.toLocaleString()} MXI
-                </Text>
-              </View>
-              <View style={styles.phaseItem}>
-                <Text style={styles.phaseLabel}>Fase 2 (0.70 USDT)</Text>
-                <Text style={styles.phaseValue}>
-                  Vendidos: {phaseInfo.phase2.sold.toLocaleString()} MXI
-                </Text>
-                <Text style={styles.phaseValue}>
-                  Restantes: {phaseInfo.phase2.remaining.toLocaleString()} MXI
-                </Text>
-              </View>
-              <View style={styles.phaseItem}>
-                <Text style={styles.phaseLabel}>Fase 3 (1.00 USDT)</Text>
-                <Text style={styles.phaseValue}>
-                  Vendidos: {phaseInfo.phase3.sold.toLocaleString()} MXI
-                </Text>
-                <Text style={styles.phaseValue}>
-                  Restantes: {phaseInfo.phase3.remaining.toLocaleString()} MXI
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.overallProgress}>
-              <Text style={styles.overallProgressLabel}>Progreso General</Text>
-              <View style={styles.progressBar}>
-                <View 
-                  style={[
-                    styles.progressFill, 
-                    { width: `${Math.min(phaseInfo.overallProgress, 100)}%` }
-                  ]} 
-                />
-              </View>
-              <Text style={styles.progressText}>
-                {phaseInfo.overallProgress.toFixed(2)}% - {phaseInfo.totalSold.toLocaleString()} / 25,000,000 MXI
-              </Text>
-              <Text style={styles.progressSubtext}>
-                Saldo Restante: {phaseInfo.totalRemaining.toLocaleString()} MXI
-              </Text>
-            </View>
-
-            <View style={styles.poolCloseInfo}>
-              <IconSymbol 
-                ios_icon_name="clock.fill" 
-                android_material_icon_name="schedule" 
-                size={20} 
-                color={colors.textSecondary} 
-              />
-              <Text style={styles.poolCloseText}>
-                Cierre del Pool: {new Date(phaseInfo.poolCloseDate).toLocaleDateString('es-ES', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </Text>
-            </View>
-          </View>
-        )}
 
         {/* Admin Panel Access */}
         {!checkingAdmin && isAdmin && (
@@ -568,115 +362,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
-  },
-  commissionsCard: {
-    marginBottom: 16,
-  },
-  commissionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-  },
-  commissionItem: {
-    flex: 1,
-    minWidth: '45%',
-    alignItems: 'center',
-    gap: 8,
-  },
-  commissionValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  commissionLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  phasesCard: {
-    marginBottom: 16,
-  },
-  currentPhaseInfo: {
-    backgroundColor: colors.primary + '20',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    alignItems: 'center',
-  },
-  currentPhaseLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  currentPhasePrice: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: colors.primary,
-  },
-  phasesList: {
-    gap: 12,
-    marginBottom: 16,
-  },
-  phaseItem: {
-    backgroundColor: colors.card,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  phaseLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  phaseValue: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  overallProgress: {
-    marginBottom: 16,
-  },
-  overallProgressLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  progressBar: {
-    height: 12,
-    backgroundColor: colors.border,
-    borderRadius: 6,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: colors.success,
-  },
-  progressText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  progressSubtext: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  poolCloseInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  poolCloseText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    flex: 1,
   },
   adminCard: {
     marginBottom: 24,
