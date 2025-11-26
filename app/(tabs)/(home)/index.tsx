@@ -317,15 +317,8 @@ export default function HomeScreen() {
         .select('mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges, mxi_vesting_locked');
 
       if (!usersError && usersData) {
-        // Calculate total MXI purchased (this drives the phase progress)
-        const totalMxiPurchased = usersData.reduce((sum, user) => {
-          const purchased = parseFloat(user.mxi_purchased_directly || '0');
-          return sum + purchased;
-        }, 0);
-
-        console.log('📊 Total MXI purchased by all users:', totalMxiPurchased);
-
-        // Calculate total MXI from ALL sources (for the "Total MXI Entregados" card)
+        // ✅ FIXED: Calculate total MXI from ALL sources (purchased + commissions + challenges + vesting)
+        // This is what drives the "Progreso General" bar
         const totalMxiAllSources = usersData.reduce((sum, user) => {
           const purchased = parseFloat(user.mxi_purchased_directly || '0');
           const commissions = parseFloat(user.mxi_from_unified_commissions || '0');
@@ -337,6 +330,14 @@ export default function HomeScreen() {
         
         console.log('📊 Total MXI delivered to all users (all sources):', totalMxiAllSources);
         setTotalMxiDelivered(totalMxiAllSources);
+
+        // Calculate total MXI purchased (for phase breakdown)
+        const totalMxiPurchased = usersData.reduce((sum, user) => {
+          const purchased = parseFloat(user.mxi_purchased_directly || '0');
+          return sum + purchased;
+        }, 0);
+
+        console.log('📊 Total MXI purchased by all users:', totalMxiPurchased);
 
         // Phase allocations
         const phase1Allocation = 8333333;
@@ -401,13 +402,17 @@ export default function HomeScreen() {
         const phase3Remaining = phase3Allocation - phase3Sold;
 
         const totalSold = phase1Sold + phase2Sold + phase3Sold;
-        const overallProgress = (totalSold / totalAllocation) * 100;
+        
+        // ✅ FIXED: Calculate overall progress based on ALL MXI sources (not just purchased)
+        // This ensures the "Progreso General" bar reflects the corrected sum
+        const overallProgress = (totalMxiAllSources / totalAllocation) * 100;
 
         console.log('📊 Phase breakdown:', {
           phase1Sold,
           phase2Sold,
           phase3Sold,
           totalSold,
+          totalMxiAllSources,
           overallProgress: overallProgress.toFixed(2) + '%',
           currentPhase,
           currentPrice,
@@ -425,9 +430,9 @@ export default function HomeScreen() {
           phase1: { sold: phase1Sold, remaining: phase1Remaining, allocation: phase1Allocation },
           phase2: { sold: phase2Sold, remaining: phase2Remaining, allocation: phase2Allocation },
           phase3: { sold: phase3Sold, remaining: phase3Remaining, allocation: phase3Allocation },
-          totalSold,
-          totalRemaining: totalAllocation - totalSold,
-          overallProgress,
+          totalSold: totalMxiAllSources, // ✅ FIXED: Use total from all sources
+          totalRemaining: totalAllocation - totalMxiAllSources, // ✅ FIXED: Calculate remaining based on all sources
+          overallProgress, // ✅ FIXED: Progress now reflects all MXI sources
           poolCloseDate: metricsData?.pool_close_date || '2026-02-15T12:00:00Z',
         });
       } else {
@@ -593,7 +598,7 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            {/* Overall Progress with Professional Bar Graph */}
+            {/* Overall Progress with Professional Bar Graph - NOW REFLECTS ALL MXI SOURCES */}
             <View style={styles.overallProgress}>
               <Text style={styles.overallProgressLabel}>📈 Progreso General</Text>
               <View style={styles.progressBarContainer}>
