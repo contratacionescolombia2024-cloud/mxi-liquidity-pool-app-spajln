@@ -31,7 +31,7 @@ interface BalanceBreakdown {
 export default function RetirosScreen() {
   const router = useRouter();
   const { user, checkWithdrawalEligibility, checkMXIWithdrawalEligibility } = useAuth();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start with loading true
   const [refreshing, setRefreshing] = useState(false);
   const [withdrawalType, setWithdrawalType] = useState<WithdrawalType>('commissions');
   const [amount, setAmount] = useState('');
@@ -86,8 +86,10 @@ export default function RetirosScreen() {
   }, [user, balanceBreakdown.mxiPurchased]);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (user) {
+      loadData();
+    }
+  }, [user]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -96,11 +98,16 @@ export default function RetirosScreen() {
   };
 
   const loadData = async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
 
     try {
+      console.log('🔄 Loading balance data for user:', user.id);
+
       const commissionEligible = await checkWithdrawalEligibility();
       setCanWithdrawCommission(commissionEligible);
 
@@ -109,13 +116,17 @@ export default function RetirosScreen() {
 
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges, mxi_vesting_locked, active_referrals')
+        .select('mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges, mxi_vesting_locked, accumulated_yield, active_referrals, last_yield_update')
         .eq('id', user.id)
         .single();
 
       if (userError) {
-        console.error('Error loading user data:', userError);
+        console.error('❌ Error loading user data:', userError);
+        setLoading(false);
+        return;
       }
+
+      console.log('✅ User data loaded:', userData);
 
       // Load USDT commissions from commissions table
       const { data: commissionsData, error: commissionsError } = await supabase
@@ -136,7 +147,7 @@ export default function RetirosScreen() {
         .single();
 
       if (poolError) {
-        console.error('Error loading pool data:', poolError);
+        console.error('❌ Error loading pool data:', poolError);
       }
 
       const mxiLaunchDate = poolData?.mxi_launch_date ? new Date(poolData.mxi_launch_date) : null;
@@ -144,24 +155,47 @@ export default function RetirosScreen() {
 
       setPoolStatus({ isLaunched, mxiLaunchDate });
 
-      setBalanceBreakdown({
-        mxiPurchased: parseFloat(userData?.mxi_purchased_directly || '0'),
-        mxiCommissions: parseFloat(userData?.mxi_from_unified_commissions || '0'),
-        mxiTournaments: parseFloat(userData?.mxi_from_challenges || '0'),
-        mxiVesting: parseFloat(userData?.mxi_vesting_locked || '0'),
-        commissionsUSDT: commissionsUSDT,
-      });
+      // Parse the balance data - ensure we convert strings to numbers
+      const mxiPurchased = parseFloat(userData?.mxi_purchased_directly || '0');
+      const mxiCommissions = parseFloat(userData?.mxi_from_unified_commissions || '0');
+      const mxiTournaments = parseFloat(userData?.mxi_from_challenges || '0');
+      const accumulatedYield = parseFloat(userData?.accumulated_yield || '0');
 
-      console.log('Balance breakdown loaded:', {
-        mxiPurchased: userData?.mxi_purchased_directly,
-        mxiCommissions: userData?.mxi_from_unified_commissions,
-        mxiTournaments: userData?.mxi_from_challenges,
-        mxiVesting: userData?.mxi_vesting_locked,
-        commissionsUSDT: commissionsUSDT,
+      // Calculate real-time vesting
+      const MONTHLY_YIELD_PERCENTAGE = 0.03;
+      const SECONDS_IN_MONTH = 2592000;
+      const maxMonthlyYield = mxiPurchased * MONTHLY_YIELD_PERCENTAGE;
+      const yieldPerSecond = mxiPurchased > 0 ? maxMonthlyYield / SECONDS_IN_MONTH : 0;
+      
+      const now = Date.now();
+      const lastUpdate = new Date(userData?.last_yield_update || new Date());
+      const secondsElapsed = (now - lastUpdate.getTime()) / 1000;
+      const sessionYield = yieldPerSecond * secondsElapsed;
+      const totalYield = accumulatedYield + sessionYield;
+      const cappedTotalYield = Math.min(totalYield, maxMonthlyYield);
+
+      const breakdown = {
+        mxiPurchased,
+        mxiCommissions,
+        mxiTournaments,
+        mxiVesting: cappedTotalYield,
+        commissionsUSDT,
+      };
+
+      setBalanceBreakdown(breakdown);
+      setCurrentVesting(cappedTotalYield);
+
+      console.log('💰 Balance breakdown loaded:', {
+        mxiPurchased: breakdown.mxiPurchased,
+        mxiCommissions: breakdown.mxiCommissions,
+        mxiTournaments: breakdown.mxiTournaments,
+        mxiVesting: breakdown.mxiVesting,
+        commissionsUSDT: breakdown.commissionsUSDT,
+        total: breakdown.mxiPurchased + breakdown.mxiCommissions + breakdown.mxiTournaments + breakdown.mxiVesting,
         activeReferrals: userData?.active_referrals,
       });
     } catch (error) {
-      console.error('Error in loadData:', error);
+      console.error('❌ Error in loadData:', error);
     } finally {
       setLoading(false);
     }
@@ -353,11 +387,13 @@ export default function RetirosScreen() {
   const amountNum = parseFloat(amount) || 0;
   const usdtEquivalent = amountNum * 0.4;
 
+  // Show loading state while data is being fetched
   if (loading && !user) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Cargando datos...</Text>
         </View>
       </SafeAreaView>
     );
@@ -392,6 +428,14 @@ export default function RetirosScreen() {
           />
         }
       >
+        {/* Loading indicator while fetching data */}
+        {loading && (
+          <View style={styles.loadingBanner}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={styles.loadingBannerText}>Actualizando balances...</Text>
+          </View>
+        )}
+
         {/* MXI Disponibles - Total Balance Overview */}
         <View style={[commonStyles.card, styles.balanceCard]}>
           <Text style={styles.sectionTitle}>💰 MXI Disponibles</Text>
@@ -693,6 +737,27 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  loadingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.primary + '20',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.primary + '40',
+  },
+  loadingBannerText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '600',
   },
   header: {
     flexDirection: 'row',
