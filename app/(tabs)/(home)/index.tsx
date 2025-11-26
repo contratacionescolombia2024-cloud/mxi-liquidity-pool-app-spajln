@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Alert,
   Image,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -22,10 +23,23 @@ import { TotalMXIBalanceChart } from '@/components/TotalMXIBalanceChart';
 import Footer from '@/components/Footer';
 import { supabase } from '@/lib/supabase';
 
+const HEADER_MAX_HEIGHT = 100;
+const HEADER_MIN_HEIGHT = 0;
+const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000000',
+  },
+  headerContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#000000',
+    zIndex: 1000,
+    overflow: 'hidden',
   },
   header: {
     paddingHorizontal: 20,
@@ -59,6 +73,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+  scrollContent: {
+    paddingTop: HEADER_MAX_HEIGHT,
   },
   content: {
     flex: 1,
@@ -355,6 +372,23 @@ export default function HomeScreen() {
   });
   const [commissions, setCommissions] = useState({ available: 0, total: 0 });
 
+  // Animated value for header
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  // Calculate header height based on scroll position
+  const headerHeight = scrollY.interpolate({
+    inputRange: [0, HEADER_SCROLL_DISTANCE],
+    outputRange: [HEADER_MAX_HEIGHT, HEADER_MIN_HEIGHT],
+    extrapolate: 'clamp',
+  });
+
+  // Calculate header opacity based on scroll position
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, HEADER_SCROLL_DISTANCE / 2, HEADER_SCROLL_DISTANCE],
+    outputRange: [1, 0.5, 0],
+    extrapolate: 'clamp',
+  });
+
   useEffect(() => {
     if (user) {
       loadData();
@@ -442,23 +476,39 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header with Logo and User Name */}
-      <View style={styles.header}>
-        <View style={styles.logoContainer}>
-          <Image
-            source={require('@/assets/images/904cc327-48f3-4ea1-90a4-6fd4d39a1c11.jpeg')}
-            style={styles.logo}
-          />
+      {/* Animated Header with Logo and User Name */}
+      <Animated.View 
+        style={[
+          styles.headerContainer, 
+          { 
+            height: headerHeight,
+            opacity: headerOpacity,
+          }
+        ]}
+      >
+        <View style={styles.header}>
+          <View style={styles.logoContainer}>
+            <Image
+              source={require('@/assets/images/904cc327-48f3-4ea1-90a4-6fd4d39a1c11.jpeg')}
+              style={styles.logo}
+            />
+          </View>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.greeting}>Hola, {user.name}</Text>
+            <Text style={styles.userName}>Bienvenido a MXI Pool</Text>
+          </View>
         </View>
-        <View style={styles.headerTextContainer}>
-          <Text style={styles.greeting}>Hola, {user.name}</Text>
-          <Text style={styles.userName}>Bienvenido a MXI Pool</Text>
-        </View>
-      </View>
+      </Animated.View>
 
-      <ScrollView
+      <Animated.ScrollView
         style={styles.content}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
@@ -777,7 +827,7 @@ export default function HomeScreen() {
 
         {/* Extra padding at bottom to avoid tab bar */}
         <View style={{ height: 120 }} />
-      </ScrollView>
+      </Animated.ScrollView>
     </SafeAreaView>
   );
 }
