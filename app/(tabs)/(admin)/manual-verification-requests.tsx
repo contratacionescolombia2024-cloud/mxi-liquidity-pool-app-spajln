@@ -9,6 +9,8 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  TextInput,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -150,6 +152,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
+  moreInfoButton: {
+    flex: 1,
+    backgroundColor: '#FF9800',
+    borderRadius: 8,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
   buttonText: {
     fontSize: 14,
     fontWeight: '600',
@@ -197,6 +209,102 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: '#000000',
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 500,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 16,
+  },
+  modalInput: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    color: colors.text,
+    minHeight: 100,
+    textAlignVertical: 'top',
+    marginBottom: 16,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalButtonCancel: {
+    backgroundColor: colors.border,
+  },
+  modalButtonSubmit: {
+    backgroundColor: colors.primary,
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalButtonTextCancel: {
+    color: colors.text,
+  },
+  modalButtonTextSubmit: {
+    color: '#000000',
+  },
+  userResponseBox: {
+    backgroundColor: '#2196F3' + '20',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#2196F3',
+  },
+  userResponseLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#2196F3',
+    marginBottom: 4,
+  },
+  userResponseText: {
+    fontSize: 13,
+    color: colors.text,
+    lineHeight: 18,
+  },
+  adminRequestBox: {
+    backgroundColor: '#FF9800' + '20',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#FF9800',
+  },
+  adminRequestLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FF9800',
+    marginBottom: 4,
+  },
+  adminRequestText: {
+    fontSize: 13,
+    color: colors.text,
+    lineHeight: 18,
+  },
 });
 
 export default function ManualVerificationRequestsScreen() {
@@ -207,6 +315,11 @@ export default function ManualVerificationRequestsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [processingRequests, setProcessingRequests] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<'pending' | 'all'>('pending');
+  const [showMoreInfoModal, setShowMoreInfoModal] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [moreInfoText, setMoreInfoText] = useState('');
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
 
   useEffect(() => {
     loadRequests();
@@ -249,6 +362,7 @@ export default function ManualVerificationRequestsScreen() {
             phase,
             pay_currency,
             status,
+            tx_hash,
             created_at
           ),
           users (
@@ -261,7 +375,7 @@ export default function ManualVerificationRequestsScreen() {
         .order('created_at', { ascending: false });
 
       if (activeTab === 'pending') {
-        query = query.in('status', ['pending', 'reviewing']);
+        query = query.in('status', ['pending', 'reviewing', 'more_info_requested']);
       }
 
       const { data, error } = await query;
@@ -445,60 +559,114 @@ export default function ManualVerificationRequestsScreen() {
     );
   };
 
-  const rejectRequest = async (request: any) => {
-    Alert.alert(
-      'Rechazar Verificación',
-      `¿Estás seguro de que deseas rechazar esta solicitud?\n\n` +
-      `Usuario: ${request.users.email}\n` +
-      `Monto: ${parseFloat(request.payments.price_amount).toFixed(2)} USDT`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Rechazar',
-          style: 'destructive',
-          onPress: async () => {
-            setProcessingRequests(prev => new Set(prev).add(request.id));
+  const openRejectModal = (request: any) => {
+    setSelectedRequest(request);
+    setRejectReason('');
+    setShowRejectModal(true);
+  };
 
-            try {
-              await supabase
-                .from('manual_verification_requests')
-                .update({
-                  status: 'rejected',
-                  reviewed_by: user?.id,
-                  reviewed_at: new Date().toISOString(),
-                  admin_notes: 'Solicitud rechazada por el administrador',
-                  updated_at: new Date().toISOString(),
-                })
-                .eq('id', request.id);
+  const rejectRequest = async () => {
+    if (!rejectReason.trim()) {
+      Alert.alert('Error', 'Por favor ingresa un motivo de rechazo');
+      return;
+    }
 
-              Alert.alert(
-                '✅ Solicitud Rechazada',
-                'La solicitud ha sido rechazada exitosamente.',
-                [
-                  {
-                    text: 'OK',
-                    onPress: () => loadRequests(),
-                  },
-                ]
-              );
-            } catch (error: any) {
-              console.error('Error rejecting request:', error);
-              Alert.alert(
-                'Error',
-                error.message || 'Error al rechazar la solicitud',
-                [{ text: 'OK' }]
-              );
-            } finally {
-              setProcessingRequests(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(request.id);
-                return newSet;
-              });
-            }
+    setShowRejectModal(false);
+    setProcessingRequests(prev => new Set(prev).add(selectedRequest.id));
+
+    try {
+      await supabase
+        .from('manual_verification_requests')
+        .update({
+          status: 'rejected',
+          reviewed_by: user?.id,
+          reviewed_at: new Date().toISOString(),
+          admin_notes: rejectReason.trim(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', selectedRequest.id);
+
+      Alert.alert(
+        '✅ Solicitud Rechazada',
+        'La solicitud ha sido rechazada exitosamente. El usuario recibirá una notificación con el motivo.',
+        [
+          {
+            text: 'OK',
+            onPress: () => loadRequests(),
           },
-        },
-      ]
-    );
+        ]
+      );
+    } catch (error: any) {
+      console.error('Error rejecting request:', error);
+      Alert.alert(
+        'Error',
+        error.message || 'Error al rechazar la solicitud',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setProcessingRequests(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(selectedRequest.id);
+        return newSet;
+      });
+      setSelectedRequest(null);
+      setRejectReason('');
+    }
+  };
+
+  const openMoreInfoModal = (request: any) => {
+    setSelectedRequest(request);
+    setMoreInfoText('');
+    setShowMoreInfoModal(true);
+  };
+
+  const requestMoreInfo = async () => {
+    if (!moreInfoText.trim()) {
+      Alert.alert('Error', 'Por favor ingresa la información que necesitas');
+      return;
+    }
+
+    setShowMoreInfoModal(false);
+    setProcessingRequests(prev => new Set(prev).add(selectedRequest.id));
+
+    try {
+      await supabase
+        .from('manual_verification_requests')
+        .update({
+          status: 'more_info_requested',
+          admin_request_info: moreInfoText.trim(),
+          admin_request_info_at: new Date().toISOString(),
+          reviewed_by: user?.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', selectedRequest.id);
+
+      Alert.alert(
+        '✅ Información Solicitada',
+        'Se ha solicitado más información al usuario. El usuario recibirá una notificación.',
+        [
+          {
+            text: 'OK',
+            onPress: () => loadRequests(),
+          },
+        ]
+      );
+    } catch (error: any) {
+      console.error('Error requesting more info:', error);
+      Alert.alert(
+        'Error',
+        error.message || 'Error al solicitar más información',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setProcessingRequests(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(selectedRequest.id);
+        return newSet;
+      });
+      setSelectedRequest(null);
+      setMoreInfoText('');
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -511,6 +679,8 @@ export default function ManualVerificationRequestsScreen() {
         return '#2196F3';
       case 'rejected':
         return '#F44336';
+      case 'more_info_requested':
+        return '#9C27B0';
       default:
         return colors.textSecondary;
     }
@@ -526,6 +696,8 @@ export default function ManualVerificationRequestsScreen() {
         return 'Revisando';
       case 'rejected':
         return 'Rechazado';
+      case 'more_info_requested':
+        return 'Info Solicitada';
       default:
         return status;
     }
@@ -619,7 +791,7 @@ export default function ManualVerificationRequestsScreen() {
         >
           {requests.map((request, index) => {
             const isProcessing = processingRequests.has(request.id);
-            const isPending = request.status === 'pending' || request.status === 'reviewing';
+            const isPending = ['pending', 'reviewing', 'more_info_requested'].includes(request.status);
 
             return (
               <View key={index} style={styles.requestCard}>
@@ -705,6 +877,41 @@ export default function ManualVerificationRequestsScreen() {
                   </View>
                 )}
 
+                {request.payments.tx_hash && (
+                  <View style={styles.orderIdContainer}>
+                    <Text style={styles.orderIdLabel}>Transaction Hash:</Text>
+                    <Text style={styles.orderIdText}>{request.payments.tx_hash}</Text>
+                  </View>
+                )}
+
+                {request.admin_request_info && (
+                  <View style={styles.adminRequestBox}>
+                    <Text style={styles.adminRequestLabel}>
+                      📋 Información Solicitada al Usuario:
+                    </Text>
+                    <Text style={styles.adminRequestText}>{request.admin_request_info}</Text>
+                    {request.admin_request_info_at && (
+                      <Text style={[styles.adminRequestText, { fontSize: 11, marginTop: 4, fontStyle: 'italic' }]}>
+                        Solicitado: {new Date(request.admin_request_info_at).toLocaleString()}
+                      </Text>
+                    )}
+                  </View>
+                )}
+
+                {request.user_response && (
+                  <View style={styles.userResponseBox}>
+                    <Text style={styles.userResponseLabel}>
+                      💬 Respuesta del Usuario:
+                    </Text>
+                    <Text style={styles.userResponseText}>{request.user_response}</Text>
+                    {request.user_response_at && (
+                      <Text style={[styles.userResponseText, { fontSize: 11, marginTop: 4, fontStyle: 'italic' }]}>
+                        Respondido: {new Date(request.user_response_at).toLocaleString()}
+                      </Text>
+                    )}
+                  </View>
+                )}
+
                 {request.admin_notes && (
                   <View style={styles.infoBox}>
                     <IconSymbol
@@ -727,7 +934,7 @@ export default function ManualVerificationRequestsScreen() {
                       {isProcessing ? (
                         <ActivityIndicator size="small" color="#FFFFFF" />
                       ) : (
-                        <>
+                        <React.Fragment>
                           <IconSymbol
                             ios_icon_name="checkmark.circle.fill"
                             android_material_icon_name="check_circle"
@@ -735,19 +942,39 @@ export default function ManualVerificationRequestsScreen() {
                             color="#FFFFFF"
                           />
                           <Text style={styles.buttonText}>Aprobar</Text>
-                        </>
+                        </React.Fragment>
                       )}
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      style={[styles.rejectButton, isProcessing && styles.buttonDisabled]}
-                      onPress={() => rejectRequest(request)}
+                      style={[styles.moreInfoButton, isProcessing && styles.buttonDisabled]}
+                      onPress={() => openMoreInfoModal(request)}
                       disabled={isProcessing}
                     >
                       {isProcessing ? (
                         <ActivityIndicator size="small" color="#FFFFFF" />
                       ) : (
-                        <>
+                        <React.Fragment>
+                          <IconSymbol
+                            ios_icon_name="questionmark.circle.fill"
+                            android_material_icon_name="help"
+                            size={20}
+                            color="#FFFFFF"
+                          />
+                          <Text style={styles.buttonText}>Más Info</Text>
+                        </React.Fragment>
+                      )}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.rejectButton, isProcessing && styles.buttonDisabled]}
+                      onPress={() => openRejectModal(request)}
+                      disabled={isProcessing}
+                    >
+                      {isProcessing ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <React.Fragment>
                           <IconSymbol
                             ios_icon_name="xmark.circle.fill"
                             android_material_icon_name="cancel"
@@ -755,7 +982,7 @@ export default function ManualVerificationRequestsScreen() {
                             color="#FFFFFF"
                           />
                           <Text style={styles.buttonText}>Rechazar</Text>
-                        </>
+                        </React.Fragment>
                       )}
                     </TouchableOpacity>
                   </View>
@@ -767,6 +994,102 @@ export default function ManualVerificationRequestsScreen() {
           <View style={{ height: 100 }} />
         </ScrollView>
       )}
+
+      {/* More Info Modal */}
+      <Modal
+        visible={showMoreInfoModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowMoreInfoModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Solicitar Más Información</Text>
+            <Text style={[styles.requestLabel, { marginBottom: 12 }]}>
+              ¿Qué información necesitas del usuario?
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Ej: Por favor proporciona el comprobante de pago o más detalles sobre la transacción..."
+              placeholderTextColor={colors.textSecondary}
+              value={moreInfoText}
+              onChangeText={setMoreInfoText}
+              multiline
+              numberOfLines={4}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => {
+                  setShowMoreInfoModal(false);
+                  setMoreInfoText('');
+                  setSelectedRequest(null);
+                }}
+              >
+                <Text style={[styles.modalButtonText, styles.modalButtonTextCancel]}>
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonSubmit]}
+                onPress={requestMoreInfo}
+              >
+                <Text style={[styles.modalButtonText, styles.modalButtonTextSubmit]}>
+                  Enviar
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Reject Modal */}
+      <Modal
+        visible={showRejectModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowRejectModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Rechazar Solicitud</Text>
+            <Text style={[styles.requestLabel, { marginBottom: 12 }]}>
+              ¿Por qué estás rechazando esta solicitud?
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Ej: La transacción no se encontró en la blockchain, el monto es insuficiente, etc..."
+              placeholderTextColor={colors.textSecondary}
+              value={rejectReason}
+              onChangeText={setRejectReason}
+              multiline
+              numberOfLines={4}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => {
+                  setShowRejectModal(false);
+                  setRejectReason('');
+                  setSelectedRequest(null);
+                }}
+              >
+                <Text style={[styles.modalButtonText, styles.modalButtonTextCancel]}>
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonSubmit]}
+                onPress={rejectRequest}
+              >
+                <Text style={[styles.modalButtonText, styles.modalButtonTextSubmit]}>
+                  Rechazar
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

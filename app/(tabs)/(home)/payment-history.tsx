@@ -9,6 +9,8 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -272,6 +274,40 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     flex: 1,
   },
+  moreInfoRequestedBadge: {
+    backgroundColor: '#9C27B0',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    borderWidth: 2,
+    borderColor: '#BA68C8',
+  },
+  moreInfoRequestedTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 8,
+  },
+  moreInfoRequestedText: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  respondButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  respondButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#9C27B0',
+  },
   actionSection: {
     marginTop: 16,
     paddingTop: 16,
@@ -362,6 +398,85 @@ const styles = StyleSheet.create({
   filterButtonTextActive: {
     color: '#000000',
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 500,
+    borderWidth: 1,
+    borderColor: '#333333',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 16,
+  },
+  modalInput: {
+    backgroundColor: '#0A0A0A',
+    borderWidth: 1,
+    borderColor: '#333333',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    color: colors.text,
+    minHeight: 100,
+    textAlignVertical: 'top',
+    marginBottom: 16,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalButtonCancel: {
+    backgroundColor: '#333333',
+  },
+  modalButtonSubmit: {
+    backgroundColor: colors.primary,
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalButtonTextCancel: {
+    color: colors.text,
+  },
+  modalButtonTextSubmit: {
+    color: '#000000',
+  },
+  adminRequestBox: {
+    backgroundColor: '#9C27B0' + '20',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#9C27B0',
+  },
+  adminRequestLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#BA68C8',
+    marginBottom: 4,
+  },
+  adminRequestText: {
+    fontSize: 13,
+    color: colors.text,
+    lineHeight: 18,
+  },
 });
 
 export default function PaymentHistoryScreen() {
@@ -375,6 +490,10 @@ export default function PaymentHistoryScreen() {
   const [cancelingPayments, setCancelingPayments] = useState<Set<string>>(new Set());
   const [verificationRequests, setVerificationRequests] = useState<Map<string, any>>(new Map());
   const [activeFilter, setActiveFilter] = useState<'all' | 'pending' | 'success' | 'failed'>('all');
+  const [showResponseModal, setShowResponseModal] = useState(false);
+  const [selectedVerificationRequest, setSelectedVerificationRequest] = useState<any>(null);
+  const [userResponse, setUserResponse] = useState('');
+  const [submittingResponse, setSubmittingResponse] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -632,6 +751,57 @@ export default function PaymentHistoryScreen() {
         },
       ]
     );
+  };
+
+  const openResponseModal = (verificationRequest: any) => {
+    setSelectedVerificationRequest(verificationRequest);
+    setUserResponse('');
+    setShowResponseModal(true);
+  };
+
+  const submitResponse = async () => {
+    if (!userResponse.trim()) {
+      Alert.alert('Error', 'Por favor ingresa tu respuesta');
+      return;
+    }
+
+    setSubmittingResponse(true);
+
+    try {
+      await supabase
+        .from('manual_verification_requests')
+        .update({
+          user_response: userResponse.trim(),
+          user_response_at: new Date().toISOString(),
+          status: 'pending', // Change status back to pending so admin can review
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', selectedVerificationRequest.id);
+
+      setShowResponseModal(false);
+      setUserResponse('');
+      setSelectedVerificationRequest(null);
+
+      Alert.alert(
+        '✅ Respuesta Enviada',
+        'Tu respuesta ha sido enviada al administrador. Recibirás una notificación cuando tu solicitud sea revisada.',
+        [
+          {
+            text: 'OK',
+            onPress: () => loadVerificationRequests(),
+          },
+        ]
+      );
+    } catch (error: any) {
+      console.error('Error submitting response:', error);
+      Alert.alert(
+        'Error',
+        error.message || 'Error al enviar la respuesta',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setSubmittingResponse(false);
+    }
   };
 
   const cancelPayment = async (payment: any) => {
@@ -1103,33 +1273,35 @@ export default function PaymentHistoryScreen() {
                       )}
 
                       {/* 🚨 DRASTIC FIX: SOLICITAR VERIFICACIÓN MANUAL BUTTON - ALWAYS SHOW FOR ALL PENDING PAYMENTS 🚨 */}
-                      <TouchableOpacity
-                        style={[
-                          styles.requestVerificationButton,
-                          isRequestingVerification && styles.requestVerificationButtonDisabled,
-                        ]}
-                        onPress={() => requestManualVerification(payment)}
-                        disabled={isRequestingVerification}
-                      >
-                        {isRequestingVerification ? (
-                          <React.Fragment>
-                            <ActivityIndicator size="small" color="#FFFFFF" />
-                            <Text style={styles.requestVerificationButtonText}>Enviando...</Text>
-                          </React.Fragment>
-                        ) : (
-                          <React.Fragment>
-                            <IconSymbol
-                              ios_icon_name="person.fill.checkmark"
-                              android_material_icon_name="admin_panel_settings"
-                              size={20}
-                              color="#FFFFFF"
-                            />
-                            <Text style={styles.requestVerificationButtonText}>
-                              Solicitar Verificación Manual
-                            </Text>
-                          </React.Fragment>
-                        )}
-                      </TouchableOpacity>
+                      {!verificationRequest && (
+                        <TouchableOpacity
+                          style={[
+                            styles.requestVerificationButton,
+                            isRequestingVerification && styles.requestVerificationButtonDisabled,
+                          ]}
+                          onPress={() => requestManualVerification(payment)}
+                          disabled={isRequestingVerification}
+                        >
+                          {isRequestingVerification ? (
+                            <React.Fragment>
+                              <ActivityIndicator size="small" color="#FFFFFF" />
+                              <Text style={styles.requestVerificationButtonText}>Enviando...</Text>
+                            </React.Fragment>
+                          ) : (
+                            <React.Fragment>
+                              <IconSymbol
+                                ios_icon_name="person.fill.checkmark"
+                                android_material_icon_name="admin_panel_settings"
+                                size={20}
+                                color="#FFFFFF"
+                              />
+                              <Text style={styles.requestVerificationButtonText}>
+                                Solicitar Verificación Manual
+                              </Text>
+                            </React.Fragment>
+                          )}
+                        </TouchableOpacity>
+                      )}
 
                       {/* Cancelar Button */}
                       <TouchableOpacity
@@ -1202,6 +1374,48 @@ export default function PaymentHistoryScreen() {
                     </View>
                   )}
 
+                  {verificationRequest && verificationRequest.status === 'more_info_requested' && (
+                    <View style={styles.moreInfoRequestedBadge}>
+                      <Text style={styles.moreInfoRequestedTitle}>
+                        📋 El administrador solicita más información
+                      </Text>
+                      {verificationRequest.admin_request_info && (
+                        <View style={styles.adminRequestBox}>
+                          <Text style={styles.adminRequestLabel}>Información solicitada:</Text>
+                          <Text style={styles.adminRequestText}>
+                            {verificationRequest.admin_request_info}
+                          </Text>
+                        </View>
+                      )}
+                      {verificationRequest.user_response ? (
+                        <View style={styles.infoBox}>
+                          <IconSymbol
+                            ios_icon_name="checkmark.circle.fill"
+                            android_material_icon_name="check_circle"
+                            size={20}
+                            color="#2196F3"
+                          />
+                          <Text style={styles.infoText}>
+                            ✅ Respuesta enviada. El administrador la revisará pronto.
+                          </Text>
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          style={styles.respondButton}
+                          onPress={() => openResponseModal(verificationRequest)}
+                        >
+                          <IconSymbol
+                            ios_icon_name="text.bubble.fill"
+                            android_material_icon_name="chat"
+                            size={20}
+                            color="#9C27B0"
+                          />
+                          <Text style={styles.respondButtonText}>Responder</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
+
                   {verificationRequest && verificationRequest.status === 'approved' && (
                     <View style={styles.approvedBadge}>
                       <IconSymbol
@@ -1252,6 +1466,69 @@ export default function PaymentHistoryScreen() {
           </ScrollView>
         </React.Fragment>
       )}
+
+      {/* Response Modal */}
+      <Modal
+        visible={showResponseModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowResponseModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Responder al Administrador</Text>
+            {selectedVerificationRequest?.admin_request_info && (
+              <View style={styles.adminRequestBox}>
+                <Text style={styles.adminRequestLabel}>Información solicitada:</Text>
+                <Text style={styles.adminRequestText}>
+                  {selectedVerificationRequest.admin_request_info}
+                </Text>
+              </View>
+            )}
+            <Text style={[styles.paymentLabel, { marginTop: 16, marginBottom: 12 }]}>
+              Tu respuesta:
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Escribe tu respuesta aquí..."
+              placeholderTextColor={colors.textSecondary}
+              value={userResponse}
+              onChangeText={setUserResponse}
+              multiline
+              numberOfLines={4}
+              editable={!submittingResponse}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => {
+                  setShowResponseModal(false);
+                  setUserResponse('');
+                  setSelectedVerificationRequest(null);
+                }}
+                disabled={submittingResponse}
+              >
+                <Text style={[styles.modalButtonText, styles.modalButtonTextCancel]}>
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonSubmit]}
+                onPress={submitResponse}
+                disabled={submittingResponse}
+              >
+                {submittingResponse ? (
+                  <ActivityIndicator size="small" color="#000000" />
+                ) : (
+                  <Text style={[styles.modalButtonText, styles.modalButtonTextSubmit]}>
+                    Enviar
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
