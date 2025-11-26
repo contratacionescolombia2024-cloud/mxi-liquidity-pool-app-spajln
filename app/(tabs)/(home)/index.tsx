@@ -5,14 +5,11 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   RefreshControl,
-  Alert,
   Image,
   Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -231,53 +228,9 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     flex: 1,
   },
-  quickActionsCard: {
-    backgroundColor: 'rgba(16, 185, 129, 0.08)',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
-    marginHorizontal: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
-    shadowColor: '#10b981',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  quickActionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  quickActionButton: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    gap: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  quickActionIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quickActionLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    textAlign: 'center',
-  },
 });
 
 export default function HomeScreen() {
-  const router = useRouter();
   const { user, loading, checkWithdrawalEligibility, getPhaseInfo } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [phaseInfo, setPhaseInfo] = useState<any>({
@@ -563,53 +516,6 @@ export default function HomeScreen() {
             </View>
           </View>
         )}
-
-        {/* Quick Actions */}
-        <View style={styles.quickActionsCard}>
-          <Text style={styles.cardTitle}>⚡ Acciones Rápidas</Text>
-          
-          <View style={styles.quickActionsGrid}>
-            <TouchableOpacity
-              style={styles.quickActionButton}
-              onPress={() => router.push('/(tabs)/(home)/pagar-usdt')}
-            >
-              <View style={[styles.quickActionIcon, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
-                <Text style={{ fontSize: 28 }}>💳</Text>
-              </View>
-              <Text style={styles.quickActionLabel}>Comprar MXI</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickActionButton}
-              onPress={() => router.push('/(tabs)/(home)/retiros')}
-            >
-              <View style={[styles.quickActionIcon, { backgroundColor: 'rgba(168, 85, 247, 0.15)' }]}>
-                <Text style={{ fontSize: 28 }}>💰</Text>
-              </View>
-              <Text style={styles.quickActionLabel}>Retiros</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickActionButton}
-              onPress={() => router.push('/(tabs)/referrals')}
-            >
-              <View style={[styles.quickActionIcon, { backgroundColor: 'rgba(99, 102, 241, 0.15)' }]}>
-                <Text style={{ fontSize: 28 }}>👥</Text>
-              </View>
-              <Text style={styles.quickActionLabel}>Referidos</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickActionButton}
-              onPress={() => router.push('/(tabs)/(home)/vesting')}
-            >
-              <View style={[styles.quickActionIcon, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
-                <Text style={{ fontSize: 28 }}>📈</Text>
-              </View>
-              <Text style={styles.quickActionLabel}>Vesting</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
 
         {/* Yield Display */}
         <YieldDisplay />

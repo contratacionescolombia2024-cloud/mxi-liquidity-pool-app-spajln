@@ -46,7 +46,7 @@ export default function DepositScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>Depositar</Text>
-          <Text style={styles.headerSubtitle}>Compra MXI con múltiples criptomonedas</Text>
+          <Text style={styles.headerSubtitle}>Compra MXI con múltiples opciones de pago</Text>
         </View>
         <TouchableOpacity
           style={styles.historyButton}
@@ -122,26 +122,40 @@ export default function DepositScreen() {
           )}
         </View>
 
-        {/* Main Payment Button */}
-        <TouchableOpacity
-          style={styles.mainPaymentButton}
-          onPress={() => setShowNowPaymentsModal(true)}
-          activeOpacity={0.8}
-        >
-          <View style={styles.paymentButtonGradient}>
-            <View style={styles.paymentIconContainer}>
-              <IconSymbol
-                ios_icon_name="creditcard.fill"
-                android_material_icon_name="payment"
-                size={40}
-                color="#FFFFFF"
-              />
-            </View>
-            <View style={styles.paymentContent}>
-              <Text style={styles.paymentTitle}>💳 Comprar MXI</Text>
-              <Text style={styles.paymentSubtitle}>
-                Paga con múltiples criptomonedas
-              </Text>
+        {/* Payment Options Section */}
+        <View style={styles.paymentOptionsSection}>
+          <Text style={styles.sectionTitle}>💳 Opciones de Pago</Text>
+          <Text style={styles.sectionSubtitle}>Elige tu método de pago preferido</Text>
+
+          {/* Option 1: Multi-Crypto Payment (NowPayments) */}
+          <TouchableOpacity
+            style={styles.paymentOptionCard}
+            onPress={() => setShowNowPaymentsModal(true)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.paymentOptionGradient}>
+              <View style={styles.paymentOptionHeader}>
+                <View style={styles.paymentIconContainer}>
+                  <IconSymbol
+                    ios_icon_name="creditcard.fill"
+                    android_material_icon_name="payment"
+                    size={32}
+                    color="#FFFFFF"
+                  />
+                </View>
+                <View style={styles.paymentOptionContent}>
+                  <Text style={styles.paymentOptionTitle}>Pago Multi-Cripto</Text>
+                  <Text style={styles.paymentOptionSubtitle}>
+                    +50 Criptomonedas Disponibles
+                  </Text>
+                </View>
+                <IconSymbol
+                  ios_icon_name="chevron.right"
+                  android_material_icon_name="chevron_right"
+                  size={24}
+                  color="#FFFFFF"
+                />
+              </View>
               <View style={styles.paymentFeatures}>
                 <View style={styles.featureItem}>
                   <IconSymbol
@@ -150,7 +164,7 @@ export default function DepositScreen() {
                     size={16}
                     color="#FFFFFF"
                   />
-                  <Text style={styles.featureText}>+50 Criptomonedas</Text>
+                  <Text style={styles.featureText}>Bitcoin, Ethereum, USDT, USDC</Text>
                 </View>
                 <View style={styles.featureItem}>
                   <IconSymbol
@@ -159,7 +173,7 @@ export default function DepositScreen() {
                     size={16}
                     color="#FFFFFF"
                   />
-                  <Text style={styles.featureText}>Múltiples Redes</Text>
+                  <Text style={styles.featureText}>Múltiples Redes (ETH, BSC, TRX, SOL)</Text>
                 </View>
                 <View style={styles.featureItem}>
                   <IconSymbol
@@ -172,14 +186,69 @@ export default function DepositScreen() {
                 </View>
               </View>
             </View>
-            <IconSymbol
-              ios_icon_name="chevron.right"
-              android_material_icon_name="chevron_right"
-              size={32}
-              color="#FFFFFF"
-            />
-          </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+
+          {/* Option 2: Direct USDT Payment */}
+          <TouchableOpacity
+            style={styles.paymentOptionCard}
+            onPress={() => router.push('/(tabs)/(home)/pagar-usdt')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.paymentOptionGradient, styles.paymentOptionGradientAlt]}>
+              <View style={styles.paymentOptionHeader}>
+                <View style={[styles.paymentIconContainer, styles.paymentIconContainerAlt]}>
+                  <IconSymbol
+                    ios_icon_name="dollarsign.circle.fill"
+                    android_material_icon_name="attach_money"
+                    size={32}
+                    color="#FFFFFF"
+                  />
+                </View>
+                <View style={styles.paymentOptionContent}>
+                  <Text style={styles.paymentOptionTitle}>Pago Directo USDT</Text>
+                  <Text style={styles.paymentOptionSubtitle}>
+                    Transferencia Manual de USDT
+                  </Text>
+                </View>
+                <IconSymbol
+                  ios_icon_name="chevron.right"
+                  android_material_icon_name="chevron_right"
+                  size={24}
+                  color="#FFFFFF"
+                />
+              </View>
+              <View style={styles.paymentFeatures}>
+                <View style={styles.featureItem}>
+                  <IconSymbol
+                    ios_icon_name="checkmark.circle.fill"
+                    android_material_icon_name="check_circle"
+                    size={16}
+                    color="#FFFFFF"
+                  />
+                  <Text style={styles.featureText}>USDT en múltiples redes</Text>
+                </View>
+                <View style={styles.featureItem}>
+                  <IconSymbol
+                    ios_icon_name="checkmark.circle.fill"
+                    android_material_icon_name="check_circle"
+                    size={16}
+                    color="#FFFFFF"
+                  />
+                  <Text style={styles.featureText}>Verificación manual disponible</Text>
+                </View>
+                <View style={styles.featureItem}>
+                  <IconSymbol
+                    ios_icon_name="checkmark.circle.fill"
+                    android_material_icon_name="check_circle"
+                    size={16}
+                    color="#FFFFFF"
+                  />
+                  <Text style={styles.featureText}>Soporte dedicado</Text>
+                </View>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </View>
 
         {/* Transaction History Link */}
         <TouchableOpacity
@@ -259,9 +328,9 @@ export default function DepositScreen() {
                 <Text style={styles.stepNumberText}>1</Text>
               </View>
               <View style={styles.stepContent}>
-                <Text style={styles.stepTitle}>Ingresa el Monto</Text>
+                <Text style={styles.stepTitle}>Elige tu Método de Pago</Text>
                 <Text style={styles.stepDescription}>
-                  Especifica cuánto USDT deseas invertir (mínimo 2 USDT)
+                  Selecciona entre pago multi-cripto o transferencia directa USDT
                 </Text>
               </View>
             </View>
@@ -270,9 +339,9 @@ export default function DepositScreen() {
                 <Text style={styles.stepNumberText}>2</Text>
               </View>
               <View style={styles.stepContent}>
-                <Text style={styles.stepTitle}>Selecciona tu Criptomoneda</Text>
+                <Text style={styles.stepTitle}>Ingresa el Monto</Text>
                 <Text style={styles.stepDescription}>
-                  Elige entre más de 50 criptomonedas y redes disponibles
+                  Especifica cuánto USDT deseas invertir (mínimo 2 USDT)
                 </Text>
               </View>
             </View>
@@ -303,7 +372,7 @@ export default function DepositScreen() {
 
         {/* Benefits Card */}
         <View style={styles.benefitsCard}>
-          <Text style={styles.benefitsTitle}>✨ Ventajas del Pago Multi-Crypto</Text>
+          <Text style={styles.benefitsTitle}>✨ Ventajas de Nuestro Sistema de Pagos</Text>
           <View style={styles.benefitsList}>
             <View style={styles.benefitItem}>
               <IconSymbol
@@ -335,7 +404,7 @@ export default function DepositScreen() {
                 color={colors.primary}
               />
               <Text style={styles.benefitText}>
-                Múltiples redes y monedas soportadas
+                Múltiples opciones de pago disponibles
               </Text>
             </View>
             <View style={styles.benefitItem}>
@@ -355,13 +424,13 @@ export default function DepositScreen() {
         {/* Quick Stats */}
         <View style={styles.statsCard}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>50+</Text>
-            <Text style={styles.statLabel}>Criptomonedas</Text>
+            <Text style={styles.statValue}>2</Text>
+            <Text style={styles.statLabel}>Métodos de Pago</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>10+</Text>
-            <Text style={styles.statLabel}>Redes</Text>
+            <Text style={styles.statValue}>50+</Text>
+            <Text style={styles.statLabel}>Criptomonedas</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
@@ -479,7 +548,21 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary + '30',
     marginVertical: 12,
   },
-  mainPaymentButton: {
+  paymentOptionsSection: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 20,
+  },
+  paymentOptionCard: {
     marginBottom: 16,
     borderRadius: 20,
     overflow: 'hidden',
@@ -489,37 +572,45 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 12,
   },
-  paymentButtonGradient: {
+  paymentOptionGradient: {
     backgroundColor: '#667eea',
-    padding: 24,
+    padding: 20,
+  },
+  paymentOptionGradientAlt: {
+    backgroundColor: '#10b981',
+  },
+  paymentOptionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 16,
   },
   paymentIconContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 20,
+    marginRight: 16,
   },
-  paymentContent: {
+  paymentIconContainerAlt: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  paymentOptionContent: {
     flex: 1,
   },
-  paymentTitle: {
-    fontSize: 24,
+  paymentOptionTitle: {
+    fontSize: 20,
     fontWeight: '900',
     color: '#FFFFFF',
-    marginBottom: 6,
+    marginBottom: 4,
   },
-  paymentSubtitle: {
-    fontSize: 14,
+  paymentOptionSubtitle: {
+    fontSize: 13,
     color: 'rgba(255, 255, 255, 0.9)',
-    marginBottom: 12,
   },
   paymentFeatures: {
-    gap: 6,
+    gap: 8,
   },
   featureItem: {
     flexDirection: 'row',
@@ -527,7 +618,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   featureText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     color: '#FFFFFF',
   },
