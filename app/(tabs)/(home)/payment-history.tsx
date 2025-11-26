@@ -165,19 +165,21 @@ const styles = StyleSheet.create({
   requestVerificationButton: {
     backgroundColor: '#FF9800',
     borderRadius: 8,
-    padding: 12,
+    padding: 14,
     marginTop: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    borderWidth: 2,
+    borderColor: '#FFB74D',
   },
   requestVerificationButtonDisabled: {
     opacity: 0.5,
   },
   requestVerificationButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
     color: '#FFFFFF',
   },
   infoBox: {
@@ -221,6 +223,46 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#FFFFFF',
     flex: 1,
+  },
+  approvedBadge: {
+    backgroundColor: '#4CAF50',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  approvedText: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    flex: 1,
+  },
+  rejectedBadge: {
+    backgroundColor: '#F44336',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  rejectedText: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    flex: 1,
+  },
+  actionSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#333333',
+  },
+  actionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
   },
 });
 
@@ -384,7 +426,7 @@ export default function PaymentHistoryScreen() {
           Alert.alert(
             'ℹ️ Estado Actualizado',
             `Estado del pago: ${data.payment.status}\n\n` +
-            `El pago aún no ha sido confirmado por NOWPayments. Por favor, espera a que se confirme.`,
+            `El pago aún no ha sido confirmado por NOWPayments. Por favor, espera a que se confirme o solicita verificación manual.`,
             [
               {
                 text: 'OK',
@@ -525,18 +567,24 @@ export default function PaymentHistoryScreen() {
     }
   };
 
-  const canVerify = (payment: any) => {
+  const isPendingPayment = (payment: any) => {
+    // Payment is pending if it's not finished/confirmed
     return payment.status !== 'finished' && 
-           payment.status !== 'confirmed' && 
-           payment.payment_id;
+           payment.status !== 'confirmed' &&
+           payment.status !== 'failed' &&
+           payment.status !== 'expired' &&
+           payment.status !== 'cancelled';
   };
 
-  const canRequestVerification = (payment: any) => {
-    // Can request if payment is not finished/confirmed and no pending request exists
-    const hasRequest = verificationRequests.has(payment.id);
-    return payment.status !== 'finished' && 
-           payment.status !== 'confirmed' && 
-           !hasRequest;
+  const canVerify = (payment: any) => {
+    return isPendingPayment(payment) && payment.payment_id;
+  };
+
+  const canRequestVerification = (payment: any, verificationRequest: any) => {
+    // Can request if payment is pending and no active request exists
+    return isPendingPayment(payment) && 
+           (!verificationRequest || 
+            verificationRequest.status === 'rejected');
   };
 
   if (loading) {
@@ -608,9 +656,10 @@ export default function PaymentHistoryScreen() {
           {payments.map((payment, index) => {
             const isVerifying = verifyingPayments.has(payment.id);
             const isRequestingVerification = requestingVerification.has(payment.id);
-            const showVerifyButton = canVerify(payment);
-            const showRequestButton = canRequestVerification(payment);
             const verificationRequest = verificationRequests.get(payment.id);
+            const isPending = isPendingPayment(payment);
+            const showVerifyButton = canVerify(payment);
+            const showRequestButton = canRequestVerification(payment, verificationRequest);
 
             return (
               <View key={index} style={styles.paymentCard}>
@@ -688,82 +737,92 @@ export default function PaymentHistoryScreen() {
                   <Text style={styles.orderIdText}>{payment.order_id}</Text>
                 </View>
 
-                {showVerifyButton && (
-                  <>
-                    <TouchableOpacity
-                      style={[
-                        styles.verifyButton,
-                        isVerifying && styles.verifyButtonDisabled,
-                      ]}
-                      onPress={() => verifyPayment(payment)}
-                      disabled={isVerifying}
-                    >
-                      {isVerifying ? (
-                        <>
-                          <ActivityIndicator size="small" color="#000000" />
-                          <Text style={styles.verifyButtonText}>Verificando...</Text>
-                        </>
-                      ) : (
-                        <>
-                          <IconSymbol
-                            ios_icon_name="checkmark.circle.fill"
-                            android_material_icon_name="check_circle"
-                            size={20}
-                            color="#000000"
-                          />
-                          <Text style={styles.verifyButtonText}>Verificar Pago Automáticamente</Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                    <Text style={styles.verifyingText}>
-                      Si tu pago no se ha acreditado automáticamente, usa este botón para verificarlo.
-                    </Text>
-                  </>
-                )}
+                {/* Action Section for Pending Payments */}
+                {isPending && (
+                  <View style={styles.actionSection}>
+                    <Text style={styles.actionTitle}>Acciones Disponibles:</Text>
 
-                {showRequestButton && (
-                  <>
-                    <TouchableOpacity
-                      style={[
-                        styles.requestVerificationButton,
-                        isRequestingVerification && styles.requestVerificationButtonDisabled,
-                      ]}
-                      onPress={() => requestManualVerification(payment)}
-                      disabled={isRequestingVerification}
-                    >
-                      {isRequestingVerification ? (
-                        <>
-                          <ActivityIndicator size="small" color="#FFFFFF" />
-                          <Text style={styles.requestVerificationButtonText}>Enviando...</Text>
-                        </>
-                      ) : (
-                        <>
+                    {/* Automatic Verification Button */}
+                    {showVerifyButton && (
+                      <>
+                        <TouchableOpacity
+                          style={[
+                            styles.verifyButton,
+                            isVerifying && styles.verifyButtonDisabled,
+                          ]}
+                          onPress={() => verifyPayment(payment)}
+                          disabled={isVerifying}
+                        >
+                          {isVerifying ? (
+                            <>
+                              <ActivityIndicator size="small" color="#000000" />
+                              <Text style={styles.verifyButtonText}>Verificando...</Text>
+                            </>
+                          ) : (
+                            <>
+                              <IconSymbol
+                                ios_icon_name="checkmark.circle.fill"
+                                android_material_icon_name="check_circle"
+                                size={20}
+                                color="#000000"
+                              />
+                              <Text style={styles.verifyButtonText}>Verificar Automáticamente</Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                        <Text style={styles.verifyingText}>
+                          Verifica el estado de tu pago con NOWPayments
+                        </Text>
+                      </>
+                    )}
+
+                    {/* Manual Verification Request Button */}
+                    {showRequestButton && (
+                      <>
+                        <TouchableOpacity
+                          style={[
+                            styles.requestVerificationButton,
+                            isRequestingVerification && styles.requestVerificationButtonDisabled,
+                          ]}
+                          onPress={() => requestManualVerification(payment)}
+                          disabled={isRequestingVerification}
+                        >
+                          {isRequestingVerification ? (
+                            <>
+                              <ActivityIndicator size="small" color="#FFFFFF" />
+                              <Text style={styles.requestVerificationButtonText}>Enviando...</Text>
+                            </>
+                          ) : (
+                            <>
+                              <IconSymbol
+                                ios_icon_name="person.fill.checkmark"
+                                android_material_icon_name="admin_panel_settings"
+                                size={22}
+                                color="#FFFFFF"
+                              />
+                              <Text style={styles.requestVerificationButtonText}>
+                                Solicitar Verificación Manual
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                        <View style={styles.infoBox}>
                           <IconSymbol
-                            ios_icon_name="person.fill.checkmark"
-                            android_material_icon_name="admin_panel_settings"
+                            ios_icon_name="info.circle.fill"
+                            android_material_icon_name="info"
                             size={20}
-                            color="#FFFFFF"
+                            color="#2196F3"
                           />
-                          <Text style={styles.requestVerificationButtonText}>
-                            Solicitar Verificación Manual
+                          <Text style={styles.infoText}>
+                            Si la verificación automática no funciona, solicita que un administrador revise tu pago manualmente. El proceso puede tomar hasta 2 horas.
                           </Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                    <View style={styles.infoBox}>
-                      <IconSymbol
-                        ios_icon_name="info.circle.fill"
-                        android_material_icon_name="info"
-                        size={20}
-                        color="#2196F3"
-                      />
-                      <Text style={styles.infoText}>
-                        Si la verificación automática no funciona, puedes solicitar que un administrador revise y apruebe tu pago manualmente. El proceso puede tomar hasta 2 horas.
-                      </Text>
-                    </View>
-                  </>
+                        </View>
+                      </>
+                    )}
+                  </View>
                 )}
 
+                {/* Verification Request Status */}
                 {verificationRequest && verificationRequest.status === 'pending' && (
                   <View style={styles.pendingVerificationBadge}>
                     <IconSymbol
@@ -792,6 +851,35 @@ export default function PaymentHistoryScreen() {
                   </View>
                 )}
 
+                {verificationRequest && verificationRequest.status === 'approved' && (
+                  <View style={styles.approvedBadge}>
+                    <IconSymbol
+                      ios_icon_name="checkmark.circle.fill"
+                      android_material_icon_name="check_circle"
+                      size={20}
+                      color="#FFFFFF"
+                    />
+                    <Text style={styles.approvedText}>
+                      ✅ Verificación manual aprobada por administrador
+                    </Text>
+                  </View>
+                )}
+
+                {verificationRequest && verificationRequest.status === 'rejected' && (
+                  <View style={styles.rejectedBadge}>
+                    <IconSymbol
+                      ios_icon_name="xmark.circle.fill"
+                      android_material_icon_name="cancel"
+                      size={20}
+                      color="#FFFFFF"
+                    />
+                    <Text style={styles.rejectedText}>
+                      ❌ Verificación rechazada: {verificationRequest.admin_notes || 'Sin motivo especificado'}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Success Badge for Completed Payments */}
                 {(payment.status === 'finished' || payment.status === 'confirmed') && (
                   <View style={styles.successBadge}>
                     <IconSymbol
