@@ -35,13 +35,18 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     position: 'absolute',
-    top: 48,
-    right: 20,
+    top: 52,
+    left: 16,
     zIndex: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: 12,
+    padding: 8,
+    borderWidth: 2,
+    borderColor: colors.primary,
   },
   logo: {
-    width: 40,
-    height: 40,
+    width: 50,
+    height: 50,
     resizeMode: 'contain',
   },
   greeting: {
@@ -58,13 +63,14 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 8,
   },
   phasesCard: {
     backgroundColor: 'rgba(99, 102, 241, 0.08)',
     borderRadius: 20,
     padding: 20,
     marginBottom: 16,
+    marginHorizontal: 8,
     borderWidth: 1,
     borderColor: 'rgba(99, 102, 241, 0.3)',
     shadowColor: '#6366F1',
@@ -211,6 +217,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 20,
     marginBottom: 16,
+    marginHorizontal: 8,
     borderWidth: 1,
     borderColor: 'rgba(168, 85, 247, 0.3)',
     shadowColor: '#A855F7',
@@ -292,6 +299,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 20,
     marginBottom: 16,
+    marginHorizontal: 8,
     borderWidth: 1,
     borderColor: 'rgba(16, 185, 129, 0.3)',
     shadowColor: '#10b981',
@@ -435,7 +443,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Logo positioned absolutely in top right corner */}
+      {/* Logo positioned absolutely in top LEFT corner with better visibility */}
       <View style={styles.logoContainer}>
         <Image
           source={require('@/assets/images/904cc327-48f3-4ea1-90a4-6fd4d39a1c11.jpeg')}

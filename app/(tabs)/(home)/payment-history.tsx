@@ -508,6 +508,8 @@ export default function PaymentHistoryScreen() {
             setRequestingVerification(prev => new Set(prev).add(payment.id));
 
             try {
+              console.log('📝 Creating manual verification request for payment:', payment.id);
+              
               const { data, error } = await supabase
                 .from('manual_verification_requests')
                 .insert({
@@ -519,7 +521,12 @@ export default function PaymentHistoryScreen() {
                 .select()
                 .single();
 
-              if (error) throw error;
+              if (error) {
+                console.error('❌ Error creating verification request:', error);
+                throw error;
+              }
+
+              console.log('✅ Verification request created:', data);
 
               Alert.alert(
                 '✅ Solicitud Enviada',
@@ -536,7 +543,7 @@ export default function PaymentHistoryScreen() {
                 ]
               );
             } catch (error: any) {
-              console.error('Error requesting verification:', error);
+              console.error('❌ Error requesting verification:', error);
               Alert.alert(
                 'Error',
                 error.message || 'Error al solicitar la verificación manual',
@@ -587,10 +594,15 @@ export default function PaymentHistoryScreen() {
                 })
                 .eq('id', payment.id);
 
-              if (updateError) throw updateError;
+              if (updateError) {
+                console.error('❌ Error updating payment status:', updateError);
+                throw updateError;
+              }
+
+              console.log('✅ Payment status updated to cancelled');
 
               // Update transaction history
-              await supabase
+              const { error: txError } = await supabase
                 .from('transaction_history')
                 .update({
                   status: 'cancelled',
@@ -598,11 +610,21 @@ export default function PaymentHistoryScreen() {
                 })
                 .eq('order_id', payment.order_id);
 
+              if (txError) {
+                console.error('⚠️ Error updating transaction history:', txError);
+                // Don't fail the whole operation
+              }
+
               // Delete any pending verification requests
-              await supabase
+              const { error: deleteError } = await supabase
                 .from('manual_verification_requests')
                 .delete()
                 .eq('payment_id', payment.id);
+
+              if (deleteError) {
+                console.error('⚠️ Error deleting verification requests:', deleteError);
+                // Don't fail the whole operation
+              }
 
               console.log('✅ Payment cancelled successfully');
 

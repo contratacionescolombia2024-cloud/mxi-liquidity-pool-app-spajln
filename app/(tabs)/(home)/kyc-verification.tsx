@@ -228,7 +228,6 @@ export default function KYCVerificationScreen() {
     }
   };
 
-  // DRASTIC FIX: Simplified submit function with direct execution
   const handleSubmit = async () => {
     const timestamp = new Date().toISOString();
     console.log(`[${timestamp}] ========================================`);
@@ -352,7 +351,7 @@ export default function KYCVerificationScreen() {
 
       // Show success message
       Alert.alert(
-        'KYC Enviado Exitosamente',
+        '✅ KYC Enviado Exitosamente',
         'Tu verificación KYC ha sido enviada y está bajo revisión. Serás notificado una vez que haya sido procesada (típicamente dentro de 24-48 horas).',
         [
           {
@@ -429,7 +428,7 @@ export default function KYCVerificationScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <IconSymbol name="chevron.left" size={24} color={colors.primary} />
+            <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.primary} />
           </TouchableOpacity>
           <Text style={styles.title}>Verificación KYC</Text>
           <Text style={styles.subtitle}>Completa tu verificación de identidad</Text>
@@ -445,7 +444,8 @@ export default function KYCVerificationScreen() {
             <View style={[commonStyles.card, styles.statusCard]}>
               <View style={styles.statusHeader}>
                 <IconSymbol
-                  name={getStatusIcon(user.kycStatus)}
+                  ios_icon_name={getStatusIcon(user.kycStatus)}
+                  android_material_icon_name={getStatusIcon(user.kycStatus)}
                   size={32}
                   color={getStatusColor(user.kycStatus)}
                 />
@@ -467,7 +467,7 @@ export default function KYCVerificationScreen() {
 
               {user.kycStatus === 'pending' && (
                 <View style={styles.pendingNotice}>
-                  <IconSymbol name="info.circle" size={18} color={colors.warning} />
+                  <IconSymbol ios_icon_name="info.circle" android_material_icon_name="info" size={18} color={colors.warning} />
                   <Text style={styles.pendingText}>
                     Tu verificación KYC está siendo revisada. Esto típicamente toma 24-48 horas.
                   </Text>
@@ -476,7 +476,7 @@ export default function KYCVerificationScreen() {
 
               {user.kycStatus === 'rejected' && kycData?.rejection_reason && (
                 <View style={styles.rejectionNotice}>
-                  <IconSymbol name="exclamationmark.triangle" size={18} color={colors.error} />
+                  <IconSymbol ios_icon_name="exclamationmark.triangle" android_material_icon_name="warning" size={18} color={colors.error} />
                   <Text style={styles.rejectionText}>
                     Razón de Rechazo: {kycData.rejection_reason}
                   </Text>
@@ -487,7 +487,7 @@ export default function KYCVerificationScreen() {
             {(user.kycStatus === 'not_submitted' || user.kycStatus === 'rejected') && (
               <>
                 <View style={[commonStyles.card, styles.infoCard]}>
-                  <IconSymbol name="info.circle.fill" size={20} color={colors.primary} />
+                  <IconSymbol ios_icon_name="info.circle.fill" android_material_icon_name="info" size={20} color={colors.primary} />
                   <View style={styles.infoContent}>
                     <Text style={styles.infoTitle}>Por qué se requiere KYC:</Text>
                     <Text style={styles.infoText}>
@@ -536,7 +536,8 @@ export default function KYCVerificationScreen() {
                         disabled={submitting}
                       >
                         <IconSymbol
-                          name="person.text.rectangle"
+                          ios_icon_name="person.text.rectangle"
+                          android_material_icon_name="badge"
                           size={20}
                           color={documentType === 'national_id' ? '#fff' : colors.text}
                         />
@@ -563,7 +564,8 @@ export default function KYCVerificationScreen() {
                         disabled={submitting}
                       >
                         <IconSymbol
-                          name="book.closed"
+                          ios_icon_name="book.closed"
+                          android_material_icon_name="menu_book"
                           size={20}
                           color={documentType === 'passport' ? '#fff' : colors.text}
                         />
@@ -590,7 +592,8 @@ export default function KYCVerificationScreen() {
                         disabled={submitting}
                       >
                         <IconSymbol
-                          name="car"
+                          ios_icon_name="car"
+                          android_material_icon_name="directions_car"
                           size={20}
                           color={documentType === 'drivers_license' ? '#fff' : colors.text}
                         />
@@ -645,13 +648,13 @@ export default function KYCVerificationScreen() {
                             style={styles.uploadedImage}
                           />
                           <View style={styles.uploadedOverlay}>
-                            <IconSymbol name="checkmark.circle.fill" size={32} color={colors.success} />
+                            <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={32} color={colors.success} />
                             <Text style={styles.uploadedText}>Toca para cambiar</Text>
                           </View>
                         </View>
                       ) : (
                         <View style={styles.uploadContent}>
-                          <IconSymbol name="photo" size={32} color={colors.primary} />
+                          <IconSymbol ios_icon_name="photo" android_material_icon_name="photo" size={32} color={colors.primary} />
                           <Text style={styles.uploadText}>Toca para subir frente</Text>
                         </View>
                       )}
@@ -681,13 +684,13 @@ export default function KYCVerificationScreen() {
                               style={styles.uploadedImage}
                             />
                             <View style={styles.uploadedOverlay}>
-                              <IconSymbol name="checkmark.circle.fill" size={32} color={colors.success} />
+                              <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={32} color={colors.success} />
                               <Text style={styles.uploadedText}>Toca para cambiar</Text>
                             </View>
                           </View>
                         ) : (
                           <View style={styles.uploadContent}>
-                            <IconSymbol name="photo" size={32} color={colors.primary} />
+                            <IconSymbol ios_icon_name="photo" android_material_icon_name="photo" size={32} color={colors.primary} />
                             <Text style={styles.uploadText}>Toca para subir reverso</Text>
                           </View>
                         )}
@@ -711,7 +714,7 @@ export default function KYCVerificationScreen() {
                       </>
                     ) : (
                       <>
-                        <IconSymbol name="checkmark.circle.fill" size={20} color="#fff" />
+                        <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={20} color="#fff" />
                         <Text style={styles.buttonText}>Enviar Verificación KYC</Text>
                       </>
                     )}
@@ -719,7 +722,7 @@ export default function KYCVerificationScreen() {
                 </View>
 
                 <View style={[commonStyles.card, styles.securityCard]}>
-                  <IconSymbol name="lock.shield.fill" size={24} color={colors.success} />
+                  <IconSymbol ios_icon_name="lock.shield.fill" android_material_icon_name="security" size={24} color={colors.success} />
                   <View style={styles.securityContent}>
                     <Text style={styles.securityTitle}>Tus Datos están Seguros</Text>
                     <Text style={styles.securityText}>
@@ -734,7 +737,7 @@ export default function KYCVerificationScreen() {
 
             {user.kycStatus === 'approved' && (
               <View style={[commonStyles.card, styles.successCard]}>
-                <IconSymbol name="checkmark.seal.fill" size={48} color={colors.success} />
+                <IconSymbol ios_icon_name="checkmark.seal.fill" android_material_icon_name="verified" size={48} color={colors.success} />
                 <Text style={styles.successTitle}>¡KYC Verificado!</Text>
                 <Text style={styles.successText}>
                   Tu identidad ha sido verificada exitosamente. Ahora puedes retirar tus fondos
