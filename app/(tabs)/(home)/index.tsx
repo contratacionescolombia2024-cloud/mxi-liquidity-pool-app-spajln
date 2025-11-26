@@ -23,7 +23,7 @@ import { TotalMXIBalanceChart } from '@/components/TotalMXIBalanceChart';
 import Footer from '@/components/Footer';
 import { supabase } from '@/lib/supabase';
 
-const HEADER_MAX_HEIGHT = 100;
+const HEADER_MAX_HEIGHT = 120;
 const HEADER_MIN_HEIGHT = 0;
 const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
 
@@ -55,6 +55,7 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     overflow: 'hidden',
     backgroundColor: 'transparent',
+    flexShrink: 0,
   },
   logo: {
     width: 60,
@@ -63,11 +64,13 @@ const styles = StyleSheet.create({
   },
   headerTextContainer: {
     flex: 1,
+    minWidth: 0,
   },
   greeting: {
     fontSize: 24,
     fontWeight: 'bold',
     color: colors.text,
+    flexWrap: 'wrap',
   },
   userName: {
     fontSize: 14,
@@ -494,7 +497,9 @@ export default function HomeScreen() {
             />
           </View>
           <View style={styles.headerTextContainer}>
-            <Text style={styles.greeting}>Hola, {user.name}</Text>
+            <Text style={styles.greeting} numberOfLines={2}>
+              Hola, {user.name}
+            </Text>
             <Text style={styles.userName}>Bienvenido a MXI Pool</Text>
           </View>
         </View>
