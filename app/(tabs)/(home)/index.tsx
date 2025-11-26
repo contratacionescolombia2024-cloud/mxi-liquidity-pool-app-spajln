@@ -347,16 +347,23 @@ export default function HomeScreen() {
         });
       }
 
-      // 🆕 Load total MXI delivered to ALL users
+      // 🆕 Load total MXI delivered to ALL users - SUM ALL MXI SOURCES
       const { data: usersData, error: usersError } = await supabase
         .from('users')
-        .select('mxi_balance');
+        .select('mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges, mxi_vesting_locked');
 
       if (!usersError && usersData) {
+        // Calculate total MXI from ALL sources
         const totalMxi = usersData.reduce((sum, user) => {
-          return sum + parseFloat(user.mxi_balance || '0');
+          const purchased = parseFloat(user.mxi_purchased_directly || '0');
+          const commissions = parseFloat(user.mxi_from_unified_commissions || '0');
+          const challenges = parseFloat(user.mxi_from_challenges || '0');
+          const vesting = parseFloat(user.mxi_vesting_locked || '0');
+          
+          return sum + purchased + commissions + challenges + vesting;
         }, 0);
-        console.log('📊 Total MXI delivered to all users:', totalMxi);
+        
+        console.log('📊 Total MXI delivered to all users (all sources):', totalMxi);
         setTotalMxiDelivered(totalMxi);
       } else {
         console.error('❌ Error loading total MXI delivered:', usersError);
@@ -546,7 +553,7 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            {/* 🆕 Total MXI Delivered to All Users */}
+            {/* 🆕 Total MXI Delivered to All Users - NOW INCLUDES ALL SOURCES */}
             <View style={styles.totalMxiDeliveredCard}>
               <View style={styles.totalMxiDeliveredHeader}>
                 <IconSymbol 
@@ -566,7 +573,7 @@ export default function HomeScreen() {
                 })}
               </Text>
               <Text style={styles.totalMxiDeliveredSubtext}>
-                MXI entregados a todos los usuarios del proyecto
+                MXI entregados a todos los usuarios (compras + comisiones + desafíos + vesting)
               </Text>
             </View>
 
