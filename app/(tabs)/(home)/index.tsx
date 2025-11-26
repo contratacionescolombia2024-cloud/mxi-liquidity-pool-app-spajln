@@ -231,88 +231,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     flex: 1,
   },
-  commissionsCard: {
-    backgroundColor: 'rgba(168, 85, 247, 0.08)',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
-    marginHorizontal: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(168, 85, 247, 0.3)',
-    shadowColor: '#A855F7',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  commissionsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  commissionsTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  commissionsGrid: {
-    gap: 12,
-  },
-  commissionItem: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(168, 85, 247, 0.2)',
-  },
-  commissionIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(168, 85, 247, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  commissionContent: {
-    flex: 1,
-  },
-  commissionLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  commissionValueContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
-  },
-  commissionValue: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: colors.text,
-  },
-  commissionUnit: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  commissionBar: {
-    height: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginTop: 8,
-  },
-  commissionBarFill: {
-    height: '100%',
-    borderRadius: 2,
-  },
   quickActionsCard: {
     backgroundColor: 'rgba(16, 185, 129, 0.08)',
     borderRadius: 20,
@@ -373,7 +291,6 @@ export default function HomeScreen() {
     overallProgress: 0,
     poolCloseDate: '2026-02-15T12:00:00Z',
   });
-  const [commissions, setCommissions] = useState({ available: 0, total: 0 });
 
   // Animated value for header
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -442,20 +359,6 @@ export default function HomeScreen() {
           poolCloseDate: metricsData.pool_close_date || '2026-02-15T12:00:00Z',
         });
       }
-
-      // Load commissions data
-      const { data: commissionsData, error: commissionsError } = await supabase
-        .from('commissions')
-        .select('amount, status')
-        .eq('user_id', user?.id);
-
-      if (!commissionsError && commissionsData) {
-        const available = commissionsData
-          .filter(c => c.status === 'available')
-          .reduce((sum, c) => sum + parseFloat(c.amount), 0);
-        const total = commissionsData.reduce((sum, c) => sum + parseFloat(c.amount), 0);
-        setCommissions({ available, total });
-      }
     } catch (error) {
       console.error('Error loading data:', error);
     }
@@ -523,119 +426,6 @@ export default function HomeScreen() {
 
         {/* NEW: Total MXI Balance Chart with Timeframe Options */}
         <TotalMXIBalanceChart />
-
-        {/* Enhanced Commissions and Referrals Card */}
-        <View style={styles.commissionsCard}>
-          <View style={styles.commissionsHeader}>
-            <Text style={styles.commissionsTitle}>💼 Comisiones y Referidos</Text>
-          </View>
-          
-          <View style={styles.commissionsGrid}>
-            {/* Available Commissions */}
-            <View style={styles.commissionItem}>
-              <View style={styles.commissionIconContainer}>
-                <Text style={{ fontSize: 24 }}>💰</Text>
-              </View>
-              <View style={styles.commissionContent}>
-                <Text style={styles.commissionLabel}>Disponibles</Text>
-                <View style={styles.commissionValueContainer}>
-                  <Text style={styles.commissionValue}>
-                    ${commissions.available.toFixed(2)}
-                  </Text>
-                </View>
-                <View style={styles.commissionBar}>
-                  <View 
-                    style={[
-                      styles.commissionBarFill, 
-                      { 
-                        width: commissions.total > 0 ? `${(commissions.available / commissions.total) * 100}%` : '0%',
-                        backgroundColor: '#10b981'
-                      }
-                    ]} 
-                  />
-                </View>
-              </View>
-            </View>
-
-            {/* Total Commissions */}
-            <View style={styles.commissionItem}>
-              <View style={styles.commissionIconContainer}>
-                <Text style={{ fontSize: 24 }}>📊</Text>
-              </View>
-              <View style={styles.commissionContent}>
-                <Text style={styles.commissionLabel}>Total Comisiones</Text>
-                <View style={styles.commissionValueContainer}>
-                  <Text style={styles.commissionValue}>
-                    ${commissions.total.toFixed(2)}
-                  </Text>
-                </View>
-                <View style={styles.commissionBar}>
-                  <View 
-                    style={[
-                      styles.commissionBarFill, 
-                      { 
-                        width: '100%',
-                        backgroundColor: '#6366F1'
-                      }
-                    ]} 
-                  />
-                </View>
-              </View>
-            </View>
-
-            {/* Active Referrals */}
-            <View style={styles.commissionItem}>
-              <View style={styles.commissionIconContainer}>
-                <Text style={{ fontSize: 24 }}>👥</Text>
-              </View>
-              <View style={styles.commissionContent}>
-                <Text style={styles.commissionLabel}>Referidos Activos</Text>
-                <View style={styles.commissionValueContainer}>
-                  <Text style={styles.commissionValue}>
-                    {user.activeReferrals || 0}
-                  </Text>
-                </View>
-                <View style={styles.commissionBar}>
-                  <View 
-                    style={[
-                      styles.commissionBarFill, 
-                      { 
-                        width: `${Math.min((user.activeReferrals || 0) * 20, 100)}%`,
-                        backgroundColor: '#A855F7'
-                      }
-                    ]} 
-                  />
-                </View>
-              </View>
-            </View>
-
-            {/* USDT Contributed */}
-            <View style={styles.commissionItem}>
-              <View style={styles.commissionIconContainer}>
-                <Text style={{ fontSize: 24 }}>💳</Text>
-              </View>
-              <View style={styles.commissionContent}>
-                <Text style={styles.commissionLabel}>USDT Contribuido</Text>
-                <View style={styles.commissionValueContainer}>
-                  <Text style={styles.commissionValue}>
-                    ${(user.usdtContributed || 0).toFixed(2)}
-                  </Text>
-                </View>
-                <View style={styles.commissionBar}>
-                  <View 
-                    style={[
-                      styles.commissionBarFill, 
-                      { 
-                        width: '100%',
-                        backgroundColor: '#F59E0B'
-                      }
-                    ]} 
-                  />
-                </View>
-              </View>
-            </View>
-          </View>
-        </View>
 
         {/* Enhanced Phases and Progress Card */}
         {phaseInfo && phaseInfo.phase1 && phaseInfo.phase2 && phaseInfo.phase3 && (
@@ -801,7 +591,7 @@ export default function HomeScreen() {
 
             <TouchableOpacity
               style={styles.quickActionButton}
-              onPress={() => router.push('/(tabs)/(home)/referrals')}
+              onPress={() => router.push('/(tabs)/referrals')}
             >
               <View style={[styles.quickActionIcon, { backgroundColor: 'rgba(99, 102, 241, 0.15)' }]}>
                 <Text style={{ fontSize: 28 }}>👥</Text>

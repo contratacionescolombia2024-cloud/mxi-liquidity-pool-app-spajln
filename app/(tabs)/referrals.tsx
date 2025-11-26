@@ -46,10 +46,13 @@ export default function ReferralsScreen() {
     }
   };
 
+  // Get commission balance from user context - this is the unified source of truth
+  const mxiFromCommissions = user?.mxiFromUnifiedCommissions || 0;
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Referidos</Text>
+        <Text style={styles.headerTitle}>Comisiones por Referidos</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -86,30 +89,37 @@ export default function ReferralsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Commission Stats - All in MXI */}
+        {/* Commission Balance - Unified Source */}
         <View style={commonStyles.card}>
-          <Text style={styles.sectionTitle}>Balance de Comisiones (MXI)</Text>
-          <View style={styles.statsGrid}>
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Total Ganado</Text>
-              <Text style={styles.statValue}>{user?.mxiBalance.toFixed(4) || '0.0000'} MXI</Text>
+          <Text style={styles.sectionTitle}>💰 Balance de Comisiones (MXI)</Text>
+          <View style={styles.balanceCard}>
+            <View style={styles.balanceHeader}>
+              <Text style={styles.balanceLabel}>Total Ganado por Referidos</Text>
+              <Text style={styles.balanceValue}>{mxiFromCommissions.toFixed(4)} MXI</Text>
             </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Disponible</Text>
-              <Text style={[styles.statValue, { color: colors.success }]}>
-                {user?.mxiBalance.toFixed(4) || '0.0000'} MXI
-              </Text>
+            <View style={styles.balanceProgressBar}>
+              <View 
+                style={[
+                  styles.balanceProgressFill, 
+                  { 
+                    width: mxiFromCommissions > 0 ? '100%' : '0%',
+                    backgroundColor: colors.primary
+                  }
+                ]} 
+              />
             </View>
           </View>
           <Text style={styles.infoNote}>
-            💡 Todas las comisiones se manejan internamente en MXI
+            💡 Todas las comisiones por referidos se acreditan directamente en MXI
+          </Text>
+          <Text style={styles.infoNote}>
+            📊 Este saldo representa tus ganancias totales por comisiones de referidos
           </Text>
         </View>
 
         {/* Referral Stats */}
         <View style={commonStyles.card}>
-          <Text style={styles.sectionTitle}>Tus Referidos</Text>
+          <Text style={styles.sectionTitle}>👥 Tus Referidos</Text>
           <View style={styles.referralsList}>
             <View style={styles.referralItem}>
               <View style={styles.referralLevel}>
@@ -148,16 +158,79 @@ export default function ReferralsScreen() {
               size={24} 
               color={colors.primary} 
             />
-            <Text style={styles.infoTitle}>Cómo Funcionan los Referidos</Text>
+            <Text style={styles.infoTitle}>Cómo Funcionan las Comisiones</Text>
           </View>
           <View style={styles.infoList}>
             <Text style={styles.infoItem}>- Comparte tu código de referido con amigos</Text>
-            <Text style={styles.infoItem}>- Gana 3% en MXI de referidos de Nivel 1</Text>
-            <Text style={styles.infoItem}>- Gana 2% en MXI de referidos de Nivel 2</Text>
-            <Text style={styles.infoItem}>- Gana 1% en MXI de referidos de Nivel 3</Text>
-            <Text style={styles.infoItem}>- Todas las comisiones se acreditan directamente en MXI</Text>
+            <Text style={styles.infoItem}>- Gana 3% en MXI de las compras de referidos de Nivel 1</Text>
+            <Text style={styles.infoItem}>- Gana 2% en MXI de las compras de referidos de Nivel 2</Text>
+            <Text style={styles.infoItem}>- Gana 1% en MXI de las compras de referidos de Nivel 3</Text>
+            <Text style={styles.infoItem}>- Todas las comisiones se acreditan automáticamente en MXI</Text>
+            <Text style={styles.infoItem}>- Las comisiones se calculan sobre el monto en MXI comprado</Text>
             <Text style={styles.infoItem}>- Necesitas 5 referidos activos de Nivel 1 para retirar</Text>
           </View>
+        </View>
+
+        {/* Withdrawal Requirements */}
+        <View style={[commonStyles.card, styles.requirementsCard]}>
+          <View style={styles.infoHeader}>
+            <IconSymbol 
+              ios_icon_name="checkmark.shield.fill" 
+              android_material_icon_name="verified_user" 
+              size={24} 
+              color={colors.success} 
+            />
+            <Text style={styles.infoTitle}>Requisitos para Retirar</Text>
+          </View>
+          <View style={styles.requirementsList}>
+            <View style={styles.requirementItem}>
+              <IconSymbol 
+                ios_icon_name={user && user.activeReferrals >= 5 ? 'checkmark.circle.fill' : 'xmark.circle.fill'} 
+                android_material_icon_name={user && user.activeReferrals >= 5 ? 'check_circle' : 'cancel'} 
+                size={20} 
+                color={user && user.activeReferrals >= 5 ? colors.success : colors.error} 
+              />
+              <Text style={styles.requirementText}>
+                5 referidos activos de Nivel 1 ({user?.activeReferrals || 0}/5)
+              </Text>
+            </View>
+            <View style={styles.requirementItem}>
+              <IconSymbol 
+                ios_icon_name={mxiFromCommissions >= 50 ? 'checkmark.circle.fill' : 'xmark.circle.fill'} 
+                android_material_icon_name={mxiFromCommissions >= 50 ? 'check_circle' : 'cancel'} 
+                size={20} 
+                color={mxiFromCommissions >= 50 ? colors.success : colors.error} 
+              />
+              <Text style={styles.requirementText}>
+                Mínimo 50 MXI en comisiones ({mxiFromCommissions.toFixed(2)} MXI)
+              </Text>
+            </View>
+            <View style={styles.requirementItem}>
+              <IconSymbol 
+                ios_icon_name={user?.kycStatus === 'approved' ? 'checkmark.circle.fill' : 'xmark.circle.fill'} 
+                android_material_icon_name={user?.kycStatus === 'approved' ? 'check_circle' : 'cancel'} 
+                size={20} 
+                color={user?.kycStatus === 'approved' ? colors.success : colors.error} 
+              />
+              <Text style={styles.requirementText}>
+                Verificación KYC aprobada
+              </Text>
+            </View>
+          </View>
+          {user && user.activeReferrals >= 5 && mxiFromCommissions >= 50 && user.kycStatus === 'approved' && (
+            <TouchableOpacity
+              style={[buttonStyles.primary, styles.withdrawButton]}
+              onPress={() => router.push('/(tabs)/(home)/retiros')}
+            >
+              <IconSymbol 
+                ios_icon_name="arrow.up.circle.fill" 
+                android_material_icon_name="arrow_circle_up" 
+                size={20} 
+                color="#000" 
+              />
+              <Text style={buttonStyles.primaryText}>Ir a Retiros</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -176,7 +249,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '700',
     color: colors.text,
     textAlign: 'center',
@@ -229,27 +302,39 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 16,
   },
-  statsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+  balanceCard: {
+    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(99, 102, 241, 0.3)',
+  },
+  balanceHeader: {
+    alignItems: 'center',
     marginBottom: 12,
   },
-  statItem: {
-    alignItems: 'center',
-  },
-  statLabel: {
-    fontSize: 12,
+  balanceLabel: {
+    fontSize: 14,
     color: colors.textSecondary,
-    marginBottom: 4,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  statValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
+  balanceValue: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: colors.primary,
   },
-  statDivider: {
-    width: 1,
-    backgroundColor: colors.border,
+  balanceProgressBar: {
+    height: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  balanceProgressFill: {
+    height: '100%',
+    borderRadius: 4,
   },
   infoNote: {
     fontSize: 13,
@@ -337,5 +422,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     lineHeight: 20,
+  },
+  requirementsCard: {
+    backgroundColor: colors.success + '10',
+    borderWidth: 1,
+    borderColor: colors.success + '30',
+  },
+  requirementsList: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  requirementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  requirementText: {
+    fontSize: 14,
+    color: colors.text,
+    flex: 1,
+  },
+  withdrawButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
 });
