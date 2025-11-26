@@ -36,7 +36,7 @@ export function TotalMXIBalanceChart() {
     const MONTHLY_YIELD_PERCENTAGE = 0.03;
     const SECONDS_IN_MONTH = 2592000;
     
-    // ONLY purchased MXI generates vesting
+    // ONLY purchased MXI generates vesting (commissions do NOT count)
     const mxiPurchased = user.mxiPurchasedDirectly || 0;
     
     if (mxiPurchased === 0) {
@@ -164,6 +164,7 @@ export function TotalMXIBalanceChart() {
 
     const MONTHLY_YIELD_PERCENTAGE = 0.03;
     const SECONDS_IN_MONTH = 2592000;
+    // ONLY purchased MXI generates vesting
     const maxMonthlyYield = mxiPurchased * MONTHLY_YIELD_PERCENTAGE;
     const yieldPerSecond = mxiPurchased > 0 ? maxMonthlyYield / SECONDS_IN_MONTH : 0;
     const yieldPerInterval = yieldPerSecond * (intervalMs / 1000);
@@ -474,7 +475,7 @@ export function TotalMXIBalanceChart() {
   const { change, percentage } = getChangeData();
   const isPositive = change >= 0;
 
-  // FIXED: Calculate the TOTAL MXI balance from ALL sources
+  // Calculate the TOTAL MXI balance from ALL sources (purchased + commissions + tournaments + vesting)
   const currentTotal = balanceData.length > 0 
     ? balanceData[balanceData.length - 1].totalBalance 
     : (user?.mxiPurchasedDirectly || 0) + (user?.mxiFromUnifiedCommissions || 0) + (user?.mxiFromChallenges || 0) + currentVesting;
@@ -493,8 +494,8 @@ export function TotalMXIBalanceChart() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.title}>📊 Balance MXI Total</Text>
-          <Text style={styles.subtitle}>Actualización en Tiempo Real</Text>
+          <Text style={styles.title}>📊 Balance General de MXI</Text>
+          <Text style={styles.subtitle}>Todas las fuentes incluidas</Text>
         </View>
         <View style={styles.headerRight}>
           <Text style={styles.currentValue}>
@@ -516,6 +517,20 @@ export function TotalMXIBalanceChart() {
             </Text>
           </View>
         </View>
+      </View>
+
+      {/* Info Box */}
+      <View style={styles.infoBox}>
+        <IconSymbol 
+          ios_icon_name="info.circle.fill" 
+          android_material_icon_name="info" 
+          size={20} 
+          color="#00ff88" 
+        />
+        <Text style={styles.infoText}>
+          Este gráfico muestra tu balance TOTAL de MXI incluyendo: compras directas, comisiones, torneos y vesting. 
+          El vesting se genera ÚNICAMENTE de los MXI comprados directamente.
+        </Text>
       </View>
 
       {/* Time Range Selector */}
@@ -577,7 +592,7 @@ export function TotalMXIBalanceChart() {
 
       {/* Detailed Breakdown */}
       <View style={styles.breakdownSection}>
-        <Text style={styles.breakdownTitle}>📊 Desglose de Balance MXI</Text>
+        <Text style={styles.breakdownTitle}>📊 Desglose Completo de MXI</Text>
         
         <View style={styles.breakdownGrid}>
           {/* MXI Comprados */}
@@ -727,7 +742,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   headerLeft: {
     flex: 1,
@@ -777,6 +792,24 @@ const styles = StyleSheet.create({
   changeText: {
     fontSize: 11,
     fontWeight: '700',
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(0, 255, 136, 0.1)',
+    padding: 12,
+    borderRadius: 8,
+    gap: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 136, 0.3)',
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 11,
+    color: '#00ff88',
+    lineHeight: 16,
+    fontWeight: '600',
   },
   timeRangeSelector: {
     flexDirection: 'row',

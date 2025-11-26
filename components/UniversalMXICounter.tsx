@@ -24,8 +24,8 @@ export function UniversalMXICounter({ isAdmin = false }: UniversalMXICounterProp
     // Update display every second for smooth animation
     const displayInterval = setInterval(() => {
       setDisplayYield(prev => {
-        // Calculate vesting base (only purchased MXI generates vesting)
-        const mxiInVesting = (user.mxiPurchasedDirectly || 0) + (user.mxiFromUnifiedCommissions || 0);
+        // ONLY purchased MXI generates vesting (commissions do NOT count)
+        const mxiInVesting = user.mxiPurchasedDirectly || 0;
         
         if (mxiInVesting === 0) {
           return 0;
@@ -60,8 +60,7 @@ export function UniversalMXICounter({ isAdmin = false }: UniversalMXICounterProp
 
   // Calculate vesting amounts - ONLY purchased MXI generates vesting
   const mxiPurchased = user.mxiPurchasedDirectly || 0;
-  const mxiFromCommissions = user.mxiFromUnifiedCommissions || 0;
-  const mxiInVesting = mxiPurchased + mxiFromCommissions;
+  const mxiInVesting = mxiPurchased; // ONLY purchased MXI
   const maxMonthlyYield = mxiInVesting * MONTHLY_YIELD_PERCENTAGE;
   const yieldPerSecond = mxiInVesting > 0 ? maxMonthlyYield / SECONDS_IN_MONTH : 0;
   const hasBalance = mxiInVesting > 0;
@@ -107,37 +106,41 @@ export function UniversalMXICounter({ isAdmin = false }: UniversalMXICounterProp
       <View style={styles.header}>
         <View style={styles.iconContainer}>
           <IconSymbol 
-            ios_icon_name="chart.line.uptrend.xyaxis" 
-            android_material_icon_name="trending_up" 
+            ios_icon_name="lock.fill" 
+            android_material_icon_name="lock" 
             size={28} 
             color={colors.accent} 
           />
         </View>
         <View style={styles.headerText}>
           <Text style={styles.title}>
-            {isAdmin ? 'Balance MXI del Administrador' : 'Balance MXI'}
+            {isAdmin ? 'Vesting del Administrador' : '🔒 Vesting'}
           </Text>
-          <Text style={styles.subtitle}>Actualización en tiempo real</Text>
+          <Text style={styles.subtitle}>Solo MXI comprados directamente</Text>
         </View>
       </View>
 
-      {/* MXI Breakdown */}
+      {/* Warning Box */}
+      <View style={styles.warningBox}>
+        <IconSymbol 
+          ios_icon_name="exclamationmark.triangle.fill" 
+          android_material_icon_name="warning" 
+          size={20} 
+          color="#FFD700" 
+        />
+        <Text style={styles.warningText}>
+          El vesting se calcula ÚNICAMENTE sobre los MXI comprados directamente. 
+          Las comisiones NO generan vesting.
+        </Text>
+      </View>
+
+      {/* MXI Purchased (Base for Vesting) */}
       <View style={styles.balanceSection}>
         <View style={styles.balanceRow}>
           <View style={styles.balanceItem}>
-            <Text style={styles.balanceLabel}>MXI Comprados</Text>
-            <Text style={styles.balanceValue}>{mxiPurchased.toFixed(2)}</Text>
+            <Text style={styles.balanceLabel}>MXI Comprados (Base de Vesting)</Text>
+            <Text style={styles.balanceValue}>{mxiPurchased.toFixed(2)} MXI</Text>
           </View>
-          <View style={styles.balanceDivider} />
-          <View style={styles.balanceItem}>
-            <Text style={styles.balanceLabel}>MXI Comisiones</Text>
-            <Text style={styles.balanceValue}>{mxiFromCommissions.toFixed(2)}</Text>
-          </View>
-        </View>
-        
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Base de Vesting</Text>
-          <Text style={styles.totalValue}>{mxiInVesting.toFixed(2)} MXI</Text>
         </View>
       </View>
 
@@ -212,7 +215,7 @@ export function UniversalMXICounter({ isAdmin = false }: UniversalMXICounterProp
             color={colors.textSecondary} 
           />
           <Text style={styles.emptyText}>
-            No hay MXI en vesting. Solo los MXI comprados directamente y los de comisiones unificadas generan rendimiento.
+            No hay MXI en vesting. Solo los MXI comprados directamente generan rendimiento de vesting.
           </Text>
         </View>
       )}
@@ -226,8 +229,8 @@ export function UniversalMXICounter({ isAdmin = false }: UniversalMXICounterProp
           color={colors.accent} 
         />
         <Text style={styles.infoText}>
-          El vesting se calcula sobre los MXI comprados directamente y los de comisiones unificadas. 
-          Rendimiento: 3% mensual, actualizado cada segundo.
+          El vesting se calcula ÚNICAMENTE sobre los MXI comprados directamente. 
+          Rendimiento: 3% mensual, actualizado cada segundo. Las comisiones NO generan vesting.
         </Text>
       </View>
     </View>
@@ -250,7 +253,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   iconContainer: {
     width: 48,
@@ -275,6 +278,25 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 12,
     color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    padding: 12,
+    borderRadius: 8,
+    gap: 8,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 215, 0, 0.4)',
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#FFD700',
+    lineHeight: 18,
+    fontWeight: '600',
   },
   balanceSection: {
     backgroundColor: colors.background,
@@ -286,7 +308,6 @@ const styles = StyleSheet.create({
   },
   balanceRow: {
     flexDirection: 'row',
-    marginBottom: 16,
   },
   balanceItem: {
     flex: 1,
@@ -302,11 +323,12 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: 6,
     fontWeight: '600',
+    textAlign: 'center',
   },
   balanceValue: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '700',
-    color: colors.text,
+    color: colors.primary,
     fontFamily: 'monospace',
   },
   totalRow: {
