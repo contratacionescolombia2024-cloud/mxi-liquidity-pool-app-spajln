@@ -250,6 +250,73 @@ export default function DepositScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* 🆕 NEW: Manual Verification Button */}
+        <TouchableOpacity
+          style={styles.manualVerificationCard}
+          onPress={() => router.push('/(tabs)/(home)/manual-verification')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.manualVerificationContent}>
+            <View style={styles.manualVerificationIconContainer}>
+              <IconSymbol
+                ios_icon_name="person.fill.checkmark"
+                android_material_icon_name="admin_panel_settings"
+                size={40}
+                color="#FFFFFF"
+              />
+            </View>
+            <View style={styles.manualVerificationTextContainer}>
+              <Text style={styles.manualVerificationTitle}>
+                Verificación Manual de Pagos
+              </Text>
+              <Text style={styles.manualVerificationSubtitle}>
+                Solicita verificación manual de tus pagos NowPayments y USDT
+              </Text>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron_right"
+              size={28}
+              color="#FFFFFF"
+            />
+          </View>
+          <View style={styles.manualVerificationFeatures}>
+            <View style={styles.manualVerificationFeatureItem}>
+              <IconSymbol
+                ios_icon_name="checkmark.circle.fill"
+                android_material_icon_name="check_circle"
+                size={16}
+                color="#FFFFFF"
+              />
+              <Text style={styles.manualVerificationFeatureText}>
+                Historial completo de pagos
+              </Text>
+            </View>
+            <View style={styles.manualVerificationFeatureItem}>
+              <IconSymbol
+                ios_icon_name="checkmark.circle.fill"
+                android_material_icon_name="check_circle"
+                size={16}
+                color="#FFFFFF"
+              />
+              <Text style={styles.manualVerificationFeatureText}>
+                Verificación por administrador
+              </Text>
+            </View>
+            <View style={styles.manualVerificationFeatureItem}>
+              <IconSymbol
+                ios_icon_name="checkmark.circle.fill"
+                android_material_icon_name="check_circle"
+                size={16}
+                color="#FFFFFF"
+              />
+              <Text style={styles.manualVerificationFeatureText}>
+                Respuesta en menos de 2 horas
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+
         {/* Transaction History Link */}
         <TouchableOpacity
           style={styles.historyLinkCard}
@@ -618,6 +685,60 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   featureText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  manualVerificationCard: {
+    backgroundColor: '#FF9800',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#FF9800',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 12,
+    borderWidth: 3,
+    borderColor: '#FFB74D',
+  },
+  manualVerificationContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  manualVerificationIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  manualVerificationTextContainer: {
+    flex: 1,
+  },
+  manualVerificationTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  manualVerificationSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.95)',
+    lineHeight: 18,
+  },
+  manualVerificationFeatures: {
+    gap: 8,
+  },
+  manualVerificationFeatureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  manualVerificationFeatureText: {
     fontSize: 13,
     fontWeight: '600',
     color: '#FFFFFF',
