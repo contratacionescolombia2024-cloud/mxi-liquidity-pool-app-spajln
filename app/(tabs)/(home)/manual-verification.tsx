@@ -193,6 +193,15 @@ export default function ManualVerificationScreen() {
     }
   };
 
+  const handleRequestNowPaymentsVerification = (payment: any) => {
+    console.log('🟢🟢🟢 [ManualVerification] BUTTON PRESSED - handleRequestNowPaymentsVerification');
+    console.log('🟢 [ManualVerification] Payment:', JSON.stringify(payment, null, 2));
+    console.log('🟢 [ManualVerification] User:', user?.id);
+    console.log('🟢 [ManualVerification] Session:', !!session);
+    
+    requestNowPaymentsVerification(payment);
+  };
+
   const requestNowPaymentsVerification = async (payment: any) => {
     console.log('🟢 [ManualVerification] === REQUESTING NOWPAYMENTS VERIFICATION ===');
     console.log('🟢 [ManualVerification] Payment ID:', payment.id);
@@ -209,6 +218,17 @@ export default function ManualVerificationScreen() {
     if (!session) {
       console.error('❌ [ManualVerification] No session found!');
       Alert.alert('Error', 'Sesión no válida. Por favor, inicia sesión nuevamente.');
+      return;
+    }
+
+    // Check if verification request already exists
+    const existingRequest = verificationRequests.get(payment.id);
+    if (existingRequest) {
+      console.log('⚠️ [ManualVerification] Verification request already exists:', existingRequest);
+      Alert.alert(
+        'Solicitud Existente',
+        `Ya existe una solicitud de verificación para este pago.\n\nEstado: ${existingRequest.status}\n\nPor favor, espera a que el administrador la revise.`
+      );
       return;
     }
 
@@ -235,8 +255,6 @@ export default function ManualVerificationScreen() {
                 user_id: user.id,
                 order_id: payment.order_id,
                 status: 'pending',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
               };
 
               console.log('🟢 [ManualVerification] Inserting verification request:', JSON.stringify(requestData, null, 2));
@@ -287,6 +305,16 @@ export default function ManualVerificationScreen() {
         },
       ]
     );
+  };
+
+  const handleRequestUSDTVerification = () => {
+    console.log('🟢🟢🟢 [ManualVerification] BUTTON PRESSED - handleRequestUSDTVerification');
+    console.log('🟢 [ManualVerification] TX Hash:', txHash);
+    console.log('🟢 [ManualVerification] Selected Network:', selectedNetwork);
+    console.log('🟢 [ManualVerification] User:', user?.id);
+    console.log('🟢 [ManualVerification] Session:', !!session);
+    
+    requestUSDTVerification();
   };
 
   const requestUSDTVerification = async () => {
@@ -390,8 +418,6 @@ export default function ManualVerificationScreen() {
                 phase: 1,
                 status: 'pending',
                 estado: 'pending',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
               };
 
               console.log('🟢 [ManualVerification] Inserting payment:', JSON.stringify(paymentData, null, 2));
@@ -415,8 +441,6 @@ export default function ManualVerificationScreen() {
                 user_id: user.id,
                 order_id: orderId,
                 status: 'pending',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
               };
 
               console.log('🟢 [ManualVerification] Inserting verification request:', JSON.stringify(verificationData, null, 2));
@@ -884,10 +908,7 @@ export default function ManualVerificationScreen() {
                     {isPending && !verificationRequest && (
                       <TouchableOpacity
                         style={styles.requestVerificationButton}
-                        onPress={() => {
-                          console.log('🟢 [ManualVerification] Request verification button pressed for payment:', payment.id);
-                          requestNowPaymentsVerification(payment);
-                        }}
+                        onPress={() => handleRequestNowPaymentsVerification(payment)}
                         activeOpacity={0.7}
                       >
                         <IconSymbol
@@ -1014,12 +1035,7 @@ export default function ManualVerificationScreen() {
                 styles.requestUSDTVerificationButton,
                 (requestingManualVerification || !txHash.trim()) && styles.requestUSDTVerificationButtonDisabled
               ]}
-              onPress={() => {
-                console.log('🟢 [ManualVerification] USDT verification button pressed');
-                console.log('🟢 [ManualVerification] TX Hash:', txHash);
-                console.log('🟢 [ManualVerification] Requesting:', requestingManualVerification);
-                requestUSDTVerification();
-              }}
+              onPress={handleRequestUSDTVerification}
               disabled={requestingManualVerification || !txHash.trim()}
               activeOpacity={0.7}
             >
