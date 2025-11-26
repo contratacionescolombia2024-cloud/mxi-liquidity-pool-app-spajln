@@ -11,7 +11,7 @@ const CHART_WIDTH = Dimensions.get('window').width - 80;
 const CHART_HEIGHT = 320;
 const PADDING = { top: 20, right: 10, bottom: 50, left: 60 };
 
-type TimeRange = '5min' | '15min' | '1h' | '24h' | '7d';
+type TimeRange = '12h' | '24h' | '7d';
 
 interface BalanceDataPoint {
   timestamp: Date;
@@ -72,11 +72,8 @@ export function TotalMXIBalanceChart() {
 
   const getRefreshInterval = () => {
     switch (timeRange) {
-      case '5min':
-      case '15min':
-        return 5000; // 5 seconds
-      case '1h':
-        return 10000; // 10 seconds
+      case '12h':
+        return 30000; // 30 seconds
       case '24h':
         return 60000; // 1 minute
       case '7d':
@@ -89,12 +86,8 @@ export function TotalMXIBalanceChart() {
   const getTimeRangeMs = () => {
     const now = Date.now();
     switch (timeRange) {
-      case '5min':
-        return 5 * 60 * 1000;
-      case '15min':
-        return 15 * 60 * 1000;
-      case '1h':
-        return 60 * 60 * 1000;
+      case '12h':
+        return 12 * 60 * 60 * 1000;
       case '24h':
         return 24 * 60 * 60 * 1000;
       case '7d':
@@ -193,12 +186,8 @@ export function TotalMXIBalanceChart() {
 
   const getDataPointCount = () => {
     switch (timeRange) {
-      case '5min':
-        return 30; // 10 second intervals
-      case '15min':
-        return 45; // 20 second intervals
-      case '1h':
-        return 60; // 1 minute intervals
+      case '12h':
+        return 72; // 10 minute intervals
       case '24h':
         return 96; // 15 minute intervals
       case '7d':
@@ -450,9 +439,7 @@ export function TotalMXIBalanceChart() {
 
   const formatTimeLabel = (date: Date) => {
     switch (timeRange) {
-      case '5min':
-      case '15min':
-      case '1h':
+      case '12h':
         return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
       case '24h':
         return `${date.getHours()}:00`;
@@ -542,9 +529,9 @@ export function TotalMXIBalanceChart() {
         </Text>
       </View>
 
-      {/* Time Range Selector */}
+      {/* Time Range Selector - ONLY 12h, 24h, 7d */}
       <View style={styles.timeRangeSelector}>
-        {(['5min', '15min', '1h', '24h', '7d'] as TimeRange[]).map((range) => (
+        {(['12h', '24h', '7d'] as TimeRange[]).map((range) => (
           <TouchableOpacity
             key={range}
             style={[
@@ -831,8 +818,8 @@ const styles = StyleSheet.create({
   },
   timeRangeButton: {
     flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderRadius: 8,
     alignItems: 'center',
   },
@@ -842,7 +829,7 @@ const styles = StyleSheet.create({
     borderColor: '#00ff88',
   },
   timeRangeText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
     color: 'rgba(0, 255, 136, 0.5)',
   },
