@@ -46,6 +46,44 @@ export default function RetirosScreen() {
     commissionsUSDT: 0,
   });
   const [poolStatus, setPoolStatus] = useState<any>(null);
+  const [currentVesting, setCurrentVesting] = useState(0);
+
+  // Real-time vesting counter (only from purchased MXI)
+  useEffect(() => {
+    if (!user) return;
+
+    const MONTHLY_YIELD_PERCENTAGE = 0.03;
+    const SECONDS_IN_MONTH = 2592000;
+    
+    // ONLY purchased MXI generates vesting
+    const mxiPurchased = balanceBreakdown.mxiPurchased || 0;
+    
+    if (mxiPurchased === 0) {
+      setCurrentVesting(0);
+      return;
+    }
+
+    const maxMonthlyYield = mxiPurchased * MONTHLY_YIELD_PERCENTAGE;
+    const yieldPerSecond = maxMonthlyYield / SECONDS_IN_MONTH;
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const lastUpdate = new Date(user.lastYieldUpdate);
+      const secondsElapsed = (now - lastUpdate.getTime()) / 1000;
+      const sessionYield = yieldPerSecond * secondsElapsed;
+      const totalYield = user.accumulatedYield + sessionYield;
+      const cappedTotalYield = Math.min(totalYield, maxMonthlyYield);
+      setCurrentVesting(cappedTotalYield);
+      
+      // Update balance breakdown with real-time vesting
+      setBalanceBreakdown(prev => ({
+        ...prev,
+        mxiVesting: cappedTotalYield,
+      }));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [user, balanceBreakdown.mxiPurchased]);
 
   useEffect(() => {
     loadData();
@@ -71,12 +109,25 @@ export default function RetirosScreen() {
 
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges, mxi_vesting_locked, commissions_available')
+        .select('mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges, mxi_vesting_locked, active_referrals')
         .eq('id', user.id)
         .single();
 
       if (userError) {
         console.error('Error loading user data:', userError);
+      }
+
+      // Load USDT commissions from commissions table
+      const { data: commissionsData, error: commissionsError } = await supabase
+        .from('commissions')
+        .select('amount, status')
+        .eq('user_id', user.id);
+
+      let commissionsUSDT = 0;
+      if (!commissionsError && commissionsData) {
+        commissionsUSDT = commissionsData
+          .filter(c => c.status === 'available')
+          .reduce((sum, c) => sum + parseFloat(c.amount), 0);
       }
 
       const { data: poolData, error: poolError } = await supabase
@@ -98,7 +149,7 @@ export default function RetirosScreen() {
         mxiCommissions: parseFloat(userData?.mxi_from_unified_commissions || '0'),
         mxiTournaments: parseFloat(userData?.mxi_from_challenges || '0'),
         mxiVesting: parseFloat(userData?.mxi_vesting_locked || '0'),
-        commissionsUSDT: parseFloat(userData?.commissions_available || '0'),
+        commissionsUSDT: commissionsUSDT,
       });
 
       console.log('Balance breakdown loaded:', {
@@ -106,7 +157,8 @@ export default function RetirosScreen() {
         mxiCommissions: userData?.mxi_from_unified_commissions,
         mxiTournaments: userData?.mxi_from_challenges,
         mxiVesting: userData?.mxi_vesting_locked,
-        commissionsUSDT: userData?.commissions_available,
+        commissionsUSDT: commissionsUSDT,
+        activeReferrals: userData?.active_referrals,
       });
     } catch (error) {
       console.error('Error in loadData:', error);
@@ -129,74 +181,87 @@ export default function RetirosScreen() {
       return;
     }
 
-    // Check eligibility based on withdrawal type
-    if (withdrawalType === 'commissions') {
-      if (amountNum > balanceBreakdown.commissionsUSDT) {
-        Alert.alert('Saldo Insuficiente', 'No tienes suficientes comisiones disponibles');
-        return;
-      }
+    // All withdrawals are now in USDT(ETH), amount is entered in MXI
+    let availableAmount = 0;
+    let withdrawalLabel = '';
+    let usdtEquivalent = 0;
 
-      if (!canWithdrawCommission) {
-        Alert.alert(
-          'No Elegible',
-          'Necesitas al menos 5 referidos activos y KYC aprobado para retirar comisiones'
-        );
-        return;
-      }
-
-      await processWithdrawal('USDT', amountNum, 'Comisiones');
-    } else {
-      // MXI withdrawals
-      let availableAmount = 0;
-      let withdrawalLabel = '';
-
-      switch (withdrawalType) {
-        case 'purchased':
-          availableAmount = balanceBreakdown.mxiPurchased;
-          withdrawalLabel = 'MXI Comprados';
-          break;
-        case 'vesting':
-          availableAmount = balanceBreakdown.mxiVesting;
-          withdrawalLabel = 'MXI Vesting';
-          break;
-        case 'tournaments':
-          availableAmount = balanceBreakdown.mxiTournaments;
-          withdrawalLabel = 'MXI Torneos';
-          break;
-      }
-
-      if (amountNum > availableAmount) {
-        Alert.alert('Saldo Insuficiente', `No tienes suficiente ${withdrawalLabel} disponible`);
-        return;
-      }
-
-      // Check if launch is required for this type
-      if ((withdrawalType === 'purchased' || withdrawalType === 'vesting') && !poolStatus?.isLaunched) {
-        const daysUntil = poolStatus?.mxiLaunchDate 
-          ? Math.ceil((new Date(poolStatus.mxiLaunchDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-          : 0;
+    switch (withdrawalType) {
+      case 'purchased':
+        availableAmount = balanceBreakdown.mxiPurchased;
+        withdrawalLabel = 'MXI Comprados';
+        usdtEquivalent = amountNum * 0.4;
+        break;
+      case 'commissions':
+        availableAmount = balanceBreakdown.mxiCommissions;
+        withdrawalLabel = 'MXI Comisiones';
+        usdtEquivalent = amountNum * 0.4;
+        break;
+      case 'vesting':
+        availableAmount = balanceBreakdown.mxiVesting;
+        withdrawalLabel = 'MXI Vesting';
+        usdtEquivalent = amountNum * 0.4;
         
-        Alert.alert(
-          'Retiro No Disponible',
-          `Los retiros de ${withdrawalLabel} estarán disponibles después del lanzamiento oficial de MXI.\n\nTiempo restante: ${daysUntil} días`,
-          [{ text: 'Entendido' }]
-        );
-        return;
-      }
-
-      if (!canWithdrawMXI) {
-        Alert.alert(
-          'No Elegible',
-          'Necesitas al menos 5 referidos activos y KYC aprobado para retirar MXI'
-        );
-        return;
-      }
-
-      await processWithdrawal('MXI', amountNum, withdrawalLabel);
+        // Vesting requires at least 10 referrals with MXI purchases
+        if ((user.activeReferrals || 0) < 10) {
+          Alert.alert(
+            'Requisito No Cumplido',
+            `Para retirar MXI de Vesting necesitas al menos 10 referidos con compras de MXI.\n\nActualmente tienes: ${user.activeReferrals || 0} referidos activos.`,
+            [{ text: 'Entendido' }]
+          );
+          return;
+        }
+        break;
+      case 'tournaments':
+        availableAmount = balanceBreakdown.mxiTournaments;
+        withdrawalLabel = 'MXI Torneos';
+        usdtEquivalent = amountNum * 0.4;
+        break;
     }
+
+    if (amountNum > availableAmount) {
+      Alert.alert('Saldo Insuficiente', `No tienes suficiente ${withdrawalLabel} disponible`);
+      return;
+    }
+
+    // Check if launch is required for this type
+    if ((withdrawalType === 'purchased' || withdrawalType === 'vesting') && !poolStatus?.isLaunched) {
+      const daysUntil = poolStatus?.mxiLaunchDate 
+        ? Math.ceil((new Date(poolStatus.mxiLaunchDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        : 0;
+      
+      Alert.alert(
+        'Retiro No Disponible',
+        `Los retiros de ${withdrawalLabel} estarán disponibles después del lanzamiento oficial de MXI.\n\nTiempo restante: ${daysUntil} días`,
+        [{ text: 'Entendido' }]
+      );
+      return;
+    }
+
+    // Check general eligibility (5 referrals + KYC)
+    if (!canWithdrawMXI) {
+      Alert.alert(
+        'No Elegible',
+        'Necesitas al menos 5 referidos activos y KYC aprobado para retirar'
+      );
+      return;
+    }
+
+    // Show confirmation with USDT equivalent
+    Alert.alert(
+      'Confirmar Retiro',
+      `Vas a retirar:\n\n${amountNum.toFixed(2)} MXI (${withdrawalLabel})\n≈ ${usdtEquivalent.toFixed(2)} USDT\n\nTasa de conversión: 1 MXI = 0.4 USDT\n\n¿Deseas continuar?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Confirmar', 
+          onPress: () => processWithdrawal(amountNum, usdtEquivalent, withdrawalLabel) 
+        }
+      ]
+    );
   };
 
-  const processWithdrawal = async (currency: 'USDT' | 'MXI', amount: number, label: string) => {
+  const processWithdrawal = async (mxiAmount: number, usdtAmount: number, label: string) => {
     setLoading(true);
 
     try {
@@ -204,11 +269,11 @@ export default function RetirosScreen() {
         .from('withdrawals')
         .insert({
           user_id: user!.id,
-          amount,
-          currency,
+          amount: usdtAmount, // Store USDT amount
+          currency: 'USDT',
           wallet_address: walletAddress,
           status: 'pending',
-          admin_notes: `Retiro de ${label}`,
+          admin_notes: `Retiro de ${label}: ${mxiAmount.toFixed(2)} MXI → ${usdtAmount.toFixed(2)} USDT (ETH)`,
         });
 
       if (error) {
@@ -219,7 +284,7 @@ export default function RetirosScreen() {
 
       Alert.alert(
         'Solicitud Enviada',
-        `Tu solicitud de retiro de ${amount.toFixed(2)} ${currency} (${label}) ha sido enviada exitosamente. Será procesada en 24-48 horas.`,
+        `Tu solicitud de retiro ha sido enviada exitosamente:\n\n${mxiAmount.toFixed(2)} MXI (${label})\n≈ ${usdtAmount.toFixed(2)} USDT (ETH)\n\nSerá procesada en 24-48 horas.`,
         [
           {
             text: 'OK',
@@ -253,12 +318,12 @@ export default function RetirosScreen() {
         };
       case 'commissions':
         return {
-          title: 'Retirar Comisiones',
+          title: 'Retirar MXI Comisiones',
           icon: '💵',
           color: '#A855F7',
-          available: balanceBreakdown.commissionsUSDT,
-          currency: 'USDT',
-          description: 'Comisiones en USDT de referidos',
+          available: balanceBreakdown.mxiCommissions,
+          currency: 'MXI',
+          description: 'MXI de comisiones de referidos',
           locked: false,
         };
       case 'vesting':
@@ -285,6 +350,8 @@ export default function RetirosScreen() {
   };
 
   const typeInfo = getWithdrawalTypeInfo();
+  const amountNum = parseFloat(amount) || 0;
+  const usdtEquivalent = amountNum * 0.4;
 
   if (loading && !user) {
     return (
@@ -295,6 +362,12 @@ export default function RetirosScreen() {
       </SafeAreaView>
     );
   }
+
+  // Calculate total MXI available
+  const totalMXIAvailable = balanceBreakdown.mxiPurchased + 
+                            balanceBreakdown.mxiCommissions + 
+                            balanceBreakdown.mxiTournaments + 
+                            balanceBreakdown.mxiVesting;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -319,9 +392,22 @@ export default function RetirosScreen() {
           />
         }
       >
-        {/* Balance Overview */}
+        {/* MXI Disponibles - Total Balance Overview */}
         <View style={[commonStyles.card, styles.balanceCard]}>
-          <Text style={styles.sectionTitle}>💰 Resumen de Saldos</Text>
+          <Text style={styles.sectionTitle}>💰 MXI Disponibles</Text>
+          
+          <View style={styles.totalBalanceDisplay}>
+            <Text style={styles.totalBalanceLabel}>Total MXI</Text>
+            <Text style={styles.totalBalanceValue}>
+              {totalMXIAvailable.toLocaleString('es-ES', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 6,
+              })}
+            </Text>
+            <Text style={styles.totalBalanceSubtext}>
+              ≈ {(totalMXIAvailable * 0.4).toFixed(2)} USDT
+            </Text>
+          </View>
           
           <View style={styles.balanceGrid}>
             <View style={styles.balanceItem}>
@@ -335,8 +421,8 @@ export default function RetirosScreen() {
 
             <View style={styles.balanceItem}>
               <Text style={styles.balanceIcon}>💵</Text>
-              <Text style={styles.balanceLabel}>Comisiones USDT</Text>
-              <Text style={styles.balanceValue}>${balanceBreakdown.commissionsUSDT.toFixed(2)}</Text>
+              <Text style={styles.balanceLabel}>MXI Comisiones</Text>
+              <Text style={styles.balanceValue}>{balanceBreakdown.mxiCommissions.toFixed(2)}</Text>
               <Text style={styles.balanceAvailable}>✅ Disponible</Text>
             </View>
 
@@ -344,6 +430,10 @@ export default function RetirosScreen() {
               <Text style={styles.balanceIcon}>🔒</Text>
               <Text style={styles.balanceLabel}>MXI Vesting</Text>
               <Text style={styles.balanceValue}>{balanceBreakdown.mxiVesting.toFixed(6)}</Text>
+              <View style={styles.liveIndicator}>
+                <View style={styles.liveDot} />
+                <Text style={styles.liveText}>Tiempo Real</Text>
+              </View>
               {!poolStatus?.isLaunched && (
                 <Text style={styles.balanceLocked}>🔒 Bloqueado hasta lanzamiento</Text>
               )}
@@ -385,7 +475,7 @@ export default function RetirosScreen() {
               onPress={() => setWithdrawalType('commissions')}
             >
               <Text style={styles.typeIcon}>💵</Text>
-              <Text style={styles.typeLabel}>Comisiones</Text>
+              <Text style={styles.typeLabel}>MXI Comisiones</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -446,15 +536,18 @@ export default function RetirosScreen() {
         {!typeInfo.locked && (
           <View style={commonStyles.card}>
             <Text style={styles.sectionTitle}>Detalles del Retiro</Text>
+            <Text style={styles.withdrawalNote}>
+              ⚠️ Los retiros se realizan en USDT(ETH). Ingresa la cantidad en MXI.
+            </Text>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Cantidad ({typeInfo.currency})</Text>
+              <Text style={styles.inputLabel}>Cantidad (MXI)</Text>
               <TextInput
                 style={styles.input}
                 value={amount}
                 onChangeText={setAmount}
                 keyboardType="decimal-pad"
-                placeholder={`Máximo: ${typeInfo.available.toFixed(typeInfo.currency === 'USDT' ? 2 : 6)}`}
+                placeholder={`Máximo: ${typeInfo.available.toFixed(6)}`}
                 placeholderTextColor={colors.textSecondary}
               />
               <TouchableOpacity
@@ -465,13 +558,33 @@ export default function RetirosScreen() {
               </TouchableOpacity>
             </View>
 
+            {/* USDT Equivalent Display */}
+            {amountNum > 0 && (
+              <View style={styles.conversionDisplay}>
+                <View style={styles.conversionRow}>
+                  <Text style={styles.conversionLabel}>Cantidad en MXI:</Text>
+                  <Text style={styles.conversionValue}>{amountNum.toFixed(2)} MXI</Text>
+                </View>
+                <View style={styles.conversionArrow}>
+                  <IconSymbol ios_icon_name="arrow.down" android_material_icon_name="arrow_downward" size={20} color={colors.primary} />
+                </View>
+                <View style={styles.conversionRow}>
+                  <Text style={styles.conversionLabel}>Equivalente en USDT:</Text>
+                  <Text style={[styles.conversionValue, styles.conversionValueHighlight]}>
+                    ≈ {usdtEquivalent.toFixed(2)} USDT
+                  </Text>
+                </View>
+                <Text style={styles.conversionRate}>Tasa: 1 MXI = 0.4 USDT</Text>
+              </View>
+            )}
+
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Dirección de Billetera (TRC20)</Text>
+              <Text style={styles.inputLabel}>Dirección de Billetera (ETH)</Text>
               <TextInput
                 style={styles.input}
                 value={walletAddress}
                 onChangeText={setWalletAddress}
-                placeholder="Ingresa tu dirección de billetera TRC20"
+                placeholder="Ingresa tu dirección de billetera ETH"
                 placeholderTextColor={colors.textSecondary}
                 autoCapitalize="none"
               />
@@ -515,7 +628,17 @@ export default function RetirosScreen() {
               size={20} 
               color={user && user.activeReferrals >= 5 ? colors.success : colors.error} 
             />
-            <Text style={styles.requirementText}>5 Referidos Activos ({user?.activeReferrals || 0}/5)</Text>
+            <Text style={styles.requirementText}>5 Referidos Activos para retiros generales ({user?.activeReferrals || 0}/5)</Text>
+          </View>
+
+          <View style={styles.requirementItem}>
+            <IconSymbol 
+              ios_icon_name={user && user.activeReferrals >= 10 ? 'checkmark.circle.fill' : 'xmark.circle.fill'} 
+              android_material_icon_name={user && user.activeReferrals >= 10 ? 'check_circle' : 'cancel'} 
+              size={20} 
+              color={user && user.activeReferrals >= 10 ? colors.success : colors.warning} 
+            />
+            <Text style={styles.requirementText}>10 Referidos Activos para retiros de Vesting ({user?.activeReferrals || 0}/10)</Text>
           </View>
 
           {!poolStatus?.isLaunched && (
@@ -535,13 +658,15 @@ export default function RetirosScreen() {
             <Text style={styles.infoTitle}>Información Importante</Text>
           </View>
           <View style={styles.infoList}>
-            <Text style={styles.infoItem}>- <Text style={styles.bold}>Comisiones USDT:</Text> Disponibles para retiro inmediato con requisitos cumplidos</Text>
+            <Text style={styles.infoItem}>- <Text style={styles.bold}>Retiros en USDT(ETH):</Text> Todos los retiros se procesan en USDT en la red Ethereum</Text>
+            <Text style={styles.infoItem}>- <Text style={styles.bold}>Conversión:</Text> 1 MXI = 0.4 USDT</Text>
+            <Text style={styles.infoItem}>- <Text style={styles.bold}>MXI Comisiones:</Text> Disponibles para retiro inmediato (requiere 5 referidos activos + KYC)</Text>
+            <Text style={styles.infoItem}>- <Text style={styles.bold}>MXI Torneos:</Text> Disponibles para retiro de la misma forma que las comisiones</Text>
+            <Text style={styles.infoItem}>- <Text style={styles.bold}>MXI Vesting:</Text> Requiere 10 referidos con compras de MXI + lanzamiento oficial</Text>
             <Text style={styles.infoItem}>- <Text style={styles.bold}>MXI Comprados:</Text> Bloqueados hasta el lanzamiento oficial de MXI</Text>
-            <Text style={styles.infoItem}>- <Text style={styles.bold}>MXI Vesting:</Text> Bloqueado hasta el lanzamiento oficial de MXI</Text>
-            <Text style={styles.infoItem}>- <Text style={styles.bold}>MXI Torneos:</Text> Disponible para retiro después del lanzamiento</Text>
-            <Text style={styles.infoItem}>- Todos los retiros requieren 5 referidos activos y KYC aprobado</Text>
+            <Text style={styles.infoItem}>- <Text style={styles.bold}>Actualización en Tiempo Real:</Text> Los balances de vesting se actualizan cada segundo</Text>
             <Text style={styles.infoItem}>- Tiempo de procesamiento: 24-48 horas</Text>
-            <Text style={styles.infoItem}>- Verifica cuidadosamente la dirección de billetera</Text>
+            <Text style={styles.infoItem}>- Verifica cuidadosamente la dirección de billetera ETH</Text>
           </View>
         </View>
 
@@ -608,6 +733,33 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 16,
   },
+  totalBalanceDisplay: {
+    backgroundColor: 'rgba(0, 255, 136, 0.1)',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(0, 255, 136, 0.3)',
+  },
+  totalBalanceLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  totalBalanceValue: {
+    fontSize: 36,
+    fontWeight: '900',
+    color: '#00ff88',
+    marginBottom: 4,
+  },
+  totalBalanceSubtext: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
   balanceGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -643,11 +795,33 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.warning,
     textAlign: 'center',
+    marginTop: 4,
   },
   balanceAvailable: {
     fontSize: 10,
     color: colors.success,
     textAlign: 'center',
+  },
+  liveIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+    backgroundColor: 'rgba(0, 255, 136, 0.1)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  liveDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#00ff88',
+  },
+  liveText: {
+    fontSize: 8,
+    color: '#00ff88',
+    fontWeight: '700',
   },
   typeGrid: {
     flexDirection: 'row',
@@ -741,6 +915,16 @@ const styles = StyleSheet.create({
     color: colors.warning,
     fontWeight: '600',
   },
+  withdrawalNote: {
+    fontSize: 13,
+    color: colors.warning,
+    backgroundColor: colors.warning + '20',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.warning + '40',
+  },
   inputContainer: {
     marginBottom: 16,
     position: 'relative',
@@ -773,6 +957,45 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: '700',
+  },
+  conversionDisplay: {
+    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(99, 102, 241, 0.3)',
+  },
+  conversionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  conversionLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  conversionValue: {
+    fontSize: 16,
+    color: colors.text,
+    fontWeight: '700',
+  },
+  conversionValueHighlight: {
+    fontSize: 20,
+    color: colors.primary,
+  },
+  conversionArrow: {
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  conversionRate: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   withdrawButton: {
     flexDirection: 'row',
