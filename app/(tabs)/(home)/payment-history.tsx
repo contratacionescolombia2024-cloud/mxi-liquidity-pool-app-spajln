@@ -182,6 +182,26 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
+  cancelButton: {
+    backgroundColor: '#F44336',
+    borderRadius: 8,
+    padding: 14,
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 2,
+    borderColor: '#EF5350',
+  },
+  cancelButtonDisabled: {
+    opacity: 0.5,
+  },
+  cancelButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
   infoBox: {
     backgroundColor: '#2196F3' + '20',
     borderRadius: 8,
@@ -264,6 +284,14 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 8,
   },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+  },
+  buttonHalf: {
+    flex: 1,
+  },
 });
 
 export default function PaymentHistoryScreen() {
@@ -274,6 +302,7 @@ export default function PaymentHistoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [verifyingPayments, setVerifyingPayments] = useState<Set<string>>(new Set());
   const [requestingVerification, setRequestingVerification] = useState<Set<string>>(new Set());
+  const [cancelingPayments, setCancelingPayments] = useState<Set<string>>(new Set());
   const [verificationRequests, setVerificationRequests] = useState<Map<string, any>>(new Map());
 
   useEffect(() => {
@@ -332,6 +361,7 @@ export default function PaymentHistoryScreen() {
         .from('payments')
         .select('*')
         .eq('user_id', user.id)
+        .neq('status', 'cancelled') // Exclude cancelled payments from display
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -525,6 +555,90 @@ export default function PaymentHistoryScreen() {
     );
   };
 
+  const cancelPayment = async (payment: any) => {
+    if (!user) {
+      Alert.alert('Error', 'Sesión no válida');
+      return;
+    }
+
+    Alert.alert(
+      '⚠️ Cancelar Pago',
+      `¿Estás seguro de que deseas cancelar este pago?\n\n` +
+      `Orden: ${payment.order_id}\n` +
+      `Monto: ${parseFloat(payment.price_amount).toFixed(2)} USDT\n\n` +
+      `Esta acción no se puede deshacer. El pago será cancelado y eliminado del historial.`,
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Sí, Cancelar',
+          style: 'destructive',
+          onPress: async () => {
+            setCancelingPayments(prev => new Set(prev).add(payment.id));
+
+            try {
+              console.log('🗑️ Canceling payment:', payment.order_id);
+
+              // Update payment status to cancelled
+              const { error: updateError } = await supabase
+                .from('payments')
+                .update({
+                  status: 'cancelled',
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', payment.id);
+
+              if (updateError) throw updateError;
+
+              // Update transaction history
+              await supabase
+                .from('transaction_history')
+                .update({
+                  status: 'cancelled',
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('order_id', payment.order_id);
+
+              // Delete any pending verification requests
+              await supabase
+                .from('manual_verification_requests')
+                .delete()
+                .eq('payment_id', payment.id);
+
+              console.log('✅ Payment cancelled successfully');
+
+              Alert.alert(
+                '✅ Pago Cancelado',
+                'El pago ha sido cancelado exitosamente y eliminado del historial.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => {
+                      loadPayments();
+                      loadVerificationRequests();
+                    },
+                  },
+                ]
+              );
+            } catch (error: any) {
+              console.error('❌ Error canceling payment:', error);
+              Alert.alert(
+                'Error',
+                error.message || 'Error al cancelar el pago. Por favor, intenta nuevamente.',
+                [{ text: 'OK' }]
+              );
+            } finally {
+              setCancelingPayments(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(payment.id);
+                return newSet;
+              });
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'finished':
@@ -568,12 +682,10 @@ export default function PaymentHistoryScreen() {
   };
 
   const isPendingPayment = (payment: any) => {
-    // Payment is pending if it's not finished/confirmed
-    return payment.status !== 'finished' && 
-           payment.status !== 'confirmed' &&
-           payment.status !== 'failed' &&
-           payment.status !== 'expired' &&
-           payment.status !== 'cancelled';
+    // Payment is pending if it's waiting, pending, or confirming
+    // NOT if it's finished, confirmed, failed, expired, or cancelled
+    const pendingStatuses = ['waiting', 'pending', 'confirming'];
+    return pendingStatuses.includes(payment.status);
   };
 
   const canVerify = (payment: any) => {
@@ -585,6 +697,11 @@ export default function PaymentHistoryScreen() {
     return isPendingPayment(payment) && 
            (!verificationRequest || 
             verificationRequest.status === 'rejected');
+  };
+
+  const canCancel = (payment: any) => {
+    // Can cancel if payment is pending (not finished, confirmed, or already cancelled)
+    return isPendingPayment(payment);
   };
 
   if (loading) {
@@ -656,10 +773,12 @@ export default function PaymentHistoryScreen() {
           {payments.map((payment, index) => {
             const isVerifying = verifyingPayments.has(payment.id);
             const isRequestingVerification = requestingVerification.has(payment.id);
+            const isCanceling = cancelingPayments.has(payment.id);
             const verificationRequest = verificationRequests.get(payment.id);
             const isPending = isPendingPayment(payment);
             const showVerifyButton = canVerify(payment);
             const showRequestButton = canRequestVerification(payment, verificationRequest);
+            const showCancelButton = canCancel(payment);
 
             return (
               <View key={index} style={styles.paymentCard}>
@@ -744,7 +863,7 @@ export default function PaymentHistoryScreen() {
 
                     {/* Automatic Verification Button */}
                     {showVerifyButton && (
-                      <>
+                      <React.Fragment>
                         <TouchableOpacity
                           style={[
                             styles.verifyButton,
@@ -754,12 +873,12 @@ export default function PaymentHistoryScreen() {
                           disabled={isVerifying}
                         >
                           {isVerifying ? (
-                            <>
+                            <React.Fragment>
                               <ActivityIndicator size="small" color="#000000" />
                               <Text style={styles.verifyButtonText}>Verificando...</Text>
-                            </>
+                            </React.Fragment>
                           ) : (
-                            <>
+                            <React.Fragment>
                               <IconSymbol
                                 ios_icon_name="checkmark.circle.fill"
                                 android_material_icon_name="check_circle"
@@ -767,57 +886,98 @@ export default function PaymentHistoryScreen() {
                                 color="#000000"
                               />
                               <Text style={styles.verifyButtonText}>Verificar Automáticamente</Text>
-                            </>
+                            </React.Fragment>
                           )}
                         </TouchableOpacity>
                         <Text style={styles.verifyingText}>
                           Verifica el estado de tu pago con NOWPayments
                         </Text>
-                      </>
+                      </React.Fragment>
                     )}
 
-                    {/* Manual Verification Request Button */}
+                    {/* Manual Verification Request Button and Cancel Button in Row */}
+                    {(showRequestButton || showCancelButton) && (
+                      <View style={styles.buttonRow}>
+                        {/* Manual Verification Request Button */}
+                        {showRequestButton && (
+                          <View style={styles.buttonHalf}>
+                            <TouchableOpacity
+                              style={[
+                                styles.requestVerificationButton,
+                                isRequestingVerification && styles.requestVerificationButtonDisabled,
+                              ]}
+                              onPress={() => requestManualVerification(payment)}
+                              disabled={isRequestingVerification}
+                            >
+                              {isRequestingVerification ? (
+                                <React.Fragment>
+                                  <ActivityIndicator size="small" color="#FFFFFF" />
+                                  <Text style={styles.requestVerificationButtonText}>Enviando...</Text>
+                                </React.Fragment>
+                              ) : (
+                                <React.Fragment>
+                                  <IconSymbol
+                                    ios_icon_name="person.fill.checkmark"
+                                    android_material_icon_name="admin_panel_settings"
+                                    size={20}
+                                    color="#FFFFFF"
+                                  />
+                                  <Text style={styles.requestVerificationButtonText}>
+                                    Verificación Manual
+                                  </Text>
+                                </React.Fragment>
+                              )}
+                            </TouchableOpacity>
+                          </View>
+                        )}
+
+                        {/* Cancel Button */}
+                        {showCancelButton && (
+                          <View style={styles.buttonHalf}>
+                            <TouchableOpacity
+                              style={[
+                                styles.cancelButton,
+                                isCanceling && styles.cancelButtonDisabled,
+                              ]}
+                              onPress={() => cancelPayment(payment)}
+                              disabled={isCanceling}
+                            >
+                              {isCanceling ? (
+                                <React.Fragment>
+                                  <ActivityIndicator size="small" color="#FFFFFF" />
+                                  <Text style={styles.cancelButtonText}>Cancelando...</Text>
+                                </React.Fragment>
+                              ) : (
+                                <React.Fragment>
+                                  <IconSymbol
+                                    ios_icon_name="xmark.circle.fill"
+                                    android_material_icon_name="cancel"
+                                    size={20}
+                                    color="#FFFFFF"
+                                  />
+                                  <Text style={styles.cancelButtonText}>
+                                    Cancelar
+                                  </Text>
+                                </React.Fragment>
+                              )}
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
+                    )}
+
                     {showRequestButton && (
-                      <>
-                        <TouchableOpacity
-                          style={[
-                            styles.requestVerificationButton,
-                            isRequestingVerification && styles.requestVerificationButtonDisabled,
-                          ]}
-                          onPress={() => requestManualVerification(payment)}
-                          disabled={isRequestingVerification}
-                        >
-                          {isRequestingVerification ? (
-                            <>
-                              <ActivityIndicator size="small" color="#FFFFFF" />
-                              <Text style={styles.requestVerificationButtonText}>Enviando...</Text>
-                            </>
-                          ) : (
-                            <>
-                              <IconSymbol
-                                ios_icon_name="person.fill.checkmark"
-                                android_material_icon_name="admin_panel_settings"
-                                size={22}
-                                color="#FFFFFF"
-                              />
-                              <Text style={styles.requestVerificationButtonText}>
-                                Solicitar Verificación Manual
-                              </Text>
-                            </>
-                          )}
-                        </TouchableOpacity>
-                        <View style={styles.infoBox}>
-                          <IconSymbol
-                            ios_icon_name="info.circle.fill"
-                            android_material_icon_name="info"
-                            size={20}
-                            color="#2196F3"
-                          />
-                          <Text style={styles.infoText}>
-                            Si la verificación automática no funciona, solicita que un administrador revise tu pago manualmente. El proceso puede tomar hasta 2 horas.
-                          </Text>
-                        </View>
-                      </>
+                      <View style={styles.infoBox}>
+                        <IconSymbol
+                          ios_icon_name="info.circle.fill"
+                          android_material_icon_name="info"
+                          size={20}
+                          color="#2196F3"
+                        />
+                        <Text style={styles.infoText}>
+                          Si la verificación automática no funciona, solicita que un administrador revise tu pago manualmente. El proceso puede tomar hasta 2 horas.
+                        </Text>
+                      </View>
                     )}
                   </View>
                 )}
