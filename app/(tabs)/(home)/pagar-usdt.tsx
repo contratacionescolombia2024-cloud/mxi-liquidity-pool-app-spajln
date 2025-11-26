@@ -16,6 +16,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { colors } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import * as Clipboard2 from 'expo-clipboard';
+import { supabase } from '@/lib/supabase';
 
 const RECIPIENT_ADDRESS = '0x68F0d7c607617DA0b1a0dC7b72885E11ddFec623';
 const MIN_USDT = 20;
@@ -116,9 +117,44 @@ export default function PagarUSDTScreen() {
     console.log(`🚀 [${requestId}] Token de sesión:`, session?.access_token ? 'Presente' : 'Ausente');
 
     setLoading(true);
-    setVerificationStatus('Conectando con el servidor...');
+    setVerificationStatus('Verificando hash duplicado...');
 
     try {
+      // 🔒 STEP 1: Check for duplicate hash
+      console.log(`🔍 [${requestId}] Verificando hash duplicado...`);
+      const { data: existingPayments, error: duplicateError } = await supabase
+        .from('payments')
+        .select('id, order_id, user_id, estado, mxi')
+        .eq('tx_hash', txHash.trim())
+        .limit(1);
+
+      if (duplicateError) {
+        console.error(`❌ [${requestId}] Error verificando duplicados:`, duplicateError);
+        throw new Error('Error al verificar duplicados en la base de datos');
+      }
+
+      if (existingPayments && existingPayments.length > 0) {
+        const existingPayment = existingPayments[0];
+        console.error(`❌ [${requestId}] Hash duplicado encontrado:`, existingPayment);
+        
+        Alert.alert(
+          '⚠️ Hash Duplicado',
+          `Este hash de transacción ya ha sido registrado anteriormente.\n\n` +
+          `Orden: ${existingPayment.order_id}\n` +
+          `Estado: ${existingPayment.estado}\n\n` +
+          `No puedes usar el mismo hash de transacción dos veces. Si crees que esto es un error, contacta a soporte.`,
+          [{ text: 'OK' }]
+        );
+        setLoading(false);
+        setVerificationStatus('');
+        return;
+      }
+
+      console.log(`✅ [${requestId}] Hash no duplicado, continuando...`);
+
+      // STEP 2: Verify transaction on blockchain
+      setVerificationStatus('Conectando con el servidor...');
+
       const url = 'https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/verificar-tx';
       const payload = {
         txHash: txHash.trim(),
@@ -546,6 +582,9 @@ export default function PagarUSDTScreen() {
             </Text>
             <Text style={styles.warningText}>
               • La transacción debe tener al menos 3 confirmaciones
+            </Text>
+            <Text style={styles.warningText}>
+              • ⚠️ NO PUEDES USAR EL MISMO HASH DOS VECES - Sistema anti-duplicados activo
             </Text>
           </View>
         </View>
