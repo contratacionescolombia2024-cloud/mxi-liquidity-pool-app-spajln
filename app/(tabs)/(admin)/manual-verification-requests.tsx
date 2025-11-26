@@ -442,13 +442,8 @@ export default function ManualVerificationRequestsScreen() {
   const openApproveModal = (request: any) => {
     setSelectedRequest(request);
     
-    // For direct USDT payments, pre-fill with 0 so admin must enter amount
-    // For NowPayments, pre-fill with the payment amount
-    if (request.payments.tx_hash && !request.payments.payment_id) {
-      setApprovedUsdtAmount('');
-    } else {
-      setApprovedUsdtAmount(parseFloat(request.payments.price_amount).toFixed(2));
-    }
+    // Pre-fill with the payment amount
+    setApprovedUsdtAmount(parseFloat(request.payments.price_amount).toFixed(2));
     
     setShowApproveModal(true);
   };
@@ -461,14 +456,13 @@ export default function ManualVerificationRequestsScreen() {
 
     const request = selectedRequest;
     const isDirectUSDT = request.payments.tx_hash && !request.payments.payment_id;
+    const isNowPayments = !!request.payments.payment_id;
 
-    // Validate approved amount for direct USDT
-    if (isDirectUSDT) {
-      const amount = parseFloat(approvedUsdtAmount);
-      if (!approvedUsdtAmount || isNaN(amount) || amount <= 0) {
-        Alert.alert('Error', 'Por favor ingresa una cantidad válida de USDT aprobada');
-        return;
-      }
+    // Validate approved amount
+    const amount = parseFloat(approvedUsdtAmount);
+    if (!approvedUsdtAmount || isNaN(amount) || amount <= 0) {
+      Alert.alert('Error', 'Por favor ingresa una cantidad válida de USDT aprobada');
+      return;
     }
 
     setShowApproveModal(false);
@@ -487,12 +481,10 @@ export default function ManualVerificationRequestsScreen() {
       // Prepare request body
       const requestBody: any = {
         order_id: request.payments.order_id,
+        approved_usdt_amount: parseFloat(approvedUsdtAmount),
       };
 
-      // For direct USDT payments, include approved amount
-      if (isDirectUSDT) {
-        requestBody.approved_usdt_amount = parseFloat(approvedUsdtAmount);
-      }
+      console.log('Calling manual-verify-payment with:', requestBody);
 
       // Call the manual verification edge function
       const response = await fetch(
@@ -519,7 +511,7 @@ export default function ManualVerificationRequestsScreen() {
               status: 'approved',
               reviewed_by: user?.id,
               reviewed_at: new Date().toISOString(),
-              admin_notes: `Pago verificado y acreditado exitosamente. ${isDirectUSDT ? `Monto aprobado: ${approvedUsdtAmount} USDT` : ''}`,
+              admin_notes: `Pago verificado y acreditado exitosamente. Monto aprobado: ${approvedUsdtAmount} USDT`,
               updated_at: new Date().toISOString(),
             })
             .eq('id', request.id);
@@ -528,7 +520,7 @@ export default function ManualVerificationRequestsScreen() {
             '✅ Pago Aprobado',
             `El pago ha sido verificado y acreditado exitosamente.\n\n` +
             `${data.payment.mxi_amount} MXI han sido agregados a la cuenta del usuario.\n` +
-            `${isDirectUSDT ? `\nMonto USDT aprobado: ${approvedUsdtAmount}` : ''}`,
+            `\nMonto USDT aprobado: ${approvedUsdtAmount}`,
             [
               {
                 text: 'OK',
@@ -1080,39 +1072,23 @@ export default function ManualVerificationRequestsScreen() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Aprobar Verificación</Text>
             
-            {selectedRequest && selectedRequest.payments.tx_hash && !selectedRequest.payments.payment_id && (
-              <React.Fragment>
-                <View style={styles.warningBox}>
-                  <Text style={styles.warningText}>
-                    ⚠️ Este es un pago USDT directo. Debes ingresar la cantidad de USDT que deseas aprobar después de verificar la transacción en la blockchain.
-                  </Text>
-                </View>
-                
-                <Text style={styles.amountInputLabel}>Cantidad USDT Aprobada:</Text>
-                <TextInput
-                  style={styles.amountInput}
-                  placeholder="Ej: 50.00"
-                  placeholderTextColor={colors.textSecondary}
-                  value={approvedUsdtAmount}
-                  onChangeText={setApprovedUsdtAmount}
-                  keyboardType="decimal-pad"
-                />
-              </React.Fragment>
-            )}
-
-            {selectedRequest && selectedRequest.payments.payment_id && (
-              <View style={styles.infoBox}>
-                <IconSymbol
-                  ios_icon_name="info.circle.fill"
-                  android_material_icon_name="info"
-                  size={20}
-                  color={colors.primary}
-                />
-                <Text style={styles.infoText}>
-                  Este pago será verificado automáticamente con NowPayments. El monto será el confirmado por NowPayments.
-                </Text>
-              </View>
-            )}
+            <View style={styles.warningBox}>
+              <Text style={styles.warningText}>
+                {selectedRequest && selectedRequest.payments.tx_hash && !selectedRequest.payments.payment_id
+                  ? '⚠️ Este es un pago USDT directo. Verifica la transacción en la blockchain y ajusta el monto si es necesario.'
+                  : '⚠️ Este es un pago de NowPayments. Puedes aprobar manualmente sin verificar con la API de NowPayments. Ajusta el monto si es necesario.'}
+              </Text>
+            </View>
+            
+            <Text style={styles.amountInputLabel}>Cantidad USDT Aprobada:</Text>
+            <TextInput
+              style={styles.amountInput}
+              placeholder="Ej: 50.00"
+              placeholderTextColor={colors.textSecondary}
+              value={approvedUsdtAmount}
+              onChangeText={setApprovedUsdtAmount}
+              keyboardType="decimal-pad"
+            />
 
             <View style={styles.modalButtons}>
               <TouchableOpacity

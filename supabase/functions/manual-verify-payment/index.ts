@@ -12,12 +12,13 @@ const corsHeaders = {
  * 
  * This function provides a robust manual verification system that:
  * 1. Handles both NowPayments and direct USDT payments
- * 2. For NowPayments: Verifies payment status with NOWPayments API
+ * 2. For NowPayments: Verifies payment status with NOWPayments API (optional)
  * 3. For USDT: Allows admin to manually approve with specified amount
  * 4. Uses the same crediting logic as the automatic webhook
  * 5. Can be called by users or admins
  * 6. Provides detailed logging and error handling
  * 7. Prevents double-crediting
+ * 8. Admin can approve without NowPayments API for manual verification
  */
 Deno.serve(async (req) => {
   // Handle CORS
@@ -202,7 +203,8 @@ Deno.serve(async (req) => {
     console.log(`[${requestId}] ✅ Payment found: ${payment.id}`);
     console.log(`[${requestId}] Payment details: User ${payment.user_id}, Amount ${payment.mxi_amount} MXI`);
     console.log(`[${requestId}] Current status: ${payment.status}`);
-    console.log(`[${requestId}] Payment type: ${payment.payment_id ? 'NowPayments' : 'Direct USDT'}`);
+    console.log(`[${requestId}] Has payment_id: ${!!payment.payment_id}`);
+    console.log(`[${requestId}] Has tx_hash: ${!!payment.tx_hash}`);
 
     // Step 5: Check if already credited
     if (payment.status === 'finished' || payment.status === 'confirmed') {
@@ -243,99 +245,131 @@ Deno.serve(async (req) => {
     if (isNowPaymentsPayment) {
       console.log(`[${requestId}] Processing NowPayments payment...`);
 
-      if (!NOWPAYMENTS_API_KEY) {
-        console.error(`[${requestId}] ERROR: NOWPAYMENTS_API_KEY not configured`);
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: 'NOWPayments API key not configured',
-            code: 'MISSING_API_KEY',
-            requestId: requestId,
-          }),
-          {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          }
-        );
-      }
-
-      console.log(`[${requestId}] Checking payment ID: ${payment.payment_id}`);
-
-      const nowPaymentsResponse = await fetch(
-        `https://api.nowpayments.io/v1/payment/${payment.payment_id}`,
-        {
-          method: 'GET',
-          headers: {
-            'x-api-key': NOWPAYMENTS_API_KEY,
-          },
-        }
-      );
-
-      console.log(`[${requestId}] NOWPayments response status: ${nowPaymentsResponse.status}`);
-
-      if (!nowPaymentsResponse.ok) {
-        const errorText = await nowPaymentsResponse.text();
-        console.error(`[${requestId}] ERROR: NOWPayments API error:`, errorText);
+      // Admin can approve without checking NowPayments API
+      if (isAdmin && approved_usdt_amount && approved_usdt_amount > 0) {
+        console.log(`[${requestId}] Admin manual approval for NowPayments payment`);
         
-        let errorDetails;
-        try {
-          errorDetails = JSON.parse(errorText);
-        } catch {
-          errorDetails = { raw: errorText };
+        // Calculate MXI based on approved USDT amount and current phase price
+        const pricePerMxi = parseFloat(payment.price_per_mxi);
+        actualUsdtAmount = approved_usdt_amount;
+        actualMxiAmount = actualUsdtAmount / pricePerMxi;
+
+        console.log(`[${requestId}] Calculated MXI: ${actualMxiAmount} (${actualUsdtAmount} USDT / ${pricePerMxi} per MXI)`);
+
+        // Update payment record with approved amounts
+        const { error: updateError } = await supabase
+          .from('payments')
+          .update({
+            price_amount: actualUsdtAmount,
+            mxi_amount: actualMxiAmount,
+            actually_paid: actualUsdtAmount,
+            payment_status: 'finished',
+            status: 'finished',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', payment.id);
+
+        if (updateError) {
+          console.error(`[${requestId}] ERROR: Failed to update payment:`, updateError);
+          throw new Error(`Failed to update payment: ${updateError.message}`);
         }
 
+        console.log(`[${requestId}] ✅ Payment updated with approved amounts (admin manual approval)`);
+        paymentStatus = 'finished';
+      } else if (NOWPAYMENTS_API_KEY) {
+        // Check with NowPayments API if API key is available
+        console.log(`[${requestId}] Checking payment ID: ${payment.payment_id}`);
+
+        const nowPaymentsResponse = await fetch(
+          `https://api.nowpayments.io/v1/payment/${payment.payment_id}`,
+          {
+            method: 'GET',
+            headers: {
+              'x-api-key': NOWPAYMENTS_API_KEY,
+            },
+          }
+        );
+
+        console.log(`[${requestId}] NOWPayments response status: ${nowPaymentsResponse.status}`);
+
+        if (!nowPaymentsResponse.ok) {
+          const errorText = await nowPaymentsResponse.text();
+          console.error(`[${requestId}] ERROR: NOWPayments API error:`, errorText);
+          
+          let errorDetails;
+          try {
+            errorDetails = JSON.parse(errorText);
+          } catch {
+            errorDetails = { raw: errorText };
+          }
+
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Failed to check payment status with NOWPayments',
+              code: 'NOWPAYMENTS_API_ERROR',
+              statusCode: nowPaymentsResponse.status,
+              details: errorDetails,
+              requestId: requestId,
+            }),
+            {
+              status: 500,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
+
+        const nowPaymentsData = await nowPaymentsResponse.json();
+        console.log(`[${requestId}] NOWPayments data:`, JSON.stringify(nowPaymentsData, null, 2));
+
+        paymentStatus = nowPaymentsData.payment_status;
+        console.log(`[${requestId}] Payment status: ${paymentStatus}`);
+
+        // Update payment record with NowPayments data
+        const updateData: any = {
+          payment_status: paymentStatus,
+          status: paymentStatus,
+          updated_at: new Date().toISOString(),
+        };
+
+        if (nowPaymentsData.actually_paid) {
+          updateData.actually_paid = parseFloat(nowPaymentsData.actually_paid);
+        }
+
+        if (nowPaymentsData.outcome_amount) {
+          updateData.outcome_amount = parseFloat(nowPaymentsData.outcome_amount);
+        }
+
+        if (nowPaymentsData.network_fee) {
+          updateData.network_fee = parseFloat(nowPaymentsData.network_fee);
+        }
+
+        const { error: updateError } = await supabase
+          .from('payments')
+          .update(updateData)
+          .eq('id', payment.id);
+
+        if (updateError) {
+          console.error(`[${requestId}] ERROR: Failed to update payment:`, updateError);
+          throw new Error(`Failed to update payment: ${updateError.message}`);
+        }
+
+        console.log(`[${requestId}] ✅ Payment updated with NowPayments data`);
+      } else {
+        console.error(`[${requestId}] ERROR: Cannot verify NowPayments payment - no API key and no admin approval`);
         return new Response(
           JSON.stringify({
             success: false,
-            error: 'Failed to check payment status with NOWPayments',
-            code: 'NOWPAYMENTS_API_ERROR',
-            statusCode: nowPaymentsResponse.status,
-            details: errorDetails,
+            error: 'Cannot verify NowPayments payment without API key or admin approval amount',
+            code: 'MISSING_VERIFICATION_METHOD',
             requestId: requestId,
           }),
           {
-            status: 500,
+            status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           }
         );
       }
-
-      const nowPaymentsData = await nowPaymentsResponse.json();
-      console.log(`[${requestId}] NOWPayments data:`, JSON.stringify(nowPaymentsData, null, 2));
-
-      paymentStatus = nowPaymentsData.payment_status;
-      console.log(`[${requestId}] Payment status: ${paymentStatus}`);
-
-      // Update payment record with NowPayments data
-      const updateData: any = {
-        payment_status: paymentStatus,
-        status: paymentStatus,
-        updated_at: new Date().toISOString(),
-      };
-
-      if (nowPaymentsData.actually_paid) {
-        updateData.actually_paid = parseFloat(nowPaymentsData.actually_paid);
-      }
-
-      if (nowPaymentsData.outcome_amount) {
-        updateData.outcome_amount = parseFloat(nowPaymentsData.outcome_amount);
-      }
-
-      if (nowPaymentsData.network_fee) {
-        updateData.network_fee = parseFloat(nowPaymentsData.network_fee);
-      }
-
-      const { error: updateError } = await supabase
-        .from('payments')
-        .update(updateData)
-        .eq('id', payment.id);
-
-      if (updateError) {
-        console.error(`[${requestId}] ERROR: Failed to update payment:`, updateError);
-        throw new Error(`Failed to update payment: ${updateError.message}`);
-      }
-
-      console.log(`[${requestId}] ✅ Payment updated with NowPayments data`);
     }
     // Handle Direct USDT payment
     else if (isDirectUSDTPayment) {
