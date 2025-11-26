@@ -70,6 +70,7 @@ export default function ManualVerificationScreen() {
 
   useEffect(() => {
     if (user) {
+      console.log('🔵 [ManualVerification] User logged in:', user.id);
       loadPayments();
       loadVerificationRequests();
 
@@ -85,7 +86,7 @@ export default function ManualVerificationScreen() {
             filter: `user_id=eq.${user.id}`,
           },
           () => {
-            console.log('Payment update received, reloading...');
+            console.log('🔵 [ManualVerification] Payment update received, reloading...');
             loadPayments();
           }
         )
@@ -103,7 +104,7 @@ export default function ManualVerificationScreen() {
             filter: `user_id=eq.${user.id}`,
           },
           () => {
-            console.log('Verification request update received, reloading...');
+            console.log('🔵 [ManualVerification] Verification request update received, reloading...');
             loadVerificationRequests();
           }
         )
@@ -118,12 +119,12 @@ export default function ManualVerificationScreen() {
 
   const loadPayments = async () => {
     if (!user) {
-      console.log('No user found, skipping payment load');
+      console.log('⚠️ [ManualVerification] No user found, skipping payment load');
       return;
     }
     
     try {
-      console.log('Loading payments for user:', user.id);
+      console.log('🔵 [ManualVerification] Loading payments for user:', user.id);
       const { data, error } = await supabase
         .from('payments')
         .select('*')
@@ -132,14 +133,14 @@ export default function ManualVerificationScreen() {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error loading payments:', error);
+        console.error('❌ [ManualVerification] Error loading payments:', error);
         throw error;
       }
       
-      console.log('Loaded payments:', data?.length || 0);
+      console.log('✅ [ManualVerification] Loaded payments:', data?.length || 0);
       setPayments(data || []);
     } catch (error) {
-      console.error('Error loading payments:', error);
+      console.error('❌ [ManualVerification] Error loading payments:', error);
       Alert.alert('Error', 'No se pudieron cargar los pagos');
     } finally {
       setLoading(false);
@@ -149,35 +150,35 @@ export default function ManualVerificationScreen() {
 
   const loadVerificationRequests = async () => {
     if (!user) {
-      console.log('No user found, skipping verification requests load');
+      console.log('⚠️ [ManualVerification] No user found, skipping verification requests load');
       return;
     }
     
     try {
-      console.log('Loading verification requests for user:', user.id);
+      console.log('🔵 [ManualVerification] Loading verification requests for user:', user.id);
       const { data, error } = await supabase
         .from('manual_verification_requests')
         .select('*')
         .eq('user_id', user.id);
 
       if (error) {
-        console.error('Error loading verification requests:', error);
+        console.error('❌ [ManualVerification] Error loading verification requests:', error);
         throw error;
       }
 
-      console.log('Loaded verification requests:', data?.length || 0);
+      console.log('✅ [ManualVerification] Loaded verification requests:', data?.length || 0);
       const requestsMap = new Map();
       (data || []).forEach((request: any) => {
         requestsMap.set(request.payment_id, request);
       });
       setVerificationRequests(requestsMap);
     } catch (error) {
-      console.error('Error loading verification requests:', error);
+      console.error('❌ [ManualVerification] Error loading verification requests:', error);
     }
   };
 
   const onRefresh = () => {
-    console.log('Refreshing data...');
+    console.log('🔵 [ManualVerification] Refreshing data...');
     setRefreshing(true);
     loadPayments();
     loadVerificationRequests();
@@ -188,19 +189,26 @@ export default function ManualVerificationScreen() {
       await Clipboard2.setStringAsync(text);
       Alert.alert('✅ Copiado', `${label} copiado al portapapeles`);
     } catch (error) {
-      console.error('Error copying:', error);
+      console.error('❌ [ManualVerification] Error copying:', error);
     }
   };
 
   const requestNowPaymentsVerification = async (payment: any) => {
-    console.log('=== REQUESTING NOWPAYMENTS VERIFICATION ===');
-    console.log('Payment ID:', payment.id);
-    console.log('Order ID:', payment.order_id);
-    console.log('User ID:', user?.id);
+    console.log('🟢 [ManualVerification] === REQUESTING NOWPAYMENTS VERIFICATION ===');
+    console.log('🟢 [ManualVerification] Payment ID:', payment.id);
+    console.log('🟢 [ManualVerification] Order ID:', payment.order_id);
+    console.log('🟢 [ManualVerification] User ID:', user?.id);
+    console.log('🟢 [ManualVerification] Session exists:', !!session);
 
     if (!user) {
-      console.error('No user found!');
+      console.error('❌ [ManualVerification] No user found!');
       Alert.alert('Error', 'Usuario no autenticado');
+      return;
+    }
+
+    if (!session) {
+      console.error('❌ [ManualVerification] No session found!');
+      Alert.alert('Error', 'Sesión no válida. Por favor, inicia sesión nuevamente.');
       return;
     }
 
@@ -215,12 +223,12 @@ export default function ManualVerificationScreen() {
         { 
           text: 'Cancelar', 
           style: 'cancel',
-          onPress: () => console.log('User cancelled verification request')
+          onPress: () => console.log('🟡 [ManualVerification] User cancelled verification request')
         },
         {
           text: 'Solicitar',
           onPress: async () => {
-            console.log('User confirmed, creating verification request...');
+            console.log('🟢 [ManualVerification] User confirmed, creating verification request...');
             try {
               const requestData = {
                 payment_id: payment.id,
@@ -231,7 +239,7 @@ export default function ManualVerificationScreen() {
                 updated_at: new Date().toISOString(),
               };
 
-              console.log('Inserting verification request:', requestData);
+              console.log('🟢 [ManualVerification] Inserting verification request:', JSON.stringify(requestData, null, 2));
 
               const { data, error } = await supabase
                 .from('manual_verification_requests')
@@ -240,11 +248,11 @@ export default function ManualVerificationScreen() {
                 .single();
 
               if (error) {
-                console.error('Supabase error:', error);
+                console.error('❌ [ManualVerification] Supabase error:', JSON.stringify(error, null, 2));
                 throw error;
               }
 
-              console.log('Verification request created successfully:', data);
+              console.log('✅ [ManualVerification] Verification request created successfully:', JSON.stringify(data, null, 2));
 
               Alert.alert(
                 '✅ Solicitud Enviada',
@@ -254,22 +262,24 @@ export default function ManualVerificationScreen() {
                 [{ 
                   text: 'OK', 
                   onPress: () => {
-                    console.log('Reloading verification requests...');
+                    console.log('🟢 [ManualVerification] Reloading verification requests...');
                     loadVerificationRequests();
                   }
                 }]
               );
             } catch (error: any) {
-              console.error('=== ERROR REQUESTING VERIFICATION ===');
-              console.error('Error object:', error);
-              console.error('Error message:', error.message);
-              console.error('Error details:', error.details);
-              console.error('Error hint:', error.hint);
+              console.error('❌ [ManualVerification] === ERROR REQUESTING VERIFICATION ===');
+              console.error('❌ [ManualVerification] Error object:', JSON.stringify(error, null, 2));
+              console.error('❌ [ManualVerification] Error message:', error.message);
+              console.error('❌ [ManualVerification] Error details:', error.details);
+              console.error('❌ [ManualVerification] Error hint:', error.hint);
+              console.error('❌ [ManualVerification] Error code:', error.code);
               
               Alert.alert(
                 'Error', 
                 `No se pudo enviar la solicitud de verificación.\n\n` +
-                `Detalles: ${error.message || 'Error desconocido'}\n\n` +
+                `Detalles: ${error.message || 'Error desconocido'}\n` +
+                `Código: ${error.code || 'N/A'}\n\n` +
                 `Por favor, intenta nuevamente o contacta al soporte.`
               );
             }
@@ -280,25 +290,32 @@ export default function ManualVerificationScreen() {
   };
 
   const requestUSDTVerification = async () => {
-    console.log('=== REQUESTING USDT VERIFICATION ===');
-    console.log('TX Hash:', txHash);
-    console.log('Selected Network:', selectedNetwork);
-    console.log('User ID:', user?.id);
+    console.log('🟢 [ManualVerification] === REQUESTING USDT VERIFICATION ===');
+    console.log('🟢 [ManualVerification] TX Hash:', txHash);
+    console.log('🟢 [ManualVerification] Selected Network:', selectedNetwork);
+    console.log('🟢 [ManualVerification] User ID:', user?.id);
+    console.log('🟢 [ManualVerification] Session exists:', !!session);
 
     if (!user) {
-      console.error('No user found!');
+      console.error('❌ [ManualVerification] No user found!');
       Alert.alert('Error', 'Usuario no autenticado');
       return;
     }
 
+    if (!session) {
+      console.error('❌ [ManualVerification] No session found!');
+      Alert.alert('Error', 'Sesión no válida. Por favor, inicia sesión nuevamente.');
+      return;
+    }
+
     if (!txHash.trim()) {
-      console.log('Empty TX hash');
+      console.log('⚠️ [ManualVerification] Empty TX hash');
       Alert.alert('Error', 'Por favor ingresa el hash de la transacción');
       return;
     }
 
     if (!txHash.startsWith('0x') || txHash.length !== 66) {
-      console.log('Invalid TX hash format');
+      console.log('⚠️ [ManualVerification] Invalid TX hash format');
       Alert.alert(
         'Hash Inválido',
         'El hash de transacción debe comenzar con 0x y tener 66 caracteres\n\nHash actual: ' + txHash.length + ' caracteres'
@@ -307,7 +324,7 @@ export default function ManualVerificationScreen() {
     }
 
     const selectedNetworkData = NETWORKS.find(n => n.id === selectedNetwork);
-    console.log('Selected network data:', selectedNetworkData);
+    console.log('🟢 [ManualVerification] Selected network data:', selectedNetworkData);
 
     Alert.alert(
       '📋 Solicitar Verificación Manual USDT',
@@ -319,17 +336,17 @@ export default function ManualVerificationScreen() {
         { 
           text: 'Cancelar', 
           style: 'cancel',
-          onPress: () => console.log('User cancelled USDT verification request')
+          onPress: () => console.log('🟡 [ManualVerification] User cancelled USDT verification request')
         },
         {
           text: 'Enviar Solicitud',
           onPress: async () => {
-            console.log('User confirmed, processing USDT verification...');
+            console.log('🟢 [ManualVerification] User confirmed, processing USDT verification...');
             setRequestingManualVerification(true);
 
             try {
               // Check for duplicate hash
-              console.log('Checking for duplicate hash...');
+              console.log('🟢 [ManualVerification] Checking for duplicate hash...');
               const { data: existingPayments, error: duplicateError } = await supabase
                 .from('payments')
                 .select('id, order_id, user_id, estado, mxi')
@@ -337,13 +354,13 @@ export default function ManualVerificationScreen() {
                 .limit(1);
 
               if (duplicateError) {
-                console.error('Duplicate check error:', duplicateError);
+                console.error('❌ [ManualVerification] Duplicate check error:', duplicateError);
                 throw new Error('Error al verificar duplicados en la base de datos');
               }
 
               if (existingPayments && existingPayments.length > 0) {
                 const existingPayment = existingPayments[0];
-                console.log('Duplicate hash found:', existingPayment);
+                console.log('⚠️ [ManualVerification] Duplicate hash found:', existingPayment);
                 Alert.alert(
                   '⚠️ Hash Duplicado',
                   `Este hash de transacción ya ha sido registrado anteriormente.\n\n` +
@@ -355,11 +372,11 @@ export default function ManualVerificationScreen() {
                 return;
               }
 
-              console.log('No duplicate found, creating payment record...');
+              console.log('✅ [ManualVerification] No duplicate found, creating payment record...');
 
               // Create payment record
               const orderId = `MXI-MANUAL-${Date.now()}`;
-              console.log('Generated order ID:', orderId);
+              console.log('🟢 [ManualVerification] Generated order ID:', orderId);
 
               const paymentData = {
                 user_id: user.id,
@@ -377,7 +394,7 @@ export default function ManualVerificationScreen() {
                 updated_at: new Date().toISOString(),
               };
 
-              console.log('Inserting payment:', paymentData);
+              console.log('🟢 [ManualVerification] Inserting payment:', JSON.stringify(paymentData, null, 2));
 
               const { data: insertedPayment, error: paymentError } = await supabase
                 .from('payments')
@@ -386,11 +403,11 @@ export default function ManualVerificationScreen() {
                 .single();
 
               if (paymentError) {
-                console.error('Payment insert error:', paymentError);
+                console.error('❌ [ManualVerification] Payment insert error:', JSON.stringify(paymentError, null, 2));
                 throw paymentError;
               }
 
-              console.log('Payment created successfully:', insertedPayment);
+              console.log('✅ [ManualVerification] Payment created successfully:', JSON.stringify(insertedPayment, null, 2));
 
               // Create manual verification request
               const verificationData = {
@@ -402,18 +419,18 @@ export default function ManualVerificationScreen() {
                 updated_at: new Date().toISOString(),
               };
 
-              console.log('Inserting verification request:', verificationData);
+              console.log('🟢 [ManualVerification] Inserting verification request:', JSON.stringify(verificationData, null, 2));
 
               const { error: verificationError } = await supabase
                 .from('manual_verification_requests')
                 .insert(verificationData);
 
               if (verificationError) {
-                console.error('Verification request insert error:', verificationError);
+                console.error('❌ [ManualVerification] Verification request insert error:', JSON.stringify(verificationError, null, 2));
                 throw verificationError;
               }
 
-              console.log('Verification request created successfully');
+              console.log('✅ [ManualVerification] Verification request created successfully');
 
               Alert.alert(
                 '✅ Solicitud Enviada',
@@ -427,7 +444,7 @@ export default function ManualVerificationScreen() {
                   {
                     text: 'OK',
                     onPress: () => {
-                      console.log('Clearing form and reloading data...');
+                      console.log('🟢 [ManualVerification] Clearing form and reloading data...');
                       setTxHash('');
                       loadPayments();
                       loadVerificationRequests();
@@ -436,20 +453,22 @@ export default function ManualVerificationScreen() {
                 ]
               );
             } catch (error: any) {
-              console.error('=== ERROR REQUESTING USDT VERIFICATION ===');
-              console.error('Error object:', error);
-              console.error('Error message:', error.message);
-              console.error('Error details:', error.details);
-              console.error('Error hint:', error.hint);
+              console.error('❌ [ManualVerification] === ERROR REQUESTING USDT VERIFICATION ===');
+              console.error('❌ [ManualVerification] Error object:', JSON.stringify(error, null, 2));
+              console.error('❌ [ManualVerification] Error message:', error.message);
+              console.error('❌ [ManualVerification] Error details:', error.details);
+              console.error('❌ [ManualVerification] Error hint:', error.hint);
+              console.error('❌ [ManualVerification] Error code:', error.code);
               
               Alert.alert(
                 'Error', 
                 `No se pudo enviar la solicitud de verificación.\n\n` +
-                `Detalles: ${error.message || 'Error desconocido'}\n\n` +
+                `Detalles: ${error.message || 'Error desconocido'}\n` +
+                `Código: ${error.code || 'N/A'}\n\n` +
                 `Por favor, intenta nuevamente o contacta al soporte.`
               );
             } finally {
-              console.log('Resetting requesting state');
+              console.log('🟢 [ManualVerification] Resetting requesting state');
               setRequestingManualVerification(false);
             }
           },
@@ -459,19 +478,33 @@ export default function ManualVerificationScreen() {
   };
 
   const openResponseModal = (verificationRequest: any) => {
-    console.log('Opening response modal for request:', verificationRequest.id);
+    console.log('🟢 [ManualVerification] Opening response modal for request:', verificationRequest.id);
     setSelectedVerificationRequest(verificationRequest);
     setUserResponse('');
     setShowResponseModal(true);
   };
 
   const submitResponse = async () => {
-    console.log('=== SUBMITTING USER RESPONSE ===');
-    console.log('Response:', userResponse);
-    console.log('Request ID:', selectedVerificationRequest?.id);
+    console.log('🟢 [ManualVerification] === SUBMITTING USER RESPONSE ===');
+    console.log('🟢 [ManualVerification] Response:', userResponse);
+    console.log('🟢 [ManualVerification] Request ID:', selectedVerificationRequest?.id);
+    console.log('🟢 [ManualVerification] User ID:', user?.id);
+    console.log('🟢 [ManualVerification] Session exists:', !!session);
 
     if (!userResponse.trim()) {
       Alert.alert('Error', 'Por favor ingresa tu respuesta');
+      return;
+    }
+
+    if (!user) {
+      console.error('❌ [ManualVerification] No user found!');
+      Alert.alert('Error', 'Usuario no autenticado');
+      return;
+    }
+
+    if (!session) {
+      console.error('❌ [ManualVerification] No session found!');
+      Alert.alert('Error', 'Sesión no válida. Por favor, inicia sesión nuevamente.');
       return;
     }
 
@@ -485,7 +518,7 @@ export default function ManualVerificationScreen() {
         updated_at: new Date().toISOString(),
       };
 
-      console.log('Updating verification request:', updateData);
+      console.log('🟢 [ManualVerification] Updating verification request:', JSON.stringify(updateData, null, 2));
 
       const { error } = await supabase
         .from('manual_verification_requests')
@@ -493,11 +526,11 @@ export default function ManualVerificationScreen() {
         .eq('id', selectedVerificationRequest.id);
 
       if (error) {
-        console.error('Update error:', error);
+        console.error('❌ [ManualVerification] Update error:', JSON.stringify(error, null, 2));
         throw error;
       }
 
-      console.log('Response submitted successfully');
+      console.log('✅ [ManualVerification] Response submitted successfully');
 
       setShowResponseModal(false);
       setUserResponse('');
@@ -509,19 +542,20 @@ export default function ManualVerificationScreen() {
         [{ 
           text: 'OK', 
           onPress: () => {
-            console.log('Reloading verification requests...');
+            console.log('🟢 [ManualVerification] Reloading verification requests...');
             loadVerificationRequests();
           }
         }]
       );
     } catch (error: any) {
-      console.error('=== ERROR SUBMITTING RESPONSE ===');
-      console.error('Error object:', error);
-      console.error('Error message:', error.message);
+      console.error('❌ [ManualVerification] === ERROR SUBMITTING RESPONSE ===');
+      console.error('❌ [ManualVerification] Error object:', JSON.stringify(error, null, 2));
+      console.error('❌ [ManualVerification] Error message:', error.message);
+      console.error('❌ [ManualVerification] Error code:', error.code);
       
       Alert.alert('Error', error.message || 'Error al enviar la respuesta');
     } finally {
-      console.log('Resetting submitting state');
+      console.log('🟢 [ManualVerification] Resetting submitting state');
       setSubmittingResponse(false);
     }
   };
@@ -608,7 +642,7 @@ export default function ManualVerificationScreen() {
         <TouchableOpacity
           style={[styles.tab, activeTab === 'nowpayments' && styles.tabActive]}
           onPress={() => {
-            console.log('Switching to NowPayments tab');
+            console.log('🟢 [ManualVerification] Switching to NowPayments tab');
             setActiveTab('nowpayments');
           }}
         >
@@ -625,7 +659,7 @@ export default function ManualVerificationScreen() {
         <TouchableOpacity
           style={[styles.tab, activeTab === 'usdt' && styles.tabActive]}
           onPress={() => {
-            console.log('Switching to USDT tab');
+            console.log('🟢 [ManualVerification] Switching to USDT tab');
             setActiveTab('usdt');
           }}
         >
@@ -851,7 +885,7 @@ export default function ManualVerificationScreen() {
                       <TouchableOpacity
                         style={styles.requestVerificationButton}
                         onPress={() => {
-                          console.log('Request verification button pressed for payment:', payment.id);
+                          console.log('🟢 [ManualVerification] Request verification button pressed for payment:', payment.id);
                           requestNowPaymentsVerification(payment);
                         }}
                         activeOpacity={0.7}
@@ -921,7 +955,7 @@ export default function ManualVerificationScreen() {
                       }
                     ]}
                     onPress={() => {
-                      console.log('Network selected:', network.id);
+                      console.log('🟢 [ManualVerification] Network selected:', network.id);
                       setSelectedNetwork(network.id);
                     }}
                     activeOpacity={0.7}
@@ -955,7 +989,7 @@ export default function ManualVerificationScreen() {
                 placeholderTextColor="#666666"
                 value={txHash}
                 onChangeText={(text) => {
-                  console.log('TX Hash changed, length:', text.length);
+                  console.log('🟢 [ManualVerification] TX Hash changed, length:', text.length);
                   setTxHash(text);
                 }}
                 autoCapitalize="none"
@@ -981,9 +1015,9 @@ export default function ManualVerificationScreen() {
                 (requestingManualVerification || !txHash.trim()) && styles.requestUSDTVerificationButtonDisabled
               ]}
               onPress={() => {
-                console.log('USDT verification button pressed');
-                console.log('TX Hash:', txHash);
-                console.log('Requesting:', requestingManualVerification);
+                console.log('🟢 [ManualVerification] USDT verification button pressed');
+                console.log('🟢 [ManualVerification] TX Hash:', txHash);
+                console.log('🟢 [ManualVerification] Requesting:', requestingManualVerification);
                 requestUSDTVerification();
               }}
               disabled={requestingManualVerification || !txHash.trim()}
@@ -1208,7 +1242,7 @@ export default function ManualVerificationScreen() {
         transparent
         animationType="fade"
         onRequestClose={() => {
-          console.log('Modal closed');
+          console.log('🟡 [ManualVerification] Modal closed');
           setShowResponseModal(false);
         }}
       >
@@ -1240,7 +1274,7 @@ export default function ManualVerificationScreen() {
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonCancel]}
                 onPress={() => {
-                  console.log('Cancel button pressed');
+                  console.log('🟡 [ManualVerification] Cancel button pressed');
                   setShowResponseModal(false);
                   setUserResponse('');
                   setSelectedVerificationRequest(null);
@@ -1254,7 +1288,7 @@ export default function ManualVerificationScreen() {
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonSubmit]}
                 onPress={() => {
-                  console.log('Submit button pressed');
+                  console.log('🟢 [ManualVerification] Submit button pressed');
                   submitResponse();
                 }}
                 disabled={submittingResponse}
