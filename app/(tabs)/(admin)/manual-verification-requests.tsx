@@ -305,6 +305,48 @@ const styles = StyleSheet.create({
     color: colors.text,
     lineHeight: 18,
   },
+  paymentTypeBadge: {
+    backgroundColor: '#2196F3',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginTop: 8,
+    alignSelf: 'flex-start',
+  },
+  paymentTypeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  amountInputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  amountInput: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: colors.text,
+    marginBottom: 12,
+  },
+  warningBox: {
+    backgroundColor: '#FF9800' + '20',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#FF9800',
+  },
+  warningText: {
+    fontSize: 13,
+    color: '#FF9800',
+    lineHeight: 18,
+  },
 });
 
 export default function ManualVerificationRequestsScreen() {
@@ -320,6 +362,8 @@ export default function ManualVerificationRequestsScreen() {
   const [moreInfoText, setMoreInfoText] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [approvedUsdtAmount, setApprovedUsdtAmount] = useState('');
 
   useEffect(() => {
     loadRequests();
@@ -395,168 +439,189 @@ export default function ManualVerificationRequestsScreen() {
     loadRequests();
   };
 
-  const approveRequest = async (request: any) => {
+  const openApproveModal = (request: any) => {
+    setSelectedRequest(request);
+    
+    // For direct USDT payments, pre-fill with 0 so admin must enter amount
+    // For NowPayments, pre-fill with the payment amount
+    if (request.payments.tx_hash && !request.payments.payment_id) {
+      setApprovedUsdtAmount('');
+    } else {
+      setApprovedUsdtAmount(parseFloat(request.payments.price_amount).toFixed(2));
+    }
+    
+    setShowApproveModal(true);
+  };
+
+  const approveRequest = async () => {
     if (!session) {
       Alert.alert('Error', 'Sesión no válida');
       return;
     }
 
-    Alert.alert(
-      'Aprobar Verificación',
-      `¿Estás seguro de que deseas aprobar esta solicitud?\n\n` +
-      `Usuario: ${request.users.email}\n` +
-      `Monto: ${parseFloat(request.payments.price_amount).toFixed(2)} USDT\n` +
-      `MXI: ${parseFloat(request.payments.mxi_amount).toFixed(2)} MXI\n\n` +
-      `Esta acción verificará el pago con NOWPayments y lo acreditará si está confirmado.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
+    const request = selectedRequest;
+    const isDirectUSDT = request.payments.tx_hash && !request.payments.payment_id;
+
+    // Validate approved amount for direct USDT
+    if (isDirectUSDT) {
+      const amount = parseFloat(approvedUsdtAmount);
+      if (!approvedUsdtAmount || isNaN(amount) || amount <= 0) {
+        Alert.alert('Error', 'Por favor ingresa una cantidad válida de USDT aprobada');
+        return;
+      }
+    }
+
+    setShowApproveModal(false);
+    setProcessingRequests(prev => new Set(prev).add(request.id));
+
+    try {
+      // First, update the request status to reviewing
+      await supabase
+        .from('manual_verification_requests')
+        .update({
+          status: 'reviewing',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', request.id);
+
+      // Prepare request body
+      const requestBody: any = {
+        order_id: request.payments.order_id,
+      };
+
+      // For direct USDT payments, include approved amount
+      if (isDirectUSDT) {
+        requestBody.approved_usdt_amount = parseFloat(approvedUsdtAmount);
+      }
+
+      // Call the manual verification edge function
+      const response = await fetch(
+        'https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/manual-verify-payment',
         {
-          text: 'Aprobar',
-          style: 'destructive',
-          onPress: async () => {
-            setProcessingRequests(prev => new Set(prev).add(request.id));
-
-            try {
-              // First, update the request status to reviewing
-              await supabase
-                .from('manual_verification_requests')
-                .update({
-                  status: 'reviewing',
-                  updated_at: new Date().toISOString(),
-                })
-                .eq('id', request.id);
-
-              // Call the manual verification edge function
-              const response = await fetch(
-                'https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/manual-verify-payment',
-                {
-                  method: 'POST',
-                  headers: {
-                    'Authorization': `Bearer ${session.access_token}`,
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    order_id: request.payments.order_id,
-                  }),
-                }
-              );
-
-              const data = await response.json();
-              console.log('Verification response:', data);
-
-              if (data.success) {
-                if (data.credited) {
-                  // Update request status to approved
-                  await supabase
-                    .from('manual_verification_requests')
-                    .update({
-                      status: 'approved',
-                      reviewed_by: user?.id,
-                      reviewed_at: new Date().toISOString(),
-                      admin_notes: 'Pago verificado y acreditado exitosamente',
-                      updated_at: new Date().toISOString(),
-                    })
-                    .eq('id', request.id);
-
-                  Alert.alert(
-                    '✅ Pago Aprobado',
-                    `El pago ha sido verificado y acreditado exitosamente.\n\n` +
-                    `${data.payment.mxi_amount} MXI han sido agregados a la cuenta del usuario.`,
-                    [
-                      {
-                        text: 'OK',
-                        onPress: () => loadRequests(),
-                      },
-                    ]
-                  );
-                } else if (data.already_credited) {
-                  // Update request status to approved
-                  await supabase
-                    .from('manual_verification_requests')
-                    .update({
-                      status: 'approved',
-                      reviewed_by: user?.id,
-                      reviewed_at: new Date().toISOString(),
-                      admin_notes: 'Pago ya había sido acreditado anteriormente',
-                      updated_at: new Date().toISOString(),
-                    })
-                    .eq('id', request.id);
-
-                  Alert.alert(
-                    'ℹ️ Ya Acreditado',
-                    'Este pago ya había sido acreditado anteriormente.',
-                    [
-                      {
-                        text: 'OK',
-                        onPress: () => loadRequests(),
-                      },
-                    ]
-                  );
-                } else {
-                  // Payment not confirmed yet, update status back to pending
-                  await supabase
-                    .from('manual_verification_requests')
-                    .update({
-                      status: 'pending',
-                      admin_notes: `Estado del pago: ${data.payment.status}. Aún no confirmado por NOWPayments.`,
-                      updated_at: new Date().toISOString(),
-                    })
-                    .eq('id', request.id);
-
-                  Alert.alert(
-                    'ℹ️ Pago No Confirmado',
-                    `El pago aún no ha sido confirmado por NOWPayments.\n\n` +
-                    `Estado actual: ${data.payment.status}\n\n` +
-                    `Por favor, espera a que el pago sea confirmado antes de aprobarlo.`,
-                    [{ text: 'OK', onPress: () => loadRequests() }]
-                  );
-                }
-              } else {
-                // Update status back to pending with error
-                await supabase
-                  .from('manual_verification_requests')
-                  .update({
-                    status: 'pending',
-                    admin_notes: `Error: ${data.error}`,
-                    updated_at: new Date().toISOString(),
-                  })
-                  .eq('id', request.id);
-
-                Alert.alert(
-                  'Error',
-                  data.error || 'Error al verificar el pago',
-                  [{ text: 'OK', onPress: () => loadRequests() }]
-                );
-              }
-            } catch (error: any) {
-              console.error('Error approving request:', error);
-              
-              // Update status back to pending with error
-              await supabase
-                .from('manual_verification_requests')
-                .update({
-                  status: 'pending',
-                  admin_notes: `Error: ${error.message}`,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq('id', request.id);
-
-              Alert.alert(
-                'Error',
-                error.message || 'Error al aprobar la solicitud',
-                [{ text: 'OK', onPress: () => loadRequests() }]
-              );
-            } finally {
-              setProcessingRequests(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(request.id);
-                return newSet;
-              });
-            }
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
           },
-        },
-      ]
-    );
+          body: JSON.stringify(requestBody),
+        }
+      );
+
+      const data = await response.json();
+      console.log('Verification response:', data);
+
+      if (data.success) {
+        if (data.credited) {
+          // Update request status to approved
+          await supabase
+            .from('manual_verification_requests')
+            .update({
+              status: 'approved',
+              reviewed_by: user?.id,
+              reviewed_at: new Date().toISOString(),
+              admin_notes: `Pago verificado y acreditado exitosamente. ${isDirectUSDT ? `Monto aprobado: ${approvedUsdtAmount} USDT` : ''}`,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', request.id);
+
+          Alert.alert(
+            '✅ Pago Aprobado',
+            `El pago ha sido verificado y acreditado exitosamente.\n\n` +
+            `${data.payment.mxi_amount} MXI han sido agregados a la cuenta del usuario.\n` +
+            `${isDirectUSDT ? `\nMonto USDT aprobado: ${approvedUsdtAmount}` : ''}`,
+            [
+              {
+                text: 'OK',
+                onPress: () => loadRequests(),
+              },
+            ]
+          );
+        } else if (data.already_credited) {
+          // Update request status to approved
+          await supabase
+            .from('manual_verification_requests')
+            .update({
+              status: 'approved',
+              reviewed_by: user?.id,
+              reviewed_at: new Date().toISOString(),
+              admin_notes: 'Pago ya había sido acreditado anteriormente',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', request.id);
+
+          Alert.alert(
+            'ℹ️ Ya Acreditado',
+            'Este pago ya había sido acreditado anteriormente.',
+            [
+              {
+                text: 'OK',
+                onPress: () => loadRequests(),
+              },
+            ]
+          );
+        } else {
+          // Payment not confirmed yet, update status back to pending
+          await supabase
+            .from('manual_verification_requests')
+            .update({
+              status: 'pending',
+              admin_notes: `Estado del pago: ${data.payment.status}. Aún no confirmado.`,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', request.id);
+
+          Alert.alert(
+            'ℹ️ Pago No Confirmado',
+            `El pago aún no ha sido confirmado.\n\n` +
+            `Estado actual: ${data.payment.status}\n\n` +
+            `Por favor, espera a que el pago sea confirmado antes de aprobarlo.`,
+            [{ text: 'OK', onPress: () => loadRequests() }]
+          );
+        }
+      } else {
+        // Update status back to pending with error
+        await supabase
+          .from('manual_verification_requests')
+          .update({
+            status: 'pending',
+            admin_notes: `Error: ${data.error}`,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', request.id);
+
+        Alert.alert(
+          'Error',
+          data.error || 'Error al verificar el pago',
+          [{ text: 'OK', onPress: () => loadRequests() }]
+        );
+      }
+    } catch (error: any) {
+      console.error('Error approving request:', error);
+      
+      // Update status back to pending with error
+      await supabase
+        .from('manual_verification_requests')
+        .update({
+          status: 'pending',
+          admin_notes: `Error: ${error.message}`,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', request.id);
+
+      Alert.alert(
+        'Error',
+        error.message || 'Error al aprobar la solicitud',
+        [{ text: 'OK', onPress: () => loadRequests() }]
+      );
+    } finally {
+      setProcessingRequests(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(request.id);
+        return newSet;
+      });
+      setSelectedRequest(null);
+      setApprovedUsdtAmount('');
+    }
   };
 
   const openRejectModal = (request: any) => {
@@ -792,6 +857,8 @@ export default function ManualVerificationRequestsScreen() {
           {requests.map((request, index) => {
             const isProcessing = processingRequests.has(request.id);
             const isPending = ['pending', 'reviewing', 'more_info_requested'].includes(request.status);
+            const isDirectUSDT = request.payments.tx_hash && !request.payments.payment_id;
+            const isNowPayments = !!request.payments.payment_id;
 
             return (
               <View key={index} style={styles.requestCard}>
@@ -809,6 +876,13 @@ export default function ManualVerificationRequestsScreen() {
                       {getStatusText(request.status)}
                     </Text>
                   </View>
+                </View>
+
+                {/* Payment Type Badge */}
+                <View style={[styles.paymentTypeBadge, { backgroundColor: isDirectUSDT ? '#FF9800' : '#2196F3' }]}>
+                  <Text style={styles.paymentTypeText}>
+                    {isDirectUSDT ? '💰 USDT Directo' : '🔄 NowPayments'}
+                  </Text>
                 </View>
 
                 <View style={styles.requestRow}>
@@ -928,7 +1002,7 @@ export default function ManualVerificationRequestsScreen() {
                   <View style={styles.actionButtons}>
                     <TouchableOpacity
                       style={[styles.approveButton, isProcessing && styles.buttonDisabled]}
-                      onPress={() => approveRequest(request)}
+                      onPress={() => openApproveModal(request)}
                       disabled={isProcessing}
                     >
                       {isProcessing ? (
@@ -994,6 +1068,77 @@ export default function ManualVerificationRequestsScreen() {
           <View style={{ height: 100 }} />
         </ScrollView>
       )}
+
+      {/* Approve Modal */}
+      <Modal
+        visible={showApproveModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowApproveModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Aprobar Verificación</Text>
+            
+            {selectedRequest && selectedRequest.payments.tx_hash && !selectedRequest.payments.payment_id && (
+              <React.Fragment>
+                <View style={styles.warningBox}>
+                  <Text style={styles.warningText}>
+                    ⚠️ Este es un pago USDT directo. Debes ingresar la cantidad de USDT que deseas aprobar después de verificar la transacción en la blockchain.
+                  </Text>
+                </View>
+                
+                <Text style={styles.amountInputLabel}>Cantidad USDT Aprobada:</Text>
+                <TextInput
+                  style={styles.amountInput}
+                  placeholder="Ej: 50.00"
+                  placeholderTextColor={colors.textSecondary}
+                  value={approvedUsdtAmount}
+                  onChangeText={setApprovedUsdtAmount}
+                  keyboardType="decimal-pad"
+                />
+              </React.Fragment>
+            )}
+
+            {selectedRequest && selectedRequest.payments.payment_id && (
+              <View style={styles.infoBox}>
+                <IconSymbol
+                  ios_icon_name="info.circle.fill"
+                  android_material_icon_name="info"
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text style={styles.infoText}>
+                  Este pago será verificado automáticamente con NowPayments. El monto será el confirmado por NowPayments.
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => {
+                  setShowApproveModal(false);
+                  setApprovedUsdtAmount('');
+                  setSelectedRequest(null);
+                }}
+              >
+                <Text style={[styles.modalButtonText, styles.modalButtonTextCancel]}>
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonSubmit]}
+                onPress={approveRequest}
+              >
+                <Text style={[styles.modalButtonText, styles.modalButtonTextSubmit]}>
+                  Aprobar
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* More Info Modal */}
       <Modal

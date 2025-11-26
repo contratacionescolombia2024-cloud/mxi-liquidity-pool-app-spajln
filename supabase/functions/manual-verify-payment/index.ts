@@ -11,11 +11,13 @@ const corsHeaders = {
  * Manual Payment Verification Edge Function
  * 
  * This function provides a robust manual verification system that:
- * 1. Verifies payment status with NOWPayments API
- * 2. Uses the same crediting logic as the automatic webhook
- * 3. Can be called by users or admins
- * 4. Provides detailed logging and error handling
- * 5. Prevents double-crediting
+ * 1. Handles both NowPayments and direct USDT payments
+ * 2. For NowPayments: Verifies payment status with NOWPayments API
+ * 3. For USDT: Allows admin to manually approve with specified amount
+ * 4. Uses the same crediting logic as the automatic webhook
+ * 5. Can be called by users or admins
+ * 6. Provides detailed logging and error handling
+ * 7. Prevents double-crediting
  */
 Deno.serve(async (req) => {
   // Handle CORS
@@ -33,22 +35,6 @@ Deno.serve(async (req) => {
     const NOWPAYMENTS_API_KEY = Deno.env.get('NOWPAYMENTS_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-    if (!NOWPAYMENTS_API_KEY) {
-      console.error(`[${requestId}] ERROR: NOWPAYMENTS_API_KEY not configured`);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'NOWPayments API key not configured',
-          code: 'MISSING_API_KEY',
-          requestId: requestId,
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
 
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       console.error(`[${requestId}] ERROR: Supabase credentials not configured`);
@@ -117,7 +103,7 @@ Deno.serve(async (req) => {
 
     // Step 3: Parse request body
     console.log(`[${requestId}] Step 3: Parsing request body...`);
-    let body: { order_id: string };
+    let body: { order_id: string; approved_usdt_amount?: number };
     
     try {
       body = await req.json();
@@ -139,7 +125,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { order_id } = body;
+    const { order_id, approved_usdt_amount } = body;
 
     if (!order_id) {
       console.error(`[${requestId}] ERROR: Missing order_id`);
@@ -158,6 +144,9 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[${requestId}] Order ID: ${order_id}`);
+    if (approved_usdt_amount) {
+      console.log(`[${requestId}] Approved USDT Amount: ${approved_usdt_amount}`);
+    }
 
     // Step 4: Find payment record
     console.log(`[${requestId}] Step 4: Finding payment record...`);
@@ -213,6 +202,7 @@ Deno.serve(async (req) => {
     console.log(`[${requestId}] ✅ Payment found: ${payment.id}`);
     console.log(`[${requestId}] Payment details: User ${payment.user_id}, Amount ${payment.mxi_amount} MXI`);
     console.log(`[${requestId}] Current status: ${payment.status}`);
+    console.log(`[${requestId}] Payment type: ${payment.payment_id ? 'NowPayments' : 'Direct USDT'}`);
 
     // Step 5: Check if already credited
     if (payment.status === 'finished' || payment.status === 'confirmed') {
@@ -237,16 +227,192 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Step 6: Check payment status with NOWPayments
-    console.log(`[${requestId}] Step 6: Checking payment status with NOWPayments...`);
-    
-    if (!payment.payment_id) {
-      console.error(`[${requestId}] ERROR: Payment has no payment_id`);
+    // Step 6: Determine payment type and handle accordingly
+    const isNowPaymentsPayment = !!payment.payment_id;
+    const isDirectUSDTPayment = !!payment.tx_hash && !payment.payment_id;
+
+    console.log(`[${requestId}] Step 6: Processing payment...`);
+    console.log(`[${requestId}] Is NowPayments: ${isNowPaymentsPayment}`);
+    console.log(`[${requestId}] Is Direct USDT: ${isDirectUSDTPayment}`);
+
+    let paymentStatus = payment.status;
+    let actualUsdtAmount = parseFloat(payment.price_amount);
+    let actualMxiAmount = parseFloat(payment.mxi_amount);
+
+    // Handle NowPayments payment
+    if (isNowPaymentsPayment) {
+      console.log(`[${requestId}] Processing NowPayments payment...`);
+
+      if (!NOWPAYMENTS_API_KEY) {
+        console.error(`[${requestId}] ERROR: NOWPAYMENTS_API_KEY not configured`);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'NOWPayments API key not configured',
+            code: 'MISSING_API_KEY',
+            requestId: requestId,
+          }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      console.log(`[${requestId}] Checking payment ID: ${payment.payment_id}`);
+
+      const nowPaymentsResponse = await fetch(
+        `https://api.nowpayments.io/v1/payment/${payment.payment_id}`,
+        {
+          method: 'GET',
+          headers: {
+            'x-api-key': NOWPAYMENTS_API_KEY,
+          },
+        }
+      );
+
+      console.log(`[${requestId}] NOWPayments response status: ${nowPaymentsResponse.status}`);
+
+      if (!nowPaymentsResponse.ok) {
+        const errorText = await nowPaymentsResponse.text();
+        console.error(`[${requestId}] ERROR: NOWPayments API error:`, errorText);
+        
+        let errorDetails;
+        try {
+          errorDetails = JSON.parse(errorText);
+        } catch {
+          errorDetails = { raw: errorText };
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Failed to check payment status with NOWPayments',
+            code: 'NOWPAYMENTS_API_ERROR',
+            statusCode: nowPaymentsResponse.status,
+            details: errorDetails,
+            requestId: requestId,
+          }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      const nowPaymentsData = await nowPaymentsResponse.json();
+      console.log(`[${requestId}] NOWPayments data:`, JSON.stringify(nowPaymentsData, null, 2));
+
+      paymentStatus = nowPaymentsData.payment_status;
+      console.log(`[${requestId}] Payment status: ${paymentStatus}`);
+
+      // Update payment record with NowPayments data
+      const updateData: any = {
+        payment_status: paymentStatus,
+        status: paymentStatus,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (nowPaymentsData.actually_paid) {
+        updateData.actually_paid = parseFloat(nowPaymentsData.actually_paid);
+      }
+
+      if (nowPaymentsData.outcome_amount) {
+        updateData.outcome_amount = parseFloat(nowPaymentsData.outcome_amount);
+      }
+
+      if (nowPaymentsData.network_fee) {
+        updateData.network_fee = parseFloat(nowPaymentsData.network_fee);
+      }
+
+      const { error: updateError } = await supabase
+        .from('payments')
+        .update(updateData)
+        .eq('id', payment.id);
+
+      if (updateError) {
+        console.error(`[${requestId}] ERROR: Failed to update payment:`, updateError);
+        throw new Error(`Failed to update payment: ${updateError.message}`);
+      }
+
+      console.log(`[${requestId}] ✅ Payment updated with NowPayments data`);
+    }
+    // Handle Direct USDT payment
+    else if (isDirectUSDTPayment) {
+      console.log(`[${requestId}] Processing Direct USDT payment...`);
+
+      // For direct USDT payments, admin must provide approved amount
+      if (!isAdmin) {
+        console.error(`[${requestId}] ERROR: Only admins can approve direct USDT payments`);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Only admins can approve direct USDT payments',
+            code: 'ADMIN_ONLY',
+            requestId: requestId,
+          }),
+          {
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      if (!approved_usdt_amount || approved_usdt_amount <= 0) {
+        console.error(`[${requestId}] ERROR: Missing or invalid approved_usdt_amount`);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'For direct USDT payments, admin must provide approved_usdt_amount',
+            code: 'MISSING_APPROVED_AMOUNT',
+            requestId: requestId,
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      console.log(`[${requestId}] Admin approved USDT amount: ${approved_usdt_amount}`);
+
+      // Calculate MXI based on approved USDT amount and current phase price
+      const pricePerMxi = parseFloat(payment.price_per_mxi);
+      actualUsdtAmount = approved_usdt_amount;
+      actualMxiAmount = actualUsdtAmount / pricePerMxi;
+
+      console.log(`[${requestId}] Calculated MXI: ${actualMxiAmount} (${actualUsdtAmount} USDT / ${pricePerMxi} per MXI)`);
+
+      // Update payment record with approved amounts
+      const { error: updateError } = await supabase
+        .from('payments')
+        .update({
+          price_amount: actualUsdtAmount,
+          mxi_amount: actualMxiAmount,
+          usdt: actualUsdtAmount,
+          mxi: actualMxiAmount,
+          estado: 'confirmado',
+          status: 'confirmed',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', payment.id);
+
+      if (updateError) {
+        console.error(`[${requestId}] ERROR: Failed to update payment:`, updateError);
+        throw new Error(`Failed to update payment: ${updateError.message}`);
+      }
+
+      console.log(`[${requestId}] ✅ Payment updated with approved amounts`);
+      paymentStatus = 'confirmed';
+    }
+    // Unknown payment type
+    else {
+      console.error(`[${requestId}] ERROR: Unknown payment type`);
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Payment has no payment_id',
-          code: 'NO_PAYMENT_ID',
+          error: 'Unknown payment type - no payment_id or tx_hash',
+          code: 'UNKNOWN_PAYMENT_TYPE',
           requestId: requestId,
         }),
         {
@@ -256,88 +422,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[${requestId}] Checking payment ID: ${payment.payment_id}`);
-
-    const nowPaymentsResponse = await fetch(
-      `https://api.nowpayments.io/v1/payment/${payment.payment_id}`,
-      {
-        method: 'GET',
-        headers: {
-          'x-api-key': NOWPAYMENTS_API_KEY,
-        },
-      }
-    );
-
-    console.log(`[${requestId}] NOWPayments response status: ${nowPaymentsResponse.status}`);
-
-    if (!nowPaymentsResponse.ok) {
-      const errorText = await nowPaymentsResponse.text();
-      console.error(`[${requestId}] ERROR: NOWPayments API error:`, errorText);
-      
-      let errorDetails;
-      try {
-        errorDetails = JSON.parse(errorText);
-      } catch {
-        errorDetails = { raw: errorText };
-      }
-
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Failed to check payment status with NOWPayments',
-          code: 'NOWPAYMENTS_API_ERROR',
-          statusCode: nowPaymentsResponse.status,
-          details: errorDetails,
-          requestId: requestId,
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-
-    const nowPaymentsData = await nowPaymentsResponse.json();
-    console.log(`[${requestId}] NOWPayments data:`, JSON.stringify(nowPaymentsData, null, 2));
-
-    const paymentStatus = nowPaymentsData.payment_status;
-    console.log(`[${requestId}] Payment status: ${paymentStatus}`);
-
-    // Step 7: Update payment record
-    console.log(`[${requestId}] Step 7: Updating payment record...`);
-    
-    const updateData: any = {
-      payment_status: paymentStatus,
-      status: paymentStatus,
-      updated_at: new Date().toISOString(),
-    };
-
-    if (nowPaymentsData.actually_paid) {
-      updateData.actually_paid = parseFloat(nowPaymentsData.actually_paid);
-    }
-
-    if (nowPaymentsData.outcome_amount) {
-      updateData.outcome_amount = parseFloat(nowPaymentsData.outcome_amount);
-    }
-
-    if (nowPaymentsData.network_fee) {
-      updateData.network_fee = parseFloat(nowPaymentsData.network_fee);
-    }
-
-    const { error: updateError } = await supabase
-      .from('payments')
-      .update(updateData)
-      .eq('id', payment.id);
-
-    if (updateError) {
-      console.error(`[${requestId}] ERROR: Failed to update payment:`, updateError);
-      throw new Error(`Failed to update payment: ${updateError.message}`);
-    }
-
-    console.log(`[${requestId}] ✅ Payment updated`);
-
-    // Step 8: Update transaction_history
-    console.log(`[${requestId}] Step 8: Updating transaction_history...`);
+    // Step 7: Update transaction_history
+    console.log(`[${requestId}] Step 7: Updating transaction_history...`);
     
     await supabase
       .from('transaction_history')
@@ -349,9 +435,9 @@ Deno.serve(async (req) => {
 
     console.log(`[${requestId}] ✅ Transaction history updated`);
 
-    // Step 9: Credit user if payment is successful
+    // Step 8: Credit user if payment is successful
     if (paymentStatus === 'finished' || paymentStatus === 'confirmed') {
-      console.log(`[${requestId}] Step 9: Crediting user...`);
+      console.log(`[${requestId}] Step 8: Crediting user...`);
 
       // Get user
       const { data: userData, error: userDataError } = await supabase
@@ -368,15 +454,15 @@ Deno.serve(async (req) => {
       console.log(`[${requestId}] User: ${userData.id}, Current balance: ${userData.mxi_balance}`);
 
       // Update user balance
-      const newMxiBalance = parseFloat(userData.mxi_balance) + parseFloat(payment.mxi_amount);
-      const newUsdtContributed = parseFloat(userData.usdt_contributed) + parseFloat(payment.price_amount);
+      const newMxiBalance = parseFloat(userData.mxi_balance) + actualMxiAmount;
+      const newUsdtContributed = parseFloat(userData.usdt_contributed) + actualUsdtAmount;
 
       const { error: userUpdateError } = await supabase
         .from('users')
         .update({
           mxi_balance: newMxiBalance,
           usdt_contributed: newUsdtContributed,
-          mxi_purchased_directly: parseFloat(userData.mxi_purchased_directly || 0) + parseFloat(payment.mxi_amount),
+          mxi_purchased_directly: parseFloat(userData.mxi_purchased_directly || 0) + actualMxiAmount,
           is_active_contributor: true,
           updated_at: new Date().toISOString(),
         })
@@ -396,9 +482,9 @@ Deno.serve(async (req) => {
         .single();
 
       if (!metricsError && metrics) {
-        const newTotalUsdt = parseFloat(metrics.total_usdt_contributed) + parseFloat(payment.price_amount);
-        const newTotalMxi = parseFloat(metrics.total_mxi_distributed) + parseFloat(payment.mxi_amount);
-        const newTokensSold = parseFloat(metrics.total_tokens_sold) + parseFloat(payment.mxi_amount);
+        const newTotalUsdt = parseFloat(metrics.total_usdt_contributed) + actualUsdtAmount;
+        const newTotalMxi = parseFloat(metrics.total_mxi_distributed) + actualMxiAmount;
+        const newTokensSold = parseFloat(metrics.total_tokens_sold) + actualMxiAmount;
 
         await supabase
           .from('metrics')
@@ -443,7 +529,8 @@ Deno.serve(async (req) => {
           payment: {
             order_id: payment.order_id,
             status: 'confirmed',
-            mxi_amount: payment.mxi_amount,
+            usdt_amount: actualUsdtAmount,
+            mxi_amount: actualMxiAmount,
             new_balance: newMxiBalance,
           },
           requestId: requestId,
