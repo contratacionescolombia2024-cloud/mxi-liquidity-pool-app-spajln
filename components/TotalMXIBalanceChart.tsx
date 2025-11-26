@@ -475,20 +475,29 @@ export function TotalMXIBalanceChart() {
   const { change, percentage } = getChangeData();
   const isPositive = change >= 0;
 
-  // Calculate the TOTAL MXI balance from ALL sources (purchased + commissions + tournaments + vesting)
-  const currentTotal = balanceData.length > 0 
-    ? balanceData[balanceData.length - 1].totalBalance 
-    : (user?.mxiPurchasedDirectly || 0) + (user?.mxiFromUnifiedCommissions || 0) + (user?.mxiFromChallenges || 0) + currentVesting;
+  // ✅ FIXED: Calculate the TOTAL MXI balance from ALL sources (purchased + commissions + tournaments + vesting)
+  // This ensures the display always shows the correct total
+  const currentTotal = (user?.mxiPurchasedDirectly || 0) + 
+                       (user?.mxiFromUnifiedCommissions || 0) + 
+                       (user?.mxiFromChallenges || 0) + 
+                       currentVesting;
 
-  const currentBreakdown = balanceData.length > 0
-    ? balanceData[balanceData.length - 1]
-    : {
-        mxiPurchased: user?.mxiPurchasedDirectly || 0,
-        mxiCommissions: user?.mxiFromUnifiedCommissions || 0,
-        mxiTournaments: user?.mxiFromChallenges || 0,
-        mxiVesting: currentVesting,
-        totalBalance: (user?.mxiPurchasedDirectly || 0) + (user?.mxiFromUnifiedCommissions || 0) + (user?.mxiFromChallenges || 0) + currentVesting,
-      };
+  const currentBreakdown = {
+    mxiPurchased: user?.mxiPurchasedDirectly || 0,
+    mxiCommissions: user?.mxiFromUnifiedCommissions || 0,
+    mxiTournaments: user?.mxiFromChallenges || 0,
+    mxiVesting: currentVesting,
+    totalBalance: currentTotal,
+  };
+
+  // Log for debugging
+  console.log('📊 TotalMXIBalanceChart - Current Balance Breakdown:', {
+    purchased: currentBreakdown.mxiPurchased,
+    commissions: currentBreakdown.mxiCommissions,
+    tournaments: currentBreakdown.mxiTournaments,
+    vesting: currentBreakdown.mxiVesting,
+    total: currentTotal,
+  });
 
   return (
     <View style={styles.container}>

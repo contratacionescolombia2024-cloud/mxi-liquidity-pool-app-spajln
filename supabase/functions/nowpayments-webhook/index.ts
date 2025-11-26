@@ -16,6 +16,13 @@ const corsHeaders = {
  * 
  * IMPORTANT: This webhook URL must be configured in NowPayments dashboard:
  * https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/nowpayments-webhook
+ * 
+ * NOWPAYMENTS RECOMMENDATIONS:
+ * 1. Always return 200 OK to prevent retries
+ * 2. Verify JWT signature using IPN secret
+ * 3. Log all webhook calls for debugging
+ * 4. Handle idempotency (don't credit twice)
+ * 5. Process webhooks asynchronously if needed
  */
 Deno.serve(async (req) => {
   // Handle CORS preflight
@@ -75,7 +82,7 @@ Deno.serve(async (req) => {
       console.log(`[${requestId}] ✅ Webhook logged`);
     }
 
-    // Step 4: Verify JWT signature (if IPN secret is configured) - BUT DON'T FAIL IF MISSING
+    // Step 4: Verify JWT signature (if IPN secret is configured)
     if (NOWPAYMENTS_IPN_SECRET) {
       console.log(`[${requestId}] Step 4: Verifying JWT signature...`);
       console.log(`[${requestId}] IPN Secret configured: ${NOWPAYMENTS_IPN_SECRET.substring(0, 10)}...`);
@@ -193,11 +200,11 @@ Deno.serve(async (req) => {
 
     console.log(`[${requestId}] ✅ Transaction history updated`);
 
-    // Step 8: Credit user if payment is successful
+    // Step 8: Credit user if payment is successful (IDEMPOTENCY CHECK)
     if (paymentStatus === 'finished' || paymentStatus === 'confirmed') {
       console.log(`[${requestId}] Step 8: Crediting user...`);
 
-      // Check if already credited
+      // ✅ IDEMPOTENCY: Check if already credited
       if (payment.status === 'finished' || payment.status === 'confirmed') {
         console.log(`[${requestId}] ⚠️ Payment already credited, skipping`);
       } else {
@@ -215,16 +222,27 @@ Deno.serve(async (req) => {
 
         console.log(`[${requestId}] User: ${user.id}, Current balance: ${user.mxi_balance}`);
 
-        // Update user balance
+        // ✅ FIXED: Update user balance correctly
+        // Update mxi_purchased_directly (this is what generates vesting)
+        // Update mxi_balance (total balance for display)
+        const newMxiPurchasedDirectly = parseFloat(user.mxi_purchased_directly || 0) + parseFloat(payment.mxi_amount);
         const newMxiBalance = parseFloat(user.mxi_balance) + parseFloat(payment.mxi_amount);
         const newUsdtContributed = parseFloat(user.usdt_contributed) + parseFloat(payment.price_amount);
+
+        console.log(`[${requestId}] Crediting user:`, {
+          oldMxiBalance: user.mxi_balance,
+          newMxiBalance,
+          oldMxiPurchasedDirectly: user.mxi_purchased_directly,
+          newMxiPurchasedDirectly,
+          mxiAmount: payment.mxi_amount,
+        });
 
         const { error: userUpdateError } = await supabase
           .from('users')
           .update({
             mxi_balance: newMxiBalance,
             usdt_contributed: newUsdtContributed,
-            mxi_purchased_directly: parseFloat(user.mxi_purchased_directly || 0) + parseFloat(payment.mxi_amount),
+            mxi_purchased_directly: newMxiPurchasedDirectly,
             is_active_contributor: true,
             updated_at: new Date().toISOString(),
           })
@@ -235,7 +253,7 @@ Deno.serve(async (req) => {
           throw new Error(`Failed to update user: ${userUpdateError.message}`);
         }
 
-        console.log(`[${requestId}] ✅ User credited: ${newMxiBalance} MXI`);
+        console.log(`[${requestId}] ✅ User credited: ${newMxiBalance} MXI (${newMxiPurchasedDirectly} purchased directly)`);
 
         // Update metrics
         const { data: metrics, error: metricsError } = await supabase
@@ -280,6 +298,21 @@ Deno.serve(async (req) => {
           .eq('order_id', orderId);
 
         console.log(`[${requestId}] ✅ Payment marked as confirmed`);
+
+        // ✅ NEW: Create MXI balance history entry for chart
+        await supabase.from('mxi_balance_history').insert({
+          user_id: payment.user_id,
+          timestamp: new Date().toISOString(),
+          mxi_purchased: newMxiPurchasedDirectly,
+          mxi_commissions: parseFloat(user.mxi_from_unified_commissions || 0),
+          mxi_challenges: parseFloat(user.mxi_from_challenges || 0),
+          mxi_vesting: parseFloat(user.accumulated_yield || 0),
+          total_balance: newMxiPurchasedDirectly + parseFloat(user.mxi_from_unified_commissions || 0) + parseFloat(user.mxi_from_challenges || 0) + parseFloat(user.accumulated_yield || 0),
+          transaction_type: 'purchase',
+          transaction_amount: parseFloat(payment.mxi_amount),
+        });
+
+        console.log(`[${requestId}] ✅ MXI balance history entry created`);
       }
     }
 
@@ -293,6 +326,7 @@ Deno.serve(async (req) => {
 
     console.log(`[${requestId}] ========== SUCCESS ==========\n`);
 
+    // ✅ ALWAYS return 200 OK to NOWPayments (as recommended)
     return new Response(
       JSON.stringify({ success: true, requestId }),
       {
@@ -306,6 +340,8 @@ Deno.serve(async (req) => {
     console.error(`[${requestId}] Error:`, error);
     console.error(`[${requestId}] Stack:`, error.stack);
 
+    // ✅ ALWAYS return 200 OK to NOWPayments (as recommended)
+    // This prevents NOWPayments from retrying the webhook
     return new Response(
       JSON.stringify({
         success: false,
@@ -313,7 +349,7 @@ Deno.serve(async (req) => {
         requestId: requestId,
       }),
       {
-        status: 200, // Return 200 to NOWPayments so they don't retry
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
