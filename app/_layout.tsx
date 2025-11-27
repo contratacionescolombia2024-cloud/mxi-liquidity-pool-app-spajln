@@ -18,6 +18,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { WidgetProvider } from "@/contexts/WidgetContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { LanguageProvider } from "@/contexts/LanguageContext";
 import { supabase } from "@/lib/supabase";
 
 SplashScreen.preventAutoHideAsync();
@@ -159,11 +160,13 @@ export default function RootLayout() {
     <>
       <StatusBar style="light" animated />
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#000000' }}>
-        <WidgetProvider>
-          <AuthProvider>
-            <RootLayoutNav />
-          </AuthProvider>
-        </WidgetProvider>
+        <LanguageProvider>
+          <WidgetProvider>
+            <AuthProvider>
+              <RootLayoutNav />
+            </AuthProvider>
+          </WidgetProvider>
+        </LanguageProvider>
         <SystemBars style={"light"} />
       </GestureHandlerRootView>
     </>

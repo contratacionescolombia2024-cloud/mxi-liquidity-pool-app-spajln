@@ -11,11 +11,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { YieldDisplay } from '@/components/YieldDisplay';
 import { LaunchCountdown } from '@/components/LaunchCountdown';
 import { TotalMXIBalanceChart } from '@/components/TotalMXIBalanceChart';
+import { LanguageSelector } from '@/components/LanguageSelector';
 import Footer from '@/components/Footer';
 import { supabase } from '@/lib/supabase';
 
@@ -72,6 +74,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+  languageSelectorContainer: {
+    marginLeft: 'auto',
   },
   scrollContent: {
     paddingTop: HEADER_MAX_HEIGHT,
@@ -286,6 +291,7 @@ const getShortName = (fullName: string): string => {
 
 export default function HomeScreen() {
   const { user, loading, checkWithdrawalEligibility, getPhaseInfo } = useAuth();
+  const { t } = useLanguage();
   const [refreshing, setRefreshing] = useState(false);
   const [phaseInfo, setPhaseInfo] = useState<any>({
     currentPhase: 1,
@@ -331,15 +337,11 @@ export default function HomeScreen() {
         setPhaseInfo(info);
       }
 
-      // 🔧 FIX: Calculate phase progress directly from users table
-      // This ensures the progress bar shows actual MXI purchased
       const { data: usersData, error: usersError } = await supabase
         .from('users')
         .select('mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges, mxi_vesting_locked');
 
       if (!usersError && usersData) {
-        // ✅ FIXED: Calculate total MXI from ALL sources (purchased + commissions + challenges + vesting)
-        // This is what drives the "Progreso General" bar
         const totalMxiAllSources = usersData.reduce((sum, user) => {
           const purchased = parseFloat(user.mxi_purchased_directly || '0');
           const commissions = parseFloat(user.mxi_from_unified_commissions || '0');
@@ -352,7 +354,6 @@ export default function HomeScreen() {
         console.log('📊 Total MXI delivered to all users (all sources):', totalMxiAllSources);
         setTotalMxiDelivered(totalMxiAllSources);
 
-        // Calculate total MXI purchased (for phase breakdown)
         const totalMxiPurchased = usersData.reduce((sum, user) => {
           const purchased = parseFloat(user.mxi_purchased_directly || '0');
           return sum + purchased;
@@ -360,19 +361,15 @@ export default function HomeScreen() {
 
         console.log('📊 Total MXI purchased by all users:', totalMxiPurchased);
 
-        // Phase allocations
         const phase1Allocation = 8333333;
         const phase2Allocation = 8333333;
         const phase3Allocation = 8333334;
         const totalAllocation = 25000000;
 
-        // Phase prices
         const phase1Price = 0.40;
         const phase2Price = 0.70;
         const phase3Price = 1.00;
 
-        // Calculate how many MXI were sold in each phase based on total purchased
-        // We need to distribute the purchased MXI across phases
         let remainingMxi = totalMxiPurchased;
         let phase1Sold = 0;
         let phase2Sold = 0;
@@ -380,13 +377,11 @@ export default function HomeScreen() {
         let currentPhase = 1;
         let currentPrice = phase1Price;
 
-        // Phase 1
         if (remainingMxi > 0) {
           phase1Sold = Math.min(remainingMxi, phase1Allocation);
           remainingMxi -= phase1Sold;
         }
 
-        // Phase 2
         if (remainingMxi > 0) {
           phase2Sold = Math.min(remainingMxi, phase2Allocation);
           remainingMxi -= phase2Sold;
@@ -394,7 +389,6 @@ export default function HomeScreen() {
           currentPrice = phase2Price;
         }
 
-        // Phase 3
         if (remainingMxi > 0) {
           phase3Sold = Math.min(remainingMxi, phase3Allocation);
           remainingMxi -= phase3Sold;
@@ -402,17 +396,14 @@ export default function HomeScreen() {
           currentPrice = phase3Price;
         }
 
-        // If phase 1 is not complete, we're in phase 1
         if (phase1Sold < phase1Allocation) {
           currentPhase = 1;
           currentPrice = phase1Price;
         }
-        // If phase 1 is complete but phase 2 is not, we're in phase 2
         else if (phase2Sold < phase2Allocation) {
           currentPhase = 2;
           currentPrice = phase2Price;
         }
-        // Otherwise we're in phase 3
         else {
           currentPhase = 3;
           currentPrice = phase3Price;
@@ -423,9 +414,6 @@ export default function HomeScreen() {
         const phase3Remaining = phase3Allocation - phase3Sold;
 
         const totalSold = phase1Sold + phase2Sold + phase3Sold;
-        
-        // ✅ FIXED: Calculate overall progress based on ALL MXI sources (not just purchased)
-        // This ensures the "Progreso General" bar reflects the corrected sum
         const overallProgress = (totalMxiAllSources / totalAllocation) * 100;
 
         console.log('📊 Phase breakdown:', {
@@ -439,7 +427,6 @@ export default function HomeScreen() {
           currentPrice,
         });
 
-        // Get pool close date from metrics
         const { data: metricsData } = await supabase
           .from('metrics')
           .select('pool_close_date')
@@ -451,9 +438,9 @@ export default function HomeScreen() {
           phase1: { sold: phase1Sold, remaining: phase1Remaining, allocation: phase1Allocation },
           phase2: { sold: phase2Sold, remaining: phase2Remaining, allocation: phase2Allocation },
           phase3: { sold: phase3Sold, remaining: phase3Remaining, allocation: phase3Allocation },
-          totalSold: totalMxiAllSources, // ✅ FIXED: Use total from all sources
-          totalRemaining: totalAllocation - totalMxiAllSources, // ✅ FIXED: Calculate remaining based on all sources
-          overallProgress, // ✅ FIXED: Progress now reflects all MXI sources
+          totalSold: totalMxiAllSources,
+          totalRemaining: totalAllocation - totalMxiAllSources,
+          overallProgress,
           poolCloseDate: metricsData?.pool_close_date || '2026-02-15T12:00:00Z',
         });
       } else {
@@ -474,18 +461,17 @@ export default function HomeScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-          <Text style={{ color: colors.text }}>Cargando...</Text>
+          <Text style={{ color: colors.text }}>{t('loading')}</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  // Get the short version of the user's name (first name + first last name)
   const shortName = getShortName(user.name);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Animated Header with Logo and User Name */}
+      {/* Animated Header with Logo, User Name, and Language Selector */}
       <Animated.View 
         style={[
           styles.headerContainer, 
@@ -504,9 +490,12 @@ export default function HomeScreen() {
           </View>
           <View style={styles.headerTextContainer}>
             <Text style={styles.greeting} numberOfLines={2}>
-              Hola, {shortName}
+              {t('hello')}, {shortName}
             </Text>
-            <Text style={styles.userName}>Bienvenido a MXI Pool</Text>
+            <Text style={styles.userName}>{t('welcomeToMXI')}</Text>
+          </View>
+          <View style={styles.languageSelectorContainer}>
+            <LanguageSelector />
           </View>
         </View>
       </Animated.View>
@@ -533,10 +522,10 @@ export default function HomeScreen() {
         {/* Enhanced Phases and Progress Card */}
         {phaseInfo && phaseInfo.phase1 && phaseInfo.phase2 && phaseInfo.phase3 && (
           <View style={styles.phasesCard}>
-            <Text style={styles.cardTitle}>🚀 Fases y Progreso</Text>
+            <Text style={styles.cardTitle}>{t('phasesAndProgress')}</Text>
             
             <View style={styles.currentPhaseInfo}>
-              <Text style={styles.currentPhaseLabel}>Fase Actual: {phaseInfo.currentPhase || 1}</Text>
+              <Text style={styles.currentPhaseLabel}>{t('currentPhase')}: {phaseInfo.currentPhase || 1}</Text>
               <Text style={styles.currentPhasePrice}>
                 ${(phaseInfo.currentPriceUsdt || 0.40).toFixed(2)} USDT por MXI
               </Text>
@@ -546,7 +535,7 @@ export default function HomeScreen() {
               {/* Phase 1 */}
               <View style={styles.phaseItem}>
                 <View style={styles.phaseHeader}>
-                  <Text style={styles.phaseLabel}>Fase 1</Text>
+                  <Text style={styles.phaseLabel}>{t('phase')} 1</Text>
                   <Text style={styles.phasePrice}>0.40 USDT</Text>
                 </View>
                 <View style={styles.phaseProgressBar}>
@@ -561,10 +550,10 @@ export default function HomeScreen() {
                 </View>
                 <View style={styles.phaseStats}>
                   <Text style={styles.phaseValue}>
-                    Vendidos: {(phaseInfo.phase1.sold || 0).toLocaleString('es-ES', { maximumFractionDigits: 2 })}
+                    {t('sold')}: {(phaseInfo.phase1.sold || 0).toLocaleString('es-ES', { maximumFractionDigits: 2 })}
                   </Text>
                   <Text style={styles.phaseValue}>
-                    Restantes: {(phaseInfo.phase1.remaining || 8333333).toLocaleString('es-ES', { maximumFractionDigits: 0 })}
+                    {t('remaining')}: {(phaseInfo.phase1.remaining || 8333333).toLocaleString('es-ES', { maximumFractionDigits: 0 })}
                   </Text>
                 </View>
               </View>
@@ -572,7 +561,7 @@ export default function HomeScreen() {
               {/* Phase 2 */}
               <View style={styles.phaseItem}>
                 <View style={styles.phaseHeader}>
-                  <Text style={styles.phaseLabel}>Fase 2</Text>
+                  <Text style={styles.phaseLabel}>{t('phase')} 2</Text>
                   <Text style={styles.phasePrice}>0.70 USDT</Text>
                 </View>
                 <View style={styles.phaseProgressBar}>
@@ -587,10 +576,10 @@ export default function HomeScreen() {
                 </View>
                 <View style={styles.phaseStats}>
                   <Text style={styles.phaseValue}>
-                    Vendidos: {(phaseInfo.phase2.sold || 0).toLocaleString('es-ES', { maximumFractionDigits: 2 })}
+                    {t('sold')}: {(phaseInfo.phase2.sold || 0).toLocaleString('es-ES', { maximumFractionDigits: 2 })}
                   </Text>
                   <Text style={styles.phaseValue}>
-                    Restantes: {(phaseInfo.phase2.remaining || 8333333).toLocaleString('es-ES', { maximumFractionDigits: 0 })}
+                    {t('remaining')}: {(phaseInfo.phase2.remaining || 8333333).toLocaleString('es-ES', { maximumFractionDigits: 0 })}
                   </Text>
                 </View>
               </View>
@@ -598,7 +587,7 @@ export default function HomeScreen() {
               {/* Phase 3 */}
               <View style={styles.phaseItem}>
                 <View style={styles.phaseHeader}>
-                  <Text style={styles.phaseLabel}>Fase 3</Text>
+                  <Text style={styles.phaseLabel}>{t('phase')} 3</Text>
                   <Text style={styles.phasePrice}>1.00 USDT</Text>
                 </View>
                 <View style={styles.phaseProgressBar}>
@@ -613,18 +602,18 @@ export default function HomeScreen() {
                 </View>
                 <View style={styles.phaseStats}>
                   <Text style={styles.phaseValue}>
-                    Vendidos: {(phaseInfo.phase3.sold || 0).toLocaleString('es-ES', { maximumFractionDigits: 2 })}
+                    {t('sold')}: {(phaseInfo.phase3.sold || 0).toLocaleString('es-ES', { maximumFractionDigits: 2 })}
                   </Text>
                   <Text style={styles.phaseValue}>
-                    Restantes: {(phaseInfo.phase3.remaining || 8333334).toLocaleString('es-ES', { maximumFractionDigits: 0 })}
+                    {t('remaining')}: {(phaseInfo.phase3.remaining || 8333334).toLocaleString('es-ES', { maximumFractionDigits: 0 })}
                   </Text>
                 </View>
               </View>
             </View>
 
-            {/* Overall Progress with Professional Bar Graph - NOW REFLECTS ALL MXI SOURCES */}
+            {/* Overall Progress with Professional Bar Graph */}
             <View style={styles.overallProgress}>
-              <Text style={styles.overallProgressLabel}>📈 Progreso General</Text>
+              <Text style={styles.overallProgressLabel}>{t('generalProgress')}</Text>
               <View style={styles.progressBarContainer}>
                 <View 
                   style={[
@@ -644,12 +633,12 @@ export default function HomeScreen() {
                   {(phaseInfo.totalSold || 0).toLocaleString('es-ES', { maximumFractionDigits: 2 })} MXI
                 </Text>
                 <Text style={styles.progressSubtext}>
-                  de 25,000,000 MXI
+                  {t('of')} 25,000,000 MXI
                 </Text>
               </View>
             </View>
 
-            {/* 🆕 Total MXI Delivered to All Users - NOW INCLUDES ALL SOURCES */}
+            {/* Total MXI Delivered to All Users */}
             <View style={styles.totalMxiDeliveredCard}>
               <View style={styles.totalMxiDeliveredHeader}>
                 <IconSymbol 
@@ -659,7 +648,7 @@ export default function HomeScreen() {
                   color="#4CAF50" 
                 />
                 <Text style={styles.totalMxiDeliveredTitle}>
-                  💰 Total MXI Entregados
+                  {t('totalMXIDelivered')}
                 </Text>
               </View>
               <Text style={styles.totalMxiDeliveredValue}>
@@ -669,7 +658,7 @@ export default function HomeScreen() {
                 })}
               </Text>
               <Text style={styles.totalMxiDeliveredSubtext}>
-                MXI entregados a todos los usuarios (compras + comisiones + desafíos + vesting)
+                {t('mxiDeliveredToAllUsers')}
               </Text>
             </View>
 
@@ -681,7 +670,7 @@ export default function HomeScreen() {
                 color={colors.textSecondary} 
               />
               <Text style={styles.poolCloseText}>
-                Cierre del Pool: {new Date(phaseInfo.poolCloseDate || '2026-02-15T12:00:00Z').toLocaleDateString('es-ES', {
+                {t('poolClose')}: {new Date(phaseInfo.poolCloseDate || '2026-02-15T12:00:00Z').toLocaleDateString('es-ES', {
                   year: 'numeric',
                   month: 'long',
                   day: 'numeric',
@@ -693,7 +682,7 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Yield Display - Only vesting display remaining */}
+        {/* Yield Display */}
         <YieldDisplay />
 
         {/* Footer */}
