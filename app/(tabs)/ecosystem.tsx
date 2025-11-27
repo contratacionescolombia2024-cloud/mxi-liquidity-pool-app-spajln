@@ -15,7 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
-type TabType = 'que-es' | 'como-funciona' | 'por-que-comprar' | 'meta' | 'ecosistema' | 'sostenibilidad' | 'vesting-diario';
+type TabType = 'que-es' | 'como-funciona' | 'por-que-comprar' | 'meta' | 'ecosistema' | 'sostenibilidad' | 'vesting-diario' | 'en-la-practica';
 
 export default function EcosystemScreen() {
   const [activeTab, setActiveTab] = useState<TabType>('que-es');
@@ -92,7 +92,16 @@ export default function EcosystemScreen() {
           onPress={() => setActiveTab('vesting-diario')}
         >
           <Text style={[styles.tabText, activeTab === 'vesting-diario' && styles.activeTabText]}>
-            Vesting Diario MXI 💎
+            Vesting Diario 💎
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'en-la-practica' && styles.activeTab]}
+          onPress={() => setActiveTab('en-la-practica')}
+        >
+          <Text style={[styles.tabText, activeTab === 'en-la-practica' && styles.activeTabText]}>
+            En la práctica 📊
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -105,6 +114,7 @@ export default function EcosystemScreen() {
       {activeTab === 'ecosistema' && <EcosistemaTab />}
       {activeTab === 'sostenibilidad' && <SostenibilidadTab />}
       {activeTab === 'vesting-diario' && <VestingDiarioTab />}
+      {activeTab === 'en-la-practica' && <EnLaPracticaTab />}
     </SafeAreaView>
   );
 }
@@ -2035,6 +2045,426 @@ function VestingDiarioTab() {
   );
 }
 
+// EN LA PRÁCTICA Tab Content
+function EnLaPracticaTab() {
+  return (
+    <ScrollView contentContainerStyle={styles.scrollContent}>
+      {/* Main Title */}
+      <View style={styles.titleSection}>
+        <Text style={styles.mainTitle}>En la práctica 📊</Text>
+      </View>
+
+      {/* Hero Image */}
+      <View style={styles.imageContainer}>
+        <Image
+          source={require('@/assets/images/8986d824-8278-4828-b518-3481550b05a3.png')}
+          style={styles.practicaImage}
+          resizeMode="cover"
+        />
+      </View>
+
+      {/* Introduction Card */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '15', colors.accent + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.practicaIntro}>
+            💡 MXI ofrece <Text style={styles.boldText}>tres vías simultáneas de crecimiento</Text> incluso antes del lanzamiento oficial:
+          </Text>
+          
+          <View style={styles.divider} />
+          
+          <View style={styles.practicaWaysList}>
+            <View style={styles.practicaWayRow}>
+              <Text style={styles.practicaWayIcon}>1️⃣</Text>
+              <Text style={styles.practicaWayText}>Valorización temprana del token (Preventa → Mercado)</Text>
+            </View>
+            <View style={styles.practicaWayRow}>
+              <Text style={styles.practicaWayIcon}>2️⃣</Text>
+              <Text style={styles.practicaWayText}>Comisiones por referidos (Sistema multinivel corto y sostenible)</Text>
+            </View>
+            <View style={styles.practicaWayRow}>
+              <Text style={styles.practicaWayIcon}>3️⃣</Text>
+              <Text style={styles.practicaWayText}>Vesting diario (aprox. 3% mensual)</Text>
+            </View>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.practicaHighlight}>
+            ✨ Esto combina ganancias activas y pasivas, sin necesidad de grandes inversiones.
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* 1. Ganar por valorización temprana */}
+      <View style={[commonStyles.card, styles.practicaSectionCard]}>
+        <LinearGradient
+          colors={['#4CAF50' + '15', '#8BC34A' + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.practicaSectionGradient}
+        >
+          <View style={styles.practicaSectionHeader}>
+            <Text style={styles.practicaSectionNumber}>1️⃣</Text>
+            <Text style={styles.practicaSectionTitle}>Ganar por valorización temprana (Preventa → Mercado)</Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.practicaSectionSubtitle}>📊 Precios aprobados:</Text>
+          
+          <View style={styles.practicaPricesList}>
+            <View style={styles.practicaPriceRow}>
+              <Text style={styles.practicaPriceLabel}>Fase 1:</Text>
+              <Text style={styles.practicaPriceValue}>0.40 USDT</Text>
+            </View>
+            <View style={styles.practicaPriceRow}>
+              <Text style={styles.practicaPriceLabel}>Fase 2:</Text>
+              <Text style={styles.practicaPriceValue}>0.70 USDT</Text>
+            </View>
+            <View style={styles.practicaPriceRow}>
+              <Text style={styles.practicaPriceLabel}>Fase 3:</Text>
+              <Text style={styles.practicaPriceValue}>1.00 USDT</Text>
+            </View>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.practicaSectionSubtitle}>💡 Ejemplo realista (escenario moderado y optimista):</Text>
+          
+          <Text style={styles.practicaSectionText}>
+            Si una persona compra MXI en preventa y luego el token alcanza:
+          </Text>
+          
+          <View style={styles.practicaScenariosList}>
+            <View style={styles.practicaScenarioRow}>
+              <Text style={styles.practicaScenarioIcon}>📈</Text>
+              <Text style={styles.practicaScenarioText}><Text style={styles.boldText}>3 USDT</Text> (moderado)</Text>
+            </View>
+            <View style={styles.practicaScenarioRow}>
+              <Text style={styles.practicaScenarioIcon}>🚀</Text>
+              <Text style={styles.practicaScenarioText}><Text style={styles.boldText}>6 USDT</Text> (optimista)</Text>
+            </View>
+          </View>
+          
+          <Text style={styles.practicaSectionText}>
+            Su inversión puede multiplicarse entre <Text style={styles.practicaHighlightText}>3x y 6x</Text>, sin contar vesting ni referidos.
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Ejemplo práctico valorización */}
+      <View style={[commonStyles.card, styles.practicaExampleCard]}>
+        <LinearGradient
+          colors={['#2196F3' + '15', '#03A9F4' + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.practicaExampleGradient}
+        >
+          <Text style={styles.practicaExampleTitle}>💡 Ejemplo práctico</Text>
+          
+          <View style={styles.divider} />
+          
+          <View style={styles.practicaCalculationBox}>
+            <Text style={styles.practicaCalculationLabel}>Compra:</Text>
+            <Text style={styles.practicaCalculationValue}>200 USDT en fase 1 (0.40 USDT)</Text>
+          </View>
+          
+          <View style={styles.practicaCalculationBox}>
+            <Text style={styles.practicaCalculationLabel}>MXI recibidos:</Text>
+            <Text style={styles.practicaCalculationFormula}>200 / 0.40 = <Text style={styles.practicaHighlightText}>500 MXI</Text></Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.practicaExampleSubtitle}>Si luego MXI llega a 3 USDT:</Text>
+          <View style={styles.practicaResultBox}>
+            <Text style={styles.practicaResultFormula}>500 × 3 = <Text style={styles.practicaResultValue}>1,500 USDT</Text></Text>
+          </View>
+          
+          <Text style={styles.practicaExampleSubtitle}>Si llega a 6 USDT:</Text>
+          <View style={styles.practicaResultBox}>
+            <Text style={styles.practicaResultFormula}>500 × 6 = <Text style={styles.practicaResultValue}>3,000 USDT</Text></Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <View style={styles.practicaFinalResultBox}>
+            <Text style={styles.practicaFinalResultLabel}>Ganancia solo por valorización:</Text>
+            <Text style={styles.practicaFinalResultValue}>1,300 – 2,800 USDT</Text>
+          </View>
+        </LinearGradient>
+      </View>
+
+      {/* 2. Ganar por referidos */}
+      <View style={[commonStyles.card, styles.practicaSectionCard]}>
+        <LinearGradient
+          colors={['#FF9800' + '15', '#FF5722' + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.practicaSectionGradient}
+        >
+          <View style={styles.practicaSectionHeader}>
+            <Text style={styles.practicaSectionNumber}>2️⃣</Text>
+            <Text style={styles.practicaSectionTitle}>Ganar por referidos (Sistema de 3 niveles)</Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.practicaSectionSubtitle}>🤝 Niveles de comisiones (ejemplo sugerido):</Text>
+          
+          <View style={styles.practicaCommissionsList}>
+            <View style={styles.practicaCommissionRow}>
+              <Text style={styles.practicaCommissionLevel}>Nivel 1:</Text>
+              <Text style={styles.practicaCommissionValue}>5%</Text>
+            </View>
+            <View style={styles.practicaCommissionRow}>
+              <Text style={styles.practicaCommissionLevel}>Nivel 2:</Text>
+              <Text style={styles.practicaCommissionValue}>2%</Text>
+            </View>
+            <View style={styles.practicaCommissionRow}>
+              <Text style={styles.practicaCommissionLevel}>Nivel 3:</Text>
+              <Text style={styles.practicaCommissionValue}>1%</Text>
+            </View>
+          </View>
+        </LinearGradient>
+      </View>
+
+      {/* Ejemplo realista de ingresos por referidos */}
+      <View style={[commonStyles.card, styles.practicaReferralExampleCard]}>
+        <LinearGradient
+          colors={['#9C27B0' + '15', '#7B1FA2' + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.practicaReferralExampleGradient}
+        >
+          <Text style={styles.practicaReferralExampleTitle}>💡 Ejemplo realista de ingresos por referidos</Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.practicaReferralExampleText}>
+            Supongamos que:
+          </Text>
+          
+          <View style={styles.practicaAssumptionsList}>
+            <View style={styles.practicaAssumptionRow}>
+              <Text style={styles.practicaAssumptionIcon}>•</Text>
+              <Text style={styles.practicaAssumptionText}>Invitas a 10 personas que invierten 50 USDT cada una</Text>
+            </View>
+            <View style={styles.practicaAssumptionRow}>
+              <Text style={styles.practicaAssumptionIcon}>•</Text>
+              <Text style={styles.practicaAssumptionText}>Y esas 10 personas invitan a otras 10 cada una</Text>
+            </View>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.practicaReferralSubtitle}>📊 Inversiones moderadas</Text>
+          
+          {/* Nivel 1 */}
+          <View style={styles.practicaLevelBox}>
+            <Text style={styles.practicaLevelTitle}>Nivel 1</Text>
+            <Text style={styles.practicaLevelCalculation}>10 × 50 USDT = 500 USDT</Text>
+            <Text style={styles.practicaLevelResult}>500 × 5% = <Text style={styles.practicaHighlightText}>25 USDT</Text></Text>
+          </View>
+          
+          {/* Nivel 2 */}
+          <View style={styles.practicaLevelBox}>
+            <Text style={styles.practicaLevelTitle}>Nivel 2</Text>
+            <Text style={styles.practicaLevelCalculation}>(10 × 10) = 100 personas × 30 USDT promedio = 3,000 USDT</Text>
+            <Text style={styles.practicaLevelResult}>3,000 × 2% = <Text style={styles.practicaHighlightText}>60 USDT</Text></Text>
+          </View>
+          
+          {/* Nivel 3 */}
+          <View style={styles.practicaLevelBox}>
+            <Text style={styles.practicaLevelTitle}>Nivel 3</Text>
+            <Text style={styles.practicaLevelCalculation}>100 × 5 personas c/u = 500 × 20 USDT = 10,000 USDT</Text>
+            <Text style={styles.practicaLevelResult}>10,000 × 1% = <Text style={styles.practicaHighlightText}>100 USDT</Text></Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <View style={styles.practicaTotalCommissionBox}>
+            <Text style={styles.practicaTotalCommissionLabel}>Total ganado solo en comisiones:</Text>
+            <Text style={styles.practicaTotalCommissionValue}>25 + 60 + 100 = 185 USDT</Text>
+          </View>
+          
+          <Text style={styles.practicaReferralNote}>
+            ✨ Sin inversión adicional y antes del lanzamiento.
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* 3. Ganar por Vesting Diario */}
+      <View style={[commonStyles.card, styles.practicaSectionCard]}>
+        <LinearGradient
+          colors={['#00BCD4' + '15', '#0097A7' + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.practicaSectionGradient}
+        >
+          <View style={styles.practicaSectionHeader}>
+            <Text style={styles.practicaSectionNumber}>3️⃣</Text>
+            <Text style={styles.practicaSectionTitle}>Ganar por Vesting Diario (≈3% mensual de crecimiento en MXI)</Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.practicaSectionText}>
+            💎 Cada día recibes <Text style={styles.practicaHighlightText}>0.12%</Text> de tus MXI, que equivale a un <Text style={styles.practicaHighlightText}>3% mensual</Text> acumulado.
+          </Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.practicaSectionSubtitle}>💡 Ejemplo práctico con 500 MXI:</Text>
+          
+          <View style={styles.practicaVestingBox}>
+            <Text style={styles.practicaVestingCalculation}>500 × 0.03 = <Text style={styles.practicaHighlightText}>15 MXI al mes</Text></Text>
+          </View>
+          
+          <View style={styles.practicaVestingBox}>
+            <Text style={styles.practicaVestingCalculation}>En 6 meses → 500 × 0.18 = <Text style={styles.practicaHighlightText}>90 MXI extra</Text></Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.practicaSectionSubtitle}>Si el precio llega a:</Text>
+          
+          <View style={styles.practicaVestingResultsList}>
+            <View style={styles.practicaVestingResultRow}>
+              <Text style={styles.practicaVestingResultLabel}>3 USDT →</Text>
+              <Text style={styles.practicaVestingResultValue}>90 × 3 = 270 USDT</Text>
+            </View>
+            <View style={styles.practicaVestingResultRow}>
+              <Text style={styles.practicaVestingResultLabel}>6 USDT →</Text>
+              <Text style={styles.practicaVestingResultValue}>90 × 6 = 540 USDT</Text>
+            </View>
+          </View>
+        </LinearGradient>
+      </View>
+
+      {/* Ejemplo completo */}
+      <View style={[commonStyles.card, styles.practicaCompleteExampleCard]}>
+        <LinearGradient
+          colors={[colors.primary + '20', colors.accent + '20']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.practicaCompleteExampleGradient}
+        >
+          <Text style={styles.practicaCompleteExampleTitle}>🎯 Ejemplo completo (para página web)</Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.practicaCompleteExampleSubtitle}>Supongamos un usuario que:</Text>
+          
+          <View style={styles.practicaCompleteAssumptionsList}>
+            <View style={styles.practicaCompleteAssumptionRow}>
+              <Text style={styles.practicaCompleteAssumptionIcon}>✓</Text>
+              <Text style={styles.practicaCompleteAssumptionText}>Invierte 200 USDT en Fase 1 (0.40)</Text>
+            </View>
+            <View style={styles.practicaCompleteAssumptionRow}>
+              <Text style={styles.practicaCompleteAssumptionIcon}>✓</Text>
+              <Text style={styles.practicaCompleteAssumptionText}>Gana 185 USDT en referidos</Text>
+            </View>
+            <View style={styles.practicaCompleteAssumptionRow}>
+              <Text style={styles.practicaCompleteAssumptionIcon}>✓</Text>
+              <Text style={styles.practicaCompleteAssumptionText}>Genera 90 MXI en vesting en 6 meses</Text>
+            </View>
+            <View style={styles.practicaCompleteAssumptionRow}>
+              <Text style={styles.practicaCompleteAssumptionIcon}>✓</Text>
+              <Text style={styles.practicaCompleteAssumptionText}>MXI llega a 3–6 USDT</Text>
+            </View>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <View style={styles.practicaCompleteCalculationBox}>
+            <Text style={styles.practicaCompleteCalculationLabel}>MXI comprados</Text>
+            <Text style={styles.practicaCompleteCalculationValue}>200 / 0.40 = 500 MXI</Text>
+          </View>
+          
+          <View style={styles.practicaCompleteCalculationBox}>
+            <Text style={styles.practicaCompleteCalculationLabel}>MXI totales con vesting</Text>
+            <Text style={styles.practicaCompleteCalculationValue}>500 + 90 = 590 MXI</Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.practicaCompleteSubtitle}>💰 Valor futuro</Text>
+          
+          <View style={styles.practicaCompleteScenarioBox}>
+            <Text style={styles.practicaCompleteScenarioTitle}>Escenario 3 USDT:</Text>
+            <Text style={styles.practicaCompleteScenarioValue}>590 × 3 = 1,770 USDT</Text>
+          </View>
+          
+          <View style={styles.practicaCompleteScenarioBox}>
+            <Text style={styles.practicaCompleteScenarioTitle}>Escenario 6 USDT:</Text>
+            <Text style={styles.practicaCompleteScenarioValue}>590 × 6 = 3,540 USDT</Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.practicaCompleteSubtitle}>➕ Sumamos comisiones</Text>
+          
+          <View style={styles.practicaCompleteFinalBox}>
+            <View style={styles.practicaCompleteFinalRow}>
+              <Text style={styles.practicaCompleteFinalLabel}>Escenario 3 USDT:</Text>
+              <Text style={styles.practicaCompleteFinalValue}>1,770 + 185 = 1,955 USDT</Text>
+            </View>
+            <View style={styles.practicaCompleteFinalRow}>
+              <Text style={styles.practicaCompleteFinalLabel}>Escenario 6 USDT:</Text>
+              <Text style={styles.practicaCompleteFinalValue}>3,540 + 185 = 3,725 USDT</Text>
+            </View>
+          </View>
+        </LinearGradient>
+      </View>
+
+      {/* Final CTA */}
+      <View style={[commonStyles.card, styles.practicaFinalCard]}>
+        <LinearGradient
+          colors={[colors.primary, colors.accent]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.practicaFinalGradient}
+        >
+          <Text style={styles.practicaFinalEmoji}>🚀</Text>
+          <Text style={styles.practicaFinalTitle}>¡Comienza a ganar hoy!</Text>
+          <Text style={styles.practicaFinalText}>
+            Únete a la preventa de MAXCOIN y activa las tres vías de crecimiento simultáneo
+          </Text>
+          
+          <View style={styles.urgencyDivider} />
+          
+          <View style={styles.practicaFinalStats}>
+            <View style={styles.practicaFinalStatItem}>
+              <Text style={styles.practicaFinalStatIcon}>📈</Text>
+              <Text style={styles.practicaFinalStatLabel}>Valorización</Text>
+            </View>
+            <View style={styles.practicaFinalStatItem}>
+              <Text style={styles.practicaFinalStatIcon}>🤝</Text>
+              <Text style={styles.practicaFinalStatLabel}>Referidos</Text>
+            </View>
+            <View style={styles.practicaFinalStatItem}>
+              <Text style={styles.practicaFinalStatIcon}>💎</Text>
+              <Text style={styles.practicaFinalStatLabel}>Vesting</Text>
+            </View>
+          </View>
+          
+          <View style={styles.urgencyDivider} />
+          
+          <Text style={styles.practicaFinalHighlight}>
+            ⏰ El momento de actuar es ahora
+          </Text>
+        </LinearGradient>
+      </View>
+    </ScrollView>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -2071,7 +2501,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border,
-    minWidth: 150,
+    minWidth: 160,
   },
   activeTab: {
     backgroundColor: colors.primary + '20',
@@ -2140,6 +2570,11 @@ const styles = StyleSheet.create({
     height: (width - 80) * 1.3,
     borderRadius: 20,
   },
+  practicaImage: {
+    width: width - 80,
+    height: (width - 80) * 0.55,
+    borderRadius: 20,
+  },
   contentCard: {
     padding: 0,
     overflow: 'hidden',
@@ -2176,6 +2611,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   vestingIntro: {
+    fontSize: 18,
+    color: colors.text,
+    lineHeight: 28,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  practicaIntro: {
     fontSize: 18,
     color: colors.text,
     lineHeight: 28,
@@ -3746,6 +4188,494 @@ const styles = StyleSheet.create({
     opacity: 0.3,
   },
   vestingFinalHighlight: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#000',
+    textAlign: 'center',
+  },
+  // En la práctica Tab Styles
+  practicaWaysList: {
+    gap: 16,
+  },
+  practicaWayRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  practicaWayIcon: {
+    fontSize: 24,
+    marginTop: 2,
+  },
+  practicaWayText: {
+    fontSize: 16,
+    color: colors.text,
+    flex: 1,
+    lineHeight: 26,
+    fontWeight: '600',
+  },
+  practicaHighlight: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.primary,
+    textAlign: 'center',
+    lineHeight: 28,
+  },
+  practicaSectionCard: {
+    padding: 0,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  practicaSectionGradient: {
+    padding: 24,
+  },
+  practicaSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 16,
+  },
+  practicaSectionNumber: {
+    fontSize: 40,
+  },
+  practicaSectionTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+    flex: 1,
+    lineHeight: 30,
+  },
+  practicaSectionSubtitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  practicaSectionText: {
+    fontSize: 16,
+    color: colors.text,
+    lineHeight: 26,
+    marginBottom: 12,
+  },
+  practicaPricesList: {
+    gap: 12,
+    marginTop: 8,
+  },
+  practicaPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.background + '40',
+    padding: 16,
+    borderRadius: 12,
+  },
+  practicaPriceLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  practicaPriceValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  practicaScenariosList: {
+    gap: 12,
+    marginVertical: 12,
+  },
+  practicaScenarioRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  practicaScenarioIcon: {
+    fontSize: 24,
+  },
+  practicaScenarioText: {
+    fontSize: 16,
+    color: colors.text,
+    flex: 1,
+  },
+  practicaHighlightText: {
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  practicaExampleCard: {
+    padding: 0,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  practicaExampleGradient: {
+    padding: 24,
+  },
+  practicaExampleTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  practicaExampleSubtitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  practicaCalculationBox: {
+    backgroundColor: colors.background + '40',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  practicaCalculationLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 6,
+  },
+  practicaCalculationValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  practicaCalculationFormula: {
+    fontSize: 17,
+    color: colors.text,
+    fontFamily: 'monospace',
+  },
+  practicaResultBox: {
+    backgroundColor: colors.primary + '10',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  practicaResultFormula: {
+    fontSize: 18,
+    color: colors.text,
+    fontFamily: 'monospace',
+    textAlign: 'center',
+  },
+  practicaResultValue: {
+    fontWeight: '700',
+    color: colors.primary,
+    fontSize: 20,
+  },
+  practicaFinalResultBox: {
+    backgroundColor: colors.primary + '20',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+  },
+  practicaFinalResultLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  practicaFinalResultValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  practicaCommissionsList: {
+    gap: 12,
+    marginTop: 8,
+  },
+  practicaCommissionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.background + '40',
+    padding: 16,
+    borderRadius: 12,
+  },
+  practicaCommissionLevel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  practicaCommissionValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  practicaReferralExampleCard: {
+    padding: 0,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  practicaReferralExampleGradient: {
+    padding: 24,
+  },
+  practicaReferralExampleTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  practicaReferralExampleText: {
+    fontSize: 16,
+    color: colors.text,
+    lineHeight: 26,
+    marginBottom: 12,
+  },
+  practicaReferralSubtitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 16,
+  },
+  practicaAssumptionsList: {
+    gap: 12,
+    marginBottom: 12,
+  },
+  practicaAssumptionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  practicaAssumptionIcon: {
+    fontSize: 20,
+    marginTop: 2,
+  },
+  practicaAssumptionText: {
+    fontSize: 15,
+    color: colors.text,
+    flex: 1,
+    lineHeight: 24,
+  },
+  practicaLevelBox: {
+    backgroundColor: colors.background + '40',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  practicaLevelTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.primary,
+    marginBottom: 8,
+  },
+  practicaLevelCalculation: {
+    fontSize: 15,
+    color: colors.text,
+    lineHeight: 24,
+    marginBottom: 6,
+  },
+  practicaLevelResult: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: 4,
+  },
+  practicaTotalCommissionBox: {
+    backgroundColor: colors.primary + '20',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+  },
+  practicaTotalCommissionLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  practicaTotalCommissionValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  practicaReferralNote: {
+    fontSize: 15,
+    color: colors.text,
+    lineHeight: 24,
+    textAlign: 'center',
+    marginTop: 12,
+    fontStyle: 'italic',
+  },
+  practicaVestingBox: {
+    backgroundColor: colors.background + '40',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  practicaVestingCalculation: {
+    fontSize: 17,
+    color: colors.text,
+    fontFamily: 'monospace',
+    textAlign: 'center',
+  },
+  practicaVestingResultsList: {
+    gap: 12,
+  },
+  practicaVestingResultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.background + '40',
+    padding: 16,
+    borderRadius: 12,
+  },
+  practicaVestingResultLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  practicaVestingResultValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  practicaCompleteExampleCard: {
+    padding: 0,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  practicaCompleteExampleGradient: {
+    padding: 28,
+  },
+  practicaCompleteExampleTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  practicaCompleteExampleSubtitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 16,
+  },
+  practicaCompleteAssumptionsList: {
+    gap: 12,
+  },
+  practicaCompleteAssumptionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  practicaCompleteAssumptionIcon: {
+    fontSize: 20,
+    color: colors.primary,
+    marginTop: 2,
+  },
+  practicaCompleteAssumptionText: {
+    fontSize: 16,
+    color: colors.text,
+    flex: 1,
+    lineHeight: 26,
+  },
+  practicaCompleteCalculationBox: {
+    backgroundColor: colors.background + '40',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  practicaCompleteCalculationLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    marginBottom: 6,
+  },
+  practicaCompleteCalculationValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.primary,
+    fontFamily: 'monospace',
+  },
+  practicaCompleteSubtitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 16,
+  },
+  practicaCompleteScenarioBox: {
+    backgroundColor: colors.primary + '10',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  practicaCompleteScenarioTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 6,
+  },
+  practicaCompleteScenarioValue: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.primary,
+    fontFamily: 'monospace',
+  },
+  practicaCompleteFinalBox: {
+    backgroundColor: colors.primary + '20',
+    borderRadius: 12,
+    padding: 20,
+    gap: 12,
+  },
+  practicaCompleteFinalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  practicaCompleteFinalLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  practicaCompleteFinalValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.primary,
+    fontFamily: 'monospace',
+  },
+  practicaFinalCard: {
+    padding: 0,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  practicaFinalGradient: {
+    padding: 32,
+    alignItems: 'center',
+  },
+  practicaFinalEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  practicaFinalTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#000',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  practicaFinalText: {
+    fontSize: 16,
+    color: '#000',
+    textAlign: 'center',
+    lineHeight: 26,
+    fontWeight: '500',
+  },
+  practicaFinalStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 24,
+  },
+  practicaFinalStatItem: {
+    alignItems: 'center',
+  },
+  practicaFinalStatIcon: {
+    fontSize: 40,
+    marginBottom: 8,
+  },
+  practicaFinalStatLabel: {
+    fontSize: 13,
+    color: '#000',
+    fontWeight: '700',
+  },
+  practicaFinalHighlight: {
     fontSize: 18,
     fontWeight: '700',
     color: '#000',
