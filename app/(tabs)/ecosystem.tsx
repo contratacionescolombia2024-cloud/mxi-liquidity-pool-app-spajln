@@ -930,10 +930,10 @@ function EcosistemaTab() {
         <Text style={styles.mainTitle}>Ecosistema MXI 🌱</Text>
       </View>
 
-      {/* Hero Image */}
+      {/* Hero Image - UPDATED TO NEW IMAGE */}
       <View style={styles.imageContainer}>
         <Image
-          source={require('@/assets/images/e69b6404-eff5-4cce-ae86-7b18bd41bdf6.png')}
+          source={require('@/assets/images/60c4f3c0-aa8d-4e4e-b088-b740678273cc.png')}
           style={styles.ecosistemaImage}
           resizeMode="cover"
         />
