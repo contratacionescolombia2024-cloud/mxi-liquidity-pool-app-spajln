@@ -114,7 +114,7 @@ export function UniversalMXICounter({ isAdmin = false }: UniversalMXICounterProp
         </View>
         <View style={styles.headerText}>
           <Text style={styles.title}>
-            {isAdmin ? 'Vesting del Administrador' : '🔒 Vesting'}
+            {isAdmin ? 'Vesting del Administrador' : '🔒 Vesting MXI (Minería Activa)'}
           </Text>
           <Text style={styles.subtitle}>Solo MXI comprados directamente</Text>
         </View>
@@ -220,7 +220,7 @@ export function UniversalMXICounter({ isAdmin = false }: UniversalMXICounterProp
         </View>
       )}
 
-      {/* Info Note */}
+      {/* Info Note - UPDATED TEXT */}
       <View style={styles.infoBox}>
         <IconSymbol 
           ios_icon_name="info.circle.fill" 
@@ -229,8 +229,7 @@ export function UniversalMXICounter({ isAdmin = false }: UniversalMXICounterProp
           color={colors.accent} 
         />
         <Text style={styles.infoText}>
-          El vesting se calcula ÚNICAMENTE sobre los MXI comprados directamente. 
-          Rendimiento: 3% mensual, actualizado cada segundo. Las comisiones NO generan vesting.
+          ℹ️ Tasa de minería: 0.005% por hora de tu MXI comprado. Solo el MXI comprado directamente genera rendimiento de vesting. Las comisiones NO generan vesting. Para reclamar tu MXI minado, necesitas 5 referidos activos, 10 días de membresía y aprobación KYC. Recordar que para vesting se deben tener 10 referidos activos y se desbloqueará una vez se lance el token y se liste en los exchanges.
         </Text>
       </View>
     </View>
