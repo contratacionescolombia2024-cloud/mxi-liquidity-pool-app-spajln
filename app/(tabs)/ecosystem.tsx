@@ -570,8 +570,8 @@ function ComoFuncionaTab() {
           </Text>
           <View style={styles.finalCtaStats}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>250,000</Text>
-              <Text style={styles.statLabel}>Plazas Totales</Text>
+              <Text style={styles.statValue}>Sin Límite</Text>
+              <Text style={styles.statLabel}>Participantes</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
@@ -695,9 +695,9 @@ function PorQueComprarTab() {
             style={styles.reasonGradient}
           >
             <Text style={styles.reasonEmoji}>⏰</Text>
-            <Text style={styles.reasonTitle}>Ventana Limitada</Text>
+            <Text style={styles.reasonTitle}>Ventana de Oportunidad</Text>
             <Text style={styles.reasonText}>
-              Solo 250,000 plazas disponibles. Una vez cerrada la preventa, no habrá más oportunidades a estos precios.
+              Aprovecha los precios preferenciales de la preventa antes del lanzamiento oficial.
             </Text>
           </LinearGradient>
         </View>
@@ -822,10 +822,10 @@ function MetaTab() {
         <View style={[commonStyles.card, styles.goalCard]}>
           <View style={styles.goalHeader}>
             <Text style={styles.goalEmoji}>👥</Text>
-            <Text style={styles.goalTitle}>250,000 Participantes</Text>
+            <Text style={styles.goalTitle}>Comunidad Global</Text>
           </View>
           <Text style={styles.goalDescription}>
-            Construir una comunidad global de 250,000 holders comprometidos con el crecimiento del ecosistema.
+            Construir una comunidad global de holders comprometidos con el crecimiento del ecosistema, sin límites de participación.
           </Text>
         </View>
 
@@ -879,17 +879,17 @@ function MetaTab() {
           style={styles.timelineGradient}
         >
           <Text style={styles.timelineEmoji}>📅</Text>
-          <Text style={styles.timelineTitle}>Fecha Límite</Text>
+          <Text style={styles.timelineTitle}>Fecha de Lanzamiento</Text>
           
           <View style={styles.divider} />
           
-          <Text style={styles.timelineDate}>15 de Enero, 2025</Text>
+          <Text style={styles.timelineDate}>15 de Enero, 2026</Text>
           <Text style={styles.timelineTime}>12:00 UTC</Text>
           
           <View style={styles.divider} />
           
           <Text style={styles.timelineText}>
-            ⏰ Después de esta fecha, no se aceptarán más participantes en el pool de liquidez y se procederá al lanzamiento oficial.
+            ⏰ Después de esta fecha, se procederá al lanzamiento oficial de la criptomoneda.
           </Text>
         </LinearGradient>
       </View>
@@ -923,7 +923,7 @@ function MetaTab() {
           <Text style={styles.finalCtaEmoji}>🎯</Text>
           <Text style={styles.finalCtaTitle}>Sé parte de la META</Text>
           <Text style={styles.finalCtaText}>
-            Únete a los 250,000 visionarios que están construyendo el futuro de las finanzas
+            Únete a los visionarios que están construyendo el futuro de las finanzas
           </Text>
         </LinearGradient>
       </View>
