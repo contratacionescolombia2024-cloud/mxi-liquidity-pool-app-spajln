@@ -13,11 +13,13 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, commonStyles } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { IconSymbol } from '@/components/IconSymbol';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, logout, checkAdminStatus } = useAuth();
+  const { t } = useLanguage();
   const [loggingOut, setLoggingOut] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingAdmin, setCheckingAdmin] = useState(true);
@@ -35,12 +37,12 @@ export default function ProfileScreen() {
 
   const handleLogout = () => {
     Alert.alert(
-      'Cerrar Sesión',
+      t('logout'),
       '¿Estás seguro que deseas cerrar sesión?',
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         {
-          text: 'Cerrar Sesión',
+          text: t('logout'),
           style: 'destructive',
           onPress: async () => {
             setLoggingOut(true);
@@ -64,17 +66,17 @@ export default function ProfileScreen() {
 
   const getKYCStatusText = () => {
     switch (user.kycStatus) {
-      case 'approved': return 'Aprobado';
-      case 'pending': return 'Pendiente';
-      case 'rejected': return 'Rechazado';
-      default: return 'No Enviado';
+      case 'approved': return t('approved');
+      case 'pending': return t('pending');
+      case 'rejected': return t('rejected');
+      default: return t('notSubmitted');
     }
   };
 
   const menuItems = [
     {
       id: 'edit-profile',
-      title: 'Editar Perfil',
+      title: t('editProfile'),
       subtitle: 'Actualiza tu información',
       icon: 'person.fill',
       androidIcon: 'person',
@@ -82,7 +84,7 @@ export default function ProfileScreen() {
     },
     {
       id: 'kyc',
-      title: 'Verificación KYC',
+      title: t('kycVerification'),
       subtitle: getKYCStatusText(),
       icon: 'checkmark.shield.fill',
       androidIcon: 'verified_user',
@@ -90,7 +92,7 @@ export default function ProfileScreen() {
     },
     {
       id: 'vesting',
-      title: 'Vesting & Rendimiento',
+      title: t('vestingAndYield'),
       subtitle: 'Ver generación de rendimiento',
       icon: 'chart.line.uptrend.xyaxis',
       androidIcon: 'trending_up',
@@ -98,7 +100,7 @@ export default function ProfileScreen() {
     },
     {
       id: 'withdrawals',
-      title: 'Historial de Retiros',
+      title: t('withdrawalHistory'),
       subtitle: 'Ver retiros anteriores',
       icon: 'arrow.down.circle.fill',
       androidIcon: 'arrow_circle_down',
@@ -106,16 +108,16 @@ export default function ProfileScreen() {
     },
     {
       id: 'challenge-history',
-      title: 'Historial de Retos',
-      subtitle: 'Ver registros de juegos',
+      title: t('challengeHistory'),
+      subtitle: t('viewGameRecords'),
       icon: 'clock.fill',
       androidIcon: 'history',
       route: '/(tabs)/(home)/challenge-history',
     },
     {
       id: 'support',
-      title: 'Soporte',
-      subtitle: 'Obtener ayuda',
+      title: t('support'),
+      subtitle: t('getHelp'),
       icon: 'questionmark.circle.fill',
       androidIcon: 'help',
       route: '/(tabs)/(home)/support',
@@ -125,7 +127,7 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.headerBar}>
-        <Text style={styles.headerTitle}>Total</Text>
+        <Text style={styles.headerTitle}>{t('total')}</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -136,14 +138,14 @@ export default function ProfileScreen() {
           <Text style={styles.userName}>{user.name}</Text>
           <Text style={styles.userEmail}>{user.email}</Text>
           <View style={styles.referralCodeContainer}>
-            <Text style={styles.referralCodeLabel}>Código de Referido:</Text>
+            <Text style={styles.referralCodeLabel}>{t('referralCode')}:</Text>
             <Text style={styles.referralCode}>{user.referralCode}</Text>
           </View>
         </View>
 
         {/* Total MXI Balance Card */}
         <View style={[commonStyles.card, styles.totalBalanceCard]}>
-          <Text style={styles.cardTitle}>Balance Total de MXI</Text>
+          <Text style={styles.cardTitle}>{t('totalBalance')} de MXI</Text>
           <Text style={styles.totalBalanceValue}>
             {user.mxiBalance.toLocaleString('es-ES', {
               minimumFractionDigits: 2,
@@ -152,13 +154,13 @@ export default function ProfileScreen() {
           </Text>
           <View style={styles.balanceBreakdown}>
             <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>MXI Comprados:</Text>
+              <Text style={styles.breakdownLabel}>{t('mxiPurchased')}:</Text>
               <Text style={styles.breakdownValue}>
                 {(user.mxiPurchasedDirectly || 0).toFixed(2)}
               </Text>
             </View>
             <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>MXI de Vesting:</Text>
+              <Text style={styles.breakdownLabel}>MXI de {t('vesting')}:</Text>
               <Text style={styles.breakdownValue}>
                 {(user.mxiVestingLocked || 0).toFixed(2)}
               </Text>
@@ -170,7 +172,7 @@ export default function ProfileScreen() {
               </Text>
             </View>
             <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>MXI de Comisiones:</Text>
+              <Text style={styles.breakdownLabel}>{t('mxiCommissions')}:</Text>
               <Text style={styles.breakdownValue}>
                 {(user.mxiFromUnifiedCommissions || 0).toFixed(2)}
               </Text>
@@ -194,8 +196,8 @@ export default function ProfileScreen() {
                 />
               </View>
               <View style={styles.adminInfo}>
-                <Text style={styles.adminTitle}>Panel de Administrador</Text>
-                <Text style={styles.adminSubtitle}>Gestionar usuarios y sistema</Text>
+                <Text style={styles.adminTitle}>{t('adminPanel')}</Text>
+                <Text style={styles.adminSubtitle}>{t('manageUsers')}</Text>
               </View>
               <IconSymbol 
                 ios_icon_name="chevron.right" 
@@ -240,14 +242,14 @@ export default function ProfileScreen() {
           ) : (
             <React.Fragment>
               <IconSymbol ios_icon_name="rectangle.portrait.and.arrow.right" android_material_icon_name="logout" size={20} color={colors.error} />
-              <Text style={styles.logoutButtonText}>Cerrar Sesión</Text>
+              <Text style={styles.logoutButtonText}>{t('logout')}</Text>
             </React.Fragment>
           )}
         </TouchableOpacity>
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            Miembro desde {new Date(user.joinedDate).toLocaleDateString()}
+            {t('memberSince')} {new Date(user.joinedDate).toLocaleDateString()}
           </Text>
           <Text style={styles.footerText}>
             ID: {user.idNumber}
