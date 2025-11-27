@@ -4,9 +4,11 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export function YieldDisplay() {
   const { user, getCurrentYield, claimYield } = useAuth();
+  const { t } = useLanguage();
   const [currentYield, setCurrentYield] = useState(0);
   const [claiming, setClaiming] = useState(false);
 
@@ -27,25 +29,25 @@ export function YieldDisplay() {
 
   const handleClaimYield = async () => {
     if (currentYield < 0.000001) {
-      Alert.alert('No Yield', 'You need to accumulate more yield before claiming.');
+      Alert.alert(t('noYield'), t('needMoreYield'));
       return;
     }
 
     // Check eligibility before claiming
     if (!user.canWithdraw) {
       Alert.alert(
-        'Requirements Not Met',
-        `To claim your mined MXI, you need:\n\n- 5 active referrals (you have ${user.activeReferrals})\n- 10 days membership\n- KYC verification approved\n\nOnce you meet these requirements, you can claim your accumulated yield.`,
-        [{ text: 'OK' }]
+        t('requirementsNotMet'),
+        t('claimRequirements', { count: user.activeReferrals }),
+        [{ text: t('ok') }]
       );
       return;
     }
 
     if (user.kycStatus !== 'approved') {
       Alert.alert(
-        'KYC Required',
-        'You need to complete KYC verification before claiming your mined MXI. Please go to the KYC section to verify your identity.',
-        [{ text: 'OK' }]
+        t('kycRequired'),
+        t('kycRequiredMessage'),
+        [{ text: t('ok') }]
       );
       return;
     }
@@ -56,13 +58,13 @@ export function YieldDisplay() {
 
     if (result.success) {
       Alert.alert(
-        'Yield Claimed!',
-        `You have successfully claimed ${result.yieldEarned?.toFixed(8)} MXI and it has been added to your vesting balance!`,
-        [{ text: 'OK' }]
+        t('yieldClaimed'),
+        t('yieldClaimedMessage', { amount: result.yieldEarned?.toFixed(8) }),
+        [{ text: t('ok') }]
       );
       setCurrentYield(0);
     } else {
-      Alert.alert('Claim Failed', result.error || 'Failed to claim yield');
+      Alert.alert(t('claimFailed'), result.error || t('claimFailed'));
     }
   };
 
@@ -81,53 +83,53 @@ export function YieldDisplay() {
           <Text style={styles.iconEmoji}>⛏️</Text>
         </View>
         <View style={styles.headerText}>
-          <Text style={styles.title}>🔥 Vesting MXI (Minería Activa)</Text>
+          <Text style={styles.title}>{t('vestingMXI')}</Text>
           <Text style={styles.subtitle}>
-            ⚡ Generando {yieldPerSecond.toFixed(8)} MXI por segundo
+            {t('generatingPerSecond', { rate: yieldPerSecond.toFixed(8) })}
           </Text>
         </View>
       </View>
 
       <View style={styles.sourceInfo}>
         <View style={styles.sourceRow}>
-          <Text style={styles.sourceLabel}>🛒 MXI Comprados (Base de Vesting)</Text>
+          <Text style={styles.sourceLabel}>{t('mxiPurchasedVestingBase')}</Text>
           <Text style={styles.sourceValue}>{mxiPurchased.toFixed(2)} MXI</Text>
         </View>
         <Text style={styles.sourceNote}>
-          ℹ️ Solo el MXI comprado genera rendimiento de vesting
+          {t('onlyPurchasedMXIGeneratesVesting')}
         </Text>
       </View>
 
       <View style={styles.yieldSection}>
         <View style={styles.yieldRow}>
-          <Text style={styles.yieldLabel}>💰 Sesión Actual</Text>
+          <Text style={styles.yieldLabel}>{t('currentSession')}</Text>
           <Text style={styles.yieldValue}>{currentYield.toFixed(8)} MXI</Text>
         </View>
         <View style={styles.yieldRow}>
-          <Text style={styles.yieldLabel}>📊 Total Acumulado</Text>
+          <Text style={styles.yieldLabel}>{t('totalAccumulated')}</Text>
           <Text style={styles.yieldValueTotal}>{totalYield.toFixed(8)} MXI</Text>
         </View>
       </View>
 
       <View style={styles.rateSection}>
         <View style={styles.rateItem}>
-          <Text style={styles.rateLabel}>Por Segundo</Text>
+          <Text style={styles.rateLabel}>{t('perSecond')}</Text>
           <Text style={styles.rateValue}>{yieldPerSecond.toFixed(8)}</Text>
         </View>
         <View style={styles.rateDivider} />
         <View style={styles.rateItem}>
-          <Text style={styles.rateLabel}>Por Minuto</Text>
+          <Text style={styles.rateLabel}>{t('perMinute')}</Text>
           <Text style={styles.rateValue}>{user.yieldRatePerMinute.toFixed(8)}</Text>
         </View>
         <View style={styles.rateDivider} />
         <View style={styles.rateItem}>
-          <Text style={styles.rateLabel}>Por Hora</Text>
+          <Text style={styles.rateLabel}>{t('perHour')}</Text>
           <Text style={styles.rateValue}>{(user.yieldRatePerMinute * 60).toFixed(6)}</Text>
         </View>
       </View>
 
       <View style={styles.dailyRate}>
-        <Text style={styles.dailyRateLabel}>📈 Rendimiento Diario</Text>
+        <Text style={styles.dailyRateLabel}>{t('dailyYield')}</Text>
         <Text style={styles.dailyRateValue}>
           {(user.yieldRatePerMinute * 60 * 24).toFixed(4)} MXI
         </Text>
@@ -145,14 +147,14 @@ export function YieldDisplay() {
           color={claiming || currentYield < 0.000001 ? colors.textSecondary : '#fff'} 
         />
         <Text style={[styles.claimButtonText, claiming && styles.claimButtonTextDisabled]}>
-          {claiming ? 'Reclamando...' : '💎 Reclamar Rendimiento'}
+          {claiming ? t('claiming') : t('claimYield')}
         </Text>
       </TouchableOpacity>
 
       <View style={styles.infoBox}>
         <Text style={styles.infoIcon}>ℹ️</Text>
         <Text style={styles.infoText}>
-          Tasa de minería: 0.005% por hora de tu MXI comprado. Solo el MXI comprado directamente genera rendimiento de vesting. Las comisiones NO generan vesting. Para reclamar tu MXI minado, necesitas 5 referidos activos, 10 días de membresía y aprobación KYC. Recordar que para vesting se deben tener 10 referidos activos y se desbloqueará una vez se lance el token y se liste en los exchanges.
+          {t('yieldInfo')}
         </Text>
       </View>
     </View>

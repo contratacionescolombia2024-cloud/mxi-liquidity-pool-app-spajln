@@ -6,6 +6,7 @@ import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const CHART_WIDTH = Dimensions.get('window').width - 80;
 const CHART_HEIGHT = 320;
@@ -24,6 +25,7 @@ interface BalanceDataPoint {
 
 export function TotalMXIBalanceChart() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [timeRange, setTimeRange] = useState<TimeRange>('24h');
   const [balanceData, setBalanceData] = useState<BalanceDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -201,7 +203,7 @@ export function TotalMXIBalanceChart() {
     if (balanceData.length === 0) {
       return (
         <View style={styles.emptyChart}>
-          <Text style={styles.emptyText}>Generando datos del gráfico...</Text>
+          <Text style={styles.emptyText}>{t('generatingChartData')}</Text>
         </View>
       );
     }
@@ -431,7 +433,7 @@ export function TotalMXIBalanceChart() {
           fontWeight="700"
           transform={`rotate(-90, 15, ${CHART_HEIGHT / 2})`}
         >
-          MXI Total
+          {t('mxiTotal')}
         </SvgText>
       </Svg>
     );
@@ -490,8 +492,8 @@ export function TotalMXIBalanceChart() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.title}>📊 Balance General de MXI</Text>
-          <Text style={styles.subtitle}>Todas las fuentes incluidas</Text>
+          <Text style={styles.title}>{t('totalMXIBalance')}</Text>
+          <Text style={styles.subtitle}>{t('allSourcesIncluded')}</Text>
         </View>
         <View style={styles.headerRight}>
           <Text style={styles.currentValue}>
@@ -524,8 +526,7 @@ export function TotalMXIBalanceChart() {
           color="#00ff88" 
         />
         <Text style={styles.infoText}>
-          Este gráfico muestra tu balance TOTAL de MXI incluyendo: compras directas, comisiones, torneos y vesting. 
-          El vesting se genera ÚNICAMENTE de los MXI comprados directamente.
+          {t('chartShowsTotalBalance')}
         </Text>
       </View>
 
@@ -558,7 +559,7 @@ export function TotalMXIBalanceChart() {
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color="#00ff88" />
-              <Text style={styles.loadingText}>Cargando gráfico...</Text>
+              <Text style={styles.loadingText}>{t('loadingChart')}</Text>
             </View>
           ) : (
             renderFuturisticChart()
@@ -570,25 +571,25 @@ export function TotalMXIBalanceChart() {
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendColor, { backgroundColor: '#00ff88' }]} />
-          <Text style={styles.legendText}>Comprados</Text>
+          <Text style={styles.legendText}>{t('purchased')}</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendColor, { backgroundColor: '#A855F7' }]} />
-          <Text style={styles.legendText}>Comisiones</Text>
+          <Text style={styles.legendText}>{t('commissions')}</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendColor, { backgroundColor: '#ffdd00' }]} />
-          <Text style={styles.legendText}>Torneos</Text>
+          <Text style={styles.legendText}>{t('tournaments')}</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendColor, { backgroundColor: '#6366F1' }]} />
-          <Text style={styles.legendText}>Vesting</Text>
+          <Text style={styles.legendText}>{t('vesting')}</Text>
         </View>
       </View>
 
       {/* Detailed Breakdown */}
       <View style={styles.breakdownSection}>
-        <Text style={styles.breakdownTitle}>📊 Desglose Completo de MXI</Text>
+        <Text style={styles.breakdownTitle}>{t('completeBreakdown')}</Text>
         
         <View style={styles.breakdownGrid}>
           {/* MXI Comprados */}
@@ -597,7 +598,7 @@ export function TotalMXIBalanceChart() {
               <View style={[styles.breakdownIcon, { backgroundColor: '#00ff8820' }]}>
                 <Text style={{ fontSize: 20 }}>🛒</Text>
               </View>
-              <Text style={styles.breakdownLabel}>MXI Comprados</Text>
+              <Text style={styles.breakdownLabel}>{t('mxiPurchased')}</Text>
             </View>
             <Text style={styles.breakdownValue}>
               {currentBreakdown.mxiPurchased.toLocaleString('es-ES', {
@@ -627,7 +628,7 @@ export function TotalMXIBalanceChart() {
               <View style={[styles.breakdownIcon, { backgroundColor: '#A855F720' }]}>
                 <Text style={{ fontSize: 20 }}>💵</Text>
               </View>
-              <Text style={styles.breakdownLabel}>MXI Comisiones</Text>
+              <Text style={styles.breakdownLabel}>{t('mxiCommissions')}</Text>
             </View>
             <Text style={styles.breakdownValue}>
               {currentBreakdown.mxiCommissions.toLocaleString('es-ES', {
@@ -657,7 +658,7 @@ export function TotalMXIBalanceChart() {
               <View style={[styles.breakdownIcon, { backgroundColor: '#ffdd0020' }]}>
                 <Text style={{ fontSize: 20 }}>🏆</Text>
               </View>
-              <Text style={styles.breakdownLabel}>MXI Torneos</Text>
+              <Text style={styles.breakdownLabel}>{t('mxiTournaments')}</Text>
             </View>
             <Text style={styles.breakdownValue}>
               {currentBreakdown.mxiTournaments.toLocaleString('es-ES', {
@@ -687,7 +688,7 @@ export function TotalMXIBalanceChart() {
               <View style={[styles.breakdownIcon, { backgroundColor: '#6366F120' }]}>
                 <Text style={{ fontSize: 20 }}>🔒</Text>
               </View>
-              <Text style={styles.breakdownLabel}>Vesting (Tiempo Real)</Text>
+              <Text style={styles.breakdownLabel}>{t('vestingRealTimeLabel')}</Text>
             </View>
             <Text style={styles.breakdownValue}>
               {currentBreakdown.mxiVesting.toLocaleString('es-ES', {
@@ -711,7 +712,7 @@ export function TotalMXIBalanceChart() {
             </Text>
             <View style={styles.liveIndicator}>
               <View style={styles.liveDot} />
-              <Text style={styles.liveText}>Actualizando cada segundo</Text>
+              <Text style={styles.liveText}>{t('updatingEverySecond')}</Text>
             </View>
           </View>
         </View>
