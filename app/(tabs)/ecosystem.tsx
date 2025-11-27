@@ -1507,7 +1507,7 @@ function EnLaPracticaTab() {
       {/* Hero Image */}
       <View style={styles.imageContainer}>
         <Image
-          source={require('@/assets/images/cfce89e1-de09-4f70-bd1f-6964233208c3.jpeg')}
+          source={require('@/assets/images/c0b6d193-7704-4dcb-b5a7-7a88bf79c307.png')}
           style={styles.practicaImage}
           resizeMode="cover"
         />
