@@ -12,12 +12,14 @@ import { useRouter } from 'expo-router';
 import { colors, commonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/lib/supabase';
 import NowPaymentsModal from '@/components/NowPaymentsModal';
 
 export default function DepositScreen() {
   const router = useRouter();
   const { user, getPhaseInfo } = useAuth();
+  const { t } = useLanguage();
   
   const [currentPrice, setCurrentPrice] = useState(0.40);
   const [currentPhase, setCurrentPhase] = useState(1);
@@ -45,8 +47,8 @@ export default function DepositScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Depositar</Text>
-          <Text style={styles.headerSubtitle}>Compra MXI con múltiples opciones de pago</Text>
+          <Text style={styles.headerTitle}>{t('deposit')}</Text>
+          <Text style={styles.headerSubtitle}>{t('buyMXIWithMultipleOptions')}</Text>
         </View>
         <TouchableOpacity
           style={styles.historyButton}
@@ -71,48 +73,48 @@ export default function DepositScreen() {
               size={48} 
               color={colors.primary} 
             />
-            <Text style={styles.balanceLabel}>Balance Actual</Text>
+            <Text style={styles.balanceLabel}>{t('currentBalance')}</Text>
           </View>
           <Text style={styles.balanceValue}>{user?.mxiBalance.toFixed(2) || '0.00'} MXI</Text>
-          <Text style={styles.balanceSubtext}>${user?.usdtContributed.toFixed(2) || '0.00'} USDT Contribuido</Text>
+          <Text style={styles.balanceSubtext}>${user?.usdtContributed.toFixed(2) || '0.00'} {t('usdtContributed')}</Text>
         </View>
 
         {/* Phase Information Card */}
         <View style={styles.phaseCard}>
-          <Text style={styles.phaseTitle}>🚀 Fase Actual de Preventa</Text>
+          <Text style={styles.phaseTitle}>{t('currentPresalePhase')}</Text>
           <View style={styles.phaseRow}>
-            <Text style={styles.phaseLabel}>Fase Activa:</Text>
-            <Text style={styles.phaseValue}>Fase {currentPhase} de 3</Text>
+            <Text style={styles.phaseLabel}>{t('activePhase')}:</Text>
+            <Text style={styles.phaseValue}>{t('phaseOf', { current: currentPhase, total: 3 })}</Text>
           </View>
           <View style={styles.phaseRow}>
-            <Text style={styles.phaseLabel}>Precio Actual:</Text>
-            <Text style={styles.phaseValue}>{currentPrice.toFixed(2)} USDT por MXI</Text>
+            <Text style={styles.phaseLabel}>{t('currentPrice')}:</Text>
+            <Text style={styles.phaseValue}>{currentPrice.toFixed(2)} USDT {t('perMXI')}</Text>
           </View>
           <View style={styles.phaseDivider} />
           <View style={styles.phaseRow}>
-            <Text style={styles.phaseLabel}>Fase 1:</Text>
+            <Text style={styles.phaseLabel}>{t('phase')} 1:</Text>
             <Text style={styles.phaseValue}>0.40 USDT</Text>
           </View>
           <View style={styles.phaseRow}>
-            <Text style={styles.phaseLabel}>Fase 2:</Text>
+            <Text style={styles.phaseLabel}>{t('phase')} 2:</Text>
             <Text style={styles.phaseValue}>0.70 USDT</Text>
           </View>
           <View style={styles.phaseRow}>
-            <Text style={styles.phaseLabel}>Fase 3:</Text>
+            <Text style={styles.phaseLabel}>{t('phase')} 3:</Text>
             <Text style={styles.phaseValue}>1.00 USDT</Text>
           </View>
           {phaseInfo && (
             <React.Fragment>
               <View style={styles.phaseDivider} />
               <View style={styles.phaseRow}>
-                <Text style={styles.phaseLabel}>Tokens Vendidos:</Text>
+                <Text style={styles.phaseLabel}>{t('tokensSold')}:</Text>
                 <Text style={styles.phaseValue}>
                   {phaseInfo.totalTokensSold.toLocaleString()} MXI
                 </Text>
               </View>
               {currentPhase < 3 && (
                 <View style={styles.phaseRow}>
-                  <Text style={styles.phaseLabel}>Hasta Siguiente Fase:</Text>
+                  <Text style={styles.phaseLabel}>{t('untilNextPhase')}:</Text>
                   <Text style={styles.phaseValue}>
                     {phaseInfo.tokensUntilNextPhase.toLocaleString()} MXI
                   </Text>
@@ -124,8 +126,8 @@ export default function DepositScreen() {
 
         {/* Payment Options Section */}
         <View style={styles.paymentOptionsSection}>
-          <Text style={styles.sectionTitle}>💳 Opciones de Pago</Text>
-          <Text style={styles.sectionSubtitle}>Elige tu método de pago preferido</Text>
+          <Text style={styles.sectionTitle}>{t('paymentOptions')}</Text>
+          <Text style={styles.sectionSubtitle}>{t('chooseYourPreferredPaymentMethod')}</Text>
 
           {/* Option 1: Multi-Crypto Payment (NowPayments) */}
           <TouchableOpacity
@@ -144,9 +146,9 @@ export default function DepositScreen() {
                   />
                 </View>
                 <View style={styles.paymentOptionContent}>
-                  <Text style={styles.paymentOptionTitle}>Pago Multi-Cripto</Text>
+                  <Text style={styles.paymentOptionTitle}>{t('multiCryptoPayment')}</Text>
                   <Text style={styles.paymentOptionSubtitle}>
-                    +50 Criptomonedas Disponibles
+                    {t('availableCryptocurrencies')}
                   </Text>
                 </View>
                 <IconSymbol
@@ -164,7 +166,7 @@ export default function DepositScreen() {
                     size={16}
                     color="#FFFFFF"
                   />
-                  <Text style={styles.featureText}>Bitcoin, Ethereum, USDT, USDC</Text>
+                  <Text style={styles.featureText}>{t('bitcoinEthereumUSDTUSDC')}</Text>
                 </View>
                 <View style={styles.featureItem}>
                   <IconSymbol
@@ -173,7 +175,7 @@ export default function DepositScreen() {
                     size={16}
                     color="#FFFFFF"
                   />
-                  <Text style={styles.featureText}>Múltiples Redes (ETH, BSC, TRX, SOL)</Text>
+                  <Text style={styles.featureText}>{t('multipleNetworks')}</Text>
                 </View>
                 <View style={styles.featureItem}>
                   <IconSymbol
@@ -182,7 +184,7 @@ export default function DepositScreen() {
                     size={16}
                     color="#FFFFFF"
                   />
-                  <Text style={styles.featureText}>Confirmación Automática</Text>
+                  <Text style={styles.featureText}>{t('automaticConfirmation')}</Text>
                 </View>
               </View>
             </View>
@@ -205,9 +207,9 @@ export default function DepositScreen() {
                   />
                 </View>
                 <View style={styles.paymentOptionContent}>
-                  <Text style={styles.paymentOptionTitle}>Pago Directo USDT</Text>
+                  <Text style={styles.paymentOptionTitle}>{t('directUSDTPayment')}</Text>
                   <Text style={styles.paymentOptionSubtitle}>
-                    Transferencia Manual de USDT
+                    {t('manualUSDTTransfer')}
                   </Text>
                 </View>
                 <IconSymbol
@@ -225,7 +227,7 @@ export default function DepositScreen() {
                     size={16}
                     color="#FFFFFF"
                   />
-                  <Text style={styles.featureText}>USDT en múltiples redes</Text>
+                  <Text style={styles.featureText}>{t('usdtOnMultipleNetworks')}</Text>
                 </View>
                 <View style={styles.featureItem}>
                   <IconSymbol
@@ -234,7 +236,7 @@ export default function DepositScreen() {
                     size={16}
                     color="#FFFFFF"
                   />
-                  <Text style={styles.featureText}>Verificación manual disponible</Text>
+                  <Text style={styles.featureText}>{t('manualVerificationAvailable')}</Text>
                 </View>
                 <View style={styles.featureItem}>
                   <IconSymbol
@@ -243,14 +245,14 @@ export default function DepositScreen() {
                     size={16}
                     color="#FFFFFF"
                   />
-                  <Text style={styles.featureText}>Soporte dedicado</Text>
+                  <Text style={styles.featureText}>{t('dedicatedSupport')}</Text>
                 </View>
               </View>
             </View>
           </TouchableOpacity>
         </View>
 
-        {/* 🆕 NEW: Manual Verification Button */}
+        {/* Manual Verification Button */}
         <TouchableOpacity
           style={styles.manualVerificationCard}
           onPress={() => router.push('/(tabs)/(home)/manual-verification')}
@@ -267,10 +269,10 @@ export default function DepositScreen() {
             </View>
             <View style={styles.manualVerificationTextContainer}>
               <Text style={styles.manualVerificationTitle}>
-                Verificación Manual de Pagos
+                {t('manualPaymentVerification')}
               </Text>
               <Text style={styles.manualVerificationSubtitle}>
-                Solicita verificación manual de tus pagos NowPayments y USDT
+                {t('requestManualVerificationOfPayments')}
               </Text>
             </View>
             <IconSymbol
@@ -289,7 +291,7 @@ export default function DepositScreen() {
                 color="#FFFFFF"
               />
               <Text style={styles.manualVerificationFeatureText}>
-                Historial completo de pagos
+                {t('completePaymentHistory')}
               </Text>
             </View>
             <View style={styles.manualVerificationFeatureItem}>
@@ -300,7 +302,7 @@ export default function DepositScreen() {
                 color="#FFFFFF"
               />
               <Text style={styles.manualVerificationFeatureText}>
-                Verificación por administrador
+                {t('verificationByAdministrator')}
               </Text>
             </View>
             <View style={styles.manualVerificationFeatureItem}>
@@ -311,7 +313,7 @@ export default function DepositScreen() {
                 color="#FFFFFF"
               />
               <Text style={styles.manualVerificationFeatureText}>
-                Respuesta en menos de 2 horas
+                {t('responseInLessThan2Hours')}
               </Text>
             </View>
           </View>
@@ -330,9 +332,9 @@ export default function DepositScreen() {
               color={colors.primary}
             />
             <View style={styles.historyLinkText}>
-              <Text style={styles.historyLinkTitle}>Historial de Transacciones</Text>
+              <Text style={styles.historyLinkTitle}>{t('transactionHistory')}</Text>
               <Text style={styles.historyLinkSubtitle}>
-                Ver, verificar y gestionar tus pagos
+                {t('viewVerifyAndManageYourPayments')}
               </Text>
             </View>
           </View>
@@ -346,58 +348,58 @@ export default function DepositScreen() {
 
         {/* Supported Currencies Preview */}
         <View style={styles.currenciesPreviewCard}>
-          <Text style={styles.previewTitle}>🪙 Criptomonedas Soportadas</Text>
+          <Text style={styles.previewTitle}>{t('supportedCryptocurrencies')}</Text>
           <Text style={styles.previewSubtitle}>
-            Paga con cualquiera de estas monedas y más
+            {t('payWithAnyOfTheseCoinsAndMore')}
           </Text>
           <View style={styles.currencyGrid}>
             <View style={styles.currencyChip}>
               <Text style={styles.currencyChipIcon}>₿</Text>
-              <Text style={styles.currencyChipText}>Bitcoin</Text>
+              <Text style={styles.currencyChipText}>{t('bitcoin')}</Text>
             </View>
             <View style={styles.currencyChip}>
               <Text style={styles.currencyChipIcon}>Ξ</Text>
-              <Text style={styles.currencyChipText}>Ethereum</Text>
+              <Text style={styles.currencyChipText}>{t('ethereum')}</Text>
             </View>
             <View style={styles.currencyChip}>
               <Text style={styles.currencyChipIcon}>₮</Text>
-              <Text style={styles.currencyChipText}>USDT</Text>
+              <Text style={styles.currencyChipText}>{t('usdt')}</Text>
             </View>
             <View style={styles.currencyChip}>
               <Text style={styles.currencyChipIcon}>$</Text>
-              <Text style={styles.currencyChipText}>USDC</Text>
+              <Text style={styles.currencyChipText}>{t('usdc')}</Text>
             </View>
             <View style={styles.currencyChip}>
               <Text style={styles.currencyChipIcon}>B</Text>
-              <Text style={styles.currencyChipText}>BNB</Text>
+              <Text style={styles.currencyChipText}>{t('bnb')}</Text>
             </View>
             <View style={styles.currencyChip}>
               <Text style={styles.currencyChipIcon}>◎</Text>
-              <Text style={styles.currencyChipText}>Solana</Text>
+              <Text style={styles.currencyChipText}>{t('solana')}</Text>
             </View>
             <View style={styles.currencyChip}>
               <Text style={styles.currencyChipIcon}>Ł</Text>
-              <Text style={styles.currencyChipText}>Litecoin</Text>
+              <Text style={styles.currencyChipText}>{t('litecoin')}</Text>
             </View>
             <View style={styles.currencyChip}>
               <Text style={styles.currencyChipIcon}>+</Text>
-              <Text style={styles.currencyChipText}>50+ más</Text>
+              <Text style={styles.currencyChipText}>{t('more50Plus')}</Text>
             </View>
           </View>
         </View>
 
         {/* How It Works */}
         <View style={styles.howItWorksCard}>
-          <Text style={styles.howItWorksTitle}>📋 Cómo Funciona</Text>
+          <Text style={styles.howItWorksTitle}>{t('howItWorks')}</Text>
           <View style={styles.stepsList}>
             <View style={styles.stepItem}>
               <View style={styles.stepNumber}>
                 <Text style={styles.stepNumberText}>1</Text>
               </View>
               <View style={styles.stepContent}>
-                <Text style={styles.stepTitle}>Elige tu Método de Pago</Text>
+                <Text style={styles.stepTitle}>{t('chooseYourPaymentMethod')}</Text>
                 <Text style={styles.stepDescription}>
-                  Selecciona entre pago multi-cripto o transferencia directa USDT
+                  {t('selectBetweenMultiCryptoOrDirectUSDT')}
                 </Text>
               </View>
             </View>
@@ -406,9 +408,9 @@ export default function DepositScreen() {
                 <Text style={styles.stepNumberText}>2</Text>
               </View>
               <View style={styles.stepContent}>
-                <Text style={styles.stepTitle}>Ingresa el Monto</Text>
+                <Text style={styles.stepTitle}>{t('enterTheAmount')}</Text>
                 <Text style={styles.stepDescription}>
-                  Especifica cuánto USDT deseas invertir (mínimo 2 USDT)
+                  {t('specifyHowMuchUSDTYouWantToInvest')}
                 </Text>
               </View>
             </View>
@@ -417,9 +419,9 @@ export default function DepositScreen() {
                 <Text style={styles.stepNumberText}>3</Text>
               </View>
               <View style={styles.stepContent}>
-                <Text style={styles.stepTitle}>Realiza el Pago</Text>
+                <Text style={styles.stepTitle}>{t('makeThePayment')}</Text>
                 <Text style={styles.stepDescription}>
-                  Envía la cantidad exacta a la dirección proporcionada
+                  {t('sendTheExactAmountToTheProvidedAddress')}
                 </Text>
               </View>
             </View>
@@ -428,9 +430,9 @@ export default function DepositScreen() {
                 <Text style={styles.stepNumberText}>4</Text>
               </View>
               <View style={styles.stepContent}>
-                <Text style={styles.stepTitle}>Recibe tus MXI</Text>
+                <Text style={styles.stepTitle}>{t('receiveYourMXI')}</Text>
                 <Text style={styles.stepDescription}>
-                  Los tokens se acreditarán automáticamente tras la confirmación
+                  {t('tokensWillBeCreditedAutomatically')}
                 </Text>
               </View>
             </View>
@@ -439,7 +441,7 @@ export default function DepositScreen() {
 
         {/* Benefits Card */}
         <View style={styles.benefitsCard}>
-          <Text style={styles.benefitsTitle}>✨ Ventajas de Nuestro Sistema de Pagos</Text>
+          <Text style={styles.benefitsTitle}>{t('advantagesOfOurPaymentSystem')}</Text>
           <View style={styles.benefitsList}>
             <View style={styles.benefitItem}>
               <IconSymbol
@@ -449,7 +451,7 @@ export default function DepositScreen() {
                 color={colors.primary}
               />
               <Text style={styles.benefitText}>
-                Confirmación automática en minutos
+                {t('automaticConfirmationInMinutes')}
               </Text>
             </View>
             <View style={styles.benefitItem}>
@@ -460,7 +462,7 @@ export default function DepositScreen() {
                 color={colors.primary}
               />
               <Text style={styles.benefitText}>
-                Seguro y verificado en blockchain
+                {t('secureAndVerifiedOnBlockchain')}
               </Text>
             </View>
             <View style={styles.benefitItem}>
@@ -471,7 +473,7 @@ export default function DepositScreen() {
                 color={colors.primary}
               />
               <Text style={styles.benefitText}>
-                Múltiples opciones de pago disponibles
+                {t('multiplePaymentOptionsAvailable')}
               </Text>
             </View>
             <View style={styles.benefitItem}>
@@ -482,7 +484,7 @@ export default function DepositScreen() {
                 color={colors.primary}
               />
               <Text style={styles.benefitText}>
-                Disponible 24/7 sin intermediarios
+                {t('available247WithoutIntermediaries')}
               </Text>
             </View>
           </View>
@@ -492,17 +494,17 @@ export default function DepositScreen() {
         <View style={styles.statsCard}>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>2</Text>
-            <Text style={styles.statLabel}>Métodos de Pago</Text>
+            <Text style={styles.statLabel}>{t('paymentMethods')}</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text style={styles.statValue}>50+</Text>
-            <Text style={styles.statLabel}>Criptomonedas</Text>
+            <Text style={styles.statLabel}>{t('cryptocurrencies')}</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text style={styles.statValue}>24/7</Text>
-            <Text style={styles.statLabel}>Disponible</Text>
+            <Text style={styles.statLabel}>{t('available247')}</Text>
           </View>
         </View>
 
