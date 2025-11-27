@@ -65,7 +65,7 @@ const translations = {
     recoverPasswordTitle: 'Recover Password',
     recoverPasswordMessage: 'Please contact technical support to recover your password.',
     supportEmail: 'support@mxi-strategic.com',
-    presaleClosesOn: 'The Pre-Sale closes on January 15, 2026 at 12:00 UTC',
+    presaleClosesOn: 'The Pre-Sale closes on February 15, 2026 at 12:00 UTC',
     
     // Register Page
     joinMXIStrategicPresale: 'Join MXI Strategic PreSale',
@@ -224,6 +224,30 @@ const translations = {
     vestingAndYield: 'Vesting & Yield',
     yieldGeneration: 'Yield Generation',
     viewYieldGeneration: 'View yield generation',
+    vestingSource: '⚠️ Vesting Source',
+    vestingSourceDescription: 'Vesting is generated ONLY from MXI purchased directly with USDT. Commissions DO NOT generate vesting. This chart represents the user\'s personal growth in MXI: purchases, expenses, losses, etc.',
+    mxiPurchasedBase: 'MXI Purchased (Vesting Base)',
+    mxiInVesting: 'MXI in Vesting',
+    availableForWithdrawal: 'Available for withdrawal once the coin is launched',
+    blockedUntilLaunch: 'Blocked until official launch',
+    daysRemaining: 'days',
+    balanceBlocked: 'Balance Blocked',
+    balanceBlockedDescription: 'The vesting balance cannot be unified or withdrawn until the coin is officially launched. Once launched, you can withdraw your balance by meeting the withdrawal requirements (5 active referrals and approved KYC).',
+    timeUntilLaunch: 'Time until launch:',
+    released: 'Released',
+    releasePercentage: 'Release percentage:',
+    releasesCompleted: 'Releases completed:',
+    nextRelease: 'Next release:',
+    withdrawalStatus: 'Withdrawal status:',
+    enabled: 'Enabled',
+    blockedUntilLaunchShort: 'Blocked until launch',
+    whatIsVesting: 'What is Vesting?',
+    vestingDescription: 'Vesting is a mechanism that gradually releases your MXI tokens obtained through yield/return on purchased MXI. This ensures market stability and protects the coin\'s value.',
+    vestingReleaseInfo: 'Every 10 days, {{percentage}}% of your vesting balance is released, which you can withdraw once you meet the requirements (5 active referrals and approved KYC).',
+    vestingReleaseInfoPreLaunch: 'Once the coin is launched, every 10 days {{percentage}}% of your vesting balance will be released for withdrawal.',
+    vestingImportantNote: '⚠️ Important: Only MXI purchased directly generates vesting yield. Commissions DO NOT generate vesting. The "MXI Balance" chart shows your personal growth in MXI, not the vesting itself.',
+    withdrawMXI: 'Withdraw MXI',
+    withdrawVestingBalance: 'Withdraw your released vesting balance',
     
     // Support
     support: 'Support',
@@ -256,7 +280,7 @@ const translations = {
     
     // Info
     minimumInvestment: 'Minimum investment from 50 USDT',
-    poolClosesOn: 'The Pre-Sale closes on January 15, 2026 at 12:00 UTC',
+    poolClosesOn: 'The Pre-Sale closes on February 15, 2026 at 12:00 UTC',
     
     // Admin
     adminPanel: 'Admin Panel',
@@ -294,6 +318,58 @@ const translations = {
     
     // Referrals additional
     referralsText: 'referrals',
+    
+    // Yield Display
+    vestingMXI: 'Vesting MXI (Active Mining)',
+    generatingPerSecond: 'Generating {{rate}} MXI per second',
+    mxiPurchasedVestingBase: 'MXI Purchased (Vesting Base)',
+    onlyPurchasedMXIGeneratesVesting: 'Only purchased MXI generates vesting yield',
+    currentSession: 'Current Session',
+    totalAccumulated: 'Total Accumulated',
+    perSecond: 'Per Second',
+    perMinute: 'Per Minute',
+    perHour: 'Per Hour',
+    dailyYield: 'Daily Yield',
+    claimYield: 'Claim Yield',
+    claiming: 'Claiming...',
+    yieldInfo: 'Mining rate: 0.005% per hour of your purchased MXI. Only directly purchased MXI generates vesting yield. Commissions DO NOT generate vesting. To claim your mined MXI, you need 5 active referrals, 10 days membership and KYC approval. Remember that for vesting you must have 10 active referrals and it will be unlocked once the token is launched and listed on exchanges.',
+    
+    // Launch Countdown
+    officialLaunch: 'OFFICIAL LAUNCH',
+    maxcoinMXI: 'Maxcoin (MXI)',
+    poolActive: 'Pool Active',
+    vestingRealTime: 'Vesting Real-Time',
+    days: 'DAYS',
+    hours: 'HRS',
+    minutes: 'MIN',
+    seconds: 'SEC',
+    
+    // Payment USDT
+    selectPaymentNetwork: 'Select Payment Network',
+    eachNetworkValidatesIndependently: 'Each network validates its transactions independently',
+    independentValidation: 'Independent validation',
+    validationIn: 'Validation in',
+    paymentsOnlyValidatedOn: 'Payments on {{network}} are only validated on the {{network}} network',
+    step1: 'Select the network you will use',
+    step2: 'Send USDT from any wallet to the recipient address',
+    step3: 'Minimum amount: {{min}} USDT',
+    step4: 'Copy the transaction hash (txHash)',
+    step5: 'Paste the txHash here and verify the payment',
+    step6: 'You will receive MXI = USDT × {{rate}}',
+    onlySendUSDTOn: 'Only send USDT on {{network}} network ({{label}})',
+    pasteYourTransactionHash: 'Paste your {{network}} transaction hash here',
+    correctLength: 'Correct length',
+    characters: 'characters',
+    sendingRequest: 'Sending Request...',
+    importantValidationByNetwork: 'Important - Validation by Network',
+    eachNetworkValidatesIndependently2: 'Each network validates its transactions independently',
+    ethPaymentsOnlyOnEthereum: 'ETH payments are only validated on the Ethereum network',
+    bnbPaymentsOnlyOnBNB: 'BNB payments are only validated on the BNB Chain network',
+    polygonPaymentsOnlyOnPolygon: 'Polygon payments are only validated on the Polygon network',
+    makeSureToSelectCorrectNetwork: 'Make sure to select the correct network before verifying',
+    transactionMustHaveConfirmations: 'The transaction must have at least 3 confirmations',
+    cannotUseSameHashTwice: 'YOU CANNOT USE THE SAME HASH TWICE - Anti-duplicate system active',
+    ifAutoVerificationFails: 'If automatic verification fails, use manual verification',
   },
   es: {
     // Common
@@ -355,7 +431,7 @@ const translations = {
     recoverPasswordTitle: 'Recuperar Contraseña',
     recoverPasswordMessage: 'Por favor contacta al soporte técnico para recuperar tu contraseña.',
     supportEmail: 'support@mxi-strategic.com',
-    presaleClosesOn: 'La Pre-Venta cierra el 15 de enero de 2026 a las 12:00 UTC',
+    presaleClosesOn: 'La Pre-Venta cierra el 15 de febrero de 2026 a las 12:00 UTC',
     
     // Register Page
     joinMXIStrategicPresale: 'Únete a MXI Strategic PreSale',
@@ -514,6 +590,30 @@ const translations = {
     vestingAndYield: 'Vesting y Rendimiento',
     yieldGeneration: 'Generación de Rendimiento',
     viewYieldGeneration: 'Ver generación de rendimiento',
+    vestingSource: '⚠️ Fuente de Vesting',
+    vestingSourceDescription: 'El vesting se genera ÚNICAMENTE del MXI comprado directamente con USDT. Las comisiones NO generan vesting. Este gráfico representa el crecimiento personal del usuario en MXI: compras, gastos, pérdidas, etc.',
+    mxiPurchasedBase: 'MXI Comprado (Base de Vesting)',
+    mxiInVesting: 'MXI en Vesting',
+    availableForWithdrawal: 'Disponible para retiro una vez lanzada la moneda',
+    blockedUntilLaunch: 'Bloqueado hasta el lanzamiento oficial',
+    daysRemaining: 'días',
+    balanceBlocked: 'Saldo Bloqueado',
+    balanceBlockedDescription: 'El saldo de vesting no se puede unificar ni retirar hasta que se lance la moneda oficialmente. Una vez lanzada, podrás retirar tu saldo cumpliendo los requisitos de retiro (5 referidos activos y KYC aprobado).',
+    timeUntilLaunch: 'Tiempo hasta el lanzamiento:',
+    released: 'Liberado',
+    releasePercentage: 'Porcentaje de liberación:',
+    releasesCompleted: 'Liberaciones realizadas:',
+    nextRelease: 'Próxima liberación:',
+    withdrawalStatus: 'Estado de retiro:',
+    enabled: 'Habilitado',
+    blockedUntilLaunchShort: 'Bloqueado hasta lanzamiento',
+    whatIsVesting: '¿Qué es el Vesting?',
+    vestingDescription: 'El vesting es un mecanismo que libera gradualmente tus tokens MXI obtenidos por yield/rendimiento del MXI comprado. Esto garantiza estabilidad en el mercado y protege el valor de la moneda.',
+    vestingReleaseInfo: 'Cada 10 días se libera el {{percentage}}% de tu saldo en vesting, que podrás retirar una vez cumplas los requisitos (5 referidos activos y KYC aprobado).',
+    vestingReleaseInfoPreLaunch: 'Una vez lanzada la moneda, cada 10 días se liberará el {{percentage}}% de tu saldo en vesting para retiro.',
+    vestingImportantNote: '⚠️ Importante: Solo el MXI comprado directamente genera rendimiento de vesting. Las comisiones NO generan vesting. El gráfico "Balance MXI" muestra tu crecimiento personal en MXI, no el vesting en sí.',
+    withdrawMXI: 'Retirar MXI',
+    withdrawVestingBalance: 'Retira tu saldo de vesting liberado',
     
     // Support
     support: 'Soporte',
@@ -546,7 +646,7 @@ const translations = {
     
     // Info
     minimumInvestment: 'Inversión mínima desde 50 USDT',
-    poolClosesOn: 'La Pre-Venta cierra el 15 de enero de 2026 a las 12:00 UTC',
+    poolClosesOn: 'La Pre-Venta cierra el 15 de febrero de 2026 a las 12:00 UTC',
     
     // Admin
     adminPanel: 'Panel de Administrador',
@@ -584,6 +684,58 @@ const translations = {
     
     // Referrals additional
     referralsText: 'referidos',
+    
+    // Yield Display
+    vestingMXI: 'Vesting MXI (Minería Activa)',
+    generatingPerSecond: 'Generando {{rate}} MXI por segundo',
+    mxiPurchasedVestingBase: 'MXI Comprados (Base de Vesting)',
+    onlyPurchasedMXIGeneratesVesting: 'Solo el MXI comprado genera rendimiento de vesting',
+    currentSession: 'Sesión Actual',
+    totalAccumulated: 'Total Acumulado',
+    perSecond: 'Por Segundo',
+    perMinute: 'Por Minuto',
+    perHour: 'Por Hora',
+    dailyYield: 'Rendimiento Diario',
+    claimYield: 'Reclamar Rendimiento',
+    claiming: 'Reclamando...',
+    yieldInfo: 'Tasa de minería: 0.005% por hora de tu MXI comprado. Solo el MXI comprado directamente genera rendimiento de vesting. Las comisiones NO generan vesting. Para reclamar tu MXI minado, necesitas 5 referidos activos, 10 días de membresía y aprobación KYC. Recordar que para vesting se deben tener 10 referidos activos y se desbloqueará una vez se lance el token y se liste en los exchanges.',
+    
+    // Launch Countdown
+    officialLaunch: 'LANZAMIENTO OFICIAL',
+    maxcoinMXI: 'Maxcoin (MXI)',
+    poolActive: 'Pool Activo',
+    vestingRealTime: 'Vesting Tiempo Real',
+    days: 'DÍAS',
+    hours: 'HRS',
+    minutes: 'MIN',
+    seconds: 'SEG',
+    
+    // Payment USDT
+    selectPaymentNetwork: 'Selecciona la Red de Pago',
+    eachNetworkValidatesIndependently: 'Cada red valida sus transacciones de forma independiente',
+    independentValidation: 'Validación independiente',
+    validationIn: 'Validación en',
+    paymentsOnlyValidatedOn: 'Los pagos en {{network}} solo se validan en la red {{network}}',
+    step1: 'Selecciona la red que vas a usar',
+    step2: 'Envía USDT desde cualquier wallet a la dirección receptora',
+    step3: 'Monto mínimo: {{min}} USDT',
+    step4: 'Copia el hash de la transacción (txHash)',
+    step5: 'Pega el txHash aquí y verifica el pago',
+    step6: 'Recibirás MXI = USDT × {{rate}}',
+    onlySendUSDTOn: 'Solo envía USDT en la red {{network}} ({{label}})',
+    pasteYourTransactionHash: 'Pega el hash de tu transacción de {{network}} aquí',
+    correctLength: 'Longitud correcta',
+    characters: 'caracteres',
+    sendingRequest: 'Enviando Solicitud...',
+    importantValidationByNetwork: 'Importante - Validación por Red',
+    eachNetworkValidatesIndependently2: 'Cada red valida sus transacciones de forma independiente',
+    ethPaymentsOnlyOnEthereum: 'Los pagos en ETH solo se validan en la red Ethereum',
+    bnbPaymentsOnlyOnBNB: 'Los pagos en BNB solo se validan en la red BNB Chain',
+    polygonPaymentsOnlyOnPolygon: 'Los pagos en Polygon solo se validan en la red Polygon',
+    makeSureToSelectCorrectNetwork: 'Asegúrate de seleccionar la red correcta antes de verificar',
+    transactionMustHaveConfirmations: 'La transacción debe tener al menos 3 confirmaciones',
+    cannotUseSameHashTwice: 'NO PUEDES USAR EL MISMO HASH DOS VECES - Sistema anti-duplicados activo',
+    ifAutoVerificationFails: 'Si la verificación automática falla, usa la verificación manual',
   },
   pt: {
     // Common
@@ -645,7 +797,7 @@ const translations = {
     recoverPasswordTitle: 'Recuperar Senha',
     recoverPasswordMessage: 'Por favor, entre em contato com o suporte técnico para recuperar sua senha.',
     supportEmail: 'support@mxi-strategic.com',
-    presaleClosesOn: 'A Pré-Venda fecha em 15 de janeiro de 2026 às 12:00 UTC',
+    presaleClosesOn: 'A Pré-Venda fecha em 15 de fevereiro de 2026 às 12:00 UTC',
     
     // Register Page
     joinMXIStrategicPresale: 'Junte-se ao MXI Strategic PreSale',
@@ -804,6 +956,30 @@ const translations = {
     vestingAndYield: 'Vesting e Rendimento',
     yieldGeneration: 'Geração de Rendimento',
     viewYieldGeneration: 'Ver geração de rendimento',
+    vestingSource: '⚠️ Fonte de Vesting',
+    vestingSourceDescription: 'O vesting é gerado APENAS do MXI comprado diretamente com USDT. As comissões NÃO geram vesting. Este gráfico representa o crescimento pessoal do usuário em MXI: compras, despesas, perdas, etc.',
+    mxiPurchasedBase: 'MXI Comprado (Base de Vesting)',
+    mxiInVesting: 'MXI em Vesting',
+    availableForWithdrawal: 'Disponível para retirada uma vez que a moeda seja lançada',
+    blockedUntilLaunch: 'Bloqueado até o lançamento oficial',
+    daysRemaining: 'dias',
+    balanceBlocked: 'Saldo Bloqueado',
+    balanceBlockedDescription: 'O saldo de vesting não pode ser unificado ou retirado até que a moeda seja oficialmente lançada. Uma vez lançada, você poderá retirar seu saldo cumprindo os requisitos de retirada (5 referências ativas e KYC aprovado).',
+    timeUntilLaunch: 'Tempo até o lançamento:',
+    released: 'Liberado',
+    releasePercentage: 'Porcentagem de liberação:',
+    releasesCompleted: 'Liberações concluídas:',
+    nextRelease: 'Próxima liberação:',
+    withdrawalStatus: 'Status de retirada:',
+    enabled: 'Habilitado',
+    blockedUntilLaunchShort: 'Bloqueado até lançamento',
+    whatIsVesting: 'O que é Vesting?',
+    vestingDescription: 'O vesting é um mecanismo que libera gradualmente seus tokens MXI obtidos através de yield/rendimento do MXI comprado. Isso garante estabilidade no mercado e protege o valor da moeda.',
+    vestingReleaseInfo: 'A cada 10 dias, {{percentage}}% do seu saldo em vesting é liberado, que você pode retirar uma vez que cumpra os requisitos (5 referências ativas e KYC aprovado).',
+    vestingReleaseInfoPreLaunch: 'Uma vez que a moeda seja lançada, a cada 10 dias {{percentage}}% do seu saldo em vesting será liberado para retirada.',
+    vestingImportantNote: '⚠️ Importante: Apenas o MXI comprado diretamente gera rendimento de vesting. As comissões NÃO geram vesting. O gráfico "Saldo MXI" mostra seu crescimento pessoal em MXI, não o vesting em si.',
+    withdrawMXI: 'Retirar MXI',
+    withdrawVestingBalance: 'Retire seu saldo de vesting liberado',
     
     // Support
     support: 'Suporte',
@@ -836,7 +1012,7 @@ const translations = {
     
     // Info
     minimumInvestment: 'Investimento mínimo a partir de 50 USDT',
-    poolClosesOn: 'A Pré-Venda fecha em 15 de janeiro de 2026 às 12:00 UTC',
+    poolClosesOn: 'A Pré-Venda fecha em 15 de fevereiro de 2026 às 12:00 UTC',
     
     // Admin
     adminPanel: 'Painel de Administrador',
@@ -874,6 +1050,58 @@ const translations = {
     
     // Referrals additional
     referralsText: 'referências',
+    
+    // Yield Display
+    vestingMXI: 'Vesting MXI (Mineração Ativa)',
+    generatingPerSecond: 'Gerando {{rate}} MXI por segundo',
+    mxiPurchasedVestingBase: 'MXI Comprados (Base de Vesting)',
+    onlyPurchasedMXIGeneratesVesting: 'Apenas MXI comprado gera rendimento de vesting',
+    currentSession: 'Sessão Atual',
+    totalAccumulated: 'Total Acumulado',
+    perSecond: 'Por Segundo',
+    perMinute: 'Por Minuto',
+    perHour: 'Por Hora',
+    dailyYield: 'Rendimento Diário',
+    claimYield: 'Reivindicar Rendimento',
+    claiming: 'Reivindicando...',
+    yieldInfo: 'Taxa de mineração: 0.005% por hora do seu MXI comprado. Apenas o MXI comprado diretamente gera rendimento de vesting. As comissões NÃO geram vesting. Para reivindicar seu MXI minerado, você precisa de 5 referências ativas, 10 dias de associação e aprovação KYC. Lembre-se de que para vesting você deve ter 10 referências ativas e será desbloqueado uma vez que o token seja lançado e listado nas exchanges.',
+    
+    // Launch Countdown
+    officialLaunch: 'LANÇAMENTO OFICIAL',
+    maxcoinMXI: 'Maxcoin (MXI)',
+    poolActive: 'Pool Ativo',
+    vestingRealTime: 'Vesting Tempo Real',
+    days: 'DIAS',
+    hours: 'HRS',
+    minutes: 'MIN',
+    seconds: 'SEG',
+    
+    // Payment USDT
+    selectPaymentNetwork: 'Selecione a Rede de Pagamento',
+    eachNetworkValidatesIndependently: 'Cada rede valida suas transações de forma independente',
+    independentValidation: 'Validação independente',
+    validationIn: 'Validação em',
+    paymentsOnlyValidatedOn: 'Pagamentos em {{network}} são validados apenas na rede {{network}}',
+    step1: 'Selecione a rede que você vai usar',
+    step2: 'Envie USDT de qualquer carteira para o endereço do destinatário',
+    step3: 'Quantidade mínima: {{min}} USDT',
+    step4: 'Copie o hash da transação (txHash)',
+    step5: 'Cole o txHash aqui e verifique o pagamento',
+    step6: 'Você receberá MXI = USDT × {{rate}}',
+    onlySendUSDTOn: 'Envie apenas USDT na rede {{network}} ({{label}})',
+    pasteYourTransactionHash: 'Cole o hash da sua transação {{network}} aqui',
+    correctLength: 'Comprimento correto',
+    characters: 'caracteres',
+    sendingRequest: 'Enviando Solicitação...',
+    importantValidationByNetwork: 'Importante - Validação por Rede',
+    eachNetworkValidatesIndependently2: 'Cada rede valida suas transações de forma independente',
+    ethPaymentsOnlyOnEthereum: 'Pagamentos em ETH são validados apenas na rede Ethereum',
+    bnbPaymentsOnlyOnBNB: 'Pagamentos em BNB são validados apenas na rede BNB Chain',
+    polygonPaymentsOnlyOnPolygon: 'Pagamentos em Polygon são validados apenas na rede Polygon',
+    makeSureToSelectCorrectNetwork: 'Certifique-se de selecionar a rede correta antes de verificar',
+    transactionMustHaveConfirmations: 'A transação deve ter pelo menos 3 confirmações',
+    cannotUseSameHashTwice: 'VOCÊ NÃO PODE USAR O MESMO HASH DUAS VEZES - Sistema anti-duplicados ativo',
+    ifAutoVerificationFails: 'Se a verificação automática falhar, use a verificação manual',
   },
 };
 
