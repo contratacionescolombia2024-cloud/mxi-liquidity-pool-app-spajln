@@ -15,7 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
-type TabType = 'que-es' | 'como-funciona' | 'por-que-comprar' | 'meta' | 'ecosistema' | 'sostenibilidad' | 'vesting-diario' | 'en-la-practica' | 'tokenomica';
+type TabType = 'que-es' | 'como-funciona' | 'por-que-comprar' | 'meta' | 'ecosistema' | 'seguridad-cuantica' | 'sostenibilidad' | 'vesting-diario' | 'en-la-practica' | 'tokenomica';
 
 export default function EcosystemScreen() {
   const [activeTab, setActiveTab] = useState<TabType>('que-es');
@@ -81,6 +81,15 @@ export default function EcosystemScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={[styles.tab, activeTab === 'seguridad-cuantica' && styles.activeTab]}
+            onPress={() => setActiveTab('seguridad-cuantica')}
+          >
+            <Text style={[styles.tabText, activeTab === 'seguridad-cuantica' && styles.activeTabText]}>
+              Seguridad Cuántica 🔐
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={[styles.tab, activeTab === 'sostenibilidad' && styles.activeTab]}
             onPress={() => setActiveTab('sostenibilidad')}
           >
@@ -129,6 +138,7 @@ export default function EcosystemScreen() {
         {activeTab === 'por-que-comprar' && <PorQueComprarTab />}
         {activeTab === 'meta' && <MetaTab />}
         {activeTab === 'ecosistema' && <EcosistemaTab />}
+        {activeTab === 'seguridad-cuantica' && <SeguridadCuanticaTab />}
         {activeTab === 'sostenibilidad' && <SostenibilidadTab />}
         {activeTab === 'vesting-diario' && <VestingDiarioTab />}
         {activeTab === 'en-la-practica' && <EnLaPracticaTab />}
@@ -1108,6 +1118,242 @@ function EcosistemaTab() {
   );
 }
 
+// Seguridad Cuántica MXI Tab Content - NEW TAB
+function SeguridadCuanticaTab() {
+  return (
+    <View>
+      {/* Main Title */}
+      <View style={styles.titleSection}>
+        <Text style={styles.mainTitle}>Seguridad Cuántica MXI 🔐</Text>
+      </View>
+
+      {/* Hero Image */}
+      <View style={styles.imageContainer}>
+        <Image
+          source={require('@/assets/images/ed6c9493-dc2d-4662-a9e7-990584c0d093.png')}
+          style={styles.seguridadCuanticaImage}
+          resizeMode="cover"
+        />
+      </View>
+
+      {/* Introduction Card */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '10', colors.accent + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.introText}>
+            🔐 <Text style={styles.boldText}>MXI incorpora una arquitectura quantum-safe</Text> diseñada para proteger tus activos hoy y en el futuro.
+          </Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.bodyText}>
+            🛡️ Nuestro sistema combina <Text style={styles.highlightText}>firmas clásicas + algoritmos post-cuánticos</Text>, creando una capa de seguridad híbrida capaz de resistir ataques incluso de la próxima generación de computadoras cuánticas.
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Security Features Section */}
+      <View style={styles.securityFeaturesSection}>
+        <Text style={styles.sectionTitle}>🛡️ Características de Seguridad</Text>
+        
+        <View style={[commonStyles.card, styles.securityFeatureCard]}>
+          <LinearGradient
+            colors={['#4CAF50' + '15', '#45a049' + '15']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.securityFeatureGradient}
+          >
+            <Text style={styles.securityFeatureEmoji}>🔒</Text>
+            <Text style={styles.securityFeatureTitle}>Arquitectura Híbrida</Text>
+            <Text style={styles.securityFeatureDescription}>
+              Combinación de criptografía clásica probada con algoritmos post-cuánticos de última generación para máxima protección.
+            </Text>
+          </LinearGradient>
+        </View>
+
+        <View style={[commonStyles.card, styles.securityFeatureCard]}>
+          <LinearGradient
+            colors={['#2196F3' + '15', '#1976D2' + '15']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.securityFeatureGradient}
+          >
+            <Text style={styles.securityFeatureEmoji}>⚡</Text>
+            <Text style={styles.securityFeatureTitle}>Protección Preventiva</Text>
+            <Text style={styles.securityFeatureDescription}>
+              Prevención contra riesgos como el &quot;harvest now, decrypt later&quot; - tus transacciones están protegidas incluso contra amenazas futuras.
+            </Text>
+          </LinearGradient>
+        </View>
+
+        <View style={[commonStyles.card, styles.securityFeatureCard]}>
+          <LinearGradient
+            colors={['#FF9800' + '15', '#F57C00' + '15']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.securityFeatureGradient}
+          >
+            <Text style={styles.securityFeatureEmoji}>🔑</Text>
+            <Text style={styles.securityFeatureTitle}>Claves Protegidas</Text>
+            <Text style={styles.securityFeatureDescription}>
+              Las transacciones y claves permanecen protegidas a largo plazo, garantizando la seguridad de tus activos por décadas.
+            </Text>
+          </LinearGradient>
+        </View>
+
+        <View style={[commonStyles.card, styles.securityFeatureCard]}>
+          <LinearGradient
+            colors={['#9C27B0' + '15', '#7B1FA2' + '15']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.securityFeatureGradient}
+          >
+            <Text style={styles.securityFeatureEmoji}>🔄</Text>
+            <Text style={styles.securityFeatureTitle}>Actualización Continua</Text>
+            <Text style={styles.securityFeatureDescription}>
+              Modelo de actualización criptográfica continua, asegurando que la seguridad evolucione junto con la tecnología global.
+            </Text>
+          </LinearGradient>
+        </View>
+      </View>
+
+      {/* Quantum Threat Explanation */}
+      <View style={[commonStyles.card, styles.quantumThreatCard]}>
+        <LinearGradient
+          colors={[colors.primary + '20', colors.accent + '20']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.quantumThreatGradient}
+        >
+          <Text style={styles.quantumThreatEmoji}>⚠️</Text>
+          <Text style={styles.quantumThreatTitle}>¿Por qué es importante?</Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.quantumThreatText}>
+            💻 Las computadoras cuánticas representan una amenaza futura para la criptografía tradicional. Muchas criptomonedas actuales podrían ser vulnerables cuando esta tecnología madure.
+          </Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.quantumThreatHighlight}>
+            🛡️ MXI se adelanta a esta amenaza, implementando protección cuántica desde el día uno.
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Benefits Section */}
+      <View style={styles.quantumBenefitsSection}>
+        <Text style={styles.sectionTitle}>✨ Beneficios para los Usuarios</Text>
+        
+        <View style={[commonStyles.card, styles.quantumBenefitCard]}>
+          <View style={styles.quantumBenefitRow}>
+            <Text style={styles.quantumBenefitIcon}>🔐</Text>
+            <View style={styles.quantumBenefitContent}>
+              <Text style={styles.quantumBenefitTitle}>Tranquilidad a Largo Plazo</Text>
+              <Text style={styles.quantumBenefitDescription}>
+                Tus activos están protegidos no solo hoy, sino también contra amenazas futuras
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={[commonStyles.card, styles.quantumBenefitCard]}>
+          <View style={styles.quantumBenefitRow}>
+            <Text style={styles.quantumBenefitIcon}>🚀</Text>
+            <View style={styles.quantumBenefitContent}>
+              <Text style={styles.quantumBenefitTitle}>Tecnología de Vanguardia</Text>
+              <Text style={styles.quantumBenefitDescription}>
+                Inviertes en un proyecto que utiliza la criptografía más avanzada disponible
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={[commonStyles.card, styles.quantumBenefitCard]}>
+          <View style={styles.quantumBenefitRow}>
+            <Text style={styles.quantumBenefitIcon}>🌐</Text>
+            <View style={styles.quantumBenefitContent}>
+              <Text style={styles.quantumBenefitTitle}>Preparado para el Futuro</Text>
+              <Text style={styles.quantumBenefitDescription}>
+                MXI evoluciona constantemente para mantenerse a la vanguardia de la seguridad
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={[commonStyles.card, styles.quantumBenefitCard]}>
+          <View style={styles.quantumBenefitRow}>
+            <Text style={styles.quantumBenefitIcon}>💎</Text>
+            <View style={styles.quantumBenefitContent}>
+              <Text style={styles.quantumBenefitTitle}>Valor Protegido</Text>
+              <Text style={styles.quantumBenefitDescription}>
+                La seguridad robusta aumenta la confianza y el valor del ecosistema
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Ecosystem Statement */}
+      <View style={[commonStyles.card, styles.ecosystemStatementCard]}>
+        <LinearGradient
+          colors={[colors.primary + '25', colors.accent + '25']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.ecosystemStatementGradient}
+        >
+          <Text style={styles.ecosystemStatementEmoji}>🌟</Text>
+          <Text style={styles.ecosystemStatementTitle}>MXI: Más que un Token</Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.ecosystemStatementText}>
+            🚀 <Text style={styles.boldText}>MXI no solo es un token: es un ecosistema preparado para el futuro.</Text>
+          </Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.ecosystemStatementHighlight}>
+            🔐 Con seguridad cuántica integrada, protegemos tu inversión hoy, mañana y en las décadas venideras.
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Final CTA */}
+      <View style={[commonStyles.card, styles.finalCtaCard]}>
+        <LinearGradient
+          colors={[colors.primary, colors.accent]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.finalCtaGradient}
+        >
+          <Text style={styles.finalCtaEmoji}>🔐</Text>
+          <Text style={styles.finalCtaTitle}>Invierte con Seguridad Total</Text>
+          <Text style={styles.finalCtaText}>
+            Únete a un ecosistema que protege tus activos con la tecnología de seguridad más avanzada del mercado
+          </Text>
+          <View style={styles.finalCtaStats}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>Quantum-Safe</Text>
+              <Text style={styles.statLabel}>Arquitectura</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>Futuro</Text>
+              <Text style={styles.statLabel}>Protegido</Text>
+            </View>
+          </View>
+        </LinearGradient>
+      </View>
+    </View>
+  );
+}
+
 // Sostenibilidad Tab Content
 function SostenibilidadTab() {
   return (
@@ -1826,7 +2072,7 @@ function EnLaPracticaTab() {
   );
 }
 
-// TOKENÓMICA Tab Content - NEW TAB
+// TOKENÓMICA Tab Content
 function TokenomicaTab() {
   return (
     <View>
@@ -2269,6 +2515,11 @@ const styles = StyleSheet.create({
   ecosistemaImage: {
     width: width - 80,
     height: (width - 80) * 0.65,
+    borderRadius: 20,
+  },
+  seguridadCuanticaImage: {
+    width: width - 80,
+    height: (width - 80) * 0.75,
     borderRadius: 20,
   },
   sostenibilidadImage: {
@@ -2842,6 +3093,133 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 26,
   },
+  // Seguridad Cuántica Styles - NEW
+  securityFeaturesSection: {
+    marginBottom: 24,
+  },
+  securityFeatureCard: {
+    padding: 0,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  securityFeatureGradient: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  securityFeatureEmoji: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  securityFeatureTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  securityFeatureDescription: {
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  quantumThreatCard: {
+    padding: 0,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  quantumThreatGradient: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  quantumThreatEmoji: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  quantumThreatTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  quantumThreatText: {
+    fontSize: 16,
+    color: colors.text,
+    textAlign: 'center',
+    lineHeight: 26,
+    marginBottom: 8,
+  },
+  quantumThreatHighlight: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: colors.primary,
+    textAlign: 'center',
+    lineHeight: 26,
+  },
+  quantumBenefitsSection: {
+    marginBottom: 24,
+  },
+  quantumBenefitCard: {
+    padding: 16,
+    marginBottom: 12,
+  },
+  quantumBenefitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  quantumBenefitIcon: {
+    fontSize: 36,
+  },
+  quantumBenefitContent: {
+    flex: 1,
+  },
+  quantumBenefitTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  quantumBenefitDescription: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  ecosystemStatementCard: {
+    padding: 0,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  ecosystemStatementGradient: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  ecosystemStatementEmoji: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  ecosystemStatementTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  ecosystemStatementText: {
+    fontSize: 16,
+    color: colors.text,
+    textAlign: 'center',
+    lineHeight: 26,
+    marginBottom: 8,
+  },
+  ecosystemStatementHighlight: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: colors.primary,
+    textAlign: 'center',
+    lineHeight: 26,
+  },
   // Pillars Section (Sostenibilidad)
   pillarsSection: {
     marginBottom: 24,
@@ -3236,7 +3614,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 28,
   },
-  // Tokenómica Styles - NEW
+  // Tokenómica Styles
   hybridModelSection: {
     marginBottom: 24,
   },
