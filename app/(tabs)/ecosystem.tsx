@@ -1107,10 +1107,10 @@ function SostenibilidadTab() {
         <Text style={styles.mainTitle}>Sostenibilidad ♻️</Text>
       </View>
 
-      {/* Hero Image */}
+      {/* Hero Image - UPDATED TO FIRST IMAGE */}
       <View style={styles.imageContainer}>
         <Image
-          source={require('@/assets/images/e6d0869d-4650-463e-b21d-9ae0415f4df4.png')}
+          source={require('@/assets/images/16a2654a-fef2-465c-bba6-b5c42fc91e63.png')}
           style={styles.sostenibilidadImage}
           resizeMode="cover"
         />
@@ -1291,10 +1291,10 @@ function VestingDiarioTab() {
         <Text style={styles.mainTitle}>Vesting Diario MXI 💎</Text>
       </View>
 
-      {/* Hero Image */}
+      {/* Hero Image - UPDATED TO SECOND IMAGE */}
       <View style={styles.imageContainer}>
         <Image
-          source={require('@/assets/images/904cc327-48f3-4ea1-90a4-6fd4d39a1c11.jpeg')}
+          source={require('@/assets/images/657e167a-42d3-407c-840d-5cdea04dc9b1.png')}
           style={styles.vestingImage}
           resizeMode="cover"
         />
