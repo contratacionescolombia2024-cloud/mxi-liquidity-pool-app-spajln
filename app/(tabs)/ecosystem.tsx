@@ -15,7 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
-type TabType = 'que-es' | 'como-funciona' | 'por-que-comprar' | 'meta';
+type TabType = 'que-es' | 'como-funciona' | 'por-que-comprar' | 'meta' | 'ecosistema';
 
 export default function EcosystemScreen() {
   const [activeTab, setActiveTab] = useState<TabType>('que-es');
@@ -68,6 +68,15 @@ export default function EcosystemScreen() {
             META 🎯
           </Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'ecosistema' && styles.activeTab]}
+          onPress={() => setActiveTab('ecosistema')}
+        >
+          <Text style={[styles.tabText, activeTab === 'ecosistema' && styles.activeTabText]}>
+            Ecosistema 🌱
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Tab Content */}
@@ -75,6 +84,7 @@ export default function EcosystemScreen() {
       {activeTab === 'como-funciona' && <ComoFuncionaTab />}
       {activeTab === 'por-que-comprar' && <PorQueComprarTab />}
       {activeTab === 'meta' && <MetaTab />}
+      {activeTab === 'ecosistema' && <EcosistemaTab />}
     </SafeAreaView>
   );
 }
@@ -1136,6 +1146,315 @@ function MetaTab() {
   );
 }
 
+// Ecosistema Tab Content
+function EcosistemaTab() {
+  return (
+    <ScrollView contentContainerStyle={styles.scrollContent}>
+      {/* Main Title */}
+      <View style={styles.titleSection}>
+        <Text style={styles.mainTitle}>Ecosistema MXI 🌱</Text>
+      </View>
+
+      {/* Hero Image */}
+      <View style={styles.imageContainer}>
+        <Image
+          source={require('@/assets/images/1766a525-4d5d-41da-aa7e-293c48436e0f.png')}
+          style={styles.ecosistemaImage}
+          resizeMode="cover"
+        />
+      </View>
+
+      {/* Introduction Card */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '15', colors.accent + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.ecosistemaIntro}>
+            🌱 MXI es un ecosistema diseñado para <Text style={styles.boldText}>crecer por etapas</Text>, iniciando hoy con la preventa y expandiéndose progresivamente a medida que la comunidad crece.
+          </Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.bodyText}>
+            💎 Su valor no nace de promesas, sino de <Text style={styles.highlightText}>utilidad real</Text> y <Text style={styles.highlightText}>desarrollo tecnológico planificado</Text>.
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Phase 1: Preventa y crecimiento inicial */}
+      <View style={[commonStyles.card, styles.ecosistemaPhaseCard]}>
+        <LinearGradient
+          colors={['#00ff88' + '15', '#00cc6a' + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.ecosistemaPhaseGradient}
+        >
+          <View style={styles.ecosistemaPhaseHeader}>
+            <Text style={styles.ecosistemaPhaseNumber}>1️⃣</Text>
+            <Text style={styles.ecosistemaPhaseTitle}>Fase actual: Preventa y crecimiento inicial</Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.ecosistemaPhaseText}>
+            🚀 La preventa define el precio base, la liquidez inicial y permite que los primeros participantes entren antes que el mercado general.
+          </Text>
+          
+          <Text style={styles.ecosistemaPhaseHighlight}>
+            💧 Sin preventa no hay liquidez, sin liquidez no hay ecosistema.
+          </Text>
+          
+          <Text style={styles.ecosistemaPhaseText}>
+            ⭐ Por eso, el éxito de MXI comienza con esta etapa.
+          </Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.ecosistemaBenefitsTitle}>
+            🎁 Aquí nacen tres beneficios inmediatos:
+          </Text>
+          
+          <View style={styles.ecosistemaBenefitsList}>
+            <View style={styles.ecosistemaBenefitRow}>
+              <Text style={styles.ecosistemaBenefitIcon}>✓</Text>
+              <Text style={styles.ecosistemaBenefitText}>Compra anticipada a precios preferenciales</Text>
+            </View>
+            <View style={styles.ecosistemaBenefitRow}>
+              <Text style={styles.ecosistemaBenefitIcon}>✓</Text>
+              <Text style={styles.ecosistemaBenefitText}>Acceso al vesting diario (≈3% mensual en MXI)</Text>
+            </View>
+            <View style={styles.ecosistemaBenefitRow}>
+              <Text style={styles.ecosistemaBenefitIcon}>✓</Text>
+              <Text style={styles.ecosistemaBenefitText}>Comisiones por referidos para quienes promueven el proyecto</Text>
+            </View>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.ecosistemaPhaseFooter}>
+            🌟 Esta es la etapa donde los primeros usuarios construyen las bases del valor futuro.
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Phase 2: Fase de Activación */}
+      <View style={[commonStyles.card, styles.ecosistemaPhaseCard]}>
+        <LinearGradient
+          colors={['#6366F1' + '15', '#4F46E5' + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.ecosistemaPhaseGradient}
+        >
+          <View style={styles.ecosistemaPhaseHeader}>
+            <Text style={styles.ecosistemaPhaseNumber}>2️⃣</Text>
+            <Text style={styles.ecosistemaPhaseTitle}>Fase de Activación: Después del lanzamiento</Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.ecosistemaPhaseText}>
+            🎯 Cuando MXI entre oficialmente al mercado, comenzarán a desplegarse los módulos del ecosistema:
+          </Text>
+          
+          <View style={styles.ecosistemaModulesList}>
+            <View style={styles.ecosistemaModuleRow}>
+              <Text style={styles.ecosistemaModuleIcon}>💳</Text>
+              <View style={styles.ecosistemaModuleContent}>
+                <Text style={styles.ecosistemaModuleTitle}>MXI Pay</Text>
+                <Text style={styles.ecosistemaModuleDescription}>Pagos rápidos con MXI, conversión y billetera</Text>
+              </View>
+            </View>
+            
+            <View style={styles.ecosistemaModuleRow}>
+              <Text style={styles.ecosistemaModuleIcon}>🎮</Text>
+              <View style={styles.ecosistemaModuleContent}>
+                <Text style={styles.ecosistemaModuleTitle}>MXI Games y Torneos</Text>
+                <Text style={styles.ecosistemaModuleDescription}>Competencia con premios reales</Text>
+              </View>
+            </View>
+            
+            <View style={styles.ecosistemaModuleRow}>
+              <Text style={styles.ecosistemaModuleIcon}>💰</Text>
+              <View style={styles.ecosistemaModuleContent}>
+                <Text style={styles.ecosistemaModuleTitle}>MXI Loan</Text>
+                <Text style={styles.ecosistemaModuleDescription}>Acceso a liquidez usando MXI como garantía</Text>
+              </View>
+            </View>
+            
+            <View style={styles.ecosistemaModuleRow}>
+              <Text style={styles.ecosistemaModuleIcon}>🔥</Text>
+              <View style={styles.ecosistemaModuleContent}>
+                <Text style={styles.ecosistemaModuleTitle}>Staking y sistemas de quema</Text>
+                <Text style={styles.ecosistemaModuleDescription}>Soporte al precio y estabilidad</Text>
+              </View>
+            </View>
+            
+            <View style={styles.ecosistemaModuleRow}>
+              <Text style={styles.ecosistemaModuleIcon}>📱</Text>
+              <View style={styles.ecosistemaModuleContent}>
+                <Text style={styles.ecosistemaModuleTitle}>MXI ONE</Text>
+                <Text style={styles.ecosistemaModuleDescription}>Una app unificada donde todo se integra</Text>
+              </View>
+            </View>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.ecosistemaPhaseFooter}>
+            📈 Cada módulo aumenta la utilidad del token y la demanda real dentro de la comunidad.
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Phase 3: Fase de Expansión */}
+      <View style={[commonStyles.card, styles.ecosistemaPhaseCard]}>
+        <LinearGradient
+          colors={['#FF9800' + '15', '#F57C00' + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.ecosistemaPhaseGradient}
+        >
+          <View style={styles.ecosistemaPhaseHeader}>
+            <Text style={styles.ecosistemaPhaseNumber}>3️⃣</Text>
+            <Text style={styles.ecosistemaPhaseTitle}>Fase de Expansión: Crecimiento global</Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.ecosistemaPhaseText}>
+            🌍 Con la comunidad ya activa, los procesos técnicos avanzan:
+          </Text>
+          
+          <View style={styles.ecosistemaExpansionList}>
+            <View style={styles.ecosistemaExpansionRow}>
+              <Text style={styles.ecosistemaExpansionIcon}>🏪</Text>
+              <Text style={styles.ecosistemaExpansionText}>Integración de comercios</Text>
+            </View>
+            <View style={styles.ecosistemaExpansionRow}>
+              <Text style={styles.ecosistemaExpansionIcon}>🤝</Text>
+              <Text style={styles.ecosistemaExpansionText}>Alianzas internacionales</Text>
+            </View>
+            <View style={styles.ecosistemaExpansionRow}>
+              <Text style={styles.ecosistemaExpansionIcon}>🏆</Text>
+              <Text style={styles.ecosistemaExpansionText}>Ampliación de torneos y servicios</Text>
+            </View>
+            <View style={styles.ecosistemaExpansionRow}>
+              <Text style={styles.ecosistemaExpansionIcon}>⛓️</Text>
+              <Text style={styles.ecosistemaExpansionText}>Transición hacia una blockchain propia (MXI Chain)</Text>
+            </View>
+            <View style={styles.ecosistemaExpansionRow}>
+              <Text style={styles.ecosistemaExpansionIcon}>🗳️</Text>
+              <Text style={styles.ecosistemaExpansionText}>Futura gobernanza descentralizada (DAO MXI)</Text>
+            </View>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.ecosistemaPhaseFooter}>
+            🎯 Cada paso está diseñado para fortalecer el valor del token y construir un ecosistema que evoluciona con sus usuarios.
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Sustainability Card */}
+      <View style={[commonStyles.card, styles.ecosistemaSustainabilityCard]}>
+        <LinearGradient
+          colors={['#4CAF50' + '15', '#2E7D32' + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.ecosistemaSustainabilityGradient}
+        >
+          <View style={styles.ecosistemaSustainabilityHeader}>
+            <Text style={styles.ecosistemaSustainabilityEmoji}>♻️</Text>
+            <Text style={styles.ecosistemaSustainabilityTitle}>¿Por qué MXI es sostenible?</Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.ecosistemaSustainabilityText}>
+            💪 Porque su crecimiento depende de factores reales:
+          </Text>
+          
+          <View style={styles.ecosistemaSustainabilityList}>
+            <View style={styles.ecosistemaSustainabilityRow}>
+              <Text style={styles.ecosistemaSustainabilityIcon}>✓</Text>
+              <Text style={styles.ecosistemaSustainabilityItem}>Utilidad dentro de las aplicaciones</Text>
+            </View>
+            <View style={styles.ecosistemaSustainabilityRow}>
+              <Text style={styles.ecosistemaSustainabilityIcon}>✓</Text>
+              <Text style={styles.ecosistemaSustainabilityItem}>Actividad de transacciones</Text>
+            </View>
+            <View style={styles.ecosistemaSustainabilityRow}>
+              <Text style={styles.ecosistemaSustainabilityIcon}>✓</Text>
+              <Text style={styles.ecosistemaSustainabilityItem}>Vesting gestionado en MXI, no en dinero externo</Text>
+            </View>
+            <View style={styles.ecosistemaSustainabilityRow}>
+              <Text style={styles.ecosistemaSustainabilityIcon}>✓</Text>
+              <Text style={styles.ecosistemaSustainabilityItem}>Torneos y comisiones financiados por la actividad interna</Text>
+            </View>
+            <View style={styles.ecosistemaSustainabilityRow}>
+              <Text style={styles.ecosistemaSustainabilityIcon}>✓</Text>
+              <Text style={styles.ecosistemaSustainabilityItem}>Adopción progresiva en países hispanohablantes</Text>
+            </View>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.ecosistemaSustainabilityHighlight}>
+            🎯 No se sostiene por entradas nuevas, sino por uso real.
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Final Message Card */}
+      <View style={[commonStyles.card, styles.ecosistemaFinalCard]}>
+        <LinearGradient
+          colors={[colors.primary, colors.accent]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.ecosistemaFinalGradient}
+        >
+          <Text style={styles.ecosistemaFinalEmoji}>🌟</Text>
+          <Text style={styles.ecosistemaFinalTitle}>Mensaje Final</Text>
+          
+          <View style={styles.urgencyDivider} />
+          
+          <Text style={styles.ecosistemaFinalText}>
+            🏗️ MXI es un ecosistema en construcción inteligente.
+          </Text>
+          
+          <Text style={styles.ecosistemaFinalText}>
+            📅 Hoy estás en la preventa; mañana serás parte del lanzamiento; después formarás parte de la expansión global.
+          </Text>
+          
+          <View style={styles.urgencyDivider} />
+          
+          <View style={styles.ecosistemaFinalPoints}>
+            <Text style={styles.ecosistemaFinalPoint}>
+              💎 Cada etapa construye valor.
+            </Text>
+            <Text style={styles.ecosistemaFinalPoint}>
+              👥 Cada usuario que entra fortalece el sistema.
+            </Text>
+            <Text style={styles.ecosistemaFinalPoint}>
+              📈 Y cada avance del ecosistema hace más valiosos los MXI que ya tienes.
+            </Text>
+          </View>
+          
+          <View style={styles.urgencyDivider} />
+          
+          <Text style={styles.ecosistemaFinalCTA}>
+            ⚡ Este es el momento de entrar. El crecimiento comienza ahora.
+          </Text>
+        </LinearGradient>
+      </View>
+    </ScrollView>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1226,6 +1545,11 @@ const styles = StyleSheet.create({
     height: (width - 80) * 0.8,
     borderRadius: 20,
   },
+  ecosistemaImage: {
+    width: width - 80,
+    height: (width - 80) * 0.65,
+    borderRadius: 20,
+  },
   contentCard: {
     padding: 0,
     overflow: 'hidden',
@@ -1244,6 +1568,13 @@ const styles = StyleSheet.create({
     fontSize: 19,
     color: colors.text,
     lineHeight: 30,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  ecosistemaIntro: {
+    fontSize: 18,
+    color: colors.text,
+    lineHeight: 28,
     marginBottom: 8,
     textAlign: 'center',
   },
@@ -2126,5 +2457,223 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#000',
     textAlign: 'center',
+  },
+  // Ecosistema Tab Styles
+  ecosistemaPhaseCard: {
+    padding: 0,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  ecosistemaPhaseGradient: {
+    padding: 24,
+  },
+  ecosistemaPhaseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 16,
+  },
+  ecosistemaPhaseNumber: {
+    fontSize: 48,
+  },
+  ecosistemaPhaseTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+    flex: 1,
+    lineHeight: 30,
+  },
+  ecosistemaPhaseText: {
+    fontSize: 16,
+    color: colors.text,
+    lineHeight: 26,
+    marginBottom: 12,
+  },
+  ecosistemaPhaseHighlight: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.primary,
+    lineHeight: 26,
+    marginBottom: 12,
+  },
+  ecosistemaPhaseFooter: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.primary,
+    lineHeight: 26,
+    textAlign: 'center',
+  },
+  ecosistemaBenefitsTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  ecosistemaBenefitsList: {
+    gap: 12,
+  },
+  ecosistemaBenefitRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  ecosistemaBenefitIcon: {
+    fontSize: 20,
+    color: colors.primary,
+    marginTop: 2,
+  },
+  ecosistemaBenefitText: {
+    fontSize: 15,
+    color: colors.text,
+    flex: 1,
+    lineHeight: 24,
+  },
+  ecosistemaModulesList: {
+    gap: 16,
+    marginTop: 8,
+  },
+  ecosistemaModuleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 16,
+    backgroundColor: colors.background + '40',
+    padding: 16,
+    borderRadius: 12,
+  },
+  ecosistemaModuleIcon: {
+    fontSize: 32,
+  },
+  ecosistemaModuleContent: {
+    flex: 1,
+  },
+  ecosistemaModuleTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  ecosistemaModuleDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 22,
+  },
+  ecosistemaExpansionList: {
+    gap: 12,
+    marginTop: 8,
+  },
+  ecosistemaExpansionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  ecosistemaExpansionIcon: {
+    fontSize: 24,
+    marginTop: 2,
+  },
+  ecosistemaExpansionText: {
+    fontSize: 15,
+    color: colors.text,
+    flex: 1,
+    lineHeight: 24,
+  },
+  ecosistemaSustainabilityCard: {
+    padding: 0,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  ecosistemaSustainabilityGradient: {
+    padding: 24,
+  },
+  ecosistemaSustainabilityHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  ecosistemaSustainabilityEmoji: {
+    fontSize: 56,
+    marginBottom: 12,
+  },
+  ecosistemaSustainabilityTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  ecosistemaSustainabilityText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 16,
+  },
+  ecosistemaSustainabilityList: {
+    gap: 12,
+  },
+  ecosistemaSustainabilityRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  ecosistemaSustainabilityIcon: {
+    fontSize: 20,
+    color: colors.primary,
+    marginTop: 2,
+  },
+  ecosistemaSustainabilityItem: {
+    fontSize: 15,
+    color: colors.text,
+    flex: 1,
+    lineHeight: 24,
+  },
+  ecosistemaSustainabilityHighlight: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.primary,
+    textAlign: 'center',
+    lineHeight: 28,
+  },
+  ecosistemaFinalCard: {
+    padding: 0,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  ecosistemaFinalGradient: {
+    padding: 32,
+    alignItems: 'center',
+  },
+  ecosistemaFinalEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  ecosistemaFinalTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#000',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  ecosistemaFinalText: {
+    fontSize: 16,
+    color: '#000',
+    textAlign: 'center',
+    lineHeight: 26,
+    marginBottom: 12,
+    fontWeight: '500',
+  },
+  ecosistemaFinalPoints: {
+    gap: 12,
+    width: '100%',
+  },
+  ecosistemaFinalPoint: {
+    fontSize: 16,
+    color: '#000',
+    textAlign: 'center',
+    lineHeight: 26,
+    fontWeight: '600',
+  },
+  ecosistemaFinalCTA: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#000',
+    textAlign: 'center',
+    lineHeight: 30,
   },
 });
