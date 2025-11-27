@@ -167,6 +167,7 @@ const translations = {
     thisWillAllowYouToUse: 'This will allow you to use these MXI for purchases and other functions.',
     withdrawalSuccessful: 'Withdrawal Successful',
     transferredToMainBalance: 'have been transferred to your main balance',
+    referralsText: 'referrals',
     
     // Payments
     payment: 'Payment',
@@ -354,9 +355,6 @@ const translations = {
     // Calculator
     calculator: 'Calculator',
     
-    // Referrals additional
-    referralsText: 'referrals',
-    
     // Yield Display
     vestingMXI: 'Vesting MXI (Active Mining)',
     generatingPerSecond: 'Generating {{rate}} MXI per second',
@@ -381,6 +379,32 @@ const translations = {
     hours: 'HRS',
     minutes: 'MIN',
     seconds: 'SEC',
+    
+    // Edit Profile
+    personalInformation: 'Personal Information',
+    enterYourFullName: 'Enter your full name',
+    enterFullLegalName: 'Enter your full legal name as it appears on your ID',
+    enterYourIDNumber: 'Enter your ID number',
+    enterNationalID: 'Enter your national ID, passport, or driver\'s license number',
+    residentialAddress: 'Residential Address',
+    enterYourResidentialAddress: 'Enter your residential address',
+    enterCompleteAddress: 'Enter your complete residential address',
+    emailAddressReadOnly: 'Email Address (Read-only)',
+    referralCodeReadOnly: 'Referral Code (Read-only)',
+    saveChanges: 'Save Changes',
+    profileLocked: 'Profile Locked',
+    profileCannotBeEdited: 'Your profile cannot be edited because your KYC verification is {{status}}.',
+    profileInfoCanOnlyBeModified: 'Profile information can only be modified before KYC verification is approved.',
+    backToProfile: 'Back to Profile',
+    importantNotice: 'Important Notice',
+    canOnlyEditBeforeKYC: 'You can only edit your profile information before your KYC verification is approved. Make sure all information is accurate before submitting your KYC.',
+    emailAndReferralCannotChange: 'Your email address and referral code cannot be changed. If you need to update these, please contact support.',
+    profileUpdatedSuccessfully: 'Your profile has been updated successfully',
+    failedToUpdateProfile: 'Failed to update profile. Please try again.',
+    pleaseEnterFullName: 'Please enter your full name',
+    pleaseEnterAddress: 'Please enter your address',
+    pleaseEnterIDNumber: 'Please enter your ID number',
+    idNumberAlreadyRegistered: 'This ID number is already registered to another account',
   },
   es: {
     // Common
@@ -544,6 +568,7 @@ const translations = {
     thisWillAllowYouToUse: 'Esto te permitirá usar estos MXI para compras y otras funciones.',
     withdrawalSuccessful: 'Retiro Exitoso',
     transferredToMainBalance: 'se han transferido a tu balance principal',
+    referralsText: 'referidos',
     
     // Payments
     payment: 'Pago',
@@ -731,9 +756,6 @@ const translations = {
     // Calculator
     calculator: 'Calculadora',
     
-    // Referrals additional
-    referralsText: 'referidos',
-    
     // Yield Display
     vestingMXI: 'Vesting MXI (Minería Activa)',
     generatingPerSecond: 'Generando {{rate}} MXI por segundo',
@@ -758,6 +780,32 @@ const translations = {
     hours: 'HRS',
     minutes: 'MIN',
     seconds: 'SEG',
+    
+    // Edit Profile
+    personalInformation: 'Información Personal',
+    enterYourFullName: 'Ingresa tu nombre completo',
+    enterFullLegalName: 'Ingresa tu nombre legal completo como aparece en tu identificación',
+    enterYourIDNumber: 'Ingresa tu número de identificación',
+    enterNationalID: 'Ingresa tu cédula nacional, pasaporte o número de licencia de conducir',
+    residentialAddress: 'Dirección Residencial',
+    enterYourResidentialAddress: 'Ingresa tu dirección residencial',
+    enterCompleteAddress: 'Ingresa tu dirección residencial completa',
+    emailAddressReadOnly: 'Correo Electrónico (Solo lectura)',
+    referralCodeReadOnly: 'Código de Referido (Solo lectura)',
+    saveChanges: 'Guardar Cambios',
+    profileLocked: 'Perfil Bloqueado',
+    profileCannotBeEdited: 'Tu perfil no puede ser editado porque tu verificación KYC está {{status}}.',
+    profileInfoCanOnlyBeModified: 'La información del perfil solo puede modificarse antes de que se apruebe la verificación KYC.',
+    backToProfile: 'Volver al Perfil',
+    importantNotice: 'Aviso Importante',
+    canOnlyEditBeforeKYC: 'Solo puedes editar la información de tu perfil antes de que se apruebe tu verificación KYC. Asegúrate de que toda la información sea precisa antes de enviar tu KYC.',
+    emailAndReferralCannotChange: 'Tu dirección de correo electrónico y código de referido no se pueden cambiar. Si necesitas actualizarlos, contacta a soporte.',
+    profileUpdatedSuccessfully: 'Tu perfil se ha actualizado exitosamente',
+    failedToUpdateProfile: 'Error al actualizar el perfil. Por favor intenta nuevamente.',
+    pleaseEnterFullName: 'Por favor ingresa tu nombre completo',
+    pleaseEnterAddress: 'Por favor ingresa tu dirección',
+    pleaseEnterIDNumber: 'Por favor ingresa tu número de identificación',
+    idNumberAlreadyRegistered: 'Este número de identificación ya está registrado en otra cuenta',
   },
   pt: {
     // Common
@@ -921,6 +969,7 @@ const translations = {
     thisWillAllowYouToUse: 'Isso permitirá que você use esses MXI para compras e outras funções.',
     withdrawalSuccessful: 'Retirada Bem-sucedida',
     transferredToMainBalance: 'foram transferidos para seu saldo principal',
+    referralsText: 'referências',
     
     // Payments
     payment: 'Pagamento',
@@ -1108,9 +1157,6 @@ const translations = {
     // Calculator
     calculator: 'Calculadora',
     
-    // Referrals additional
-    referralsText: 'referências',
-    
     // Yield Display
     vestingMXI: 'Vesting MXI (Mineração Ativa)',
     generatingPerSecond: 'Gerando {{rate}} MXI por segundo',
@@ -1135,6 +1181,32 @@ const translations = {
     hours: 'HRS',
     minutes: 'MIN',
     seconds: 'SEG',
+    
+    // Edit Profile
+    personalInformation: 'Informações Pessoais',
+    enterYourFullName: 'Digite seu nome completo',
+    enterFullLegalName: 'Digite seu nome legal completo como aparece em sua identificação',
+    enterYourIDNumber: 'Digite seu número de identificação',
+    enterNationalID: 'Digite seu RG, passaporte ou número de carteira de motorista',
+    residentialAddress: 'Endereço Residencial',
+    enterYourResidentialAddress: 'Digite seu endereço residencial',
+    enterCompleteAddress: 'Digite seu endereço residencial completo',
+    emailAddressReadOnly: 'Endereço de E-mail (Somente leitura)',
+    referralCodeReadOnly: 'Código de Referência (Somente leitura)',
+    saveChanges: 'Salvar Alterações',
+    profileLocked: 'Perfil Bloqueado',
+    profileCannotBeEdited: 'Seu perfil não pode ser editado porque sua verificação KYC está {{status}}.',
+    profileInfoCanOnlyBeModified: 'As informações do perfil só podem ser modificadas antes da aprovação da verificação KYC.',
+    backToProfile: 'Voltar ao Perfil',
+    importantNotice: 'Aviso Importante',
+    canOnlyEditBeforeKYC: 'Você só pode editar as informações do seu perfil antes da aprovação da verificação KYC. Certifique-se de que todas as informações estejam corretas antes de enviar seu KYC.',
+    emailAndReferralCannotChange: 'Seu endereço de e-mail e código de referência não podem ser alterados. Se precisar atualizá-los, entre em contato com o suporte.',
+    profileUpdatedSuccessfully: 'Seu perfil foi atualizado com sucesso',
+    failedToUpdateProfile: 'Falha ao atualizar o perfil. Por favor, tente novamente.',
+    pleaseEnterFullName: 'Por favor, digite seu nome completo',
+    pleaseEnterAddress: 'Por favor, digite seu endereço',
+    pleaseEnterIDNumber: 'Por favor, digite seu número de identificação',
+    idNumberAlreadyRegistered: 'Este número de identificação já está registrado em outra conta',
   },
 };
 
