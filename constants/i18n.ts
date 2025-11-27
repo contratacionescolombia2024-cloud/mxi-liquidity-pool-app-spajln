@@ -795,6 +795,26 @@ const translations = {
     
     // Calculator
     calculator: 'Calculator',
+    
+    // Ecosystem Page - Additional translations
+    whatIsMXITab: 'What is MXI? 💎',
+    howItWorksTab: 'How does it work? 🚀',
+    whyBuyTab: 'Why buy? 💰',
+    metaTab: 'META 🎯',
+    ecosystemTabLabel: 'Ecosystem 🌱',
+    quantumSecurityTab: 'Quantum Security 🔐',
+    sustainabilityTab: 'Sustainability ♻️',
+    dailyVestingTab: 'Daily Vesting 💎',
+    inPracticeTab: 'In Practice 📊',
+    tokenomicsTab: 'Tokenomics 🪙',
+    
+    // Profile Page - Additional translations
+    updateYourInfo: 'Update your information',
+    viewYieldGeneration: 'View yield generation',
+    viewPreviousWithdrawals: 'View previous withdrawals',
+    viewGameRecords: 'View game records',
+    getHelp: 'Get help',
+    areYouSureLogout: 'Are you sure you want to log out?',
   },
   es: {
     // Common
@@ -1587,6 +1607,26 @@ const translations = {
     
     // Calculator
     calculator: 'Calculadora',
+    
+    // Ecosystem Page - Additional translations
+    whatIsMXITab: '¿Qué es MXI? 💎',
+    howItWorksTab: '¿Cómo funciona? 🚀',
+    whyBuyTab: '¿Por qué comprar? 💰',
+    metaTab: 'META 🎯',
+    ecosystemTabLabel: 'Ecosistema 🌱',
+    quantumSecurityTab: 'Seguridad Cuántica 🔐',
+    sustainabilityTab: 'Sostenibilidad ♻️',
+    dailyVestingTab: 'Vesting Diario 💎',
+    inPracticeTab: 'En la práctica 📊',
+    tokenomicsTab: 'Tokenómica 🪙',
+    
+    // Profile Page - Additional translations
+    updateYourInfo: 'Actualiza tu información',
+    viewYieldGeneration: 'Ver generación de rendimiento',
+    viewPreviousWithdrawals: 'Ver retiros anteriores',
+    viewGameRecords: 'Ver registros de juegos',
+    getHelp: 'Obtener ayuda',
+    areYouSureLogout: '¿Estás seguro que deseas cerrar sesión?',
   },
   pt: {
     // Common
@@ -2379,6 +2419,26 @@ const translations = {
     
     // Calculator
     calculator: 'Calculadora',
+    
+    // Ecosystem Page - Additional translations
+    whatIsMXITab: 'O que é MXI? 💎',
+    howItWorksTab: 'Como funciona? 🚀',
+    whyBuyTab: 'Por que comprar? 💰',
+    metaTab: 'META 🎯',
+    ecosystemTabLabel: 'Ecossistema 🌱',
+    quantumSecurityTab: 'Segurança Quântica 🔐',
+    sustainabilityTab: 'Sustentabilidade ♻️',
+    dailyVestingTab: 'Vesting Diário 💎',
+    inPracticeTab: 'Na prática 📊',
+    tokenomicsTab: 'Tokenômica 🪙',
+    
+    // Profile Page - Additional translations
+    updateYourInfo: 'Atualize suas informações',
+    viewYieldGeneration: 'Ver geração de rendimento',
+    viewPreviousWithdrawals: 'Ver retiradas anteriores',
+    viewGameRecords: 'Ver registros de jogos',
+    getHelp: 'Obter ajuda',
+    areYouSureLogout: 'Tem certeza de que deseja sair?',
   },
 };
 

@@ -38,7 +38,7 @@ export default function ProfileScreen() {
   const handleLogout = () => {
     Alert.alert(
       t('logout'),
-      '¿Estás seguro que deseas cerrar sesión?',
+      t('areYouSureLogout'),
       [
         { text: t('cancel'), style: 'cancel' },
         {
@@ -77,7 +77,7 @@ export default function ProfileScreen() {
     {
       id: 'edit-profile',
       title: t('editProfile'),
-      subtitle: 'Actualiza tu información',
+      subtitle: t('updateYourInfo'),
       icon: 'person.fill',
       androidIcon: 'person',
       route: '/(tabs)/(home)/edit-profile',
@@ -93,7 +93,7 @@ export default function ProfileScreen() {
     {
       id: 'vesting',
       title: t('vestingAndYield'),
-      subtitle: 'Ver generación de rendimiento',
+      subtitle: t('viewYieldGeneration'),
       icon: 'chart.line.uptrend.xyaxis',
       androidIcon: 'trending_up',
       route: '/(tabs)/(home)/vesting',
@@ -101,7 +101,7 @@ export default function ProfileScreen() {
     {
       id: 'withdrawals',
       title: t('withdrawalHistory'),
-      subtitle: 'Ver retiros anteriores',
+      subtitle: t('viewPreviousWithdrawals'),
       icon: 'arrow.down.circle.fill',
       androidIcon: 'arrow_circle_down',
       route: '/(tabs)/(home)/withdrawals',
@@ -127,7 +127,7 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.headerBar}>
-        <Text style={styles.headerTitle}>{t('total')}</Text>
+        <Text style={styles.headerTitle}>{t('profile')}</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -145,7 +145,7 @@ export default function ProfileScreen() {
 
         {/* Total MXI Balance Card */}
         <View style={[commonStyles.card, styles.totalBalanceCard]}>
-          <Text style={styles.cardTitle}>{t('totalBalance')} de MXI</Text>
+          <Text style={styles.cardTitle}>{t('totalBalance')} MXI</Text>
           <Text style={styles.totalBalanceValue}>
             {user.mxiBalance.toLocaleString('es-ES', {
               minimumFractionDigits: 2,
@@ -160,13 +160,13 @@ export default function ProfileScreen() {
               </Text>
             </View>
             <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>MXI de {t('vesting')}:</Text>
+              <Text style={styles.breakdownLabel}>MXI {t('vesting')}:</Text>
               <Text style={styles.breakdownValue}>
                 {(user.mxiVestingLocked || 0).toFixed(2)}
               </Text>
             </View>
             <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>MXI de Torneos:</Text>
+              <Text style={styles.breakdownLabel}>MXI {t('tournaments')}:</Text>
               <Text style={styles.breakdownValue}>
                 {(user.mxiFromChallenges || 0).toFixed(2)}
               </Text>

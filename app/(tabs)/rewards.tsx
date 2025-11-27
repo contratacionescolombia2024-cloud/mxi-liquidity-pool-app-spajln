@@ -6,12 +6,13 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, commonStyles } from '@/styles/commonStyles';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,6 +29,7 @@ interface RewardStats {
 export default function RewardsScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<RewardStats | null>(null);
 
@@ -78,7 +80,7 @@ export default function RewardsScreen() {
       });
     } catch (error) {
       console.error('Error loading reward stats:', error);
-      Alert.alert('Error', 'No se pudieron cargar las estadísticas de recompensas');
+      Alert.alert(t('error'), t('loadingRewards'));
     } finally {
       setLoading(false);
     }
@@ -96,7 +98,7 @@ export default function RewardsScreen() {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Cargando recompensas...</Text>
+          <Text style={styles.loadingText}>{t('loadingRewards')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -105,8 +107,8 @@ export default function RewardsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>🎁 Recompensas</Text>
-        <Text style={styles.headerSubtitle}>Gana MXI de múltiples formas</Text>
+        <Text style={styles.headerTitle}>🎁 {t('rewards')}</Text>
+        <Text style={styles.headerSubtitle}>{t('earnMXIMultipleWays')}</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -120,7 +122,7 @@ export default function RewardsScreen() {
               color={colors.primary} 
             />
             <View style={styles.summaryTextContainer}>
-              <Text style={styles.summaryLabel}>Total MXI Ganado</Text>
+              <Text style={styles.summaryLabel}>{t('totalMXIEarned')}</Text>
               <Text style={styles.summaryValue}>{formatNumber(stats?.totalMxiEarned || 0)} MXI</Text>
             </View>
           </View>
@@ -133,7 +135,7 @@ export default function RewardsScreen() {
                 size={16} 
                 color={colors.warning} 
               />
-              <Text style={styles.breakdownLabel}>Comisiones</Text>
+              <Text style={styles.breakdownLabel}>{t('commissions')}</Text>
               <Text style={styles.breakdownValue}>{formatNumber(stats?.fromCommissions || 0)}</Text>
             </View>
 
@@ -144,7 +146,7 @@ export default function RewardsScreen() {
                 size={16} 
                 color={colors.success} 
               />
-              <Text style={styles.breakdownLabel}>Vesting</Text>
+              <Text style={styles.breakdownLabel}>{t('vesting')}</Text>
               <Text style={styles.breakdownValue}>{formatNumber(stats?.fromVesting || 0)}</Text>
             </View>
 
@@ -155,7 +157,7 @@ export default function RewardsScreen() {
                 size={16} 
                 color={colors.accent} 
               />
-              <Text style={styles.breakdownLabel}>Bonus</Text>
+              <Text style={styles.breakdownLabel}>{t('bonus')}</Text>
               <Text style={styles.breakdownValue}>{formatNumber(stats?.fromBonus || 0)}</Text>
             </View>
           </View>
@@ -163,7 +165,7 @@ export default function RewardsScreen() {
 
         {/* Reward Programs */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Programas de Recompensas</Text>
+          <Text style={styles.sectionTitle}>{t('rewardPrograms')}</Text>
           
           {/* Bonus de Participación */}
           <TouchableOpacity
@@ -179,10 +181,10 @@ export default function RewardsScreen() {
               />
             </View>
             <View style={styles.rewardInfo}>
-              <Text style={styles.rewardTitle}>Bonus de Participación</Text>
-              <Text style={styles.rewardDescription}>Participa en sorteos semanales y gana grandes premios</Text>
+              <Text style={styles.rewardTitle}>{t('participationBonus')}</Text>
+              <Text style={styles.rewardDescription}>{t('participateInWeeklyDrawings')}</Text>
               <View style={styles.rewardBadge}>
-                <Text style={styles.rewardBadgeText}>🔥 Activo</Text>
+                <Text style={styles.rewardBadgeText}>🔥 {t('active')}</Text>
               </View>
             </View>
             <IconSymbol 
@@ -207,10 +209,10 @@ export default function RewardsScreen() {
               />
             </View>
             <View style={styles.rewardInfo}>
-              <Text style={styles.rewardTitle}>Vesting & Rendimiento</Text>
-              <Text style={styles.rewardDescription}>Genera rendimiento pasivo automáticamente</Text>
+              <Text style={styles.rewardTitle}>{t('vestingAndYield')}</Text>
+              <Text style={styles.rewardDescription}>{t('generatePassiveIncome')}</Text>
               <View style={styles.rewardBadge}>
-                <Text style={styles.rewardBadgeText}>⚡ En Vivo</Text>
+                <Text style={styles.rewardBadgeText}>⚡ {t('live')}</Text>
               </View>
             </View>
             <IconSymbol 
@@ -235,11 +237,11 @@ export default function RewardsScreen() {
               />
             </View>
             <View style={styles.rewardInfo}>
-              <Text style={styles.rewardTitle}>Sistema de Referidos</Text>
-              <Text style={styles.rewardDescription}>Gana comisiones de 3 niveles por referir amigos</Text>
+              <Text style={styles.rewardTitle}>{t('referralSystem')}</Text>
+              <Text style={styles.rewardDescription}>{t('earnCommissionsFrom3Levels')}</Text>
               <View style={styles.referralStats}>
                 <Text style={styles.referralStatsText}>
-                  {stats?.activeReferrals || 0} activos / {stats?.totalReferrals || 0} total
+                  {stats?.activeReferrals || 0} {t('actives')} / {stats?.totalReferrals || 0} {t('total')}
                 </Text>
               </View>
             </View>
@@ -260,15 +262,15 @@ export default function RewardsScreen() {
             size={48} 
             color={colors.accent} 
           />
-          <Text style={styles.comingSoonTitle}>Más Recompensas Próximamente</Text>
+          <Text style={styles.comingSoonTitle}>{t('moreRewardsComingSoon')}</Text>
           <Text style={styles.comingSoonText}>
-            Estamos trabajando en nuevos programas de recompensas emocionantes:
+            {t('workingOnNewRewards')}
           </Text>
           <View style={styles.comingSoonList}>
-            <Text style={styles.comingSoonItem}>- Torneos y competencias</Text>
-            <Text style={styles.comingSoonItem}>- Bonos por logros</Text>
-            <Text style={styles.comingSoonItem}>- Recompensas por fidelidad</Text>
-            <Text style={styles.comingSoonItem}>- Eventos especiales</Text>
+            <Text style={styles.comingSoonItem}>- {t('tournamentsAndCompetitions')}</Text>
+            <Text style={styles.comingSoonItem}>- {t('achievementBonuses')}</Text>
+            <Text style={styles.comingSoonItem}>- {t('loyaltyRewards')}</Text>
+            <Text style={styles.comingSoonItem}>- {t('specialEvents')}</Text>
           </View>
         </View>
 
@@ -281,28 +283,28 @@ export default function RewardsScreen() {
               size={24} 
               color={colors.primary} 
             />
-            <Text style={styles.infoTitle}>Beneficios de las Recompensas</Text>
+            <Text style={styles.infoTitle}>{t('benefitsOfRewards')}</Text>
           </View>
           <View style={styles.infoList}>
             <View style={styles.infoListItem}>
-              <Text style={styles.infoBullet}>•</Text>
-              <Text style={styles.infoItem}>Gana tokens MXI adicionales sin inversión extra</Text>
+              <Text style={styles.infoBullet}>-</Text>
+              <Text style={styles.infoItem}>{t('earnAdditionalMXI')}</Text>
             </View>
             <View style={styles.infoListItem}>
-              <Text style={styles.infoBullet}>•</Text>
-              <Text style={styles.infoItem}>Participa en sorteos exclusivos con grandes premios</Text>
+              <Text style={styles.infoBullet}>-</Text>
+              <Text style={styles.infoItem}>{t('participateInExclusiveDrawings')}</Text>
             </View>
             <View style={styles.infoListItem}>
-              <Text style={styles.infoBullet}>•</Text>
-              <Text style={styles.infoItem}>Genera rendimiento pasivo automático 24/7</Text>
+              <Text style={styles.infoBullet}>-</Text>
+              <Text style={styles.infoItem}>{t('generateAutomaticPassiveIncome')}</Text>
             </View>
             <View style={styles.infoListItem}>
-              <Text style={styles.infoBullet}>•</Text>
-              <Text style={styles.infoItem}>Bonos por referidos activos de hasta 3 niveles</Text>
+              <Text style={styles.infoBullet}>-</Text>
+              <Text style={styles.infoItem}>{t('bonusesForActiveReferrals')}</Text>
             </View>
             <View style={styles.infoListItem}>
-              <Text style={styles.infoBullet}>•</Text>
-              <Text style={styles.infoItem}>Recompensas por participación continua</Text>
+              <Text style={styles.infoBullet}>-</Text>
+              <Text style={styles.infoItem}>{t('rewardsForContinuedParticipation')}</Text>
             </View>
           </View>
         </View>
@@ -316,32 +318,32 @@ export default function RewardsScreen() {
               size={24} 
               color={colors.warning} 
             />
-            <Text style={styles.tipsTitle}>Maximiza tus Recompensas</Text>
+            <Text style={styles.tipsTitle}>{t('maximizeYourRewards')}</Text>
           </View>
           <View style={styles.tipsList}>
             <View style={styles.tipItem}>
               <View style={styles.tipNumber}>
                 <Text style={styles.tipNumberText}>1</Text>
               </View>
-              <Text style={styles.tipText}>Mantén al menos 5 referidos activos para desbloquear retiros</Text>
+              <Text style={styles.tipText}>{t('keepAtLeast5ActiveReferrals')}</Text>
             </View>
             <View style={styles.tipItem}>
               <View style={styles.tipNumber}>
                 <Text style={styles.tipNumberText}>2</Text>
               </View>
-              <Text style={styles.tipText}>Participa regularmente en el bonus de participación para aumentar tus chances</Text>
+              <Text style={styles.tipText}>{t('participateRegularlyInBonus')}</Text>
             </View>
             <View style={styles.tipItem}>
               <View style={styles.tipNumber}>
                 <Text style={styles.tipNumberText}>3</Text>
               </View>
-              <Text style={styles.tipText}>Activa el vesting para generar rendimiento pasivo continuo</Text>
+              <Text style={styles.tipText}>{t('activateVestingForPassiveIncome')}</Text>
             </View>
             <View style={styles.tipItem}>
               <View style={styles.tipNumber}>
                 <Text style={styles.tipNumberText}>4</Text>
               </View>
-              <Text style={styles.tipText}>Comparte tu código de referido en redes sociales</Text>
+              <Text style={styles.tipText}>{t('shareYourReferralCode')}</Text>
             </View>
           </View>
         </View>

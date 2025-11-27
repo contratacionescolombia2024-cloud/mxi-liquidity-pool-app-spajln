@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -40,6 +41,7 @@ const GAME_ICONS = {
 export default function TournamentsScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [games, setGames] = useState<TournamentGame[]>([]);
   const [loading, setLoading] = useState(true);
   const [availableMXI, setAvailableMXI] = useState(0);
@@ -79,7 +81,7 @@ export default function TournamentsScreen() {
       setAvailableMXI(total);
     } catch (error) {
       console.error('[Tournaments] Load error:', error);
-      Alert.alert('Error', 'No se pudieron cargar los juegos');
+      Alert.alert(t('error'), t('availableGames'));
     } finally {
       setLoading(false);
     }
@@ -93,8 +95,8 @@ export default function TournamentsScreen() {
     // Check balance
     if (availableMXI < game.entry_fee) {
       Alert.alert(
-        'Saldo Insuficiente',
-        `Necesitas ${game.entry_fee} MXI. Tienes ${availableMXI.toFixed(2)} MXI disponible.`
+        t('insufficientBalance'),
+        t('insufficientBalanceNeed', { needed: game.entry_fee, available: availableMXI.toFixed(2) })
       );
       return;
     }
@@ -134,16 +136,16 @@ export default function TournamentsScreen() {
 
   const confirmJoin = (game: TournamentGame, playerCount: number | null) => {
     const message = playerCount 
-      ? `¿Crear torneo de ${playerCount} jugadores por ${game.entry_fee} MXI?\n\n🏆 Premio: 90% del pool\n👥 ${playerCount} jugadores`
-      : `¿Participar por ${game.entry_fee} MXI?\n\n🏆 Premio: 90% del pool\n👥 ${game.min_players}-${game.max_players} jugadores`;
+      ? t('createTournamentOf', { count: playerCount }) + ` ${t('participateFor', { fee: game.entry_fee })}?\n\n🏆 ${t('prize')}: 90% del pool\n👥 ${playerCount} ${t('players')}`
+      : t('participateFor', { fee: game.entry_fee }) + `?\n\n🏆 ${t('prize')}: 90% del pool\n👥 ${game.min_players}-${game.max_players} ${t('players')}`;
 
     Alert.alert(
       game.name,
       message,
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         { 
-          text: 'Participar', 
+          text: t('continue'), 
           onPress: () => executeJoin(game, playerCount)
         }
       ]
@@ -239,7 +241,7 @@ export default function TournamentsScreen() {
       }
 
       if (newChallenges < 0) {
-        throw new Error('Saldo insuficiente');
+        throw new Error(t('insufficientBalance'));
       }
 
       const { error: balanceError } = await supabase
@@ -309,7 +311,7 @@ export default function TournamentsScreen() {
 
     } catch (error: any) {
       console.error('[Tournaments] JOIN ERROR:', error);
-      Alert.alert('Error', error.message || 'No se pudo unir al juego');
+      Alert.alert(t('error'), error.message || t('joiningGame'));
     } finally {
       setJoining(false);
     }
@@ -320,7 +322,7 @@ export default function TournamentsScreen() {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Cargando...</Text>
+          <Text style={styles.loadingText}>{t('loading')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -329,7 +331,7 @@ export default function TournamentsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Torneos</Text>
+        <Text style={styles.headerTitle}>{t('tournamentsTitle')}</Text>
         <View style={styles.balanceContainer}>
           <IconSymbol 
             ios_icon_name="dollarsign.circle.fill" 
@@ -350,16 +352,16 @@ export default function TournamentsScreen() {
               size={28} 
               color={colors.primary} 
             />
-            <Text style={styles.infoTitle}>Distribución de Recompensas</Text>
+            <Text style={styles.infoTitle}>{t('distributionOfRewards')}</Text>
           </View>
           <View style={styles.distributionBars}>
             <View style={styles.barRow}>
               <View style={[styles.bar, { width: '90%', backgroundColor: colors.success }]} />
-              <Text style={styles.barLabel}>90% - Ganador</Text>
+              <Text style={styles.barLabel}>90% - {t('winner')}</Text>
             </View>
             <View style={styles.barRow}>
               <View style={[styles.bar, { width: '10%', backgroundColor: colors.primary }]} />
-              <Text style={styles.barLabel}>10% - Fondo de Premios</Text>
+              <Text style={styles.barLabel}>10% - {t('prizeFund')}</Text>
             </View>
           </View>
         </View>
@@ -372,11 +374,11 @@ export default function TournamentsScreen() {
             color={colors.warning} 
           />
           <Text style={styles.warningText}>
-            Solo puedes usar MXI de comisiones o retos ganados
+            {t('onlyUseCommissionsOrChallenges')}
           </Text>
         </View>
 
-        <Text style={styles.sectionTitle}>Juegos Disponibles</Text>
+        <Text style={styles.sectionTitle}>{t('availableGames')}</Text>
 
         {games.map((game) => {
           const icon = GAME_ICONS[game.game_type as keyof typeof GAME_ICONS];
@@ -422,7 +424,7 @@ export default function TournamentsScreen() {
         {joining && (
           <View style={styles.joiningOverlay}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.joiningText}>Uniéndose al juego...</Text>
+            <Text style={styles.joiningText}>{t('joiningGame')}</Text>
           </View>
         )}
       </ScrollView>
@@ -437,7 +439,7 @@ export default function TournamentsScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Seleccionar Jugadores</Text>
+              <Text style={styles.modalTitle}>{t('selectPlayers')}</Text>
               <TouchableOpacity 
                 onPress={() => setShowPlayerSelector(false)}
                 style={styles.modalCloseButton}
@@ -452,7 +454,7 @@ export default function TournamentsScreen() {
             </View>
 
             <Text style={styles.modalDescription}>
-              Como primer jugador, elige cuántos jugadores participarán en este torneo:
+              {t('asFirstPlayerChoosePlayers')}
             </Text>
 
             <View style={styles.playerOptions}>
@@ -481,13 +483,13 @@ export default function TournamentsScreen() {
                     styles.playerOptionText,
                     selectedPlayerCount === count && styles.playerOptionTextSelected
                   ]}>
-                    {count} Jugadores
+                    {count} {t('players')}
                   </Text>
                   <Text style={[
                     styles.playerOptionSubtext,
                     selectedPlayerCount === count && styles.playerOptionSubtextSelected
                   ]}>
-                    Premio: {selectedGame ? (selectedGame.entry_fee * count * 0.9).toFixed(2) : 0} MXI
+                    {t('prize')}: {selectedGame ? (selectedGame.entry_fee * count * 0.9).toFixed(2) : 0} MXI
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -502,7 +504,7 @@ export default function TournamentsScreen() {
               }}
             >
               <Text style={buttonStyles.primaryText}>
-                Crear Torneo de {selectedPlayerCount} Jugadores
+                {t('createTournamentOf', { count: selectedPlayerCount })}
               </Text>
             </TouchableOpacity>
 
@@ -510,7 +512,7 @@ export default function TournamentsScreen() {
               style={[buttonStyles.secondary, styles.cancelButton]}
               onPress={() => setShowPlayerSelector(false)}
             >
-              <Text style={buttonStyles.secondaryText}>Cancelar</Text>
+              <Text style={buttonStyles.secondaryText}>{t('cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>
