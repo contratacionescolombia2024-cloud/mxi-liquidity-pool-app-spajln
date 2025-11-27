@@ -27,11 +27,11 @@ export default function EcosystemScreen() {
         <Text style={styles.headerSubtitle}>Pool de Liquidez Maxcoin</Text>
       </View>
 
-      {/* Tab Navigation - FIXED */}
+      {/* Tab Navigation - SCROLL BARS HIDDEN */}
       <View style={styles.tabScrollContainer}>
         <ScrollView 
           horizontal 
-          showsHorizontalScrollIndicator={true}
+          showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.tabContainer}
           style={styles.tabScrollView}
         >
@@ -109,8 +109,12 @@ export default function EcosystemScreen() {
         </ScrollView>
       </View>
 
-      {/* Tab Content */}
-      <ScrollView style={styles.contentScrollView} contentContainerStyle={styles.scrollContent}>
+      {/* Tab Content - SCROLL BAR HIDDEN */}
+      <ScrollView 
+        style={styles.contentScrollView} 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {activeTab === 'que-es' && <QueEsMXITab />}
         {activeTab === 'como-funciona' && <ComoFuncionaTab />}
         {activeTab === 'por-que-comprar' && <PorQueComprarTab />}
@@ -652,7 +656,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
   },
-  // FIXED TAB STYLES
+  // FIXED TAB STYLES - SCROLL BARS HIDDEN
   tabScrollContainer: {
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
