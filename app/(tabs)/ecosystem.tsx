@@ -15,7 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
-type TabType = 'que-es' | 'como-funciona' | 'por-que-comprar' | 'meta' | 'ecosistema' | 'sostenibilidad' | 'vesting-diario' | 'en-la-practica';
+type TabType = 'que-es' | 'como-funciona' | 'por-que-comprar' | 'meta' | 'ecosistema' | 'sostenibilidad' | 'vesting-diario' | 'en-la-practica' | 'tokenomica';
 
 export default function EcosystemScreen() {
   const [activeTab, setActiveTab] = useState<TabType>('que-es');
@@ -106,6 +106,15 @@ export default function EcosystemScreen() {
               En la práctica 📊
             </Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'tokenomica' && styles.activeTab]}
+            onPress={() => setActiveTab('tokenomica')}
+          >
+            <Text style={[styles.tabText, activeTab === 'tokenomica' && styles.activeTabText]}>
+              Tokenómica 🪙
+            </Text>
+          </TouchableOpacity>
         </ScrollView>
       </View>
 
@@ -123,6 +132,7 @@ export default function EcosystemScreen() {
         {activeTab === 'sostenibilidad' && <SostenibilidadTab />}
         {activeTab === 'vesting-diario' && <VestingDiarioTab />}
         {activeTab === 'en-la-practica' && <EnLaPracticaTab />}
+        {activeTab === 'tokenomica' && <TokenomicaTab />}
       </ScrollView>
     </SafeAreaView>
   );
@@ -1816,6 +1826,341 @@ function EnLaPracticaTab() {
   );
 }
 
+// TOKENÓMICA Tab Content - NEW TAB
+function TokenomicaTab() {
+  return (
+    <View>
+      {/* Main Title */}
+      <View style={styles.titleSection}>
+        <Text style={styles.mainTitle}>Tokenómica 🪙</Text>
+      </View>
+
+      {/* Hero Image */}
+      <View style={styles.imageContainer}>
+        <Image
+          source={require('@/assets/images/76715c1f-8b5b-4e0a-8692-d6d7963a0d99.png')}
+          style={styles.tokenomicaImage}
+          resizeMode="cover"
+        />
+      </View>
+
+      {/* Introduction Card */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '10', colors.accent + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.introText}>
+            🪙 <Text style={styles.boldText}>MXI adopta un diseño económico</Text> pensado para su estabilidad, transparencia y crecimiento a largo plazo.
+          </Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.bodyText}>
+            💎 Durante la etapa de preventa y expansión inicial, MXI funcionará con una <Text style={styles.highlightText}>oferta fija de 50.000.000 tokens</Text>, un modelo utilizado por los proyectos más sólidos del mercado para asegurar claridad y evitar riesgos asociados a inflaciones futuras.
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Hybrid Model Section */}
+      <View style={styles.hybridModelSection}>
+        <Text style={styles.sectionTitle}>🔄 Modelo Híbrido</Text>
+        
+        <View style={[commonStyles.card, styles.hybridCard]}>
+          <LinearGradient
+            colors={['#4CAF50' + '15', '#45a049' + '15']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.hybridGradient}
+          >
+            <Text style={styles.hybridText}>
+              🌐 Una vez la red alcance madurez y se implemente la blockchain propia de MXI, el ecosistema evolucionará hacia un <Text style={styles.boldText}>modelo híbrido</Text>, en el que MXI mantendrá su oferta limitada y conservará su función de valor, gobernanza y acceso.
+            </Text>
+            
+            <View style={styles.divider} />
+            
+            <Text style={styles.hybridText}>
+              ⚙️ Paralelamente, la nueva blockchain utilizará un <Text style={styles.highlightText}>token técnico interno</Text>, diseñado exclusivamente para funciones operativas como tarifas y validación.
+            </Text>
+          </LinearGradient>
+        </View>
+      </View>
+
+      {/* Benefits Section */}
+      <View style={styles.benefitsTokenSection}>
+        <Text style={styles.sectionTitle}>✨ Ventajas del Modelo</Text>
+        
+        <View style={[commonStyles.card, styles.benefitTokenCard]}>
+          <View style={styles.benefitTokenRow}>
+            <Text style={styles.benefitTokenIcon}>🔒</Text>
+            <View style={styles.benefitTokenContent}>
+              <Text style={styles.benefitTokenTitle}>Escasez Protegida</Text>
+              <Text style={styles.benefitTokenDescription}>
+                MXI mantiene su oferta limitada, preservando su valor a largo plazo
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={[commonStyles.card, styles.benefitTokenCard]}>
+          <View style={styles.benefitTokenRow}>
+            <Text style={styles.benefitTokenIcon}>📈</Text>
+            <View style={styles.benefitTokenContent}>
+              <Text style={styles.benefitTokenTitle}>Red Escalable</Text>
+              <Text style={styles.benefitTokenDescription}>
+                La infraestructura crece sin comprometer el equilibrio económico
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={[commonStyles.card, styles.benefitTokenCard]}>
+          <View style={styles.benefitTokenRow}>
+            <Text style={styles.benefitTokenIcon}>🎯</Text>
+            <View style={styles.benefitTokenContent}>
+              <Text style={styles.benefitTokenTitle}>Visión Estructurada</Text>
+              <Text style={styles.benefitTokenDescription}>
+                Crecimiento orgánico sin sacrificar estabilidad
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={[commonStyles.card, styles.benefitTokenCard]}>
+          <View style={styles.benefitTokenRow}>
+            <Text style={styles.benefitTokenIcon}>🧮</Text>
+            <View style={styles.benefitTokenContent}>
+              <Text style={styles.benefitTokenTitle}>Coherencia Matemática</Text>
+              <Text style={styles.benefitTokenDescription}>
+                Modelo sostenible basado en principios económicos sólidos
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Comparison Table Section */}
+      <View style={styles.comparisonTableSection}>
+        <Text style={styles.sectionTitle}>📊 Comparación con Otros Modelos Económicos</Text>
+        
+        {/* Bitcoin */}
+        <View style={[commonStyles.card, styles.comparisonProjectCard]}>
+          <LinearGradient
+            colors={['#F7931A' + '15', '#F7931A' + '10']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.comparisonProjectGradient}
+          >
+            <Text style={styles.comparisonProjectName}>₿ Bitcoin</Text>
+            
+            <View style={styles.comparisonRow}>
+              <Text style={styles.comparisonLabel}>💰 Economía:</Text>
+              <Text style={styles.comparisonValue}>Oferta fija</Text>
+            </View>
+            
+            <View style={styles.comparisonRow}>
+              <Text style={styles.comparisonLabel}>📊 Emisión:</Text>
+              <Text style={styles.comparisonValue}>21M BTC</Text>
+            </View>
+            
+            <View style={styles.comparisonRow}>
+              <Text style={styles.comparisonLabel}>✅ Ventajas:</Text>
+              <Text style={styles.comparisonValue}>Máxima escasez</Text>
+            </View>
+            
+            <View style={styles.comparisonRow}>
+              <Text style={styles.comparisonLabel}>⚠️ Limitaciones:</Text>
+              <Text style={styles.comparisonValue}>Poco flexible, no escalable para operaciones</Text>
+            </View>
+          </LinearGradient>
+        </View>
+
+        {/* Ethereum */}
+        <View style={[commonStyles.card, styles.comparisonProjectCard]}>
+          <LinearGradient
+            colors={['#627EEA' + '15', '#627EEA' + '10']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.comparisonProjectGradient}
+          >
+            <Text style={styles.comparisonProjectName}>Ξ Ethereum</Text>
+            
+            <View style={styles.comparisonRow}>
+              <Text style={styles.comparisonLabel}>💰 Economía:</Text>
+              <Text style={styles.comparisonValue}>Emisión algorítmica + quema</Text>
+            </View>
+            
+            <View style={styles.comparisonRow}>
+              <Text style={styles.comparisonLabel}>📊 Emisión:</Text>
+              <Text style={styles.comparisonValue}>Variable</Text>
+            </View>
+            
+            <View style={styles.comparisonRow}>
+              <Text style={styles.comparisonLabel}>✅ Ventajas:</Text>
+              <Text style={styles.comparisonValue}>Autoajuste, flexibilidad</Text>
+            </View>
+            
+            <View style={styles.comparisonRow}>
+              <Text style={styles.comparisonLabel}>⚠️ Limitaciones:</Text>
+              <Text style={styles.comparisonValue}>Inflación controlada pero existente</Text>
+            </View>
+          </LinearGradient>
+        </View>
+
+        {/* Cardano */}
+        <View style={[commonStyles.card, styles.comparisonProjectCard]}>
+          <LinearGradient
+            colors={['#0033AD' + '15', '#0033AD' + '10']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.comparisonProjectGradient}
+          >
+            <Text style={styles.comparisonProjectName}>₳ Cardano</Text>
+            
+            <View style={styles.comparisonRow}>
+              <Text style={styles.comparisonLabel}>💰 Economía:</Text>
+              <Text style={styles.comparisonValue}>Emisión limitada + recompensas</Text>
+            </View>
+            
+            <View style={styles.comparisonRow}>
+              <Text style={styles.comparisonLabel}>📊 Emisión:</Text>
+              <Text style={styles.comparisonValue}>45B ADA</Text>
+            </View>
+            
+            <View style={styles.comparisonRow}>
+              <Text style={styles.comparisonLabel}>✅ Ventajas:</Text>
+              <Text style={styles.comparisonValue}>Balance entre operatividad y valor</Text>
+            </View>
+            
+            <View style={styles.comparisonRow}>
+              <Text style={styles.comparisonLabel}>⚠️ Limitaciones:</Text>
+              <Text style={styles.comparisonValue}>Lenta adopción</Text>
+            </View>
+          </LinearGradient>
+        </View>
+
+        {/* Solana */}
+        <View style={[commonStyles.card, styles.comparisonProjectCard]}>
+          <LinearGradient
+            colors={['#14F195' + '15', '#9945FF' + '15']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.comparisonProjectGradient}
+          >
+            <Text style={styles.comparisonProjectName}>◎ Solana</Text>
+            
+            <View style={styles.comparisonRow}>
+              <Text style={styles.comparisonLabel}>💰 Economía:</Text>
+              <Text style={styles.comparisonValue}>Emisión decreciente</Text>
+            </View>
+            
+            <View style={styles.comparisonRow}>
+              <Text style={styles.comparisonLabel}>📊 Emisión:</Text>
+              <Text style={styles.comparisonValue}>Inflación inicial 8% → 1.5%</Text>
+            </View>
+            
+            <View style={styles.comparisonRow}>
+              <Text style={styles.comparisonLabel}>✅ Ventajas:</Text>
+              <Text style={styles.comparisonValue}>Alta velocidad</Text>
+            </View>
+            
+            <View style={styles.comparisonRow}>
+              <Text style={styles.comparisonLabel}>⚠️ Limitaciones:</Text>
+              <Text style={styles.comparisonValue}>Modelo dependiente del volumen y validadores</Text>
+            </View>
+          </LinearGradient>
+        </View>
+
+        {/* MXI - Highlighted */}
+        <View style={[commonStyles.card, styles.comparisonProjectCard, styles.mxiHighlightCard]}>
+          <LinearGradient
+            colors={[colors.primary + '25', colors.accent + '25']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.comparisonProjectGradient}
+          >
+            <Text style={styles.comparisonProjectNameMXI}>🪙 MXI (Modelo Híbrido)</Text>
+            
+            <View style={styles.comparisonRow}>
+              <Text style={styles.comparisonLabel}>💰 Economía:</Text>
+              <Text style={styles.comparisonValueMXI}>Oferta fija + token operativo</Text>
+            </View>
+            
+            <View style={styles.comparisonRow}>
+              <Text style={styles.comparisonLabel}>📊 Emisión:</Text>
+              <Text style={styles.comparisonValueMXI}>50M MXI + emisión controlada para tarifas</Text>
+            </View>
+            
+            <View style={styles.comparisonRow}>
+              <Text style={styles.comparisonLabel}>✅ Ventajas:</Text>
+              <Text style={styles.comparisonValueMXI}>Escasez protegida + red escalable</Text>
+            </View>
+            
+            <View style={styles.comparisonRow}>
+              <Text style={styles.comparisonLabel}>⚠️ Limitaciones:</Text>
+              <Text style={styles.comparisonValueMXI}>Requiere madurez para activar el token operativo</Text>
+            </View>
+          </LinearGradient>
+        </View>
+      </View>
+
+      {/* Conclusion Card */}
+      <View style={[commonStyles.card, styles.conclusionCard]}>
+        <LinearGradient
+          colors={[colors.primary + '20', colors.accent + '20']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.conclusionGradient}
+        >
+          <Text style={styles.conclusionEmoji}>🎯</Text>
+          <Text style={styles.conclusionTitle}>Diferenciación de MXI</Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.conclusionText}>
+            🌟 MXI se diferencia por su <Text style={styles.boldText}>visión estructurada, sostenible y matemáticamente coherente</Text>, permitiendo un crecimiento orgánico sin sacrificar estabilidad.
+          </Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.conclusionHighlight}>
+            ⚡ Este enfoque permite que MXI mantenga su escasez y solidez, al mismo tiempo que la infraestructura del ecosistema crece sin comprometer su equilibrio económico.
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Final CTA */}
+      <View style={[commonStyles.card, styles.finalCtaCard]}>
+        <LinearGradient
+          colors={[colors.primary, colors.accent]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.finalCtaGradient}
+        >
+          <Text style={styles.finalCtaEmoji}>🪙</Text>
+          <Text style={styles.finalCtaTitle}>Invierte en un Modelo Sólido</Text>
+          <Text style={styles.finalCtaText}>
+            Únete a un proyecto con tokenómica diseñada para el éxito a largo plazo
+          </Text>
+          <View style={styles.finalCtaStats}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>50M</Text>
+              <Text style={styles.statLabel}>Oferta Fija</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>Híbrido</Text>
+              <Text style={styles.statLabel}>Modelo Único</Text>
+            </View>
+          </View>
+        </LinearGradient>
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1939,6 +2284,11 @@ const styles = StyleSheet.create({
   practicaImage: {
     width: width - 80,
     height: (width - 80) * 0.55,
+    borderRadius: 20,
+  },
+  tokenomicaImage: {
+    width: width - 80,
+    height: (width - 80) * 0.65,
     borderRadius: 20,
   },
   contentCard: {
@@ -2885,5 +3235,134 @@ const styles = StyleSheet.create({
     color: colors.text,
     textAlign: 'center',
     lineHeight: 28,
+  },
+  // Tokenómica Styles - NEW
+  hybridModelSection: {
+    marginBottom: 24,
+  },
+  hybridCard: {
+    padding: 0,
+    overflow: 'hidden',
+  },
+  hybridGradient: {
+    padding: 20,
+  },
+  hybridText: {
+    fontSize: 15,
+    color: colors.text,
+    lineHeight: 24,
+    marginBottom: 8,
+  },
+  benefitsTokenSection: {
+    marginBottom: 24,
+  },
+  benefitTokenCard: {
+    padding: 16,
+    marginBottom: 12,
+  },
+  benefitTokenRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  benefitTokenIcon: {
+    fontSize: 36,
+  },
+  benefitTokenContent: {
+    flex: 1,
+  },
+  benefitTokenTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  benefitTokenDescription: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  comparisonTableSection: {
+    marginBottom: 24,
+  },
+  comparisonProjectCard: {
+    padding: 0,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  mxiHighlightCard: {
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  comparisonProjectGradient: {
+    padding: 20,
+  },
+  comparisonProjectName: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  comparisonProjectNameMXI: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.primary,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  comparisonRow: {
+    marginBottom: 12,
+  },
+  comparisonLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  comparisonValue: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  comparisonValueMXI: {
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+  conclusionCard: {
+    padding: 0,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  conclusionGradient: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  conclusionEmoji: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  conclusionTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  conclusionText: {
+    fontSize: 16,
+    color: colors.text,
+    textAlign: 'center',
+    lineHeight: 26,
+    marginBottom: 8,
+  },
+  conclusionHighlight: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: colors.primary,
+    textAlign: 'center',
+    lineHeight: 26,
   },
 });
