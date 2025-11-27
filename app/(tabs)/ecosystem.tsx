@@ -15,7 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
-type TabType = 'que-es' | 'como-funciona' | 'por-que-comprar';
+type TabType = 'que-es' | 'como-funciona' | 'por-que-comprar' | 'meta';
 
 export default function EcosystemScreen() {
   const [activeTab, setActiveTab] = useState<TabType>('que-es');
@@ -59,12 +59,22 @@ export default function EcosystemScreen() {
             ¿Por qué comprar? 💰
           </Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'meta' && styles.activeTab]}
+          onPress={() => setActiveTab('meta')}
+        >
+          <Text style={[styles.tabText, activeTab === 'meta' && styles.activeTabText]}>
+            META 🎯
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Tab Content */}
       {activeTab === 'que-es' && <QueEsMXITab />}
       {activeTab === 'como-funciona' && <ComoFuncionaTab />}
       {activeTab === 'por-que-comprar' && <PorQueComprarTab />}
+      {activeTab === 'meta' && <MetaTab />}
     </SafeAreaView>
   );
 }
@@ -868,6 +878,264 @@ function PorQueComprarTab() {
   );
 }
 
+// META Tab Content
+function MetaTab() {
+  return (
+    <ScrollView contentContainerStyle={styles.scrollContent}>
+      {/* Main Title */}
+      <View style={styles.titleSection}>
+        <Text style={styles.mainTitle}>META 🎯</Text>
+      </View>
+
+      {/* Hero Image */}
+      <View style={styles.imageContainer}>
+        <Image
+          source={require('@/assets/images/76b95e25-0844-42d7-915d-4be1ebdeb915.png')}
+          style={styles.metaImage}
+          resizeMode="cover"
+        />
+      </View>
+
+      {/* Main Goal Card */}
+      <View style={[commonStyles.card, styles.metaGoalCard]}>
+        <LinearGradient
+          colors={[colors.primary + '15', colors.accent + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.metaGoalGradient}
+        >
+          <Text style={styles.metaGoalEmoji}>🎯</Text>
+          <Text style={styles.metaGoalTitle}>Nuestra Meta es Clara</Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.metaGoalText}>
+            Posicionar a <Text style={styles.boldText}>MAXCOIN (MXI)</Text> como una de las criptomonedas de crecimiento más sólidas y confiables del mercado internacional, impulsando su valor desde <Text style={styles.highlightText}>0.40 USDT</Text> hasta una proyección de <Text style={styles.highlightText}>12 USDT</Text> en un modelo sostenible, transparente y medible.
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Vision Card */}
+      <View style={[commonStyles.card, styles.metaVisionCard]}>
+        <LinearGradient
+          colors={['#4CAF50' + '15', '#8BC34A' + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.metaVisionGradient}
+        >
+          <Text style={styles.metaVisionEmoji}>🌉</Text>
+          <Text style={styles.metaVisionTitle}>Rompiendo Barreras</Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.metaVisionText}>
+            Queremos romper la brecha entre el <Text style={styles.boldText}>mundo tradicional</Text> y el <Text style={styles.boldText}>mundo cripto</Text>, brindando herramientas reales de generación de ingresos a través de:
+          </Text>
+          
+          <View style={styles.metaToolsList}>
+            <View style={styles.metaToolRow}>
+              <Text style={styles.metaToolIcon}>💎</Text>
+              <Text style={styles.metaToolText}>Vesting</Text>
+            </View>
+            <View style={styles.metaToolRow}>
+              <Text style={styles.metaToolIcon}>⛏️</Text>
+              <Text style={styles.metaToolText}>Minería</Text>
+            </View>
+            <View style={styles.metaToolRow}>
+              <Text style={styles.metaToolIcon}>💰</Text>
+              <Text style={styles.metaToolText}>Préstamos</Text>
+            </View>
+            <View style={styles.metaToolRow}>
+              <Text style={styles.metaToolIcon}>💳</Text>
+              <Text style={styles.metaToolText}>Pagos descentralizados</Text>
+            </View>
+          </View>
+        </LinearGradient>
+      </View>
+
+      {/* Growth Projection Card */}
+      <View style={[commonStyles.card, styles.metaProjectionCard]}>
+        <LinearGradient
+          colors={['#2196F3' + '15', '#03A9F4' + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.metaProjectionGradient}
+        >
+          <Text style={styles.metaProjectionEmoji}>📈</Text>
+          <Text style={styles.metaProjectionTitle}>Proyección de Crecimiento</Text>
+          
+          <View style={styles.metaProjectionStats}>
+            <View style={styles.metaProjectionStatItem}>
+              <Text style={styles.metaProjectionStatValue}>0.40 USDT</Text>
+              <Text style={styles.metaProjectionStatLabel}>Precio Inicial</Text>
+              <Text style={styles.metaProjectionStatEmoji}>🚀</Text>
+            </View>
+            
+            <View style={styles.metaProjectionArrow}>
+              <Text style={styles.metaProjectionArrowText}>→</Text>
+            </View>
+            
+            <View style={styles.metaProjectionStatItem}>
+              <Text style={styles.metaProjectionStatValue}>12 USDT</Text>
+              <Text style={styles.metaProjectionStatLabel}>Proyección</Text>
+              <Text style={styles.metaProjectionStatEmoji}>🎯</Text>
+            </View>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <View style={styles.metaProjectionFeatures}>
+            <View style={styles.metaProjectionFeatureRow}>
+              <Text style={styles.metaProjectionFeatureIcon}>✓</Text>
+              <Text style={styles.metaProjectionFeatureText}>Modelo sostenible</Text>
+            </View>
+            <View style={styles.metaProjectionFeatureRow}>
+              <Text style={styles.metaProjectionFeatureIcon}>✓</Text>
+              <Text style={styles.metaProjectionFeatureText}>Transparente</Text>
+            </View>
+            <View style={styles.metaProjectionFeatureRow}>
+              <Text style={styles.metaProjectionFeatureIcon}>✓</Text>
+              <Text style={styles.metaProjectionFeatureText}>Medible</Text>
+            </View>
+          </View>
+        </LinearGradient>
+      </View>
+
+      {/* Shared Goal Card */}
+      <View style={[commonStyles.card, styles.metaSharedGoalCard]}>
+        <LinearGradient
+          colors={['#FF9800' + '15', '#FF5722' + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.metaSharedGoalGradient}
+        >
+          <Text style={styles.metaSharedGoalEmoji}>🤝</Text>
+          <Text style={styles.metaSharedGoalTitle}>Una Meta Compartida</Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.metaSharedGoalText}>
+            Cada fase, cada aplicación y cada usuario forma parte de una meta compartida:
+          </Text>
+          
+          <View style={styles.metaSharedGoalHighlight}>
+            <Text style={styles.metaSharedGoalQuoteIcon}>💬</Text>
+            <Text style={styles.metaSharedGoalQuote}>
+              "Construir un sistema financiero global que funcione para todos, no solo para unos pocos."
+            </Text>
+          </View>
+        </LinearGradient>
+      </View>
+
+      {/* Key Pillars Section */}
+      <View style={styles.metaPillarsSection}>
+        <Text style={styles.sectionTitle}>🏛️ Pilares Fundamentales</Text>
+        
+        <View style={[commonStyles.card, styles.metaPillarCard]}>
+          <View style={styles.metaPillarRow}>
+            <Text style={styles.metaPillarEmoji}>🌍</Text>
+            <View style={styles.metaPillarContent}>
+              <Text style={styles.metaPillarTitle}>Alcance Global</Text>
+              <Text style={styles.metaPillarDescription}>
+                Un sistema financiero que trasciende fronteras y llega a todos los rincones del mundo
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={[commonStyles.card, styles.metaPillarCard]}>
+          <View style={styles.metaPillarRow}>
+            <Text style={styles.metaPillarEmoji}>⚖️</Text>
+            <View style={styles.metaPillarContent}>
+              <Text style={styles.metaPillarTitle}>Equidad</Text>
+              <Text style={styles.metaPillarDescription}>
+                Oportunidades justas para todos, sin importar su ubicación o capital inicial
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={[commonStyles.card, styles.metaPillarCard]}>
+          <View style={styles.metaPillarRow}>
+            <Text style={styles.metaPillarEmoji}>🔬</Text>
+            <View style={styles.metaPillarContent}>
+              <Text style={styles.metaPillarTitle}>Innovación</Text>
+              <Text style={styles.metaPillarDescription}>
+                Tecnología blockchain de vanguardia al servicio de la comunidad
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={[commonStyles.card, styles.metaPillarCard]}>
+          <View style={styles.metaPillarRow}>
+            <Text style={styles.metaPillarEmoji}>🛡️</Text>
+            <View style={styles.metaPillarContent}>
+              <Text style={styles.metaPillarTitle}>Confiabilidad</Text>
+              <Text style={styles.metaPillarDescription}>
+                Seguridad, auditorías y transparencia en cada operación
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Impact Section */}
+      <View style={styles.metaImpactSection}>
+        <Text style={styles.sectionTitle}>💫 Nuestro Impacto</Text>
+        
+        <View style={styles.metaImpactGrid}>
+          <View style={[commonStyles.card, styles.metaImpactCard]}>
+            <Text style={styles.metaImpactEmoji}>👥</Text>
+            <Text style={styles.metaImpactValue}>250,000</Text>
+            <Text style={styles.metaImpactLabel}>Usuarios Objetivo</Text>
+          </View>
+
+          <View style={[commonStyles.card, styles.metaImpactCard]}>
+            <Text style={styles.metaImpactEmoji}>🌐</Text>
+            <Text style={styles.metaImpactValue}>Global</Text>
+            <Text style={styles.metaImpactLabel}>Alcance</Text>
+          </View>
+
+          <View style={[commonStyles.card, styles.metaImpactCard]}>
+            <Text style={styles.metaImpactEmoji}>💰</Text>
+            <Text style={styles.metaImpactValue}>30x</Text>
+            <Text style={styles.metaImpactLabel}>Potencial ROI</Text>
+          </View>
+
+          <View style={[commonStyles.card, styles.metaImpactCard]}>
+            <Text style={styles.metaImpactEmoji}>🔒</Text>
+            <Text style={styles.metaImpactValue}>100%</Text>
+            <Text style={styles.metaImpactLabel}>Seguro</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Final CTA */}
+      <View style={[commonStyles.card, styles.metaFinalCard]}>
+        <LinearGradient
+          colors={[colors.primary, colors.accent]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.metaFinalGradient}
+        >
+          <Text style={styles.metaFinalEmoji}>🚀</Text>
+          <Text style={styles.metaFinalTitle}>Sé Parte de la Meta</Text>
+          <Text style={styles.metaFinalText}>
+            Únete a MAXCOIN y construye junto a nosotros un sistema financiero global que funcione para todos
+          </Text>
+          
+          <View style={styles.urgencyDivider} />
+          
+          <Text style={styles.metaFinalHighlight}>
+            🎯 Tu participación hace la diferencia
+          </Text>
+        </LinearGradient>
+      </View>
+    </ScrollView>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -951,6 +1219,11 @@ const styles = StyleSheet.create({
   whyBuyImage: {
     width: width - 80,
     height: (width - 80) * 1.0,
+    borderRadius: 20,
+  },
+  metaImage: {
+    width: width - 80,
+    height: (width - 80) * 0.8,
     borderRadius: 20,
   },
   contentCard: {
@@ -1571,6 +1844,284 @@ const styles = StyleSheet.create({
     opacity: 0.3,
   },
   finalWhyBuyUrgency: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#000',
+    textAlign: 'center',
+  },
+  // META Tab Styles
+  metaGoalCard: {
+    padding: 0,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  metaGoalGradient: {
+    padding: 28,
+    alignItems: 'center',
+  },
+  metaGoalEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  metaGoalTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  metaGoalText: {
+    fontSize: 17,
+    color: colors.text,
+    textAlign: 'center',
+    lineHeight: 28,
+  },
+  metaVisionCard: {
+    padding: 0,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  metaVisionGradient: {
+    padding: 28,
+  },
+  metaVisionEmoji: {
+    fontSize: 56,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  metaVisionTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  metaVisionText: {
+    fontSize: 16,
+    color: colors.text,
+    lineHeight: 26,
+    marginBottom: 16,
+  },
+  metaToolsList: {
+    gap: 12,
+    marginTop: 8,
+  },
+  metaToolRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 8,
+  },
+  metaToolIcon: {
+    fontSize: 28,
+  },
+  metaToolText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    flex: 1,
+  },
+  metaProjectionCard: {
+    padding: 0,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  metaProjectionGradient: {
+    padding: 28,
+  },
+  metaProjectionEmoji: {
+    fontSize: 56,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  metaProjectionTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  metaProjectionStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    marginBottom: 16,
+  },
+  metaProjectionStatItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  metaProjectionStatValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.primary,
+    marginBottom: 6,
+  },
+  metaProjectionStatLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  metaProjectionStatEmoji: {
+    fontSize: 32,
+  },
+  metaProjectionArrow: {
+    paddingHorizontal: 16,
+  },
+  metaProjectionArrowText: {
+    fontSize: 32,
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  metaProjectionFeatures: {
+    gap: 12,
+  },
+  metaProjectionFeatureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  metaProjectionFeatureIcon: {
+    fontSize: 20,
+    color: colors.primary,
+  },
+  metaProjectionFeatureText: {
+    fontSize: 16,
+    color: colors.text,
+    fontWeight: '600',
+  },
+  metaSharedGoalCard: {
+    padding: 0,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  metaSharedGoalGradient: {
+    padding: 28,
+  },
+  metaSharedGoalEmoji: {
+    fontSize: 56,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  metaSharedGoalTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  metaSharedGoalText: {
+    fontSize: 16,
+    color: colors.text,
+    lineHeight: 26,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  metaSharedGoalHighlight: {
+    backgroundColor: colors.primary + '15',
+    borderRadius: 12,
+    padding: 20,
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  metaSharedGoalQuoteIcon: {
+    fontSize: 40,
+    marginBottom: 12,
+  },
+  metaSharedGoalQuote: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.primary,
+    textAlign: 'center',
+    lineHeight: 28,
+    fontStyle: 'italic',
+  },
+  metaPillarsSection: {
+    marginBottom: 24,
+  },
+  metaPillarCard: {
+    padding: 16,
+    marginBottom: 12,
+  },
+  metaPillarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  metaPillarEmoji: {
+    fontSize: 40,
+  },
+  metaPillarContent: {
+    flex: 1,
+  },
+  metaPillarTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 6,
+  },
+  metaPillarDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 22,
+  },
+  metaImpactSection: {
+    marginBottom: 24,
+  },
+  metaImpactGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  metaImpactCard: {
+    width: (width - 52) / 2,
+    alignItems: 'center',
+    paddingVertical: 24,
+    paddingHorizontal: 12,
+  },
+  metaImpactEmoji: {
+    fontSize: 40,
+    marginBottom: 12,
+  },
+  metaImpactValue: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.primary,
+    marginBottom: 6,
+  },
+  metaImpactLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  metaFinalCard: {
+    padding: 0,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  metaFinalGradient: {
+    padding: 32,
+    alignItems: 'center',
+  },
+  metaFinalEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  metaFinalTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#000',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  metaFinalText: {
+    fontSize: 16,
+    color: '#000',
+    textAlign: 'center',
+    lineHeight: 26,
+    fontWeight: '500',
+  },
+  metaFinalHighlight: {
     fontSize: 18,
     fontWeight: '700',
     color: '#000',
