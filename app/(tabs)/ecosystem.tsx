@@ -584,10 +584,10 @@ function PorQueComprarTab() {
         <Text style={styles.mainTitle}>¿Por qué comprar MAXCOIN? 💰</Text>
       </View>
 
-      {/* Hero Image */}
+      {/* Hero Image - UPDATED TO NEW IMAGE */}
       <View style={styles.imageContainer}>
         <Image
-          source={require('@/assets/images/d97c8946-5e7b-4cd6-8c87-ad57cdc96e34.png')}
+          source={require('@/assets/images/825aaea2-b6ee-4867-9713-a0307c6a67c3.png')}
           style={styles.whyBuyImage}
           resizeMode="cover"
         />
