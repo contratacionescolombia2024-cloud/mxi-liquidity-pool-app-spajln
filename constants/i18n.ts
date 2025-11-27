@@ -180,6 +180,32 @@ const translations = {
     verifyAutomatically: 'Verify Automatically',
     requestManualVerification: 'Request Manual Verification',
     paymentInstructions: 'Payment Instructions',
+    selectPaymentNetwork: 'Select Payment Network',
+    eachNetworkValidatesIndependently: 'Each network validates its transactions independently',
+    independentValidation: 'Independent validation',
+    validationIn: 'Validation in',
+    paymentsOnlyValidatedOn: 'Payments on {{network}} are only validated on the {{network}} network',
+    step1: 'Select the network you will use',
+    step2: 'Send USDT from any wallet to the recipient address',
+    step3: 'Minimum amount: {{min}} USDT',
+    step4: 'Copy the transaction hash (txHash)',
+    step5: 'Paste the txHash here and verify the payment',
+    step6: 'You will receive MXI = USDT × {{rate}}',
+    onlySendUSDTOn: 'Only send USDT on {{network}} network ({{label}})',
+    pasteYourTransactionHash: 'Paste your {{network}} transaction hash here',
+    correctLength: 'Correct length',
+    characters: 'characters',
+    sendingRequest: 'Sending Request...',
+    importantValidationByNetwork: 'Important - Validation by Network',
+    eachNetworkValidatesIndependently2: 'Each network validates its transactions independently',
+    ethPaymentsOnlyOnEthereum: 'ETH payments are only validated on the Ethereum network',
+    bnbPaymentsOnlyOnBNB: 'BNB payments are only validated on the BNB Chain network',
+    polygonPaymentsOnlyOnPolygon: 'Polygon payments are only validated on the Polygon network',
+    makeSureToSelectCorrectNetwork: 'Make sure to select the correct network before verifying',
+    transactionMustHaveConfirmations: 'The transaction must have at least 3 confirmations',
+    cannotUseSameHashTwice: 'YOU CANNOT USE THE SAME HASH TWICE - Anti-duplicate system active',
+    ifAutoVerificationFails: 'If automatic verification fails, use manual verification',
+    mxiCalculator: 'MXI Calculator',
     
     // Withdrawals
     withdrawal: 'Withdrawal',
@@ -218,6 +244,18 @@ const translations = {
     mxiAvailable: 'MXI Available',
     mxiFromVesting: 'MXI from Vesting',
     mxiFromTournaments: 'MXI from Tournaments',
+    mxiBalance: 'MXI Balance',
+    currentBalance: 'Current Balance',
+    internalSimulatedBalance: 'Internal simulated balance',
+    aboutYourMXIBalance: 'About your MXI Balance',
+    thisIsYourInternalBalance: 'This is your internal MXI balance obtained through USDT ERC20 payments',
+    conversionRate: 'Conversion rate: 1 USDT = 2.5 MXI',
+    paymentsVerifiedAutomatically: 'Payments are verified automatically on the Ethereum blockchain',
+    requiresThreeConfirmations: 'At least 3 confirmations are required to credit the balance',
+    quickActions: 'Quick Actions',
+    addBalance: 'Add Balance',
+    payWithUSDT: 'Pay with USDT ERC20',
+    viewTransactions: 'View transactions',
     
     // Vesting
     vesting: 'Vesting',
@@ -248,6 +286,8 @@ const translations = {
     vestingImportantNote: '⚠️ Important: Only MXI purchased directly generates vesting yield. Commissions DO NOT generate vesting. The "MXI Balance" chart shows your personal growth in MXI, not the vesting itself.',
     withdrawMXI: 'Withdraw MXI',
     withdrawVestingBalance: 'Withdraw your released vesting balance',
+    vestingInformation: 'Vesting Information',
+    everyTenDays: 'every 10 days',
     
     // Support
     support: 'Support',
@@ -294,7 +334,6 @@ const translations = {
     updating: 'Updating...',
     
     // Conversion
-    conversionRate: 'Conversion Rate',
     equivalent: 'Equivalent',
     
     // Time
@@ -314,7 +353,6 @@ const translations = {
     
     // Calculator
     calculator: 'Calculator',
-    mxiCalculator: 'MXI Calculator',
     
     // Referrals additional
     referralsText: 'referrals',
@@ -343,33 +381,6 @@ const translations = {
     hours: 'HRS',
     minutes: 'MIN',
     seconds: 'SEC',
-    
-    // Payment USDT
-    selectPaymentNetwork: 'Select Payment Network',
-    eachNetworkValidatesIndependently: 'Each network validates its transactions independently',
-    independentValidation: 'Independent validation',
-    validationIn: 'Validation in',
-    paymentsOnlyValidatedOn: 'Payments on {{network}} are only validated on the {{network}} network',
-    step1: 'Select the network you will use',
-    step2: 'Send USDT from any wallet to the recipient address',
-    step3: 'Minimum amount: {{min}} USDT',
-    step4: 'Copy the transaction hash (txHash)',
-    step5: 'Paste the txHash here and verify the payment',
-    step6: 'You will receive MXI = USDT × {{rate}}',
-    onlySendUSDTOn: 'Only send USDT on {{network}} network ({{label}})',
-    pasteYourTransactionHash: 'Paste your {{network}} transaction hash here',
-    correctLength: 'Correct length',
-    characters: 'characters',
-    sendingRequest: 'Sending Request...',
-    importantValidationByNetwork: 'Important - Validation by Network',
-    eachNetworkValidatesIndependently2: 'Each network validates its transactions independently',
-    ethPaymentsOnlyOnEthereum: 'ETH payments are only validated on the Ethereum network',
-    bnbPaymentsOnlyOnBNB: 'BNB payments are only validated on the BNB Chain network',
-    polygonPaymentsOnlyOnPolygon: 'Polygon payments are only validated on the Polygon network',
-    makeSureToSelectCorrectNetwork: 'Make sure to select the correct network before verifying',
-    transactionMustHaveConfirmations: 'The transaction must have at least 3 confirmations',
-    cannotUseSameHashTwice: 'YOU CANNOT USE THE SAME HASH TWICE - Anti-duplicate system active',
-    ifAutoVerificationFails: 'If automatic verification fails, use manual verification',
   },
   es: {
     // Common
@@ -546,6 +557,32 @@ const translations = {
     verifyAutomatically: 'Verificar Automáticamente',
     requestManualVerification: 'Solicitar Verificación Manual',
     paymentInstructions: 'Instrucciones de Pago',
+    selectPaymentNetwork: 'Selecciona la Red de Pago',
+    eachNetworkValidatesIndependently: 'Cada red valida sus transacciones de forma independiente',
+    independentValidation: 'Validación independiente',
+    validationIn: 'Validación en',
+    paymentsOnlyValidatedOn: 'Los pagos en {{network}} solo se validan en la red {{network}}',
+    step1: 'Selecciona la red que vas a usar',
+    step2: 'Envía USDT desde cualquier wallet a la dirección receptora',
+    step3: 'Monto mínimo: {{min}} USDT',
+    step4: 'Copia el hash de la transacción (txHash)',
+    step5: 'Pega el txHash aquí y verifica el pago',
+    step6: 'Recibirás MXI = USDT × {{rate}}',
+    onlySendUSDTOn: 'Solo envía USDT en la red {{network}} ({{label}})',
+    pasteYourTransactionHash: 'Pega el hash de tu transacción de {{network}} aquí',
+    correctLength: 'Longitud correcta',
+    characters: 'caracteres',
+    sendingRequest: 'Enviando Solicitud...',
+    importantValidationByNetwork: 'Importante - Validación por Red',
+    eachNetworkValidatesIndependently2: 'Cada red valida sus transacciones de forma independiente',
+    ethPaymentsOnlyOnEthereum: 'Los pagos en ETH solo se validan en la red Ethereum',
+    bnbPaymentsOnlyOnBNB: 'Los pagos en BNB solo se validan en la red BNB Chain',
+    polygonPaymentsOnlyOnPolygon: 'Los pagos en Polygon solo se validan en la red Polygon',
+    makeSureToSelectCorrectNetwork: 'Asegúrate de seleccionar la red correcta antes de verificar',
+    transactionMustHaveConfirmations: 'La transacción debe tener al menos 3 confirmaciones',
+    cannotUseSameHashTwice: 'NO PUEDES USAR EL MISMO HASH DOS VECES - Sistema anti-duplicados activo',
+    ifAutoVerificationFails: 'Si la verificación automática falla, usa la verificación manual',
+    mxiCalculator: 'Calculadora de MXI',
     
     // Withdrawals
     withdrawal: 'Retiro',
@@ -584,6 +621,18 @@ const translations = {
     mxiAvailable: 'MXI Disponibles',
     mxiFromVesting: 'MXI de Vesting',
     mxiFromTournaments: 'MXI de Torneos',
+    mxiBalance: 'Saldo MXI',
+    currentBalance: 'Saldo Actual',
+    internalSimulatedBalance: 'Saldo interno simulado',
+    aboutYourMXIBalance: 'Acerca de tu Saldo MXI',
+    thisIsYourInternalBalance: 'Este es tu saldo interno de MXI obtenido mediante pagos en USDT ERC20',
+    conversionRate: 'Tasa de conversión: 1 USDT = 2.5 MXI',
+    paymentsVerifiedAutomatically: 'Los pagos se verifican automáticamente en la blockchain de Ethereum',
+    requiresThreeConfirmations: 'Se requieren al menos 3 confirmaciones para acreditar el saldo',
+    quickActions: 'Acciones Rápidas',
+    addBalance: 'Agregar Saldo',
+    payWithUSDT: 'Pagar con USDT ERC20',
+    viewTransactions: 'Ver transacciones',
     
     // Vesting
     vesting: 'Vesting',
@@ -614,6 +663,8 @@ const translations = {
     vestingImportantNote: '⚠️ Importante: Solo el MXI comprado directamente genera rendimiento de vesting. Las comisiones NO generan vesting. El gráfico "Balance MXI" muestra tu crecimiento personal en MXI, no el vesting en sí.',
     withdrawMXI: 'Retirar MXI',
     withdrawVestingBalance: 'Retira tu saldo de vesting liberado',
+    vestingInformation: 'Información de Vesting',
+    everyTenDays: 'cada 10 días',
     
     // Support
     support: 'Soporte',
@@ -660,7 +711,6 @@ const translations = {
     updating: 'Actualizando...',
     
     // Conversion
-    conversionRate: 'Tasa de Conversión',
     equivalent: 'Equivalente',
     
     // Time
@@ -680,7 +730,6 @@ const translations = {
     
     // Calculator
     calculator: 'Calculadora',
-    mxiCalculator: 'Calculadora de MXI',
     
     // Referrals additional
     referralsText: 'referidos',
@@ -709,33 +758,6 @@ const translations = {
     hours: 'HRS',
     minutes: 'MIN',
     seconds: 'SEG',
-    
-    // Payment USDT
-    selectPaymentNetwork: 'Selecciona la Red de Pago',
-    eachNetworkValidatesIndependently: 'Cada red valida sus transacciones de forma independiente',
-    independentValidation: 'Validación independiente',
-    validationIn: 'Validación en',
-    paymentsOnlyValidatedOn: 'Los pagos en {{network}} solo se validan en la red {{network}}',
-    step1: 'Selecciona la red que vas a usar',
-    step2: 'Envía USDT desde cualquier wallet a la dirección receptora',
-    step3: 'Monto mínimo: {{min}} USDT',
-    step4: 'Copia el hash de la transacción (txHash)',
-    step5: 'Pega el txHash aquí y verifica el pago',
-    step6: 'Recibirás MXI = USDT × {{rate}}',
-    onlySendUSDTOn: 'Solo envía USDT en la red {{network}} ({{label}})',
-    pasteYourTransactionHash: 'Pega el hash de tu transacción de {{network}} aquí',
-    correctLength: 'Longitud correcta',
-    characters: 'caracteres',
-    sendingRequest: 'Enviando Solicitud...',
-    importantValidationByNetwork: 'Importante - Validación por Red',
-    eachNetworkValidatesIndependently2: 'Cada red valida sus transacciones de forma independiente',
-    ethPaymentsOnlyOnEthereum: 'Los pagos en ETH solo se validan en la red Ethereum',
-    bnbPaymentsOnlyOnBNB: 'Los pagos en BNB solo se validan en la red BNB Chain',
-    polygonPaymentsOnlyOnPolygon: 'Los pagos en Polygon solo se validan en la red Polygon',
-    makeSureToSelectCorrectNetwork: 'Asegúrate de seleccionar la red correcta antes de verificar',
-    transactionMustHaveConfirmations: 'La transacción debe tener al menos 3 confirmaciones',
-    cannotUseSameHashTwice: 'NO PUEDES USAR EL MISMO HASH DOS VECES - Sistema anti-duplicados activo',
-    ifAutoVerificationFails: 'Si la verificación automática falla, usa la verificación manual',
   },
   pt: {
     // Common
@@ -912,6 +934,32 @@ const translations = {
     verifyAutomatically: 'Verificar Automaticamente',
     requestManualVerification: 'Solicitar Verificação Manual',
     paymentInstructions: 'Instruções de Pagamento',
+    selectPaymentNetwork: 'Selecione a Rede de Pagamento',
+    eachNetworkValidatesIndependently: 'Cada rede valida suas transações de forma independente',
+    independentValidation: 'Validação independente',
+    validationIn: 'Validação em',
+    paymentsOnlyValidatedOn: 'Pagamentos em {{network}} são validados apenas na rede {{network}}',
+    step1: 'Selecione a rede que você vai usar',
+    step2: 'Envie USDT de qualquer carteira para o endereço do destinatário',
+    step3: 'Quantidade mínima: {{min}} USDT',
+    step4: 'Copie o hash da transação (txHash)',
+    step5: 'Cole o txHash aqui e verifique o pagamento',
+    step6: 'Você receberá MXI = USDT × {{rate}}',
+    onlySendUSDTOn: 'Envie apenas USDT na rede {{network}} ({{label}})',
+    pasteYourTransactionHash: 'Cole o hash da sua transação {{network}} aqui',
+    correctLength: 'Comprimento correto',
+    characters: 'caracteres',
+    sendingRequest: 'Enviando Solicitação...',
+    importantValidationByNetwork: 'Importante - Validação por Rede',
+    eachNetworkValidatesIndependently2: 'Cada rede valida suas transações de forma independente',
+    ethPaymentsOnlyOnEthereum: 'Pagamentos em ETH são validados apenas na rede Ethereum',
+    bnbPaymentsOnlyOnBNB: 'Pagamentos em BNB são validados apenas na rede BNB Chain',
+    polygonPaymentsOnlyOnPolygon: 'Pagamentos em Polygon são validados apenas na rede Polygon',
+    makeSureToSelectCorrectNetwork: 'Certifique-se de selecionar a rede correta antes de verificar',
+    transactionMustHaveConfirmations: 'A transação deve ter pelo menos 3 confirmações',
+    cannotUseSameHashTwice: 'VOCÊ NÃO PODE USAR O MESMO HASH DUAS VEZES - Sistema anti-duplicados ativo',
+    ifAutoVerificationFails: 'Se a verificação automática falhar, use a verificação manual',
+    mxiCalculator: 'Calculadora de MXI',
     
     // Withdrawals
     withdrawal: 'Retirada',
@@ -950,6 +998,18 @@ const translations = {
     mxiAvailable: 'MXI Disponíveis',
     mxiFromVesting: 'MXI de Vesting',
     mxiFromTournaments: 'MXI de Torneios',
+    mxiBalance: 'Saldo MXI',
+    currentBalance: 'Saldo Atual',
+    internalSimulatedBalance: 'Saldo interno simulado',
+    aboutYourMXIBalance: 'Sobre seu Saldo MXI',
+    thisIsYourInternalBalance: 'Este é seu saldo interno de MXI obtido através de pagamentos em USDT ERC20',
+    conversionRate: 'Taxa de conversão: 1 USDT = 2.5 MXI',
+    paymentsVerifiedAutomatically: 'Os pagamentos são verificados automaticamente na blockchain Ethereum',
+    requiresThreeConfirmations: 'São necessárias pelo menos 3 confirmações para creditar o saldo',
+    quickActions: 'Ações Rápidas',
+    addBalance: 'Adicionar Saldo',
+    payWithUSDT: 'Pagar com USDT ERC20',
+    viewTransactions: 'Ver transações',
     
     // Vesting
     vesting: 'Vesting',
@@ -980,6 +1040,8 @@ const translations = {
     vestingImportantNote: '⚠️ Importante: Apenas o MXI comprado diretamente gera rendimento de vesting. As comissões NÃO geram vesting. O gráfico "Saldo MXI" mostra seu crescimento pessoal em MXI, não o vesting em si.',
     withdrawMXI: 'Retirar MXI',
     withdrawVestingBalance: 'Retire seu saldo de vesting liberado',
+    vestingInformation: 'Informações de Vesting',
+    everyTenDays: 'a cada 10 dias',
     
     // Support
     support: 'Suporte',
@@ -1026,7 +1088,6 @@ const translations = {
     updating: 'Atualizando...',
     
     // Conversion
-    conversionRate: 'Taxa de Conversão',
     equivalent: 'Equivalente',
     
     // Time
@@ -1046,7 +1107,6 @@ const translations = {
     
     // Calculator
     calculator: 'Calculadora',
-    mxiCalculator: 'Calculadora de MXI',
     
     // Referrals additional
     referralsText: 'referências',
@@ -1075,33 +1135,6 @@ const translations = {
     hours: 'HRS',
     minutes: 'MIN',
     seconds: 'SEG',
-    
-    // Payment USDT
-    selectPaymentNetwork: 'Selecione a Rede de Pagamento',
-    eachNetworkValidatesIndependently: 'Cada rede valida suas transações de forma independente',
-    independentValidation: 'Validação independente',
-    validationIn: 'Validação em',
-    paymentsOnlyValidatedOn: 'Pagamentos em {{network}} são validados apenas na rede {{network}}',
-    step1: 'Selecione a rede que você vai usar',
-    step2: 'Envie USDT de qualquer carteira para o endereço do destinatário',
-    step3: 'Quantidade mínima: {{min}} USDT',
-    step4: 'Copie o hash da transação (txHash)',
-    step5: 'Cole o txHash aqui e verifique o pagamento',
-    step6: 'Você receberá MXI = USDT × {{rate}}',
-    onlySendUSDTOn: 'Envie apenas USDT na rede {{network}} ({{label}})',
-    pasteYourTransactionHash: 'Cole o hash da sua transação {{network}} aqui',
-    correctLength: 'Comprimento correto',
-    characters: 'caracteres',
-    sendingRequest: 'Enviando Solicitação...',
-    importantValidationByNetwork: 'Importante - Validação por Rede',
-    eachNetworkValidatesIndependently2: 'Cada rede valida suas transações de forma independente',
-    ethPaymentsOnlyOnEthereum: 'Pagamentos em ETH são validados apenas na rede Ethereum',
-    bnbPaymentsOnlyOnBNB: 'Pagamentos em BNB são validados apenas na rede BNB Chain',
-    polygonPaymentsOnlyOnPolygon: 'Pagamentos em Polygon são validados apenas na rede Polygon',
-    makeSureToSelectCorrectNetwork: 'Certifique-se de selecionar a rede correta antes de verificar',
-    transactionMustHaveConfirmations: 'A transação deve ter pelo menos 3 confirmações',
-    cannotUseSameHashTwice: 'VOCÊ NÃO PODE USAR O MESMO HASH DUAS VEZES - Sistema anti-duplicados ativo',
-    ifAutoVerificationFails: 'Se a verificação automática falhar, use a verificação manual',
   },
 };
 
