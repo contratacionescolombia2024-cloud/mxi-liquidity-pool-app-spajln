@@ -19,6 +19,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
 import Footer from '@/components/Footer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const REMEMBER_EMAIL_KEY = '@mxi_remember_email';
 const REMEMBER_PASSWORD_KEY = '@mxi_remember_password';
@@ -26,6 +27,7 @@ const REMEMBER_PASSWORD_KEY = '@mxi_remember_password';
 export default function LoginScreen() {
   const router = useRouter();
   const { login, resendVerificationEmail } = useAuth();
+  const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -76,7 +78,7 @@ export default function LoginScreen() {
     console.log('Email:', email);
     
     if (!email || !password) {
-      Alert.alert('Error', 'Por favor completa todos los campos');
+      Alert.alert(t('error'), t('fillAllFields'));
       return;
     }
 
@@ -98,20 +100,20 @@ export default function LoginScreen() {
       if (errorMessage.includes('verif') || errorMessage.includes('email')) {
         setNeedsVerification(true);
         Alert.alert(
-          'Verificación de Email Requerida',
-          'Por favor verifica tu dirección de correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada para el enlace de verificación.',
+          t('emailVerificationRequired'),
+          t('pleaseVerifyEmail'),
           [
-            { text: 'Cancelar', style: 'cancel' },
-            { text: 'Reenviar Email', onPress: handleResendVerification },
+            { text: t('cancel'), style: 'cancel' },
+            { text: t('resendEmail'), onPress: handleResendVerification },
           ]
         );
       } else if (errorMessage.includes('invalid') || errorMessage.includes('credentials')) {
         Alert.alert(
-          'Error de Inicio de Sesión',
-          'Correo electrónico o contraseña incorrectos. Por favor verifica tus credenciales e intenta nuevamente.'
+          t('loginError'),
+          t('invalidCredentials')
         );
       } else {
-        Alert.alert('Error', result.error || 'Error al iniciar sesión. Por favor intenta nuevamente.');
+        Alert.alert(t('error'), result.error || t('errorLoggingIn'));
       }
     }
     
@@ -125,21 +127,20 @@ export default function LoginScreen() {
     setLoading(false);
 
     if (result.success) {
-      Alert.alert('Éxito', 'Email de verificación enviado. Por favor revisa tu bandeja de entrada.');
+      Alert.alert(t('success'), t('emailVerificationSent'));
     } else {
-      Alert.alert('Error', result.error || 'Error al reenviar el email de verificación');
+      Alert.alert(t('error'), result.error || t('errorResendingEmail'));
     }
   };
 
   const handleForgotPassword = () => {
     Alert.alert(
-      'Recuperar Contraseña',
-      'Por favor contacta al soporte técnico para recuperar tu contraseña.',
+      t('recoverPasswordTitle'),
+      t('recoverPasswordMessage'),
       [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Contactar Soporte', onPress: () => {
-          // Navigate to support or open email client
-          Alert.alert('Soporte', 'Envía un correo a: support@mxi-strategic.com');
+        { text: t('cancel'), style: 'cancel' },
+        { text: t('contactSupport'), onPress: () => {
+          Alert.alert(t('support'), `${t('sendEmailTo')} ${t('supportEmail')}`);
         }},
       ]
     );
@@ -156,16 +157,16 @@ export default function LoginScreen() {
               resizeMode="contain"
             />
           </View>
-          <Text style={styles.title}>MXI Strategic PreSale</Text>
-          <Text style={styles.subtitle}>Asegura Tu Posición en el Futuro</Text>
+          <Text style={styles.title}>{t('mxiStrategicPresale')}</Text>
+          <Text style={styles.subtitle}>{t('secureYourPosition')}</Text>
         </View>
 
         <View style={styles.form}>
           <View style={styles.inputContainer}>
-            <Text style={commonStyles.label}>Correo Electrónico</Text>
+            <Text style={commonStyles.label}>{t('emailLabel')}</Text>
             <TextInput
               style={commonStyles.input}
-              placeholder="tu@email.com"
+              placeholder={t('enterYourEmail')}
               placeholderTextColor={colors.textSecondary}
               value={email}
               onChangeText={setEmail}
@@ -177,11 +178,11 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={commonStyles.label}>Contraseña</Text>
+            <Text style={commonStyles.label}>{t('passwordLabel')}</Text>
             <View style={styles.passwordContainer}>
               <TextInput
                 style={[commonStyles.input, styles.passwordInput]}
-                placeholder="Ingresa tu contraseña"
+                placeholder={t('enterYourPassword')}
                 placeholderTextColor={colors.textSecondary}
                 value={password}
                 onChangeText={setPassword}
@@ -221,11 +222,11 @@ export default function LoginScreen() {
                   />
                 )}
               </View>
-              <Text style={styles.rememberText}>Recordar contraseña</Text>
+              <Text style={styles.rememberText}>{t('rememberPassword')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={handleForgotPassword} disabled={loading}>
-              <Text style={styles.forgotPasswordText}>¿Olvidaste tu contraseña?</Text>
+              <Text style={styles.forgotPasswordText}>{t('forgotPassword')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -238,10 +239,10 @@ export default function LoginScreen() {
                 color={colors.warning} 
               />
               <Text style={styles.verificationText}>
-                Por favor verifica tu email antes de iniciar sesión.
+                {t('pleaseVerifyEmailBeforeLogin')}
               </Text>
               <TouchableOpacity onPress={handleResendVerification} disabled={loading}>
-                <Text style={styles.resendLink}>Reenviar Email</Text>
+                <Text style={styles.resendLink}>{t('resendEmailButton')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -254,13 +255,13 @@ export default function LoginScreen() {
             {loading ? (
               <ActivityIndicator color="#000" />
             ) : (
-              <Text style={buttonStyles.primaryText}>Iniciar Sesión</Text>
+              <Text style={buttonStyles.primaryText}>{t('loginButton')}</Text>
             )}
           </TouchableOpacity>
 
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>o</Text>
+            <Text style={styles.dividerText}>{t('or')}</Text>
             <View style={styles.dividerLine} />
           </View>
 
@@ -269,7 +270,7 @@ export default function LoginScreen() {
             onPress={() => router.push('/(auth)/register')}
             disabled={loading}
           >
-            <Text style={buttonStyles.outlineText}>Crear Cuenta</Text>
+            <Text style={buttonStyles.outlineText}>{t('createAccount')}</Text>
           </TouchableOpacity>
 
           {/* Link to view terms */}
@@ -277,13 +278,13 @@ export default function LoginScreen() {
             style={styles.termsLinkContainer}
             onPress={() => setShowTermsModal(true)}
           >
-            <Text style={styles.termsLinkText}>Ver Términos y Condiciones</Text>
+            <Text style={styles.termsLinkText}>{t('viewTerms')}</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            La Pre-Venta cierra el 15 de enero de 2026 a las 12:00 UTC
+            {t('presaleClosesOn')}
           </Text>
         </View>
 
@@ -300,7 +301,7 @@ export default function LoginScreen() {
       >
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>📜 Términos y Condiciones</Text>
+            <Text style={styles.modalTitle}>📜 {t('termsAndConditions')}</Text>
             <TouchableOpacity
               style={styles.modalCloseButton}
               onPress={() => setShowTermsModal(false)}
@@ -501,7 +502,7 @@ Los usuarios aceptan que las recompensas otorgadas son promocionales, digitales 
               style={[buttonStyles.primary, styles.closeButton]}
               onPress={() => setShowTermsModal(false)}
             >
-              <Text style={buttonStyles.primaryText}>Cerrar</Text>
+              <Text style={buttonStyles.primaryText}>{t('close')}</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>

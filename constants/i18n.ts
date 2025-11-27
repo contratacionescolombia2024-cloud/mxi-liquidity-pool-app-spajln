@@ -26,6 +26,7 @@ const translations = {
     share: 'Share',
     copy: 'Copy',
     copied: 'Copied!',
+    or: 'or',
     
     // Auth
     login: 'Login',
@@ -45,6 +46,26 @@ const translations = {
     createAccount: 'Create Account',
     forgotPassword: 'Forgot Password?',
     rememberPassword: 'Remember password',
+    enterYourEmail: 'your@email.com',
+    enterYourPassword: 'Enter your password',
+    
+    // Login Page
+    mxiStrategicPresale: 'MXI Strategic PreSale',
+    secureYourPosition: 'Secure Your Position in the Future',
+    emailLabel: 'Email',
+    passwordLabel: 'Password',
+    loginButton: 'Login',
+    recoverPassword: 'Recover Password',
+    contactSupport: 'Contact Support',
+    sendEmailTo: 'Send an email to:',
+    pleaseVerifyEmailBeforeLogin: 'Please verify your email before logging in.',
+    resendEmailButton: 'Resend Email',
+    emailVerificationSent: 'Verification email sent. Please check your inbox.',
+    errorResendingEmail: 'Error resending verification email',
+    recoverPasswordTitle: 'Recover Password',
+    recoverPasswordMessage: 'Please contact technical support to recover your password.',
+    supportEmail: 'support@mxi-strategic.com',
+    presaleClosesOn: 'The Pre-Sale closes on January 15, 2026 at 12:00 UTC',
     
     // Home
     hello: 'Hello',
@@ -163,12 +184,13 @@ const translations = {
     
     // Messages
     emailVerificationRequired: 'Email Verification Required',
-    pleaseVerifyEmail: 'Please verify your email address before logging in.',
+    pleaseVerifyEmail: 'Please verify your email address before logging in. Check your inbox for the verification link.',
     resendEmail: 'Resend Email',
     accountCreatedSuccess: 'Account created successfully! Please check your email to verify your account.',
     loginSuccess: 'Login successful',
-    loginError: 'Login error',
-    invalidCredentials: 'Invalid email or password',
+    loginError: 'Login Error',
+    invalidCredentials: 'Invalid email or password. Please check your credentials and try again.',
+    errorLoggingIn: 'Error logging in. Please try again.',
     
     // Errors
     fillAllFields: 'Please fill in all required fields',
@@ -240,6 +262,7 @@ const translations = {
     share: 'Compartir',
     copy: 'Copiar',
     copied: '¡Copiado!',
+    or: 'o',
     
     // Auth
     login: 'Iniciar Sesión',
@@ -259,6 +282,26 @@ const translations = {
     createAccount: 'Crear Cuenta',
     forgotPassword: '¿Olvidaste tu contraseña?',
     rememberPassword: 'Recordar contraseña',
+    enterYourEmail: 'tu@email.com',
+    enterYourPassword: 'Ingresa tu contraseña',
+    
+    // Login Page
+    mxiStrategicPresale: 'MXI Strategic PreSale',
+    secureYourPosition: 'Asegura Tu Posición en el Futuro',
+    emailLabel: 'Correo Electrónico',
+    passwordLabel: 'Contraseña',
+    loginButton: 'Iniciar Sesión',
+    recoverPassword: 'Recuperar Contraseña',
+    contactSupport: 'Contactar Soporte',
+    sendEmailTo: 'Envía un correo a:',
+    pleaseVerifyEmailBeforeLogin: 'Por favor verifica tu email antes de iniciar sesión.',
+    resendEmailButton: 'Reenviar Email',
+    emailVerificationSent: 'Email de verificación enviado. Por favor revisa tu bandeja de entrada.',
+    errorResendingEmail: 'Error al reenviar el email de verificación',
+    recoverPasswordTitle: 'Recuperar Contraseña',
+    recoverPasswordMessage: 'Por favor contacta al soporte técnico para recuperar tu contraseña.',
+    supportEmail: 'support@mxi-strategic.com',
+    presaleClosesOn: 'La Pre-Venta cierra el 15 de enero de 2026 a las 12:00 UTC',
     
     // Home
     hello: 'Hola',
@@ -377,12 +420,13 @@ const translations = {
     
     // Messages
     emailVerificationRequired: 'Verificación de Email Requerida',
-    pleaseVerifyEmail: 'Por favor verifica tu dirección de correo electrónico antes de iniciar sesión.',
+    pleaseVerifyEmail: 'Por favor verifica tu dirección de correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada para el enlace de verificación.',
     resendEmail: 'Reenviar Email',
     accountCreatedSuccess: '¡Cuenta creada exitosamente! Por favor revisa tu correo para verificar tu cuenta.',
     loginSuccess: 'Inicio de sesión exitoso',
-    loginError: 'Error de inicio de sesión',
-    invalidCredentials: 'Correo electrónico o contraseña incorrectos',
+    loginError: 'Error de Inicio de Sesión',
+    invalidCredentials: 'Correo electrónico o contraseña incorrectos. Por favor verifica tus credenciales e intenta nuevamente.',
+    errorLoggingIn: 'Error al iniciar sesión. Por favor intenta nuevamente.',
     
     // Errors
     fillAllFields: 'Por favor completa todos los campos requeridos',
@@ -454,6 +498,7 @@ const translations = {
     share: 'Compartilhar',
     copy: 'Copiar',
     copied: 'Copiado!',
+    or: 'ou',
     
     // Auth
     login: 'Entrar',
@@ -473,6 +518,26 @@ const translations = {
     createAccount: 'Criar Conta',
     forgotPassword: 'Esqueceu sua senha?',
     rememberPassword: 'Lembrar senha',
+    enterYourEmail: 'seu@email.com',
+    enterYourPassword: 'Digite sua senha',
+    
+    // Login Page
+    mxiStrategicPresale: 'MXI Strategic PreSale',
+    secureYourPosition: 'Garanta Sua Posição no Futuro',
+    emailLabel: 'E-mail',
+    passwordLabel: 'Senha',
+    loginButton: 'Entrar',
+    recoverPassword: 'Recuperar Senha',
+    contactSupport: 'Contatar Suporte',
+    sendEmailTo: 'Envie um e-mail para:',
+    pleaseVerifyEmailBeforeLogin: 'Por favor, verifique seu e-mail antes de fazer login.',
+    resendEmailButton: 'Reenviar E-mail',
+    emailVerificationSent: 'E-mail de verificação enviado. Por favor, verifique sua caixa de entrada.',
+    errorResendingEmail: 'Erro ao reenviar e-mail de verificação',
+    recoverPasswordTitle: 'Recuperar Senha',
+    recoverPasswordMessage: 'Por favor, entre em contato com o suporte técnico para recuperar sua senha.',
+    supportEmail: 'support@mxi-strategic.com',
+    presaleClosesOn: 'A Pré-Venda fecha em 15 de janeiro de 2026 às 12:00 UTC',
     
     // Home
     hello: 'Olá',
@@ -591,12 +656,13 @@ const translations = {
     
     // Messages
     emailVerificationRequired: 'Verificação de E-mail Necessária',
-    pleaseVerifyEmail: 'Por favor, verifique seu endereço de e-mail antes de fazer login.',
+    pleaseVerifyEmail: 'Por favor, verifique seu endereço de e-mail antes de fazer login. Verifique sua caixa de entrada para o link de verificação.',
     resendEmail: 'Reenviar E-mail',
     accountCreatedSuccess: 'Conta criada com sucesso! Por favor, verifique seu e-mail para verificar sua conta.',
     loginSuccess: 'Login bem-sucedido',
-    loginError: 'Erro de login',
-    invalidCredentials: 'E-mail ou senha inválidos',
+    loginError: 'Erro de Login',
+    invalidCredentials: 'E-mail ou senha inválidos. Por favor, verifique suas credenciais e tente novamente.',
+    errorLoggingIn: 'Erro ao fazer login. Por favor, tente novamente.',
     
     // Errors
     fillAllFields: 'Por favor, preencha todos os campos obrigatórios',
