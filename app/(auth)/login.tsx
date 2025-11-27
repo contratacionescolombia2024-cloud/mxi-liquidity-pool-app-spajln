@@ -20,6 +20,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import Footer from '@/components/Footer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { LanguageSelector } from '@/components/LanguageSelector';
 
 const REMEMBER_EMAIL_KEY = '@mxi_remember_email';
 const REMEMBER_PASSWORD_KEY = '@mxi_remember_password';
@@ -148,7 +149,15 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      {/* Language Selector - Fixed position at top right */}
+      <View style={styles.languageSelectorContainer}>
+        <LanguageSelector />
+      </View>
+
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
           <View style={styles.logoContainer}>
             <Image
@@ -314,7 +323,11 @@ export default function LoginScreen() {
               />
             </TouchableOpacity>
           </View>
-          <ScrollView style={styles.modalContent} contentContainerStyle={styles.modalScrollContent}>
+          <ScrollView 
+            style={styles.modalContent} 
+            contentContainerStyle={styles.modalScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
             <Text style={styles.termsContent}>
               {`TÉRMINOS Y CONDICIONES DE USO
 
@@ -516,9 +529,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  languageSelectorContainer: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    zIndex: 1000,
+  },
   scrollContent: {
     flexGrow: 1,
     padding: 24,
+    paddingTop: 60,
     justifyContent: 'center',
   },
   header: {
