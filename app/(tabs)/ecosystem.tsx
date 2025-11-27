@@ -15,7 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
-type TabType = 'que-es' | 'como-funciona' | 'por-que-comprar' | 'meta' | 'ecosistema' | 'sostenibilidad';
+type TabType = 'que-es' | 'como-funciona' | 'por-que-comprar' | 'meta' | 'ecosistema' | 'sostenibilidad' | 'vesting-diario';
 
 export default function EcosystemScreen() {
   const [activeTab, setActiveTab] = useState<TabType>('que-es');
@@ -86,6 +86,15 @@ export default function EcosystemScreen() {
             Sostenibilidad ♻️
           </Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'vesting-diario' && styles.activeTab]}
+          onPress={() => setActiveTab('vesting-diario')}
+        >
+          <Text style={[styles.tabText, activeTab === 'vesting-diario' && styles.activeTabText]}>
+            Vesting Diario MXI 💎
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Tab Content */}
@@ -95,6 +104,7 @@ export default function EcosystemScreen() {
       {activeTab === 'meta' && <MetaTab />}
       {activeTab === 'ecosistema' && <EcosistemaTab />}
       {activeTab === 'sostenibilidad' && <SostenibilidadTab />}
+      {activeTab === 'vesting-diario' && <VestingDiarioTab />}
     </SafeAreaView>
   );
 }
@@ -1739,6 +1749,292 @@ function SostenibilidadTab() {
   );
 }
 
+// VESTING DIARIO MXI Tab Content
+function VestingDiarioTab() {
+  return (
+    <ScrollView contentContainerStyle={styles.scrollContent}>
+      {/* Main Title */}
+      <View style={styles.titleSection}>
+        <Text style={styles.mainTitle}>Vesting Diario MXI 💎</Text>
+      </View>
+
+      {/* Hero Image */}
+      <View style={styles.imageContainer}>
+        <Image
+          source={require('@/assets/images/56f26280-5b6d-4a50-a649-19c147affe58.png')}
+          style={styles.vestingImage}
+          resizeMode="cover"
+        />
+      </View>
+
+      {/* Introduction Card */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '15', colors.accent + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.vestingIntro}>
+            💎 El vesting diario de MXI es un <Text style={styles.boldText}>mecanismo programado</Text> que incrementa automáticamente el saldo total de MXI que posee cada usuario dentro del ecosistema.
+          </Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.bodyText}>
+            🎯 Su objetivo es incentivar la <Text style={styles.highlightText}>retención del token</Text> y generar un <Text style={styles.highlightText}>crecimiento progresivo</Text> sin afectar la liquidez del proyecto.
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* ¿Cómo funciona el vesting? */}
+      <View style={[commonStyles.card, styles.vestingSectionCard]}>
+        <LinearGradient
+          colors={['#4CAF50' + '15', '#8BC34A' + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.vestingSectionGradient}
+        >
+          <View style={styles.vestingSectionHeader}>
+            <Text style={styles.vestingSectionEmoji}>🔄</Text>
+            <Text style={styles.vestingSectionTitle}>¿Cómo funciona el vesting?</Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.vestingSectionText}>
+            📊 MXI aplica un rendimiento diario aproximado de <Text style={styles.vestingHighlight}>0.12%</Text>, equivalente a un <Text style={styles.vestingHighlight}>3% mensual</Text> sobre el saldo que el usuario mantiene en su wallet dentro del ecosistema.
+          </Text>
+          
+          <Text style={styles.vestingSectionText}>
+            ⚡ Este rendimiento se calcula de forma automática y se acredita diariamente en MXI adicionales.
+          </Text>
+          
+          <View style={styles.divider} />
+          
+          <View style={styles.vestingImportantBox}>
+            <Text style={styles.vestingImportantIcon}>⚠️</Text>
+            <Text style={styles.vestingImportantText}>
+              El vesting <Text style={styles.boldText}>no entrega USDT ni divisas externas</Text>; únicamente distribuye MXI programado. Esto garantiza que el mecanismo sea sostenible, no genere presión de liquidez y pueda operar a largo plazo sin afectar la estabilidad económica del proyecto.
+            </Text>
+          </View>
+        </LinearGradient>
+      </View>
+
+      {/* Fórmula utilizada */}
+      <View style={[commonStyles.card, styles.vestingFormulaCard]}>
+        <LinearGradient
+          colors={['#2196F3' + '15', '#03A9F4' + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.vestingFormulaGradient}
+        >
+          <View style={styles.vestingFormulaHeader}>
+            <Text style={styles.vestingFormulaEmoji}>📐</Text>
+            <Text style={styles.vestingFormulaTitle}>Fórmula utilizada</Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <View style={styles.vestingFormulaBox}>
+            <Text style={styles.vestingFormulaLabel}>Rendimiento diario estimado:</Text>
+            <Text style={styles.vestingFormulaEquation}>Saldo MXI × 0.0012 (0.12% diario)</Text>
+          </View>
+          
+          <View style={styles.vestingFormulaBox}>
+            <Text style={styles.vestingFormulaLabel}>Rendimiento mensual estimado:</Text>
+            <Text style={styles.vestingFormulaEquation}>Saldo MXI × 0.03 (3% mensual)</Text>
+          </View>
+        </LinearGradient>
+      </View>
+
+      {/* Ejemplo práctico */}
+      <View style={[commonStyles.card, styles.vestingExampleCard]}>
+        <LinearGradient
+          colors={['#FF9800' + '15', '#FF5722' + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.vestingExampleGradient}
+        >
+          <View style={styles.vestingExampleHeader}>
+            <Text style={styles.vestingExampleEmoji}>💡</Text>
+            <Text style={styles.vestingExampleTitle}>Ejemplo práctico</Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.vestingExampleText}>
+            Si un usuario adquiere <Text style={styles.vestingHighlight}>500 MXI</Text> en preventa, el sistema aplicará un crecimiento automático de 3% mensual:
+          </Text>
+          
+          <View style={styles.vestingCalculationBox}>
+            <Text style={styles.vestingCalculationText}>500 MXI × 0.03 = <Text style={styles.vestingHighlight}>15 MXI mensuales</Text></Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.vestingExampleSubtitle}>En 6 meses:</Text>
+          
+          <View style={styles.vestingCalculationBox}>
+            <Text style={styles.vestingCalculationText}>500 MXI × 0.18 = <Text style={styles.vestingHighlight}>90 MXI adicionales</Text></Text>
+          </View>
+          
+          <View style={styles.vestingResultBox}>
+            <Text style={styles.vestingResultLabel}>Saldo total después de 6 meses:</Text>
+            <Text style={styles.vestingResultValue}>590 MXI</Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.vestingExampleNote}>
+            ✨ Este incremento se obtiene únicamente por mantener los MXI dentro del ecosistema, <Text style={styles.boldText}>sin bloquearlos</Text> y <Text style={styles.boldText}>sin necesidad de realizar acciones adicionales</Text>.
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Beneficio adicional con valorización */}
+      <View style={[commonStyles.card, styles.vestingBenefitCard]}>
+        <LinearGradient
+          colors={['#9C27B0' + '15', '#7B1FA2' + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.vestingBenefitGradient}
+        >
+          <View style={styles.vestingBenefitHeader}>
+            <Text style={styles.vestingBenefitEmoji}>🚀</Text>
+            <Text style={styles.vestingBenefitTitle}>Beneficio adicional con valorización</Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.vestingBenefitText}>
+            📈 El vesting genera crecimiento en <Text style={styles.boldText}>cantidad de MXI</Text>. Si el precio aumenta después del lanzamiento, el rendimiento acumulado potencia el valor final.
+          </Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.vestingProjectionTitle}>Ejemplo con valorización proyectada:</Text>
+          <Text style={styles.vestingProjectionSubtitle}>
+            Precio estimado del token post lanzamiento: <Text style={styles.vestingHighlight}>3 a 6 USDT</Text>
+          </Text>
+          
+          <View style={styles.vestingProjectionBox}>
+            <Text style={styles.vestingProjectionLabel}>Saldo con vesting (590 MXI):</Text>
+            
+            <View style={styles.vestingProjectionRow}>
+              <View style={styles.vestingProjectionItem}>
+                <Text style={styles.vestingProjectionPrice}>A 3 USDT:</Text>
+                <Text style={styles.vestingProjectionValue}>1,770 USDT</Text>
+              </View>
+              
+              <View style={styles.vestingProjectionDivider} />
+              
+              <View style={styles.vestingProjectionItem}>
+                <Text style={styles.vestingProjectionPrice}>A 6 USDT:</Text>
+                <Text style={styles.vestingProjectionValue}>3,540 USDT</Text>
+              </View>
+            </View>
+          </View>
+        </LinearGradient>
+      </View>
+
+      {/* Key Benefits Section */}
+      <View style={styles.vestingBenefitsSection}>
+        <Text style={styles.sectionTitle}>✨ Beneficios Clave del Vesting</Text>
+        
+        <View style={[commonStyles.card, styles.vestingBenefitItemCard]}>
+          <View style={styles.vestingBenefitItemRow}>
+            <Text style={styles.vestingBenefitItemEmoji}>💰</Text>
+            <View style={styles.vestingBenefitItemContent}>
+              <Text style={styles.vestingBenefitItemTitle}>Crecimiento Automático</Text>
+              <Text style={styles.vestingBenefitItemDescription}>
+                Tu saldo crece diariamente sin necesidad de hacer nada
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={[commonStyles.card, styles.vestingBenefitItemCard]}>
+          <View style={styles.vestingBenefitItemRow}>
+            <Text style={styles.vestingBenefitItemEmoji}>🔓</Text>
+            <View style={styles.vestingBenefitItemContent}>
+              <Text style={styles.vestingBenefitItemTitle}>Sin Bloqueo</Text>
+              <Text style={styles.vestingBenefitItemDescription}>
+                Tus MXI no están bloqueados, mantienes el control total
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={[commonStyles.card, styles.vestingBenefitItemCard]}>
+          <View style={styles.vestingBenefitItemRow}>
+            <Text style={styles.vestingBenefitItemEmoji}>♻️</Text>
+            <View style={styles.vestingBenefitItemContent}>
+              <Text style={styles.vestingBenefitItemTitle}>Sostenible</Text>
+              <Text style={styles.vestingBenefitItemDescription}>
+                No afecta la liquidez del proyecto, solo distribuye MXI programado
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={[commonStyles.card, styles.vestingBenefitItemCard]}>
+          <View style={styles.vestingBenefitItemRow}>
+            <Text style={styles.vestingBenefitItemEmoji}>📈</Text>
+            <View style={styles.vestingBenefitItemContent}>
+              <Text style={styles.vestingBenefitItemTitle}>Potencial de Valorización</Text>
+              <Text style={styles.vestingBenefitItemDescription}>
+                El aumento del precio del token multiplica tus ganancias
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Final CTA */}
+      <View style={[commonStyles.card, styles.vestingFinalCard]}>
+        <LinearGradient
+          colors={[colors.primary, colors.accent]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.vestingFinalGradient}
+        >
+          <Text style={styles.vestingFinalEmoji}>💎</Text>
+          <Text style={styles.vestingFinalTitle}>Comienza a generar rendimientos hoy</Text>
+          <Text style={styles.vestingFinalText}>
+            Únete a la preventa de MAXCOIN y activa tu vesting diario automático desde el primer día
+          </Text>
+          
+          <View style={styles.urgencyDivider} />
+          
+          <View style={styles.vestingFinalStats}>
+            <View style={styles.vestingFinalStatItem}>
+              <Text style={styles.vestingFinalStatValue}>0.12%</Text>
+              <Text style={styles.vestingFinalStatLabel}>Diario</Text>
+            </View>
+            <View style={styles.vestingFinalStatDivider} />
+            <View style={styles.vestingFinalStatItem}>
+              <Text style={styles.vestingFinalStatValue}>3%</Text>
+              <Text style={styles.vestingFinalStatLabel}>Mensual</Text>
+            </View>
+            <View style={styles.vestingFinalStatDivider} />
+            <View style={styles.vestingFinalStatItem}>
+              <Text style={styles.vestingFinalStatValue}>36%</Text>
+              <Text style={styles.vestingFinalStatLabel}>Anual</Text>
+            </View>
+          </View>
+          
+          <View style={styles.urgencyDivider} />
+          
+          <Text style={styles.vestingFinalHighlight}>
+            🚀 Cuanto antes entres, más MXI acumularás
+          </Text>
+        </LinearGradient>
+      </View>
+    </ScrollView>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1839,6 +2135,11 @@ const styles = StyleSheet.create({
     height: (width - 80) * 0.6,
     borderRadius: 20,
   },
+  vestingImage: {
+    width: width - 80,
+    height: (width - 80) * 1.3,
+    borderRadius: 20,
+  },
   contentCard: {
     padding: 0,
     overflow: 'hidden',
@@ -1868,6 +2169,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   sostenibilidadIntro: {
+    fontSize: 18,
+    color: colors.text,
+    lineHeight: 28,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  vestingIntro: {
     fontSize: 18,
     color: colors.text,
     lineHeight: 28,
@@ -3113,5 +3421,334 @@ const styles = StyleSheet.create({
     color: '#000',
     textAlign: 'center',
     lineHeight: 30,
+  },
+  // Vesting Diario Tab Styles
+  vestingSectionCard: {
+    padding: 0,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  vestingSectionGradient: {
+    padding: 24,
+  },
+  vestingSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 12,
+  },
+  vestingSectionEmoji: {
+    fontSize: 48,
+  },
+  vestingSectionTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+    flex: 1,
+  },
+  vestingSectionText: {
+    fontSize: 16,
+    color: colors.text,
+    lineHeight: 26,
+    marginBottom: 12,
+  },
+  vestingHighlight: {
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  vestingImportantBox: {
+    backgroundColor: colors.primary + '10',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'flex-start',
+  },
+  vestingImportantIcon: {
+    fontSize: 24,
+    marginTop: 2,
+  },
+  vestingImportantText: {
+    fontSize: 15,
+    color: colors.text,
+    flex: 1,
+    lineHeight: 24,
+  },
+  vestingFormulaCard: {
+    padding: 0,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  vestingFormulaGradient: {
+    padding: 24,
+  },
+  vestingFormulaHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 12,
+  },
+  vestingFormulaEmoji: {
+    fontSize: 48,
+  },
+  vestingFormulaTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+    flex: 1,
+  },
+  vestingFormulaBox: {
+    backgroundColor: colors.background + '60',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  vestingFormulaLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  vestingFormulaEquation: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.primary,
+    fontFamily: 'monospace',
+  },
+  vestingExampleCard: {
+    padding: 0,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  vestingExampleGradient: {
+    padding: 24,
+  },
+  vestingExampleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 12,
+  },
+  vestingExampleEmoji: {
+    fontSize: 48,
+  },
+  vestingExampleTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+    flex: 1,
+  },
+  vestingExampleText: {
+    fontSize: 16,
+    color: colors.text,
+    lineHeight: 26,
+    marginBottom: 16,
+  },
+  vestingExampleSubtitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  vestingCalculationBox: {
+    backgroundColor: colors.background + '60',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  vestingCalculationText: {
+    fontSize: 17,
+    color: colors.text,
+    fontFamily: 'monospace',
+    textAlign: 'center',
+  },
+  vestingResultBox: {
+    backgroundColor: colors.primary + '15',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  vestingResultLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  vestingResultValue: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  vestingExampleNote: {
+    fontSize: 15,
+    color: colors.text,
+    lineHeight: 24,
+    textAlign: 'center',
+  },
+  vestingBenefitCard: {
+    padding: 0,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  vestingBenefitGradient: {
+    padding: 24,
+  },
+  vestingBenefitHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 12,
+  },
+  vestingBenefitEmoji: {
+    fontSize: 48,
+  },
+  vestingBenefitTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+    flex: 1,
+  },
+  vestingBenefitText: {
+    fontSize: 16,
+    color: colors.text,
+    lineHeight: 26,
+    marginBottom: 12,
+  },
+  vestingProjectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  vestingProjectionSubtitle: {
+    fontSize: 15,
+    color: colors.textSecondary,
+    marginBottom: 16,
+  },
+  vestingProjectionBox: {
+    backgroundColor: colors.background + '60',
+    borderRadius: 12,
+    padding: 20,
+  },
+  vestingProjectionLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  vestingProjectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  vestingProjectionItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  vestingProjectionPrice: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  vestingProjectionValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  vestingProjectionDivider: {
+    width: 1,
+    height: 50,
+    backgroundColor: colors.border,
+    opacity: 0.5,
+  },
+  vestingBenefitsSection: {
+    marginBottom: 24,
+  },
+  vestingBenefitItemCard: {
+    padding: 16,
+    marginBottom: 12,
+  },
+  vestingBenefitItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  vestingBenefitItemEmoji: {
+    fontSize: 36,
+  },
+  vestingBenefitItemContent: {
+    flex: 1,
+  },
+  vestingBenefitItemTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  vestingBenefitItemDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 22,
+  },
+  vestingFinalCard: {
+    padding: 0,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  vestingFinalGradient: {
+    padding: 32,
+    alignItems: 'center',
+  },
+  vestingFinalEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  vestingFinalTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#000',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  vestingFinalText: {
+    fontSize: 16,
+    color: '#000',
+    textAlign: 'center',
+    lineHeight: 26,
+    fontWeight: '500',
+  },
+  vestingFinalStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+  },
+  vestingFinalStatItem: {
+    alignItems: 'center',
+  },
+  vestingFinalStatValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#000',
+    marginBottom: 4,
+  },
+  vestingFinalStatLabel: {
+    fontSize: 12,
+    color: '#000',
+    fontWeight: '600',
+  },
+  vestingFinalStatDivider: {
+    width: 1,
+    height: 50,
+    backgroundColor: '#000',
+    opacity: 0.3,
+  },
+  vestingFinalHighlight: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#000',
+    textAlign: 'center',
   },
 });
