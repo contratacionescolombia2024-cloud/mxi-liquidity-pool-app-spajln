@@ -13,7 +13,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { UniversalMXICounter } from '@/components/UniversalMXICounter';
 import { YieldDisplay } from '@/components/YieldDisplay';
 import { LaunchCountdown } from '@/components/LaunchCountdown';
 import { TotalMXIBalanceChart } from '@/components/TotalMXIBalanceChart';
@@ -694,11 +693,8 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Yield Display */}
+        {/* Yield Display - Only vesting display remaining */}
         <YieldDisplay />
-
-        {/* Universal MXI Counter - Shows vesting from purchased MXI only with real-time updates */}
-        <UniversalMXICounter />
 
         {/* Footer */}
         <Footer />
