@@ -4,6 +4,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface CountdownTime {
   days: number;
@@ -13,6 +14,7 @@ interface CountdownTime {
 }
 
 export function LaunchCountdown() {
+  const { t } = useLanguage();
   const [countdown, setCountdown] = useState<CountdownTime>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [launchDate] = useState(new Date('2026-02-15T12:00:00Z'));
 
@@ -61,7 +63,7 @@ export function LaunchCountdown() {
                 size={20} 
                 color="rgba(255, 255, 255, 0.95)" 
               />
-              <Text style={styles.title}>LANZAMIENTO OFICIAL</Text>
+              <Text style={styles.title}>{t('officialLaunch')}</Text>
               <IconSymbol 
                 ios_icon_name="sparkles" 
                 android_material_icon_name="auto_awesome" 
@@ -70,7 +72,7 @@ export function LaunchCountdown() {
               />
             </View>
 
-            <Text style={styles.subtitle}>Maxcoin (MXI)</Text>
+            <Text style={styles.subtitle}>{t('maxcoinMXI')}</Text>
 
             {/* Compact Date Display */}
             <View style={styles.dateContainer}>
@@ -80,7 +82,7 @@ export function LaunchCountdown() {
                 size={14} 
                 color="rgba(255, 255, 255, 0.85)" 
               />
-              <Text style={styles.dateText}>15 Feb 2026 • 12:00 UTC</Text>
+              <Text style={styles.dateText}>{t('launchDate')}</Text>
             </View>
 
             {/* Compact Countdown Display */}
@@ -90,7 +92,7 @@ export function LaunchCountdown() {
                 <View style={styles.timeCard}>
                   <Text style={styles.timeValue}>{countdown.days}</Text>
                 </View>
-                <Text style={styles.timeLabel}>DÍAS</Text>
+                <Text style={styles.timeLabel}>{t('days')}</Text>
               </View>
 
               <Text style={styles.separator}>:</Text>
@@ -100,7 +102,7 @@ export function LaunchCountdown() {
                 <View style={styles.timeCard}>
                   <Text style={styles.timeValue}>{countdown.hours.toString().padStart(2, '0')}</Text>
                 </View>
-                <Text style={styles.timeLabel}>HRS</Text>
+                <Text style={styles.timeLabel}>{t('hours')}</Text>
               </View>
 
               <Text style={styles.separator}>:</Text>
@@ -110,7 +112,7 @@ export function LaunchCountdown() {
                 <View style={styles.timeCard}>
                   <Text style={styles.timeValue}>{countdown.minutes.toString().padStart(2, '0')}</Text>
                 </View>
-                <Text style={styles.timeLabel}>MIN</Text>
+                <Text style={styles.timeLabel}>{t('minutes')}</Text>
               </View>
 
               <Text style={styles.separator}>:</Text>
@@ -120,7 +122,7 @@ export function LaunchCountdown() {
                 <View style={styles.timeCard}>
                   <Text style={styles.timeValue}>{countdown.seconds.toString().padStart(2, '0')}</Text>
                 </View>
-                <Text style={styles.timeLabel}>SEG</Text>
+                <Text style={styles.timeLabel}>{t('seconds')}</Text>
               </View>
             </View>
 
@@ -133,7 +135,7 @@ export function LaunchCountdown() {
                   size={12} 
                   color="rgba(255, 255, 255, 0.85)" 
                 />
-                <Text style={styles.infoText}>Pool Activo</Text>
+                <Text style={styles.infoText}>{t('poolActive')}</Text>
               </View>
               <View style={styles.infoItem}>
                 <IconSymbol 
@@ -142,7 +144,7 @@ export function LaunchCountdown() {
                   size={12} 
                   color="rgba(255, 255, 255, 0.85)" 
                 />
-                <Text style={styles.infoText}>Vesting Real-Time</Text>
+                <Text style={styles.infoText}>{t('vestingRealTime')}</Text>
               </View>
             </View>
           </View>

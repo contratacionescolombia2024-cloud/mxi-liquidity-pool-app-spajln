@@ -106,6 +106,7 @@ const translations = {
     hours: 'HRS',
     minutes: 'MIN',
     seconds: 'SEC',
+    launchDate: '15 Feb 2026 • 12:00 UTC',
     
     // Total MXI Balance Chart
     totalMXIBalance: '📊 Total MXI Balance',
@@ -530,6 +531,7 @@ const translations = {
     hours: 'HRS',
     minutes: 'MIN',
     seconds: 'SEG',
+    launchDate: '15 Feb 2026 • 12:00 UTC',
     
     // Total MXI Balance Chart
     totalMXIBalance: '📊 Balance General de MXI',
@@ -954,6 +956,7 @@ const translations = {
     hours: 'HRS',
     minutes: 'MIN',
     seconds: 'SEG',
+    launchDate: '15 Fev 2026 • 12:00 UTC',
     
     // Total MXI Balance Chart
     totalMXIBalance: '📊 Saldo Total de MXI',
