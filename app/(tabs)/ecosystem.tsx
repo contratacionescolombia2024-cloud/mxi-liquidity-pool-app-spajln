@@ -15,7 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
-type TabType = 'que-es' | 'como-funciona' | 'por-que-comprar' | 'meta' | 'ecosistema';
+type TabType = 'que-es' | 'como-funciona' | 'por-que-comprar' | 'meta' | 'ecosistema' | 'sostenibilidad';
 
 export default function EcosystemScreen() {
   const [activeTab, setActiveTab] = useState<TabType>('que-es');
@@ -77,6 +77,15 @@ export default function EcosystemScreen() {
             Ecosistema 🌱
           </Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'sostenibilidad' && styles.activeTab]}
+          onPress={() => setActiveTab('sostenibilidad')}
+        >
+          <Text style={[styles.tabText, activeTab === 'sostenibilidad' && styles.activeTabText]}>
+            Sostenibilidad ♻️
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Tab Content */}
@@ -85,6 +94,7 @@ export default function EcosystemScreen() {
       {activeTab === 'por-que-comprar' && <PorQueComprarTab />}
       {activeTab === 'meta' && <MetaTab />}
       {activeTab === 'ecosistema' && <EcosistemaTab />}
+      {activeTab === 'sostenibilidad' && <SostenibilidadTab />}
     </SafeAreaView>
   );
 }
@@ -1455,6 +1465,280 @@ function EcosistemaTab() {
   );
 }
 
+// Sostenibilidad Tab Content
+function SostenibilidadTab() {
+  return (
+    <ScrollView contentContainerStyle={styles.scrollContent}>
+      {/* Main Title */}
+      <View style={styles.titleSection}>
+        <Text style={styles.mainTitle}>Sostenibilidad ♻️</Text>
+      </View>
+
+      {/* Hero Image */}
+      <View style={styles.imageContainer}>
+        <Image
+          source={require('@/assets/images/a5536d4f-9a95-4241-8eaf-24523b60983f.png')}
+          style={styles.sostenibilidadImage}
+          resizeMode="cover"
+        />
+      </View>
+
+      {/* Introduction Card */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '15', colors.accent + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sostenibilidadIntro}>
+            ♻️ MXI es sostenible porque su modelo se basa en algo simple: <Text style={styles.boldText}>sin preventa no hay valor, y sin valor nadie gana</Text>.
+          </Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.bodyText}>
+            🌱 El crecimiento depende del esfuerzo inicial de la comunidad y de la adopción temprana.
+          </Text>
+          
+          <Text style={styles.emphasisText}>
+            💡 No es magia, es economía.
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* El valor nace en la preventa */}
+      <View style={[commonStyles.card, styles.sostenibilidadSectionCard]}>
+        <LinearGradient
+          colors={['#00ff88' + '15', '#00cc6a' + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.sostenibilidadSectionGradient}
+        >
+          <View style={styles.sostenibilidadSectionHeader}>
+            <Text style={styles.sostenibilidadSectionEmoji}>💎</Text>
+            <Text style={styles.sostenibilidadSectionTitle}>El valor nace en la preventa</Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.sostenibilidadSectionText}>
+            🚀 La preventa define la liquidez inicial, el precio base y el respaldo del token.
+          </Text>
+          
+          <Text style={styles.sostenibilidadSectionText}>
+            💪 Si la comunidad participa, el proyecto arranca con fuerza.
+          </Text>
+          
+          <Text style={styles.sostenibilidadSectionHighlight}>
+            ⚠️ Si no hay preventa, no existe un valor sólido para construir el ecosistema.
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* El ecosistema genera utilidad real */}
+      <View style={[commonStyles.card, styles.sostenibilidadSectionCard]}>
+        <LinearGradient
+          colors={['#6366F1' + '15', '#4F46E5' + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.sostenibilidadSectionGradient}
+        >
+          <View style={styles.sostenibilidadSectionHeader}>
+            <Text style={styles.sostenibilidadSectionEmoji}>🎮</Text>
+            <Text style={styles.sostenibilidadSectionTitle}>El ecosistema genera utilidad real</Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.sostenibilidadSectionText}>
+            🎯 MXI crece por el uso: juegos, torneos, comisiones, vesting y transacciones internas.
+          </Text>
+          
+          <View style={styles.sostenibilidadPointsList}>
+            <View style={styles.sostenibilidadPointRow}>
+              <Text style={styles.sostenibilidadPointIcon}>📊</Text>
+              <Text style={styles.sostenibilidadPointText}>A mayor actividad, mayor volumen.</Text>
+            </View>
+            <View style={styles.sostenibilidadPointRow}>
+              <Text style={styles.sostenibilidadPointIcon}>📈</Text>
+              <Text style={styles.sostenibilidadPointText}>A mayor volumen, mayor valoración.</Text>
+            </View>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.sostenibilidadSectionHighlight}>
+            🎯 No depende de "entradas nuevas", sino del movimiento dentro del sistema.
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* El vesting y los premios no afectan la liquidez */}
+      <View style={[commonStyles.card, styles.sostenibilidadSectionCard]}>
+        <LinearGradient
+          colors={['#FF9800' + '15', '#F57C00' + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.sostenibilidadSectionGradient}
+        >
+          <View style={styles.sostenibilidadSectionHeader}>
+            <Text style={styles.sostenibilidadSectionEmoji}>🔒</Text>
+            <Text style={styles.sostenibilidadSectionTitle}>El vesting y los premios no afectan la liquidez</Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <View style={styles.sostenibilidadPointsList}>
+            <View style={styles.sostenibilidadPointRow}>
+              <Text style={styles.sostenibilidadPointIcon}>💰</Text>
+              <Text style={styles.sostenibilidadPointText}>El vesting genera MXI, no USDT.</Text>
+            </View>
+            <View style={styles.sostenibilidadPointRow}>
+              <Text style={styles.sostenibilidadPointIcon}>🏆</Text>
+              <Text style={styles.sostenibilidadPointText}>Los torneos se pagan con comisiones internas, no con fondos del proyecto.</Text>
+            </View>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.sostenibilidadSectionHighlight}>
+            ✅ Esto hace que las recompensas no destruyan la economía.
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* El sistema de referidos impulsa la adopción */}
+      <View style={[commonStyles.card, styles.sostenibilidadSectionCard]}>
+        <LinearGradient
+          colors={['#2196F3' + '15', '#03A9F4' + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.sostenibilidadSectionGradient}
+        >
+          <View style={styles.sostenibilidadSectionHeader}>
+            <Text style={styles.sostenibilidadSectionEmoji}>🤝</Text>
+            <Text style={styles.sostenibilidadSectionTitle}>El sistema de referidos impulsa la adopción</Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.sostenibilidadSectionText}>
+            📊 Son solo 3 niveles y porcentajes bajos.
+          </Text>
+          
+          <Text style={styles.sostenibilidadSectionHighlight}>
+            🚀 Estimula la expansión y el volumen sin poner en riesgo el fondo principal.
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Todo depende del trabajo conjunto */}
+      <View style={[commonStyles.card, styles.sostenibilidadSectionCard]}>
+        <LinearGradient
+          colors={['#9C27B0' + '15', '#7B1FA2' + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.sostenibilidadSectionGradient}
+        >
+          <View style={styles.sostenibilidadSectionHeader}>
+            <Text style={styles.sostenibilidadSectionEmoji}>👥</Text>
+            <Text style={styles.sostenibilidadSectionTitle}>Todo depende del trabajo conjunto</Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.sostenibilidadSectionText}>
+            ⚠️ MXI no ofrece ganancias pasivas "mágicas".
+          </Text>
+          
+          <Text style={styles.sostenibilidadSectionText}>
+            💪 La valorización sucede cuando la comunidad comparte, participa, juega y promueve.
+          </Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.sostenibilidadSectionHighlight}>
+            🎯 Cuanto más fuerte sea la preventa y la participación, mayor será el valor final del token.
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Resumen Clave */}
+      <View style={[commonStyles.card, styles.sostenibilidadResumenCard]}>
+        <LinearGradient
+          colors={[colors.primary + '20', colors.accent + '20']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.sostenibilidadResumenGradient}
+        >
+          <Text style={styles.sostenibilidadResumenEmoji}>🔑</Text>
+          <Text style={styles.sostenibilidadResumenTitle}>RESUMEN CLAVE PARA EL USUARIO</Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.sostenibilidadResumenSubtitle}>
+            MXI es sostenible porque:
+          </Text>
+          
+          <View style={styles.sostenibilidadResumenList}>
+            <View style={styles.sostenibilidadResumenRow}>
+              <Text style={styles.sostenibilidadResumenIcon}>–</Text>
+              <Text style={styles.sostenibilidadResumenText}>El valor nace con la preventa</Text>
+            </View>
+            <View style={styles.sostenibilidadResumenRow}>
+              <Text style={styles.sostenibilidadResumenIcon}>–</Text>
+              <Text style={styles.sostenibilidadResumenText}>La comunidad es el motor</Text>
+            </View>
+            <View style={styles.sostenibilidadResumenRow}>
+              <Text style={styles.sostenibilidadResumenIcon}>–</Text>
+              <Text style={styles.sostenibilidadResumenText}>Las recompensas no afectan la liquidez</Text>
+            </View>
+            <View style={styles.sostenibilidadResumenRow}>
+              <Text style={styles.sostenibilidadResumenIcon}>–</Text>
+              <Text style={styles.sostenibilidadResumenText}>La utilidad real del ecosistema genera crecimiento</Text>
+            </View>
+            <View style={styles.sostenibilidadResumenRow}>
+              <Text style={styles.sostenibilidadResumenIcon}>–</Text>
+              <Text style={styles.sostenibilidadResumenText}>El precio sube cuando hay adopción, no promesas</Text>
+            </View>
+          </View>
+        </LinearGradient>
+      </View>
+
+      {/* Final Message Card */}
+      <View style={[commonStyles.card, styles.sostenibilidadFinalCard]}>
+        <LinearGradient
+          colors={[colors.primary, colors.accent]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.sostenibilidadFinalGradient}
+        >
+          <Text style={styles.sostenibilidadFinalEmoji}>🌟</Text>
+          <Text style={styles.sostenibilidadFinalTitle}>Conclusión</Text>
+          
+          <View style={styles.urgencyDivider} />
+          
+          <View style={styles.sostenibilidadFinalPoints}>
+            <Text style={styles.sostenibilidadFinalPoint}>
+              ✅ Si hay trabajo y preventa, todos ganan.
+            </Text>
+            <Text style={styles.sostenibilidadFinalPoint}>
+              ❌ Si no hay preventa ni participación, no hay crecimiento.
+            </Text>
+          </View>
+          
+          <View style={styles.urgencyDivider} />
+          
+          <Text style={styles.sostenibilidadFinalCTA}>
+            🎯 MXI es un ecosistema impulsado por la comunidad, no por la especulación.
+          </Text>
+        </LinearGradient>
+      </View>
+    </ScrollView>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1550,6 +1834,11 @@ const styles = StyleSheet.create({
     height: (width - 80) * 0.65,
     borderRadius: 20,
   },
+  sostenibilidadImage: {
+    width: width - 80,
+    height: (width - 80) * 0.6,
+    borderRadius: 20,
+  },
   contentCard: {
     padding: 0,
     overflow: 'hidden',
@@ -1572,6 +1861,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   ecosistemaIntro: {
+    fontSize: 18,
+    color: colors.text,
+    lineHeight: 28,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  sostenibilidadIntro: {
     fontSize: 18,
     color: colors.text,
     lineHeight: 28,
@@ -2671,6 +2967,148 @@ const styles = StyleSheet.create({
   },
   ecosistemaFinalCTA: {
     fontSize: 20,
+    fontWeight: '700',
+    color: '#000',
+    textAlign: 'center',
+    lineHeight: 30,
+  },
+  // Sostenibilidad Tab Styles
+  sostenibilidadSectionCard: {
+    padding: 0,
+    overflow: 'hidden',
+    marginBottom: 20,
+  },
+  sostenibilidadSectionGradient: {
+    padding: 24,
+  },
+  sostenibilidadSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 12,
+  },
+  sostenibilidadSectionEmoji: {
+    fontSize: 40,
+  },
+  sostenibilidadSectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    flex: 1,
+    lineHeight: 28,
+  },
+  sostenibilidadSectionText: {
+    fontSize: 16,
+    color: colors.text,
+    lineHeight: 26,
+    marginBottom: 12,
+  },
+  sostenibilidadSectionHighlight: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.primary,
+    lineHeight: 26,
+  },
+  sostenibilidadPointsList: {
+    gap: 12,
+    marginVertical: 8,
+  },
+  sostenibilidadPointRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  sostenibilidadPointIcon: {
+    fontSize: 24,
+    marginTop: 2,
+  },
+  sostenibilidadPointText: {
+    fontSize: 16,
+    color: colors.text,
+    flex: 1,
+    lineHeight: 26,
+  },
+  sostenibilidadResumenCard: {
+    padding: 0,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  sostenibilidadResumenGradient: {
+    padding: 28,
+    alignItems: 'center',
+  },
+  sostenibilidadResumenEmoji: {
+    fontSize: 56,
+    marginBottom: 16,
+  },
+  sostenibilidadResumenTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  sostenibilidadResumenSubtitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  sostenibilidadResumenList: {
+    gap: 12,
+    width: '100%',
+  },
+  sostenibilidadResumenRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingHorizontal: 8,
+  },
+  sostenibilidadResumenIcon: {
+    fontSize: 20,
+    color: colors.primary,
+    marginTop: 2,
+  },
+  sostenibilidadResumenText: {
+    fontSize: 16,
+    color: colors.text,
+    flex: 1,
+    lineHeight: 26,
+  },
+  sostenibilidadFinalCard: {
+    padding: 0,
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  sostenibilidadFinalGradient: {
+    padding: 32,
+    alignItems: 'center',
+  },
+  sostenibilidadFinalEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  sostenibilidadFinalTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#000',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  sostenibilidadFinalPoints: {
+    gap: 16,
+    width: '100%',
+  },
+  sostenibilidadFinalPoint: {
+    fontSize: 17,
+    color: '#000',
+    textAlign: 'center',
+    lineHeight: 28,
+    fontWeight: '600',
+  },
+  sostenibilidadFinalCTA: {
+    fontSize: 19,
     fontWeight: '700',
     color: '#000',
     textAlign: 'center',
