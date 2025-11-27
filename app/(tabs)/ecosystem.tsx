@@ -776,10 +776,10 @@ function MetaTab() {
         <Text style={styles.mainTitle}>META 🎯</Text>
       </View>
 
-      {/* Hero Image */}
+      {/* Hero Image - UPDATED TO NEW IMAGE */}
       <View style={styles.imageContainer}>
         <Image
-          source={require('@/assets/images/d6069fba-4cc4-4ec4-8cd1-68a3ad5241d5.png')}
+          source={require('@/assets/images/d3420549-e718-4e6b-b1de-587ff36abfcf.png')}
           style={styles.metaImage}
           resizeMode="cover"
         />
