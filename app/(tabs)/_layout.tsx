@@ -5,10 +5,12 @@ import { Tabs } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
 import { colors } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { BlurView } from 'expo-blur';
 
 export default function TabLayout() {
   const { user } = useAuth();
+  const { t } = useLanguage();
 
   return (
     <Tabs
@@ -59,7 +61,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="(home)"
         options={{
-          title: 'Inicio',
+          title: t('tabHome'),
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
               ios_icon_name={focused ? 'house.fill' : 'house'}
@@ -74,7 +76,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="deposit"
         options={{
-          title: 'Depositar',
+          title: t('tabDeposit'),
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
               ios_icon_name={focused ? 'arrow.down.circle.fill' : 'arrow.down.circle'}
@@ -89,7 +91,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="withdraw"
         options={{
-          title: 'Retirar',
+          title: t('tabWithdraw'),
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
               ios_icon_name={focused ? 'arrow.up.circle.fill' : 'arrow.up.circle'}
@@ -104,7 +106,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="referrals"
         options={{
-          title: 'Referidos',
+          title: t('tabReferrals'),
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
               ios_icon_name={focused ? 'person.3.fill' : 'person.3'}
@@ -119,7 +121,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="tournaments"
         options={{
-          title: 'Torneos',
+          title: t('tabTournaments'),
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
               ios_icon_name={focused ? 'trophy.fill' : 'trophy'}
@@ -134,7 +136,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="rewards"
         options={{
-          title: 'Recompensas',
+          title: t('tabRewards'),
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
               ios_icon_name={focused ? 'gift.fill' : 'gift'}
@@ -149,7 +151,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="ecosystem"
         options={{
-          title: 'Ecosistema',
+          title: t('tabEcosystem'),
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
               ios_icon_name={focused ? 'globe.americas.fill' : 'globe.americas'}
@@ -164,7 +166,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Perfil',
+          title: t('tabProfile'),
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
               ios_icon_name={focused ? 'person.circle.fill' : 'person.circle'}

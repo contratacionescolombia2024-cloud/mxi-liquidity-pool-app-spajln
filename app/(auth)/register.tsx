@@ -16,12 +16,14 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 
 export default function RegisterScreen() {
   const router = useRouter();
   const { register } = useAuth();
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     name: '',
     idNumber: '',
@@ -40,32 +42,32 @@ export default function RegisterScreen() {
     const { name, idNumber, address, email, password, confirmPassword, referralCode } = formData;
 
     if (!name || !idNumber || !address || !email || !password || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all required fields');
+      Alert.alert(t('error'), t('fillAllFields'));
       return;
     }
 
     if (!acceptedTerms) {
       Alert.alert(
-        'Terms and Conditions Required',
-        'You must accept the Terms and Conditions to create an account'
+        t('termsAndConditionsRequired'),
+        t('youMustAcceptTerms')
       );
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      Alert.alert(t('error'), t('passwordsDontMatch'));
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
+      Alert.alert(t('error'), t('passwordTooShort'));
       return;
     }
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      Alert.alert('Error', 'Please enter a valid email address');
+      Alert.alert(t('error'), t('invalidEmail'));
       return;
     }
 
@@ -95,14 +97,14 @@ export default function RegisterScreen() {
 
     if (result.success) {
       Alert.alert(
-        'Success',
-        'Account created successfully! Please check your email to verify your account before logging in.',
+        t('success'),
+        t('accountCreatedSuccessfully'),
         [
-          { text: 'OK', onPress: () => router.replace('/(auth)/login') },
+          { text: t('ok'), onPress: () => router.replace('/(auth)/login') },
         ]
       );
     } else {
-      Alert.alert('Error', result.error || 'Failed to create account. Please try again.');
+      Alert.alert(t('error'), result.error || t('failedToCreateAccount'));
     }
   };
 
@@ -127,16 +129,16 @@ export default function RegisterScreen() {
               resizeMode="contain"
             />
           </View>
-          <Text style={styles.title}>Join MXI Strategic PreSale</Text>
-          <Text style={styles.subtitle}>Secure Your Position in the Future</Text>
+          <Text style={styles.title}>{t('joinMXIStrategicPresale')}</Text>
+          <Text style={styles.subtitle}>{t('secureYourPosition')}</Text>
         </View>
 
         <View style={styles.form}>
           <View style={styles.inputContainer}>
-            <Text style={commonStyles.label}>Full Name *</Text>
+            <Text style={commonStyles.label}>{t('fullName')} *</Text>
             <TextInput
               style={commonStyles.input}
-              placeholder="John Doe"
+              placeholder={t('enterYourFullName')}
               placeholderTextColor={colors.textSecondary}
               value={formData.name}
               onChangeText={(value) => updateField('name', value)}
@@ -145,10 +147,10 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={commonStyles.label}>ID Number *</Text>
+            <Text style={commonStyles.label}>{t('idNumber')} *</Text>
             <TextInput
               style={commonStyles.input}
-              placeholder="123456789"
+              placeholder={t('enterYourIDNumber')}
               placeholderTextColor={colors.textSecondary}
               value={formData.idNumber}
               onChangeText={(value) => updateField('idNumber', value)}
@@ -157,10 +159,10 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={commonStyles.label}>Address *</Text>
+            <Text style={commonStyles.label}>{t('address')} *</Text>
             <TextInput
               style={commonStyles.input}
-              placeholder="123 Main St, City, Country"
+              placeholder={t('enterYourResidentialAddress')}
               placeholderTextColor={colors.textSecondary}
               value={formData.address}
               onChangeText={(value) => updateField('address', value)}
@@ -169,10 +171,10 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={commonStyles.label}>Email *</Text>
+            <Text style={commonStyles.label}>{t('email')} *</Text>
             <TextInput
               style={commonStyles.input}
-              placeholder="your@email.com"
+              placeholder={t('enterYourEmail')}
               placeholderTextColor={colors.textSecondary}
               value={formData.email}
               onChangeText={(value) => updateField('email', value)}
@@ -183,11 +185,11 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={commonStyles.label}>Password *</Text>
+            <Text style={commonStyles.label}>{t('password')} *</Text>
             <View style={styles.passwordContainer}>
               <TextInput
                 style={[commonStyles.input, styles.passwordInput]}
-                placeholder="Minimum 6 characters"
+                placeholder={t('minimumSixCharacters')}
                 placeholderTextColor={colors.textSecondary}
                 value={formData.password}
                 onChangeText={(value) => updateField('password', value)}
@@ -209,10 +211,10 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={commonStyles.label}>Confirm Password *</Text>
+            <Text style={commonStyles.label}>{t('confirmPassword')} *</Text>
             <TextInput
               style={commonStyles.input}
-              placeholder="Re-enter password"
+              placeholder={t('reEnterPassword')}
               placeholderTextColor={colors.textSecondary}
               value={formData.confirmPassword}
               onChangeText={(value) => updateField('confirmPassword', value)}
@@ -222,10 +224,10 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.inputContainer}>
-            <Text style={commonStyles.label}>Referral Code (Optional)</Text>
+            <Text style={commonStyles.label}>{t('referralCode')}</Text>
             <TextInput
               style={commonStyles.input}
-              placeholder="Enter referral code"
+              placeholder={t('enterReferralCode')}
               placeholderTextColor={colors.textSecondary}
               value={formData.referralCode}
               onChangeText={(value) => updateField('referralCode', value)}
@@ -241,7 +243,7 @@ export default function RegisterScreen() {
               color={colors.primary} 
             />
             <Text style={styles.infoText}>
-              Only one account per person is allowed. Your ID number will be verified.
+              {t('onlyOneAccountPerPerson')}
             </Text>
           </View>
 
@@ -258,12 +260,12 @@ export default function RegisterScreen() {
               </View>
               <View style={styles.termsTextContainer}>
                 <Text style={styles.termsText}>
-                  I have read and accept the{' '}
+                  {t('iHaveReadAndAccept')}{' '}
                   <Text
                     style={styles.termsLink}
                     onPress={() => setShowTermsModal(true)}
                   >
-                    Terms and Conditions
+                    {t('termsAndConditions')}
                   </Text>
                 </Text>
               </View>
@@ -278,7 +280,7 @@ export default function RegisterScreen() {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.buttonText}>Create Account</Text>
+              <Text style={styles.buttonText}>{t('createAccount')}</Text>
             )}
           </TouchableOpacity>
 
@@ -287,7 +289,7 @@ export default function RegisterScreen() {
             onPress={() => router.back()}
           >
             <Text style={styles.loginLinkText}>
-              Already have an account? <Text style={styles.loginLinkBold}>Login</Text>
+              {t('alreadyHaveAccountLogin')} <Text style={styles.loginLinkBold}>{t('login')}</Text>
             </Text>
           </TouchableOpacity>
         </View>
@@ -302,7 +304,7 @@ export default function RegisterScreen() {
       >
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>📜 Terms and Conditions</Text>
+            <Text style={styles.modalTitle}>📜 {t('termsAndConditions')}</Text>
             <TouchableOpacity
               style={styles.modalCloseButton}
               onPress={() => setShowTermsModal(false)}
@@ -312,151 +314,7 @@ export default function RegisterScreen() {
           </View>
           <ScrollView style={styles.modalContent} contentContainerStyle={styles.modalScrollContent}>
             <Text style={styles.termsContent}>
-              {`TÉRMINOS Y CONDICIONES DE USO
-
-MXI STRATEGIC PRESALE – APP VERSION
-
-MAXCOIN (MXI) is a registered trademark of MXI Strategic Holdings Ltd., Cayman Islands.
-App operated by MXI Technologies Inc. (Panamá).
-Last update: 15/01/2025 – Version 1.0
-
-1. Aceptación
-
-Al crear una cuenta o utilizar la aplicación MXI Strategic Presale (la "App"), usted acepta estos Términos y Condiciones.
-Si no está de acuerdo con ellos, no debe usar la App.
-
-2. Sobre MXI
-
-MXI Strategic Holdings Ltd. (Cayman) es la entidad propietaria del token MXI, la marca y la propiedad intelectual.
-
-MXI Technologies Inc. (Panamá) es la empresa operadora de la App y responsable de su funcionamiento.
-
-3. Función de la App
-
-La App permite:
-
-- Registrar usuarios
-- Comprar tokens MXI con USDT (vía Binance)
-- Acceder a un sistema de referidos
-- Ver saldos, rendimientos y movimientos
-- Solicitar retiros de comisiones y/o MXI según las reglas vigentes
-
-4. Elegibilidad
-
-Para usar la App, usted debe:
-
-- Ser mayor de 18 años
-- Tener capacidad legal para contratar
-- Suministrar datos verídicos
-- No vivir en países donde las criptomonedas estén prohibidas
-
-5. Registro y Cuenta
-
-- Solo se permite una cuenta por persona
-- Es obligatorio completar KYC para habilitar retiros
-- La información registrada debe coincidir con documentos oficiales
-- Los números de identificación no pueden repetirse
-
-6. Compra de Tokens MXI
-
-- Mínimo de compra: 50 USDT
-- Máximo por usuario: 100.000 USDT
-- Pago exclusivamente en USDT a través de Binance
-- El número de tokens recibidos depende de la fase de la preventa
-
-7. Sistema de Referidos
-
-Estructura de comisiones:
-
-- Nivel 1: 5%
-- Nivel 2: 2%
-- Nivel 3: 1%
-
-Requisitos para retirar comisiones:
-
-- 5 referidos activos
-- 10 días desde registro
-- KYC aprobado
-- Cada referido debe haber hecho al menos una compra
-
-8. Rendimientos y Vesting
-
-- Rendimiento: 0,005% por hora
-- Comisiones unificadas también generan rendimiento
-- Rendimientos no aumentan el vesting
-- Se requieren 10 referidos activos para unificar el vesting al saldo principal
-
-9. Retiros
-
-9.1 Retiros de comisiones (USDT)
-
-Requisitos:
-
-- 5 referidos activos
-- 10 días de membresía
-- KYC aprobado
-- Wallet USDT válida
-
-9.2 Retiros de MXI
-
-Requisitos:
-
-- 5 referidos activos
-- KYC aprobado
-
-Liberación por fases si el monto excede 50000 usdt:
-
-- 10% inicial
-- +10% cada 7 días
-
-10. KYC Obligatorio
-
-Se solicitará:
-
-- Documento oficial válido
-- Fotografías
-- Selfie (prueba de vida)
-- Información verificable
-
-11. Riesgos
-
-Invertir en criptomonedas implica riesgos:
-
-- Volatilidad extrema
-- Pérdida total o parcial del capital
-- Cambios regulatorios
-- Riesgos tecnológicos y de ciberseguridad
-
-MXI Strategic no garantiza ganancias ni retornos fijos.
-
-12. Conductas Prohibidas
-
-No se permite:
-
-- Crear múltiples cuentas
-- Proveer datos falsos
-- Manipular referidos
-- Usar la App para actividades ilícitas
-- Procesar lavado de dinero
-
-13. Limitación de Responsabilidad
-
-La App se ofrece "tal cual".
-Ni MXI Strategic Holdings Ltd. ni MXI Technologies Inc. son responsables por:
-
-- Pérdidas económicas
-- Errores de terceros o blockchain
-- Daños indirectos o incidentales
-- Uso indebido de la App
-
-14. Aceptación Final
-
-Al registrarse, usted declara que:
-
-- Leyó y entiende estos Términos
-- Acepta los riesgos
-- Proporciona información veraz
-- Cumple con las leyes de su país`}
+              {t('termsContent')}
             </Text>
           </ScrollView>
           <View style={styles.modalFooter}>
@@ -467,13 +325,13 @@ Al registrarse, usted declara que:
                 setShowTermsModal(false);
               }}
             >
-              <Text style={buttonStyles.primaryText}>✓ Accept Terms</Text>
+              <Text style={buttonStyles.primaryText}>✓ {t('acceptTermsButton')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[buttonStyles.secondary, styles.closeButton]}
               onPress={() => setShowTermsModal(false)}
             >
-              <Text style={buttonStyles.secondaryText}>Close</Text>
+              <Text style={buttonStyles.secondaryText}>{t('close')}</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>

@@ -18,7 +18,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { WidgetProvider } from "@/contexts/WidgetContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { LanguageProvider } from "@/contexts/LanguageContext";
+import { LanguageProvider, useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/lib/supabase";
 
 SplashScreen.preventAutoHideAsync();
@@ -29,6 +29,7 @@ export const unstable_settings = {
 
 function RootLayoutNav() {
   const { isAuthenticated } = useAuth();
+  const { t } = useLanguage();
   const segments = useSegments();
   const colorScheme = useColorScheme();
   const [isMounted, setIsMounted] = useState(false);
@@ -122,6 +123,23 @@ function RootLayoutNav() {
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="email-confirmed" />
+        <Stack.Screen
+          name="modal"
+          options={{
+            presentation: "modal",
+            title: t("standardModalTitle"),
+          }}
+        />
+        <Stack.Screen
+          name="formsheet"
+          options={{
+            presentation: "formSheet",
+            title: t("formSheetModalTitle"),
+            sheetGrabberVisible: true,
+            sheetAllowedDetents: [0.5, 0.8, 1.0],
+            sheetCornerRadius: 20,
+          }}
+        />
       </Stack>
     </ThemeProvider>
   );
@@ -140,18 +158,6 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
-  React.useEffect(() => {
-    if (
-      !networkState.isConnected &&
-      networkState.isInternetReachable === false
-    ) {
-      Alert.alert(
-        "🔌 You are offline",
-        "You can keep using the app! Your changes will be saved locally and synced when you are back online."
-      );
-    }
-  }, [networkState.isConnected, networkState.isInternetReachable]);
-
   if (!loaded) {
     return null;
   }
@@ -161,6 +167,7 @@ export default function RootLayout() {
       <StatusBar style="light" animated />
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#000000' }}>
         <LanguageProvider>
+          <OfflineHandler />
           <WidgetProvider>
             <AuthProvider>
               <RootLayoutNav />
@@ -171,4 +178,29 @@ export default function RootLayout() {
       </GestureHandlerRootView>
     </>
   );
+}
+
+// Separate component to handle offline state with translations
+function OfflineHandler() {
+  const networkState = useNetworkState();
+  const { t } = useLanguage();
+  const [hasShownOfflineAlert, setHasShownOfflineAlert] = useState(false);
+
+  React.useEffect(() => {
+    if (
+      !networkState.isConnected &&
+      networkState.isInternetReachable === false &&
+      !hasShownOfflineAlert
+    ) {
+      Alert.alert(
+        t("offlineTitle"),
+        t("offlineMessage")
+      );
+      setHasShownOfflineAlert(true);
+    } else if (networkState.isConnected && hasShownOfflineAlert) {
+      setHasShownOfflineAlert(false);
+    }
+  }, [networkState.isConnected, networkState.isInternetReachable, t]);
+
+  return null;
 }
