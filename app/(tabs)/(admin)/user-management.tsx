@@ -17,6 +17,7 @@ import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { AdminUserManagement } from '@/components/AdminUserManagement';
 import { AdminMetricsDashboard } from '@/components/AdminMetricsDashboard';
 
@@ -48,6 +49,7 @@ interface UserData {
 export default function UserManagementScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<UserData[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserData[]>([]);
@@ -79,7 +81,7 @@ export default function UserManagementScreen() {
       setUsers(data || []);
     } catch (error) {
       console.error('Error loading users:', error);
-      Alert.alert('Error', 'Failed to load users');
+      Alert.alert(t('error'), t('failedToLoadSettings'));
     } finally {
       setLoading(false);
     }
@@ -119,12 +121,12 @@ export default function UserManagementScreen() {
     if (!user) return;
 
     Alert.alert(
-      '🚫 Bloquear Usuario',
-      '¿Estás seguro de bloquear este usuario? No podrá acceder a su cuenta.',
+      t('blockUser'),
+      t('blockUserConfirm'),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         {
-          text: 'Bloquear',
+          text: t('block'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -132,21 +134,21 @@ export default function UserManagementScreen() {
               const { data, error } = await supabase.rpc('block_user_account', {
                 p_user_id: userId,
                 p_admin_id: user.id,
-                p_reason: reason || 'Bloqueado por administrador'
+                p_reason: reason || t('blockedByAdmin')
               });
 
               if (error) throw error;
 
               if (data?.success) {
-                Alert.alert('✅ Éxito', 'Usuario bloqueado exitosamente');
+                Alert.alert(t('success'), t('userBlockedSuccess'));
                 await loadUsers();
                 setDetailsModalVisible(false);
               } else {
-                Alert.alert('❌ Error', data?.error || 'Error al bloquear usuario');
+                Alert.alert(t('error'), data?.error || t('errorBlockingUser'));
               }
             } catch (error) {
               console.error('Error blocking user:', error);
-              Alert.alert('❌ Error', 'Error al bloquear usuario');
+              Alert.alert(t('error'), t('errorBlockingUser'));
             } finally {
               setProcessing(false);
             }
@@ -160,12 +162,12 @@ export default function UserManagementScreen() {
     if (!user) return;
 
     Alert.alert(
-      '✅ Desbloquear Usuario',
-      '¿Estás seguro de desbloquear este usuario?',
+      t('unblockUser'),
+      t('unblockUserConfirm'),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         {
-          text: 'Desbloquear',
+          text: t('unblock'),
           onPress: async () => {
             try {
               setProcessing(true);
@@ -177,15 +179,15 @@ export default function UserManagementScreen() {
               if (error) throw error;
 
               if (data?.success) {
-                Alert.alert('✅ Éxito', 'Usuario desbloqueado exitosamente');
+                Alert.alert(t('success'), t('userUnblockedSuccess'));
                 await loadUsers();
                 setDetailsModalVisible(false);
               } else {
-                Alert.alert('❌ Error', data?.error || 'Error al desbloquear usuario');
+                Alert.alert(t('error'), data?.error || t('errorUnblockingUser'));
               }
             } catch (error) {
               console.error('Error unblocking user:', error);
-              Alert.alert('❌ Error', 'Error al desbloquear usuario');
+              Alert.alert(t('error'), t('errorUnblockingUser'));
             } finally {
               setProcessing(false);
             }
@@ -206,7 +208,7 @@ export default function UserManagementScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Cargando usuarios...</Text>
+          <Text style={styles.loadingText}>{t('loadingUsers')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -227,8 +229,8 @@ export default function UserManagementScreen() {
           />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.title}>👥 Gestión de Usuarios</Text>
-          <Text style={styles.subtitle}>{filteredUsers.length} usuarios</Text>
+          <Text style={styles.title}>{t('userManagement')}</Text>
+          <Text style={styles.subtitle}>{filteredUsers.length} {t('users')}</Text>
         </View>
         <TouchableOpacity
           style={styles.metricsButton}
@@ -257,7 +259,7 @@ export default function UserManagementScreen() {
               />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Buscar por nombre, email, ID o código..."
+                placeholder={t('searchPlaceholder')}
                 placeholderTextColor={colors.textSecondary}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -280,7 +282,7 @@ export default function UserManagementScreen() {
                 onPress={() => setFilterStatus('all')}
               >
                 <Text style={[styles.filterButtonText, filterStatus === 'all' && styles.filterButtonTextActive]}>
-                  Todos
+                  {t('all')}
                 </Text>
               </TouchableOpacity>
 
@@ -289,7 +291,7 @@ export default function UserManagementScreen() {
                 onPress={() => setFilterStatus('active')}
               >
                 <Text style={[styles.filterButtonText, filterStatus === 'active' && styles.filterButtonTextActive]}>
-                  Activos
+                  {t('actives')}
                 </Text>
               </TouchableOpacity>
 
@@ -298,7 +300,7 @@ export default function UserManagementScreen() {
                 onPress={() => setFilterStatus('inactive')}
               >
                 <Text style={[styles.filterButtonText, filterStatus === 'inactive' && styles.filterButtonTextActive]}>
-                  Inactivos
+                  {t('inactive')}
                 </Text>
               </TouchableOpacity>
 
@@ -307,7 +309,7 @@ export default function UserManagementScreen() {
                 onPress={() => setFilterStatus('blocked')}
               >
                 <Text style={[styles.filterButtonText, filterStatus === 'blocked' && styles.filterButtonTextActive]}>
-                  🚫 Bloqueados
+                  {t('blocked')}
                 </Text>
               </TouchableOpacity>
             </ScrollView>
@@ -322,8 +324,8 @@ export default function UserManagementScreen() {
                   size={64} 
                   color={colors.textSecondary} 
                 />
-                <Text style={styles.emptyText}>No se encontraron usuarios</Text>
-                <Text style={styles.emptySubtext}>Intenta ajustar tu búsqueda o filtros</Text>
+                <Text style={styles.emptyText}>{t('noUsersFound')}</Text>
+                <Text style={styles.emptySubtext}>{t('adjustSearchFilters')}</Text>
               </View>
             ) : (
               filteredUsers.map((userData) => (
@@ -353,18 +355,18 @@ export default function UserManagementScreen() {
                       <View style={styles.userDetails}>
                         <Text style={styles.userName}>{userData.name}</Text>
                         <Text style={styles.userEmail}>{userData.email}</Text>
-                        <Text style={styles.userCode}>Código: {userData.referral_code}</Text>
+                        <Text style={styles.userCode}>{t('referralCode')}: {userData.referral_code}</Text>
                       </View>
                     </View>
                     <View style={styles.userBadges}>
                       {userData.is_blocked && (
                         <View style={[styles.statusBadge, { backgroundColor: colors.error + '20' }]}>
-                          <Text style={[styles.statusBadgeText, { color: colors.error }]}>BLOQUEADO</Text>
+                          <Text style={[styles.statusBadgeText, { color: colors.error }]}>{t('blocked').toUpperCase()}</Text>
                         </View>
                       )}
                       {!userData.is_blocked && userData.is_active_contributor && (
                         <View style={[styles.statusBadge, { backgroundColor: colors.success + '20' }]}>
-                          <Text style={[styles.statusBadgeText, { color: colors.success }]}>Activo</Text>
+                          <Text style={[styles.statusBadgeText, { color: colors.success }]}>{t('active')}</Text>
                         </View>
                       )}
                     </View>
@@ -396,12 +398,12 @@ export default function UserManagementScreen() {
                         size={16} 
                         color={colors.warning} 
                       />
-                      <Text style={styles.userStatValue}>{userData.active_referrals} refs</Text>
+                      <Text style={styles.userStatValue}>{userData.active_referrals} {t('refs')}</Text>
                     </View>
                   </View>
 
                   <View style={styles.userFooter}>
-                    <Text style={styles.userJoinDate}>Unido {formatDate(userData.joined_date)}</Text>
+                    <Text style={styles.userJoinDate}>{t('joined')} {formatDate(userData.joined_date)}</Text>
                     <IconSymbol 
                       ios_icon_name="chevron.right" 
                       android_material_icon_name="chevron_right" 
@@ -433,7 +435,7 @@ export default function UserManagementScreen() {
                 color={colors.textSecondary} 
               />
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Detalles del Usuario</Text>
+            <Text style={styles.modalTitle}>{t('userDetails')}</Text>
             <View style={{ width: 32 }} />
           </View>
 
@@ -448,7 +450,7 @@ export default function UserManagementScreen() {
 
               {/* Block/Unblock Actions */}
               <View style={styles.dangerZone}>
-                <Text style={styles.dangerZoneTitle}>⚠️ Zona de Peligro</Text>
+                <Text style={styles.dangerZoneTitle}>{t('dangerZone')}</Text>
                 {selectedUser.is_blocked ? (
                   <TouchableOpacity
                     style={[buttonStyles.primary, { backgroundColor: colors.success }]}
@@ -458,7 +460,7 @@ export default function UserManagementScreen() {
                     {processing ? (
                       <ActivityIndicator color="#fff" />
                     ) : (
-                      <Text style={buttonStyles.primaryText}>Desbloquear Usuario</Text>
+                      <Text style={buttonStyles.primaryText}>{t('unblockUser')}</Text>
                     )}
                   </TouchableOpacity>
                 ) : (
@@ -470,7 +472,7 @@ export default function UserManagementScreen() {
                     {processing ? (
                       <ActivityIndicator color="#fff" />
                     ) : (
-                      <Text style={buttonStyles.primaryText}>Bloquear Usuario</Text>
+                      <Text style={buttonStyles.primaryText}>{t('blockUser')}</Text>
                     )}
                   </TouchableOpacity>
                 )}
