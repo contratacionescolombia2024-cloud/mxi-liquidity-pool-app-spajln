@@ -130,10 +130,46 @@ const translations = {
     inPractice: 'In Practice',
     tokenomics: 'Tokenomics',
     
+    // Ecosystem - What is MXI Tab
+    whatIsMXITitle: 'What is MXI? 🚀',
+    maxcoinIsMoreThanCrypto: '💎 MAXCOIN is much more than a cryptocurrency.',
+    globalFinancialEcosystem: '🌍 It will be a global financial ecosystem, created to unite technology, performance and community in the same network.',
+    transformBlockchain: '⚡ Born under the vision of transforming blockchain into a real growth tool.',
+    digitalEconomyFragment: '🪙 Each token represents a fragment of an expanding digital economy, where your investment drives utility, liquidity and global adoption.',
+    maxcoinNoSpeculation: '🎯 MAXCOIN does not seek speculation: it builds real value with real products.',
+    paymentsLoansStaking: '💼 Payments, loans, staking, mining and participation rewards, all in a secure and auditable environment.',
+    mainFeatures: '✨ Main Features',
+    payments: 'Payments',
+    globalSecurePaymentSystem: 'Global and secure payment system',
+    loans: 'Loans',
+    accessToDecentralizedCredit: 'Access to decentralized credit',
+    staking: 'Staking',
+    generatePassiveIncomeStaking: 'Generate passive income',
+    mining: 'Mining',
+    participateInNetwork: 'Participate in the network',
+    rewardsFeature: 'Rewards',
+    benefitsForParticipation: 'Benefits for participation',
+    security: 'Security',
+    auditableEnvironment: 'Auditable environment',
+    ourVision: '🌟 Our Vision',
+    visionText: 'Transform the way the world interacts with digital finance, creating an ecosystem where each participant is part of collective growth and success.',
+    ourValues: '💡 Our Values',
+    community: 'Community',
+    communityText: 'Together we build a more inclusive financial future',
+    technology: 'Technology',
+    technologyText: 'State-of-the-art blockchain innovation',
+    performance: 'Performance',
+    performanceText: 'Sustainable growth and real value for all',
+    transparency: 'Transparency',
+    transparencyText: 'Auditable and verifiable operations at all times',
+    joinTheFuture: '🚀 Join the Future',
+    joinTheFutureText: 'Be part of the financial revolution with MAXCOIN',
+    minimumInvestment: '💎 Minimum investment from 50 USDT',
+    
     // Vesting
     vestingMXI: 'Vesting MXI',
     
-    // Referrals Page - NEW TRANSLATIONS
+    // Referrals Page
     commissionsByReferrals: 'Commissions by Referrals',
     yourReferralCode: 'Your Referral Code',
     shareCode: 'Share Code',
@@ -156,7 +192,7 @@ const translations = {
     kycApproved: 'KYC Approved',
     viewWithdrawalHistory: 'View Withdrawal History',
     
-    // Deposit Page - NEW TRANSLATIONS
+    // Deposit Page
     deposit: 'Deposit',
     buyMXIWithMultipleOptions: 'Buy MXI with multiple options',
     currentBalance: 'Current Balance',
@@ -215,7 +251,7 @@ const translations = {
     cryptocurrencies: 'Cryptocurrencies',
     available247: 'Available 24/7',
     
-    // Withdrawals Page - NEW TRANSLATIONS
+    // Withdrawals Page
     withdrawalHistoryTitle: 'Withdrawal History',
     noWithdrawalsYet: 'No Withdrawals Yet',
     withdrawalHistoryWillAppear: 'Your withdrawal history will appear here',
@@ -225,7 +261,7 @@ const translations = {
     processing: 'Processing',
     failed: 'Failed',
     
-    // Retiros Page - NEW TRANSLATIONS
+    // Retiros Page
     withdraw: 'Withdraw',
     retiros: 'Withdrawals',
     loadingData: 'Loading data...',
@@ -665,10 +701,46 @@ const translations = {
     inPractice: 'En la Práctica',
     tokenomics: 'Tokenómica',
     
+    // Ecosystem - What is MXI Tab
+    whatIsMXITitle: '¿Qué es MXI? 🚀',
+    maxcoinIsMoreThanCrypto: '💎 MAXCOIN es mucho más que una criptomoneda.',
+    globalFinancialEcosystem: '🌍 Será un ecosistema financiero global, creado para unir tecnología, rendimiento y comunidad en una misma red.',
+    transformBlockchain: '⚡ Nace bajo la visión de transformar la blockchain en una herramienta de crecimiento real.',
+    digitalEconomyFragment: '🪙 Cada token representa un fragmento de una economía digital en expansión, donde tu inversión impulsa utilidad, liquidez y adopción global.',
+    maxcoinNoSpeculation: '🎯 MAXCOIN no busca especulación: construye valor real con productos reales.',
+    paymentsLoansStaking: '💼 Pagos, préstamos, staking, minería y recompensas por participación, todo en un entorno seguro y auditable.',
+    mainFeatures: '✨ Características Principales',
+    payments: 'Pagos',
+    globalSecurePaymentSystem: 'Sistema de pagos global y seguro',
+    loans: 'Préstamos',
+    accessToDecentralizedCredit: 'Acceso a crédito descentralizado',
+    staking: 'Staking',
+    generatePassiveIncomeStaking: 'Genera ingresos pasivos',
+    mining: 'Minería',
+    participateInNetwork: 'Participa en la red',
+    rewardsFeature: 'Recompensas',
+    benefitsForParticipation: 'Beneficios por participación',
+    security: 'Seguridad',
+    auditableEnvironment: 'Entorno auditable',
+    ourVision: '🌟 Nuestra Visión',
+    visionText: 'Transformar la forma en que el mundo interactúa con las finanzas digitales, creando un ecosistema donde cada participante es parte del crecimiento y éxito colectivo.',
+    ourValues: '💡 Nuestros Valores',
+    community: 'Comunidad',
+    communityText: 'Unidos construimos un futuro financiero más inclusivo',
+    technology: 'Tecnología',
+    technologyText: 'Innovación blockchain de última generación',
+    performance: 'Rendimiento',
+    performanceText: 'Crecimiento sostenible y valor real para todos',
+    transparency: 'Transparencia',
+    transparencyText: 'Operaciones auditables y verificables en todo momento',
+    joinTheFuture: '🚀 Únete al Futuro',
+    joinTheFutureText: 'Sé parte de la revolución financiera con MAXCOIN',
+    minimumInvestment: '💎 Inversión mínima desde 50 USDT',
+    
     // Vesting
     vestingMXI: 'Vesting MXI',
     
-    // Referrals Page - NEW TRANSLATIONS
+    // Referrals Page
     commissionsByReferrals: 'Comisiones por Referidos',
     yourReferralCode: 'Tu Código de Referido',
     shareCode: 'Compartir Código',
@@ -691,7 +763,7 @@ const translations = {
     kycApproved: 'KYC Aprobado',
     viewWithdrawalHistory: 'Ver Historial de Retiros',
     
-    // Deposit Page - NEW TRANSLATIONS
+    // Deposit Page
     deposit: 'Depósito',
     buyMXIWithMultipleOptions: 'Compra MXI con múltiples opciones',
     currentBalance: 'Balance Actual',
@@ -750,7 +822,7 @@ const translations = {
     cryptocurrencies: 'Criptomonedas',
     available247: 'Disponible 24/7',
     
-    // Withdrawals Page - NEW TRANSLATIONS
+    // Withdrawals Page
     withdrawalHistoryTitle: 'Historial de Retiros',
     noWithdrawalsYet: 'Sin Retiros Aún',
     withdrawalHistoryWillAppear: 'Tu historial de retiros aparecerá aquí',
@@ -760,7 +832,7 @@ const translations = {
     processing: 'Procesando',
     failed: 'Fallido',
     
-    // Retiros Page - NEW TRANSLATIONS
+    // Retiros Page
     withdraw: 'Retirar',
     retiros: 'Retiros',
     loadingData: 'Cargando datos...',
@@ -1200,10 +1272,46 @@ const translations = {
     inPractice: 'Na Prática',
     tokenomics: 'Tokenômica',
     
+    // Ecosystem - What is MXI Tab
+    whatIsMXITitle: 'O que é MXI? 🚀',
+    maxcoinIsMoreThanCrypto: '💎 MAXCOIN é muito mais que uma criptomoeda.',
+    globalFinancialEcosystem: '🌍 Será um ecossistema financeiro global, criado para unir tecnologia, desempenho e comunidade na mesma rede.',
+    transformBlockchain: '⚡ Nasce sob a visão de transformar a blockchain em uma ferramenta de crescimento real.',
+    digitalEconomyFragment: '🪙 Cada token representa um fragmento de uma economia digital em expansão, onde seu investimento impulsiona utilidade, liquidez e adoção global.',
+    maxcoinNoSpeculation: '🎯 MAXCOIN não busca especulação: constrói valor real com produtos reais.',
+    paymentsLoansStaking: '💼 Pagamentos, empréstimos, staking, mineração e recompensas por participação, tudo em um ambiente seguro e auditável.',
+    mainFeatures: '✨ Características Principais',
+    payments: 'Pagamentos',
+    globalSecurePaymentSystem: 'Sistema de pagamentos global e seguro',
+    loans: 'Empréstimos',
+    accessToDecentralizedCredit: 'Acesso a crédito descentralizado',
+    staking: 'Staking',
+    generatePassiveIncomeStaking: 'Gere renda passiva',
+    mining: 'Mineração',
+    participateInNetwork: 'Participe da rede',
+    rewardsFeature: 'Recompensas',
+    benefitsForParticipation: 'Benefícios por participação',
+    security: 'Segurança',
+    auditableEnvironment: 'Ambiente auditável',
+    ourVision: '🌟 Nossa Visão',
+    visionText: 'Transformar a forma como o mundo interage com as finanças digitais, criando um ecossistema onde cada participante é parte do crescimento e sucesso coletivo.',
+    ourValues: '💡 Nossos Valores',
+    community: 'Comunidade',
+    communityText: 'Juntos construímos um futuro financeiro mais inclusivo',
+    technology: 'Tecnologia',
+    technologyText: 'Inovação blockchain de última geração',
+    performance: 'Desempenho',
+    performanceText: 'Crescimento sustentável e valor real para todos',
+    transparency: 'Transparência',
+    transparencyText: 'Operações auditáveis e verificáveis a todo momento',
+    joinTheFuture: '🚀 Junte-se ao Futuro',
+    joinTheFutureText: 'Seja parte da revolução financeira com MAXCOIN',
+    minimumInvestment: '💎 Investimento mínimo a partir de 50 USDT',
+    
     // Vesting
     vestingMXI: 'Vesting MXI',
     
-    // Referrals Page - NEW TRANSLATIONS
+    // Referrals Page
     commissionsByReferrals: 'Comissões por Indicações',
     yourReferralCode: 'Seu Código de Indicação',
     shareCode: 'Compartilhar Código',
@@ -1226,7 +1334,7 @@ const translations = {
     kycApproved: 'KYC Aprovado',
     viewWithdrawalHistory: 'Ver Histórico de Saques',
     
-    // Deposit Page - NEW TRANSLATIONS
+    // Deposit Page
     deposit: 'Depósito',
     buyMXIWithMultipleOptions: 'Compre MXI com múltiplas opções',
     currentBalance: 'Saldo Atual',
@@ -1285,7 +1393,7 @@ const translations = {
     cryptocurrencies: 'Criptomoedas',
     available247: 'Disponível 24/7',
     
-    // Withdrawals Page - NEW TRANSLATIONS
+    // Withdrawals Page
     withdrawalHistoryTitle: 'Histórico de Saques',
     noWithdrawalsYet: 'Sem Saques Ainda',
     withdrawalHistoryWillAppear: 'Seu histórico de saques aparecerá aqui',
@@ -1295,7 +1403,7 @@ const translations = {
     processing: 'Processando',
     failed: 'Falhou',
     
-    // Retiros Page - NEW TRANSLATIONS
+    // Retiros Page
     withdraw: 'Retirar',
     retiros: 'Saques',
     loadingData: 'Carregando dados...',
