@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { colors, commonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/lib/supabase';
 import * as WebBrowser from 'expo-web-browser';
 
@@ -38,6 +39,7 @@ interface Transaction {
 export default function TransactionHistoryScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -63,7 +65,7 @@ export default function TransactionHistoryScreen() {
       setTransactions(data || []);
     } catch (error) {
       console.error('Error loading transactions:', error);
-      Alert.alert('Error', 'No se pudo cargar el historial de transacciones');
+      Alert.alert(t('error'), t('couldNotLoadTransactionHistory'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -83,18 +85,18 @@ export default function TransactionHistoryScreen() {
       });
     } catch (error) {
       console.error('Error opening URL:', error);
-      Alert.alert('Error', 'No se pudo abrir el enlace de pago');
+      Alert.alert(t('error'), t('couldNotOpenPaymentLink'));
     }
   };
 
   const cancelTransaction = async (transaction: Transaction) => {
     Alert.alert(
-      'Cancelar Transacción',
-      '¿Estás seguro de que deseas cancelar esta transacción pendiente?',
+      t('cancelTransaction'),
+      t('areYouSureCancelTransaction'),
       [
-        { text: 'No', style: 'cancel' },
+        { text: t('noCancelIt'), style: 'cancel' },
         {
-          text: 'Sí, Cancelar',
+          text: t('yesCancelIt'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -102,18 +104,18 @@ export default function TransactionHistoryScreen() {
                 .from('transaction_history')
                 .update({
                   status: 'cancelled',
-                  error_message: 'Cancelado por el usuario',
+                  error_message: t('cancelledByUser'),
                   updated_at: new Date().toISOString(),
                 })
                 .eq('id', transaction.id);
 
               if (error) throw error;
 
-              Alert.alert('✅ Cancelado', 'La transacción ha sido cancelada');
+              Alert.alert(t('cancelled'), t('transactionCancelled'));
               await loadTransactions();
             } catch (error) {
               console.error('Error cancelling transaction:', error);
-              Alert.alert('Error', 'No se pudo cancelar la transacción');
+              Alert.alert(t('error'), t('couldNotCancelTransaction'));
             }
           },
         },
@@ -124,14 +126,14 @@ export default function TransactionHistoryScreen() {
   const checkTransactionStatus = async (transaction: Transaction) => {
     if (!transaction.payment_id) {
       Alert.alert(
-        'Sin ID de Pago',
-        'Esta transacción no tiene un ID de pago válido. Es probable que la creación del pago haya fallado.',
+        t('noPaymentID'),
+        t('paymentCreationFailed'),
         [
           {
-            text: 'Cancelar Transacción',
+            text: t('cancelTransaction'),
             onPress: () => cancelTransaction(transaction),
           },
-          { text: 'OK' },
+          { text: t('ok') },
         ]
       );
       return;
@@ -144,7 +146,7 @@ export default function TransactionHistoryScreen() {
       
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        Alert.alert('Error', 'Sesión expirada. Por favor inicia sesión nuevamente.');
+        Alert.alert(t('error'), t('sessionExpired'));
         setVerifyingOrderId(null);
         return;
       }
@@ -163,23 +165,22 @@ export default function TransactionHistoryScreen() {
       console.log('Status check result:', result);
 
       if (!response.ok) {
-        // Handle error response
         console.error('Status check failed:', result);
         Alert.alert(
-          'Error al Verificar',
-          result.message || result.error || 'No se pudo verificar el estado del pago. Por favor intenta nuevamente.',
+          t('errorVerifying'),
+          result.message || result.error || t('couldNotVerifyPaymentStatus'),
           [
             {
-              text: 'Ver Detalles',
+              text: t('viewDetails'),
               onPress: () => {
                 Alert.alert(
-                  'Detalles del Error',
-                  `Error: ${result.error || 'Desconocido'}\n\nDetalles: ${result.details || 'No disponible'}`,
-                  [{ text: 'OK' }]
+                  t('errorDetails'),
+                  `${t('error')}: ${result.error || t('unknownError')}\n\n${t('details')}: ${result.details || t('noDetailsAvailable')}`,
+                  [{ text: t('ok') }]
                 );
               }
             },
-            { text: 'OK' }
+            { text: t('ok') }
           ]
         );
         setVerifyingOrderId(null);
@@ -189,36 +190,36 @@ export default function TransactionHistoryScreen() {
       if (result.success) {
         if (result.status === 'confirmed' || result.status === 'finished') {
           Alert.alert(
-            '✅ Pago Confirmado',
-            'Tu pago ha sido confirmado. Tu saldo ha sido actualizado.',
-            [{ text: 'OK', onPress: () => loadTransactions() }]
+            t('paymentConfirmed'),
+            t('paymentConfirmedBalanceUpdated'),
+            [{ text: t('ok'), onPress: () => loadTransactions() }]
           );
         } else if (result.status === 'failed' || result.status === 'expired') {
           Alert.alert(
-            '❌ Pago Fallido',
-            `El pago ha ${result.status === 'failed' ? 'fallado' : 'expirado'}. Puedes intentar crear una nueva orden.`,
-            [{ text: 'OK', onPress: () => loadTransactions() }]
+            t('paymentFailed'),
+            t('paymentFailedOrExpired', { status: result.status === 'failed' ? t('failed') : t('expired') }),
+            [{ text: t('ok'), onPress: () => loadTransactions() }]
           );
         } else {
           Alert.alert(
-            'Estado del Pago',
-            `Estado actual: ${getStatusText(result.status)}\n\nEl pago aún está siendo procesado.`,
-            [{ text: 'OK', onPress: () => loadTransactions() }]
+            t('paymentStatus'),
+            t('currentStatus', { status: getStatusText(result.status) }),
+            [{ text: t('ok'), onPress: () => loadTransactions() }]
           );
         }
       } else {
         Alert.alert(
-          'Error',
-          result.message || result.error || 'No se pudo verificar el estado del pago',
-          [{ text: 'OK' }]
+          t('error'),
+          result.message || result.error || t('couldNotVerifyStatus'),
+          [{ text: t('ok') }]
         );
       }
     } catch (error: any) {
       console.error('Error checking status:', error);
       Alert.alert(
-        'Error de Red',
-        'No se pudo conectar con el servidor. Por favor verifica tu conexión a internet e intenta nuevamente.',
-        [{ text: 'OK' }]
+        t('networkError'),
+        t('couldNotConnectToServer'),
+        [{ text: t('ok') }]
       );
     } finally {
       setVerifyingOrderId(null);
@@ -247,21 +248,21 @@ export default function TransactionHistoryScreen() {
   const getStatusText = (status: string) => {
     switch (status) {
       case 'pending':
-        return 'Pendiente';
+        return t('pending');
       case 'waiting':
-        return 'Esperando Pago';
+        return t('waitingForPayment');
       case 'confirming':
-        return 'Confirmando';
+        return t('confirming');
       case 'confirmed':
-        return 'Confirmado';
+        return t('confirmed');
       case 'finished':
-        return 'Completado';
+        return t('completed');
       case 'failed':
-        return 'Fallido';
+        return t('failed');
       case 'expired':
-        return 'Expirado';
+        return t('expired');
       case 'cancelled':
-        return 'Cancelado';
+        return t('cancelled');
       default:
         return status;
     }
@@ -270,15 +271,15 @@ export default function TransactionHistoryScreen() {
   const getTransactionTypeText = (type: string) => {
     switch (type) {
       case 'nowpayments_order':
-        return 'Compra MXI (NOWPayments)';
+        return t('purchaseMXINowPayments');
       case 'okx_payment':
-        return 'Compra MXI (OKX)';
+        return t('purchaseMXIOKX');
       case 'manual_payment':
-        return 'Pago Manual';
+        return t('manualPayment');
       case 'withdrawal':
-        return 'Retiro';
+        return t('withdrawal');
       case 'commission':
-        return 'Comisión';
+        return t('commission');
       default:
         return type;
     }
@@ -322,7 +323,7 @@ export default function TransactionHistoryScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Cargando historial...</Text>
+          <Text style={styles.loadingText}>{t('loadingHistory')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -339,26 +340,26 @@ export default function TransactionHistoryScreen() {
             color={colors.primary}
           />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Historial de Transacciones</Text>
+        <Text style={styles.headerTitle}>{t('transactionHistoryTitle')}</Text>
       </View>
 
       {/* Stats */}
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{stats.total}</Text>
-          <Text style={styles.statLabel}>Total</Text>
+          <Text style={styles.statLabel}>{t('total')}</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={[styles.statValue, { color: colors.warning }]}>{stats.pending}</Text>
-          <Text style={styles.statLabel}>Pendientes</Text>
+          <Text style={styles.statLabel}>{t('pendingTransactions')}</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={[styles.statValue, { color: colors.success }]}>{stats.success}</Text>
-          <Text style={styles.statLabel}>Exitosas</Text>
+          <Text style={styles.statLabel}>{t('successfulTransactions')}</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={[styles.statValue, { color: colors.error }]}>{stats.failed}</Text>
-          <Text style={styles.statLabel}>Fallidas</Text>
+          <Text style={styles.statLabel}>{t('failedTransactions')}</Text>
         </View>
       </View>
 
@@ -369,7 +370,7 @@ export default function TransactionHistoryScreen() {
           onPress={() => setFilter('all')}
         >
           <Text style={[styles.filterButtonText, filter === 'all' && styles.filterButtonTextActive]}>
-            Todas
+            {t('allTransactions')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -377,7 +378,7 @@ export default function TransactionHistoryScreen() {
           onPress={() => setFilter('pending')}
         >
           <Text style={[styles.filterButtonText, filter === 'pending' && styles.filterButtonTextActive]}>
-            Pendientes
+            {t('pendingTransactions')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -385,7 +386,7 @@ export default function TransactionHistoryScreen() {
           onPress={() => setFilter('success')}
         >
           <Text style={[styles.filterButtonText, filter === 'success' && styles.filterButtonTextActive]}>
-            Exitosas
+            {t('successfulTransactions')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -393,7 +394,7 @@ export default function TransactionHistoryScreen() {
           onPress={() => setFilter('failed')}
         >
           <Text style={[styles.filterButtonText, filter === 'failed' && styles.filterButtonTextActive]}>
-            Fallidas
+            {t('failedTransactions')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -412,11 +413,15 @@ export default function TransactionHistoryScreen() {
               size={64}
               color={colors.textSecondary}
             />
-            <Text style={styles.emptyText}>No hay transacciones</Text>
+            <Text style={styles.emptyText}>{t('noTransactions')}</Text>
             <Text style={styles.emptySubtext}>
               {filter === 'all'
-                ? 'Aún no has realizado ninguna transacción'
-                : `No hay transacciones ${filter === 'pending' ? 'pendientes' : filter === 'success' ? 'exitosas' : 'fallidas'}`}
+                ? t('noTransactionsYet')
+                : filter === 'pending' 
+                ? t('noPendingTransactions') 
+                : filter === 'success' 
+                ? t('noSuccessfulTransactions') 
+                : t('noFailedTransactions')}
             </Text>
           </View>
         ) : (
@@ -470,7 +475,7 @@ export default function TransactionHistoryScreen() {
                   </View>
                   {transaction.order_id && (
                     <View style={styles.transactionRow}>
-                      <Text style={styles.transactionLabel}>Orden:</Text>
+                      <Text style={styles.transactionLabel}>{t('order')}:</Text>
                       <Text style={styles.transactionValueSmall}>{transaction.order_id}</Text>
                     </View>
                   )}
@@ -492,7 +497,7 @@ export default function TransactionHistoryScreen() {
                             size={16}
                             color={colors.primary}
                           />
-                          <Text style={styles.payButtonText}>Pagar</Text>
+                          <Text style={styles.payButtonText}>{t('pay')}</Text>
                         </TouchableOpacity>
                       )}
                       <TouchableOpacity
@@ -510,7 +515,7 @@ export default function TransactionHistoryScreen() {
                               size={16}
                               color={colors.accent}
                             />
-                            <Text style={styles.checkButtonText}>Verificar</Text>
+                            <Text style={styles.checkButtonText}>{t('verify')}</Text>
                           </React.Fragment>
                         )}
                       </TouchableOpacity>
@@ -524,7 +529,7 @@ export default function TransactionHistoryScreen() {
                           size={16}
                           color={colors.error}
                         />
-                        <Text style={styles.cancelButtonText}>Cancelar</Text>
+                        <Text style={styles.cancelButtonText}>{t('cancel')}</Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -547,13 +552,13 @@ export default function TransactionHistoryScreen() {
                     style={styles.detailsButton}
                     onPress={() => {
                       Alert.alert(
-                        'Detalles del Error',
+                        t('errorDetails'),
                         JSON.stringify(transaction.error_details, null, 2),
-                        [{ text: 'OK' }]
+                        [{ text: t('ok') }]
                       );
                     }}
                   >
-                    <Text style={styles.detailsButtonText}>Ver detalles técnicos</Text>
+                    <Text style={styles.detailsButtonText}>{t('viewTechnicalDetails')}</Text>
                   </TouchableOpacity>
                 )}
               </View>

@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useRouter } from 'expo-router';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
@@ -49,6 +50,7 @@ interface AvailableBalances {
 
 export default function BonusParticipacionScreen() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
@@ -84,7 +86,7 @@ export default function BonusParticipacionScreen() {
       setupRealtimeSubscription();
     } catch (error) {
       console.error('Error initializing screen:', error);
-      Alert.alert('Error', 'Failed to load bonus data. Please try again.');
+      Alert.alert(t('error'), t('failedToLoadBonusData'));
     }
   };
 
@@ -207,7 +209,7 @@ export default function BonusParticipacionScreen() {
       }
     } catch (error) {
       console.error('Exception loading bonus data:', error);
-      Alert.alert('Error', 'Failed to load bonus. Please try again.');
+      Alert.alert(t('error'), t('failedToLoadBonusData'));
     } finally {
       setLoading(false);
     }
@@ -218,7 +220,7 @@ export default function BonusParticipacionScreen() {
 
     const quantity = parseInt(ticketQuantity);
     if (isNaN(quantity) || quantity < 1 || quantity > 20) {
-      Alert.alert('Error', 'Please enter a valid quantity between 1 and 20');
+      Alert.alert(t('error'), t('pleaseEnterValidQuantity'));
       return;
     }
 
@@ -226,8 +228,12 @@ export default function BonusParticipacionScreen() {
     
     if (availableBalances.total < totalCost) {
       Alert.alert(
-        'Insufficient Balance',
-        `You need ${totalCost.toFixed(2)} MXI to purchase ${quantity} ticket(s).\n\nYour available balance for challenges is ${availableBalances.total.toFixed(2)} MXI.\n\nAvailable MXI includes:\n- MXI purchased directly\n- MXI from unified commissions\n- MXI from challenge winnings`
+        t('insufficientBalance'),
+        t('insufficientBalanceNeedForTicketsText', { 
+          needed: totalCost.toFixed(2), 
+          quantity, 
+          available: availableBalances.total.toFixed(2) 
+        })
       );
       return;
     }
@@ -249,22 +255,26 @@ export default function BonusParticipacionScreen() {
     switch (source) {
       case 'purchased':
         sourceBalance = availableBalances.mxiPurchasedDirectly;
-        sourceName = 'MXI Purchased';
+        sourceName = t('mxiPurchasedSourceText');
         break;
       case 'commissions':
         sourceBalance = availableBalances.mxiFromUnifiedCommissions;
-        sourceName = 'MXI from Commissions';
+        sourceName = t('mxiFromCommissionsSourceText');
         break;
       case 'challenges':
         sourceBalance = availableBalances.mxiFromChallenges;
-        sourceName = 'MXI from Challenges';
+        sourceName = t('mxiFromChallengesSourceText');
         break;
     }
 
     if (sourceBalance < totalCost) {
       Alert.alert(
-        'Insufficient Balance',
-        `Your ${sourceName} balance (${sourceBalance.toFixed(2)} MXI) is not enough to cover the cost (${totalCost.toFixed(2)} MXI).`
+        t('insufficientBalance'),
+        t('insufficientBalanceInSourceText', { 
+          source: sourceName, 
+          available: sourceBalance.toFixed(2), 
+          needed: totalCost.toFixed(2) 
+        })
       );
       return;
     }
@@ -283,7 +293,7 @@ export default function BonusParticipacionScreen() {
 
       if (deductError || !deductResult) {
         console.error('Deduct error:', deductError);
-        Alert.alert('Error', 'Failed to deduct balance');
+        Alert.alert(t('error'), t('failedToDeductBalance'));
         return;
       }
 
@@ -296,19 +306,23 @@ export default function BonusParticipacionScreen() {
 
       if (error) {
         console.error('Purchase error:', error);
-        Alert.alert('Error', error.message || 'Failed to purchase tickets');
+        Alert.alert(t('error'), error.message || t('failedToPurchaseTicketsText'));
         return;
       }
 
       if (!data.success) {
-        Alert.alert('Error', data.error || 'Failed to purchase tickets');
+        Alert.alert(t('error'), data.error || t('failedToPurchaseTicketsText'));
         return;
       }
 
       console.log('Purchase successful:', data);
       Alert.alert(
-        'Success!',
-        `Successfully purchased ${data.tickets_purchased} ticket(s) for ${data.total_cost.toFixed(2)} MXI using ${sourceName}!`
+        t('successTitle'),
+        t('successfullyPurchasedTicketsText', { 
+          count: data.tickets_purchased, 
+          cost: data.total_cost.toFixed(2), 
+          source: sourceName 
+        })
       );
 
       // Reload data
@@ -317,7 +331,7 @@ export default function BonusParticipacionScreen() {
       
     } catch (error: any) {
       console.error('Purchase exception:', error);
-      Alert.alert('Error', error.message || 'Failed to purchase tickets');
+      Alert.alert(t('error'), error.message || t('failedToPurchaseTicketsText'));
     } finally {
       setPurchasing(false);
     }
@@ -339,12 +353,12 @@ export default function BonusParticipacionScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Bonus de Participación</Text>
+          <Text style={styles.headerTitle}>{t('bonusParticipation')}</Text>
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading bonus...</Text>
+          <Text style={styles.loadingText}>{t('loadingBonusText')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -357,16 +371,16 @@ export default function BonusParticipacionScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Bonus de Participación</Text>
+          <Text style={styles.headerTitle}>{t('bonusParticipation')}</Text>
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No active bonus round</Text>
+          <Text style={styles.emptyText}>{t('noActiveBonusRoundText')}</Text>
           <TouchableOpacity
             style={[buttonStyles.primary, { marginTop: 20 }]}
             onPress={loadLotteryData}
           >
-            <Text style={buttonStyles.primaryText}>Retry</Text>
+            <Text style={buttonStyles.primaryText}>{t('retryButton')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -379,7 +393,7 @@ export default function BonusParticipacionScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Bonus de Participación</Text>
+        <Text style={styles.headerTitle}>{t('bonusParticipation')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -391,22 +405,22 @@ export default function BonusParticipacionScreen() {
               <Text style={styles.roundIconEmoji}>🎰</Text>
             </View>
             <View style={styles.roundHeaderText}>
-              <Text style={styles.roundTitle}>Round #{currentRound.round_number}</Text>
+              <Text style={styles.roundTitle}>{t('roundText')} #{currentRound.round_number}</Text>
               <Text style={styles.roundStatus}>
-                {currentRound.status === 'open' ? '🟢 Open' : '🔒 Locked'}
+                {currentRound.status === 'open' ? `🟢 ${t('openText')}` : `🔒 ${t('lockedText')}`}
               </Text>
             </View>
           </View>
 
           <View style={styles.prizeContainer}>
-            <Text style={styles.prizeLabel}>Prize Pool (90%)</Text>
+            <Text style={styles.prizeLabel}>{t('prizePoolText')}</Text>
             <Text style={styles.prizeAmount}>{currentRound.prize_amount.toFixed(2)} MXI</Text>
-            <Text style={styles.totalPool}>Total Pool: {currentRound.total_pool.toFixed(2)} MXI</Text>
+            <Text style={styles.totalPool}>{t('totalPoolText')}: {currentRound.total_pool.toFixed(2)} MXI</Text>
           </View>
 
           <View style={styles.progressSection}>
             <View style={styles.progressHeader}>
-              <Text style={styles.progressLabel}>Tickets Sold</Text>
+              <Text style={styles.progressLabel}>{t('ticketsSoldText')}</Text>
               <Text style={styles.progressValue}>
                 {currentRound.tickets_sold} / {currentRound.max_tickets}
               </Text>
@@ -418,17 +432,17 @@ export default function BonusParticipacionScreen() {
 
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Ticket Price</Text>
+              <Text style={styles.statLabel}>{t('ticketPriceText')}</Text>
               <Text style={styles.statValue}>{currentRound.ticket_price} MXI</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Your Tickets</Text>
+              <Text style={styles.statLabel}>{t('yourTicketsText')}</Text>
               <Text style={styles.statValue}>{getUserTicketCount()}</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Available MXI</Text>
+              <Text style={styles.statLabel}>{t('availableMXIText')}</Text>
               <Text style={styles.statValue}>{availableBalances.total.toFixed(2)}</Text>
             </View>
           </View>
@@ -437,9 +451,9 @@ export default function BonusParticipacionScreen() {
         {/* Purchase Section */}
         {currentRound.status === 'open' && (
           <View style={commonStyles.card}>
-            <Text style={styles.sectionTitle}>Purchase Tickets</Text>
+            <Text style={styles.sectionTitle}>{t('purchaseTicketsText')}</Text>
             <Text style={styles.sectionSubtitle}>
-              Buy between 1 and 20 tickets. Maximum 20 tickets per user per round.
+              {t('buyBetween1And20TicketsText')}
             </Text>
 
             <TouchableOpacity
@@ -452,7 +466,7 @@ export default function BonusParticipacionScreen() {
               ) : (
                 <React.Fragment>
                   <IconSymbol ios_icon_name="ticket.fill" android_material_icon_name="confirmation_number" size={20} color="#000" />
-                  <Text style={buttonStyles.primaryText}>Buy Tickets</Text>
+                  <Text style={buttonStyles.primaryText}>{t('buyTicketsText')}</Text>
                 </React.Fragment>
               )}
             </TouchableOpacity>
@@ -462,7 +476,7 @@ export default function BonusParticipacionScreen() {
         {/* Your Tickets */}
         {userTickets.length > 0 && (
           <View style={commonStyles.card}>
-            <Text style={styles.sectionTitle}>Your Tickets</Text>
+            <Text style={styles.sectionTitle}>{t('yourTicketsText')}</Text>
             <View style={styles.ticketsList}>
               {userTickets.map((ticket) => (
                 <View key={ticket.id} style={styles.ticketItem}>
@@ -483,31 +497,31 @@ export default function BonusParticipacionScreen() {
 
         {/* How It Works */}
         <View style={commonStyles.card}>
-          <Text style={styles.sectionTitle}>How It Works</Text>
+          <Text style={styles.sectionTitle}>{t('howItWorksBonusText')}</Text>
           <View style={styles.infoList}>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>1.</Text>
-              <Text style={styles.infoText}>Each ticket costs 2 MXI</Text>
+              <Text style={styles.infoText}>{t('eachTicketCosts2MXIText')}</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>2.</Text>
-              <Text style={styles.infoText}>Buy between 1 and 20 tickets per round</Text>
+              <Text style={styles.infoText}>{t('buyBetween1And20TicketsPerRoundText')}</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>3.</Text>
-              <Text style={styles.infoText}>Round locks when 1000 tickets are sold</Text>
+              <Text style={styles.infoText}>{t('roundLocksWhen1000TicketsSoldText')}</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>4.</Text>
-              <Text style={styles.infoText}>Winner receives 90% of the total pool</Text>
+              <Text style={styles.infoText}>{t('winnerReceives90PercentText')}</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>5.</Text>
-              <Text style={styles.infoText}>Winner announced on social media</Text>
+              <Text style={styles.infoText}>{t('winnerAnnouncedOnSocialMediaText')}</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>6.</Text>
-              <Text style={styles.infoText}>Purchase is final - no refunds</Text>
+              <Text style={styles.infoText}>{t('purchaseIsFinalNoRefundsText')}</Text>
             </View>
           </View>
         </View>
@@ -522,31 +536,31 @@ export default function BonusParticipacionScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Purchase Tickets</Text>
+            <Text style={styles.modalTitle}>{t('purchaseTicketsText')}</Text>
             
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Number of Tickets (1-20)</Text>
+              <Text style={styles.inputLabel}>{t('numberOfTicketsText')}</Text>
               <TextInput
                 style={styles.input}
                 value={ticketQuantity}
                 onChangeText={setTicketQuantity}
                 keyboardType="number-pad"
-                placeholder="Enter quantity"
+                placeholder={t('enterQuantityText')}
                 placeholderTextColor={colors.textSecondary}
               />
             </View>
 
             <View style={styles.costSummary}>
               <View style={styles.costRow}>
-                <Text style={styles.costLabel}>Tickets:</Text>
+                <Text style={styles.costLabel}>{t('ticketsText')}:</Text>
                 <Text style={styles.costValue}>{ticketQuantity || 0}</Text>
               </View>
               <View style={styles.costRow}>
-                <Text style={styles.costLabel}>Price per ticket:</Text>
+                <Text style={styles.costLabel}>{t('pricePerTicketText')}:</Text>
                 <Text style={styles.costValue}>{currentRound.ticket_price} MXI</Text>
               </View>
               <View style={[styles.costRow, styles.costTotal]}>
-                <Text style={styles.costTotalLabel}>Total Cost:</Text>
+                <Text style={styles.costTotalLabel}>{t('totalCostText')}:</Text>
                 <Text style={styles.costTotalValue}>
                   {(currentRound.ticket_price * (parseInt(ticketQuantity) || 0)).toFixed(2)} MXI
                 </Text>
@@ -558,14 +572,14 @@ export default function BonusParticipacionScreen() {
                 style={[buttonStyles.outline, styles.modalButton]}
                 onPress={() => setShowPurchaseModal(false)}
               >
-                <Text style={buttonStyles.outlineText}>Cancel</Text>
+                <Text style={buttonStyles.outlineText}>{t('cancelButton')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[buttonStyles.primary, styles.modalButton]}
                 onPress={handleOpenPurchaseModal}
                 disabled={purchasing}
               >
-                <Text style={buttonStyles.primaryText}>Continue</Text>
+                <Text style={buttonStyles.primaryText}>{t('continueButton')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -581,9 +595,9 @@ export default function BonusParticipacionScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Payment Source</Text>
+            <Text style={styles.modalTitle}>{t('selectPaymentSourceText')}</Text>
             <Text style={styles.modalSubtitle}>
-              Choose which MXI balance to use for this purchase
+              {t('chooseWhichMXIBalanceText')}
             </Text>
 
             <View style={styles.paymentSourcesList}>
@@ -604,7 +618,7 @@ export default function BonusParticipacionScreen() {
                     color={colors.primary} 
                   />
                   <View style={styles.paymentSourceInfo}>
-                    <Text style={styles.paymentSourceTitle}>MXI Purchased</Text>
+                    <Text style={styles.paymentSourceTitle}>{t('mxiPurchasedSourceText')}</Text>
                     <Text style={styles.paymentSourceBalance}>
                       {availableBalances.mxiPurchasedDirectly.toFixed(2)} MXI
                     </Text>
@@ -635,7 +649,7 @@ export default function BonusParticipacionScreen() {
                     color={colors.success} 
                   />
                   <View style={styles.paymentSourceInfo}>
-                    <Text style={styles.paymentSourceTitle}>MXI from Commissions</Text>
+                    <Text style={styles.paymentSourceTitle}>{t('mxiFromCommissionsSourceText')}</Text>
                     <Text style={styles.paymentSourceBalance}>
                       {availableBalances.mxiFromUnifiedCommissions.toFixed(2)} MXI
                     </Text>
@@ -666,7 +680,7 @@ export default function BonusParticipacionScreen() {
                     color={colors.warning} 
                   />
                   <View style={styles.paymentSourceInfo}>
-                    <Text style={styles.paymentSourceTitle}>MXI from Challenges</Text>
+                    <Text style={styles.paymentSourceTitle}>{t('mxiFromChallengesSourceText')}</Text>
                     <Text style={styles.paymentSourceBalance}>
                       {availableBalances.mxiFromChallenges.toFixed(2)} MXI
                     </Text>
@@ -685,7 +699,7 @@ export default function BonusParticipacionScreen() {
               style={[buttonStyles.outline, { marginTop: 16 }]}
               onPress={() => setShowPaymentSourceModal(false)}
             >
-              <Text style={buttonStyles.outlineText}>Cancel</Text>
+              <Text style={buttonStyles.outlineText}>{t('cancelButton')}</Text>
             </TouchableOpacity>
           </View>
         </View>

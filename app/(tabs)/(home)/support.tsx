@@ -16,6 +16,7 @@ import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface Message {
   id: string;
@@ -31,6 +32,7 @@ interface Message {
 export default function SupportScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
   const [showNewMessage, setShowNewMessage] = useState(false);
@@ -68,7 +70,7 @@ export default function SupportScreen() {
       setMessages(mapped);
     } catch (error) {
       console.error('Error loading messages:', error);
-      Alert.alert('Error', 'Failed to load messages');
+      Alert.alert(t('error'), t('failedToLoadMessages'));
     } finally {
       setLoading(false);
     }
@@ -78,7 +80,7 @@ export default function SupportScreen() {
     if (!user) return;
 
     if (!subject.trim() || !messageText.trim()) {
-      Alert.alert('Error', 'Please fill in all fields');
+      Alert.alert(t('error'), t('pleaseEnterSubjectAndMessageText'));
       return;
     }
 
@@ -98,7 +100,7 @@ export default function SupportScreen() {
 
       if (error) throw error;
 
-      Alert.alert('Success', 'Your message has been sent. Our support team will respond soon.');
+      Alert.alert(t('success'), t('messageSentSuccessText'));
       setSubject('');
       setMessageText('');
       setCategory('general');
@@ -106,7 +108,7 @@ export default function SupportScreen() {
       loadMessages();
     } catch (error) {
       console.error('Error sending message:', error);
-      Alert.alert('Error', 'Failed to send message');
+      Alert.alert(t('error'), t('failedToSendMessageErrorText'));
     } finally {
       setSubmitting(false);
     }
@@ -131,6 +133,18 @@ export default function SupportScreen() {
     }
   };
 
+  const getCategoryLabel = (cat: string) => {
+    switch (cat) {
+      case 'general': return t('generalCategoryText');
+      case 'kyc': return t('kycCategoryText');
+      case 'withdrawal': return t('withdrawalCategoryText');
+      case 'transaction': return t('transactionCategoryText');
+      case 'technical': return t('technicalCategoryText');
+      case 'other': return t('otherCategoryText');
+      default: return cat;
+    }
+  };
+
   if (!user) {
     return (
       <SafeAreaView style={styles.container}>
@@ -148,26 +162,26 @@ export default function SupportScreen() {
           <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.text} />
         </TouchableOpacity>
         <View style={styles.headerText}>
-          <Text style={styles.title}>Support & Help</Text>
-          <Text style={styles.subtitle}>Get assistance from our team</Text>
+          <Text style={styles.title}>{t('supportAndHelpText')}</Text>
+          <Text style={styles.subtitle}>{t('getAssistanceText')}</Text>
         </View>
       </View>
 
       {showNewMessage ? (
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={[commonStyles.card, styles.formCard]}>
-            <Text style={styles.formTitle}>New Support Request</Text>
+            <Text style={styles.formTitle}>{t('newSupportRequestButtonText')}</Text>
 
             <View style={styles.inputContainer}>
-              <Text style={commonStyles.label}>Category</Text>
+              <Text style={commonStyles.label}>{t('categoryLabelText')}</Text>
               <View style={styles.categoryGrid}>
                 {[
-                  { value: 'general', label: 'General', icon: 'envelope' },
-                  { value: 'kyc', label: 'KYC', icon: 'person.badge.shield.checkmark' },
-                  { value: 'withdrawal', label: 'Withdrawal', icon: 'arrow.down.circle' },
-                  { value: 'transaction', label: 'Transaction', icon: 'dollarsign.circle' },
-                  { value: 'technical', label: 'Technical', icon: 'wrench.and.screwdriver' },
-                  { value: 'other', label: 'Other', icon: 'questionmark.circle' },
+                  { value: 'general', label: t('generalCategoryText'), icon: 'envelope' },
+                  { value: 'kyc', label: t('kycCategoryText'), icon: 'person.badge.shield.checkmark' },
+                  { value: 'withdrawal', label: t('withdrawalCategoryText'), icon: 'arrow.down.circle' },
+                  { value: 'transaction', label: t('transactionCategoryText'), icon: 'dollarsign.circle' },
+                  { value: 'technical', label: t('technicalCategoryText'), icon: 'wrench.and.screwdriver' },
+                  { value: 'other', label: t('otherCategoryText'), icon: 'questionmark.circle' },
                 ].map((cat) => (
                   <TouchableOpacity
                     key={cat.value}
@@ -204,10 +218,10 @@ export default function SupportScreen() {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={commonStyles.label}>Subject</Text>
+              <Text style={commonStyles.label}>{t('subjectLabelText')}</Text>
               <TextInput
                 style={commonStyles.input}
-                placeholder="Brief description of your issue"
+                placeholder={t('briefDescriptionText')}
                 placeholderTextColor={colors.textSecondary}
                 value={subject}
                 onChangeText={setSubject}
@@ -215,10 +229,10 @@ export default function SupportScreen() {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={commonStyles.label}>Message</Text>
+              <Text style={commonStyles.label}>{t('messageLabelText')}</Text>
               <TextInput
                 style={[commonStyles.input, styles.messageInput]}
-                placeholder="Describe your issue in detail..."
+                placeholder={t('describeIssueInDetailText')}
                 placeholderTextColor={colors.textSecondary}
                 value={messageText}
                 onChangeText={setMessageText}
@@ -233,7 +247,7 @@ export default function SupportScreen() {
                 style={[buttonStyles.primary, styles.cancelButton]}
                 onPress={() => setShowNewMessage(false)}
               >
-                <Text style={styles.buttonText}>Cancel</Text>
+                <Text style={styles.buttonText}>{t('cancel')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -246,7 +260,7 @@ export default function SupportScreen() {
                 ) : (
                   <React.Fragment>
                     <IconSymbol ios_icon_name="paperplane.fill" android_material_icon_name="send" size={20} color="#fff" />
-                    <Text style={styles.buttonText}>Send Message</Text>
+                    <Text style={styles.buttonText}>{t('sendMessageButtonText')}</Text>
                   </React.Fragment>
                 )}
               </TouchableOpacity>
@@ -260,7 +274,7 @@ export default function SupportScreen() {
             onPress={() => setShowNewMessage(true)}
           >
             <IconSymbol ios_icon_name="plus.circle.fill" android_material_icon_name="add_circle" size={24} color={colors.primary} />
-            <Text style={styles.newMessageText}>New Support Request</Text>
+            <Text style={styles.newMessageText}>{t('newSupportRequestButtonText')}</Text>
           </TouchableOpacity>
 
           {loading ? (
@@ -270,9 +284,9 @@ export default function SupportScreen() {
           ) : messages.length === 0 ? (
             <View style={styles.emptyContainer}>
               <IconSymbol ios_icon_name="envelope.open" android_material_icon_name="drafts" size={64} color={colors.textSecondary} />
-              <Text style={styles.emptyText}>No messages yet</Text>
+              <Text style={styles.emptyText}>{t('noMessagesYetTitleText')}</Text>
               <Text style={styles.emptySubtext}>
-                Create a support request to get help from our team
+                {t('createSupportRequestMessageText')}
               </Text>
             </View>
           ) : (
@@ -282,8 +296,7 @@ export default function SupportScreen() {
                   key={msg.id}
                   style={[commonStyles.card, styles.messageCard]}
                   onPress={() => {
-                    // Navigate to message detail (to be implemented)
-                    Alert.alert('Message Detail', 'Message detail view coming soon');
+                    Alert.alert(t('messageDetail'), t('messageDetailComingSoonText'));
                   }}
                 >
                   <View style={styles.messageHeader}>
@@ -295,7 +308,7 @@ export default function SupportScreen() {
                     />
                     <View style={styles.messageInfo}>
                       <Text style={styles.messageSubject}>{msg.subject}</Text>
-                      <Text style={styles.messageCategory}>{msg.category.toUpperCase()}</Text>
+                      <Text style={styles.messageCategory}>{getCategoryLabel(msg.category)}</Text>
                     </View>
                     <View
                       style={[
@@ -314,7 +327,7 @@ export default function SupportScreen() {
                     {msg.reply_count > 0 && (
                       <View style={styles.replyBadge}>
                         <IconSymbol ios_icon_name="bubble.left.fill" android_material_icon_name="chat_bubble" size={12} color={colors.primary} />
-                        <Text style={styles.replyCount}>{msg.reply_count} replies</Text>
+                        <Text style={styles.replyCount}>{msg.reply_count} {t('repliesCountText')}</Text>
                       </View>
                     )}
                   </View>

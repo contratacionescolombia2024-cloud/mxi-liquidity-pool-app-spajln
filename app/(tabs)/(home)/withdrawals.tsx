@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, commonStyles } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 
@@ -29,6 +30,7 @@ interface Withdrawal {
 export default function WithdrawalsScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -92,6 +94,19 @@ export default function WithdrawalsScreen() {
     }
   };
 
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return t('completed');
+      case 'processing':
+        return t('processing');
+      case 'failed':
+        return t('failed');
+      default:
+        return t('pending');
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -120,9 +135,14 @@ export default function WithdrawalsScreen() {
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <IconSymbol name="chevron.left" size={24} color={colors.primary} />
+          <IconSymbol 
+            ios_icon_name="chevron.left" 
+            android_material_icon_name="arrow_back" 
+            size={24} 
+            color={colors.primary} 
+          />
         </TouchableOpacity>
-        <Text style={styles.title}>Withdrawal History</Text>
+        <Text style={styles.title}>{t('withdrawalHistoryTitle')}</Text>
       </View>
 
       <ScrollView
@@ -137,10 +157,15 @@ export default function WithdrawalsScreen() {
       >
         {withdrawals.length === 0 ? (
           <View style={styles.emptyState}>
-            <IconSymbol name="tray" size={64} color={colors.textSecondary} />
-            <Text style={styles.emptyTitle}>No Withdrawals Yet</Text>
+            <IconSymbol 
+              ios_icon_name="tray" 
+              android_material_icon_name="inbox" 
+              size={64} 
+              color={colors.textSecondary} 
+            />
+            <Text style={styles.emptyTitle}>{t('noWithdrawalsYet')}</Text>
             <Text style={styles.emptyText}>
-              Your withdrawal history will appear here once you make your first withdrawal.
+              {t('withdrawalHistoryWillAppear')}
             </Text>
           </View>
         ) : (
@@ -157,19 +182,25 @@ export default function WithdrawalsScreen() {
                 </View>
                 <View style={[styles.statusBadge, { backgroundColor: getStatusColor(withdrawal.status) + '20' }]}>
                   <IconSymbol
-                    name={getStatusIcon(withdrawal.status)}
+                    ios_icon_name={getStatusIcon(withdrawal.status)}
+                    android_material_icon_name={
+                      withdrawal.status === 'completed' ? 'check_circle' :
+                      withdrawal.status === 'processing' ? 'sync' :
+                      withdrawal.status === 'failed' ? 'cancel' :
+                      'schedule'
+                    }
                     size={16}
                     color={getStatusColor(withdrawal.status)}
                   />
                   <Text style={[styles.statusText, { color: getStatusColor(withdrawal.status) }]}>
-                    {withdrawal.status.charAt(0).toUpperCase() + withdrawal.status.slice(1)}
+                    {getStatusText(withdrawal.status)}
                   </Text>
                 </View>
               </View>
               
               <View style={styles.withdrawalDetails}>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Wallet Address:</Text>
+                  <Text style={styles.detailLabel}>{t('walletAddressText')}</Text>
                   <Text style={styles.detailValue} numberOfLines={1} ellipsizeMode="middle">
                     {withdrawal.wallet_address}
                   </Text>
@@ -177,7 +208,7 @@ export default function WithdrawalsScreen() {
                 
                 {withdrawal.completed_at && (
                   <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Completed:</Text>
+                    <Text style={styles.detailLabel}>{t('completedText')}</Text>
                     <Text style={styles.detailValue}>
                       {formatDate(withdrawal.completed_at)}
                     </Text>

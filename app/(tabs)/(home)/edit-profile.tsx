@@ -15,11 +15,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/lib/supabase';
 
 export default function EditProfileScreen() {
   const router = useRouter();
   const { user, updateUser } = useAuth();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState(user?.name || '');
   const [address, setAddress] = useState(user?.address || '');
@@ -32,17 +34,17 @@ export default function EditProfileScreen() {
 
     // Validation
     if (!name.trim()) {
-      Alert.alert('Error', 'Please enter your full name');
+      Alert.alert(t('error'), t('pleaseEnterFullNameText2'));
       return;
     }
 
     if (!address.trim()) {
-      Alert.alert('Error', 'Please enter your address');
+      Alert.alert(t('error'), t('pleaseEnterAddressText'));
       return;
     }
 
     if (!idNumber.trim()) {
-      Alert.alert('Error', 'Please enter your ID number');
+      Alert.alert(t('error'), t('pleaseEnterIDNumberText'));
       return;
     }
 
@@ -59,7 +61,7 @@ export default function EditProfileScreen() {
           .single();
 
         if (existingUser) {
-          Alert.alert('Error', 'This ID number is already registered to another account');
+          Alert.alert(t('error'), t('idNumberAlreadyRegisteredText'));
           setLoading(false);
           return;
         }
@@ -85,18 +87,18 @@ export default function EditProfileScreen() {
       });
 
       Alert.alert(
-        'Success',
-        'Your profile has been updated successfully',
+        t('successText2'),
+        t('profileUpdatedSuccessfullyText'),
         [
           {
-            text: 'OK',
+            text: t('ok'),
             onPress: () => router.back(),
           },
         ]
       );
     } catch (error) {
       console.error('Error updating profile:', error);
-      Alert.alert('Error', 'Failed to update profile. Please try again.');
+      Alert.alert(t('error'), t('failedToUpdateProfileText'));
     } finally {
       setLoading(false);
     }
@@ -127,7 +129,7 @@ export default function EditProfileScreen() {
               color={colors.text} 
             />
           </TouchableOpacity>
-          <Text style={styles.title}>Edit Profile</Text>
+          <Text style={styles.title}>{t('editProfileText')}</Text>
         </View>
 
         <View style={styles.restrictedContainer}>
@@ -137,18 +139,18 @@ export default function EditProfileScreen() {
             size={64} 
             color={colors.textSecondary} 
           />
-          <Text style={styles.restrictedTitle}>Profile Locked</Text>
+          <Text style={styles.restrictedTitle}>{t('profileLockedText')}</Text>
           <Text style={styles.restrictedText}>
-            Your profile cannot be edited because your KYC verification is {user.kycStatus}.
+            {t('profileCannotBeEditedText', { status: user.kycStatus })}
           </Text>
           <Text style={styles.restrictedSubtext}>
-            Profile information can only be modified before KYC verification is approved.
+            {t('profileInfoCanOnlyBeModifiedText')}
           </Text>
           <TouchableOpacity
             style={[buttonStyles.primary, styles.backToProfileButton]}
             onPress={() => router.back()}
           >
-            <Text style={buttonStyles.primaryText}>Back to Profile</Text>
+            <Text style={buttonStyles.primaryText}>{t('backToProfileText')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -169,7 +171,7 @@ export default function EditProfileScreen() {
             color={colors.text} 
           />
         </TouchableOpacity>
-        <Text style={styles.title}>Edit Profile</Text>
+        <Text style={styles.title}>{t('editProfileText')}</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -181,19 +183,18 @@ export default function EditProfileScreen() {
             color={colors.warning} 
           />
           <View style={styles.warningContent}>
-            <Text style={styles.warningTitle}>Important Notice</Text>
+            <Text style={styles.warningTitle}>{t('importantNoticeText')}</Text>
             <Text style={styles.warningText}>
-              You can only edit your profile information before your KYC verification is approved. 
-              Make sure all information is accurate before submitting your KYC.
+              {t('canOnlyEditBeforeKYCText')}
             </Text>
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Personal Information</Text>
+          <Text style={styles.sectionTitle}>{t('personalInformationText')}</Text>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Full Name</Text>
+            <Text style={styles.inputLabel}>{t('fullNameText')}</Text>
             <View style={styles.inputContainer}>
               <IconSymbol 
                 ios_icon_name="person.fill" 
@@ -205,18 +206,18 @@ export default function EditProfileScreen() {
                 style={styles.input}
                 value={name}
                 onChangeText={setName}
-                placeholder="Enter your full name"
+                placeholder={t('enterYourFullNameText')}
                 placeholderTextColor={colors.textSecondary}
                 autoCapitalize="words"
               />
             </View>
             <Text style={styles.inputHint}>
-              Enter your full legal name as it appears on your ID
+              {t('enterFullLegalNameText')}
             </Text>
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>ID Number</Text>
+            <Text style={styles.inputLabel}>{t('idNumberText')}</Text>
             <View style={styles.inputContainer}>
               <IconSymbol 
                 ios_icon_name="number.circle.fill" 
@@ -228,18 +229,18 @@ export default function EditProfileScreen() {
                 style={styles.input}
                 value={idNumber}
                 onChangeText={setIdNumber}
-                placeholder="Enter your ID number"
+                placeholder={t('enterYourIDNumberText')}
                 placeholderTextColor={colors.textSecondary}
                 autoCapitalize="characters"
               />
             </View>
             <Text style={styles.inputHint}>
-              Enter your national ID, passport, or driver&apos;s license number
+              {t('enterNationalIDText')}
             </Text>
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Residential Address</Text>
+            <Text style={styles.inputLabel}>{t('residentialAddressText')}</Text>
             <View style={styles.inputContainer}>
               <IconSymbol 
                 ios_icon_name="house.fill" 
@@ -251,14 +252,14 @@ export default function EditProfileScreen() {
                 style={styles.input}
                 value={address}
                 onChangeText={setAddress}
-                placeholder="Enter your residential address"
+                placeholder={t('enterYourResidentialAddressText')}
                 placeholderTextColor={colors.textSecondary}
                 multiline
                 numberOfLines={2}
               />
             </View>
             <Text style={styles.inputHint}>
-              Enter your complete residential address
+              {t('enterCompleteAddressText')}
             </Text>
           </View>
         </View>
@@ -271,18 +272,17 @@ export default function EditProfileScreen() {
             color={colors.primary} 
           />
           <Text style={styles.infoText}>
-            Your email address and referral code cannot be changed. 
-            If you need to update these, please contact support.
+            {t('emailAndReferralCannotChangeText')}
           </Text>
         </View>
 
         <View style={styles.readOnlySection}>
-          <Text style={styles.readOnlyLabel}>Email Address (Read-only)</Text>
+          <Text style={styles.readOnlyLabel}>{t('emailAddressReadOnlyText')}</Text>
           <View style={styles.readOnlyValue}>
             <Text style={styles.readOnlyText}>{user.email}</Text>
           </View>
 
-          <Text style={styles.readOnlyLabel}>Referral Code (Read-only)</Text>
+          <Text style={styles.readOnlyLabel}>{t('referralCodeReadOnlyText')}</Text>
           <View style={styles.readOnlyValue}>
             <Text style={styles.readOnlyText}>{user.referralCode}</Text>
           </View>
@@ -303,7 +303,7 @@ export default function EditProfileScreen() {
                 size={20} 
                 color="#fff" 
               />
-              <Text style={buttonStyles.primaryText}>Save Changes</Text>
+              <Text style={buttonStyles.primaryText}>{t('saveChangesText')}</Text>
             </>
           )}
         </TouchableOpacity>
@@ -313,7 +313,7 @@ export default function EditProfileScreen() {
           onPress={() => router.back()}
           disabled={loading}
         >
-          <Text style={buttonStyles.secondaryText}>Cancel</Text>
+          <Text style={buttonStyles.secondaryText}>{t('cancel')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

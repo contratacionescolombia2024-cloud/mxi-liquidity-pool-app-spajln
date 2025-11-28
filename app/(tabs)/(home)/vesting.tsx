@@ -15,10 +15,12 @@ import { colors, commonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function VestingScreen() {
   const router = useRouter();
   const { user, getPoolStatus } = useAuth();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [vestingData, setVestingData] = useState<any>(null);
   const [userData, setUserData] = useState<any>(null);
@@ -60,7 +62,7 @@ export default function VestingScreen() {
       setPoolStatus(status);
     } catch (error) {
       console.error('Error loading vesting data:', error);
-      Alert.alert('Error', 'No se pudo cargar la información de vesting');
+      Alert.alert(t('error'), t('couldNotLoadVestingInfo'));
     } finally {
       setLoading(false);
     }
@@ -71,7 +73,7 @@ export default function VestingScreen() {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Cargando...</Text>
+          <Text style={styles.loadingText}>{t('loadingVestingDataText')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -100,7 +102,7 @@ export default function VestingScreen() {
             color={colors.text}
           />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Balance MXI (Vesting)</Text>
+        <Text style={styles.headerTitle}>{t('mxiVestingBalance')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -113,15 +115,13 @@ export default function VestingScreen() {
               size={32}
               color={colors.primary}
             />
-            <Text style={styles.sourceTitle}>⚠️ Fuente de Vesting</Text>
+            <Text style={styles.sourceTitle}>{t('vestingSourceTitle')}</Text>
           </View>
           <Text style={styles.sourceText}>
-            El vesting se genera ÚNICAMENTE del MXI comprado directamente con USDT. 
-            Las comisiones NO generan vesting. Este gráfico representa el crecimiento 
-            personal del usuario en MXI: compras, gastos, pérdidas, etc.
+            {t('vestingSourceDescriptionText')}
           </Text>
           <View style={styles.sourceValueBox}>
-            <Text style={styles.sourceLabel}>MXI Comprado (Base de Vesting)</Text>
+            <Text style={styles.sourceLabel}>{t('mxiPurchasedVestingBaseText')}</Text>
             <Text style={styles.sourceValue}>{mxiPurchased.toFixed(2)} MXI</Text>
           </View>
         </View>
@@ -135,12 +135,12 @@ export default function VestingScreen() {
               color={colors.primary}
             />
           </View>
-          <Text style={styles.mainTitle}>MXI en Vesting</Text>
+          <Text style={styles.mainTitle}>{t('mxiInVestingText')}</Text>
           <Text style={styles.mainAmount}>{totalMXI.toFixed(2)} MXI</Text>
           <Text style={styles.mainSubtitle}>
             {isLaunched 
-              ? 'Disponible para retiro una vez lanzada la moneda'
-              : `Bloqueado hasta el lanzamiento oficial (${daysUntilLaunch} días)`}
+              ? t('availableForWithdrawalText')
+              : t('blockedUntilLaunchText') + ` (${daysUntilLaunch} ${t('daysRemainingText')})`}
           </Text>
         </View>
 
@@ -153,16 +153,15 @@ export default function VestingScreen() {
                 size={32}
                 color={colors.warning}
               />
-              <Text style={styles.warningTitle}>Saldo Bloqueado</Text>
+              <Text style={styles.warningTitle}>{t('balanceBlockedTitle')}</Text>
             </View>
             <Text style={styles.warningText}>
-              El saldo de vesting no se puede unificar ni retirar hasta que se lance la moneda oficialmente.
-              Una vez lanzada, podrás retirar tu saldo cumpliendo los requisitos de retiro (5 referidos activos y KYC aprobado).
+              {t('balanceBlockedDescriptionText')}
             </Text>
             {daysUntilLaunch > 0 && (
               <View style={styles.countdownBox}>
-                <Text style={styles.countdownLabel}>Tiempo hasta el lanzamiento:</Text>
-                <Text style={styles.countdownValue}>{daysUntilLaunch} días</Text>
+                <Text style={styles.countdownLabel}>{t('timeUntilLaunchText')}</Text>
+                <Text style={styles.countdownValue}>{daysUntilLaunch} {t('daysRemainingText')}</Text>
               </View>
             )}
           </View>
@@ -177,7 +176,7 @@ export default function VestingScreen() {
                 size={24}
                 color={colors.success}
               />
-              <Text style={styles.statLabel}>Liberado</Text>
+              <Text style={styles.statLabel}>{t('releasedText')}</Text>
               <Text style={styles.statValue}>{releasedMXI.toFixed(2)} MXI</Text>
             </View>
             <View style={styles.statDivider} />
@@ -188,7 +187,7 @@ export default function VestingScreen() {
                 size={24}
                 color={colors.warning}
               />
-              <Text style={styles.statLabel}>Pendiente</Text>
+              <Text style={styles.statLabel}>{t('pending')}</Text>
               <Text style={styles.statValue}>{pendingMXI.toFixed(2)} MXI</Text>
             </View>
           </View>
@@ -202,22 +201,22 @@ export default function VestingScreen() {
               size={24}
               color={colors.primary}
             />
-            <Text style={styles.infoTitle}>Información de Vesting</Text>
+            <Text style={styles.infoTitle}>{t('vestingInformationText')}</Text>
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Porcentaje de liberación:</Text>
-            <Text style={styles.infoValue}>{releasePercentage}% cada 10 días</Text>
+            <Text style={styles.infoLabel}>{t('releasePercentageText')}</Text>
+            <Text style={styles.infoValue}>{releasePercentage}% {t('everyTenDaysText')}</Text>
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Liberaciones realizadas:</Text>
+            <Text style={styles.infoLabel}>{t('releasesCompletedText')}</Text>
             <Text style={styles.infoValue}>{releaseCount}</Text>
           </View>
 
           {nextReleaseDate && isLaunched && (
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Próxima liberación:</Text>
+              <Text style={styles.infoLabel}>{t('nextReleaseText')}</Text>
               <Text style={styles.infoValue}>
                 {nextReleaseDate.toLocaleDateString('es-ES', {
                   day: '2-digit',
@@ -229,29 +228,25 @@ export default function VestingScreen() {
           )}
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Estado de retiro:</Text>
+            <Text style={styles.infoLabel}>{t('withdrawalStatusText')}</Text>
             <Text style={[styles.infoValue, { color: isLaunched ? colors.success : colors.error }]}>
-              {isLaunched ? 'Habilitado' : 'Bloqueado hasta lanzamiento'}
+              {isLaunched ? t('enabledText') : t('blockedUntilLaunchShortText')}
             </Text>
           </View>
         </View>
 
         <View style={[styles.transparentCard, styles.descriptionCard]}>
-          <Text style={styles.descriptionTitle}>¿Qué es el Vesting?</Text>
+          <Text style={styles.descriptionTitle}>{t('whatIsVestingText')}</Text>
           <Text style={styles.descriptionText}>
-            El vesting es un mecanismo que libera gradualmente tus tokens MXI
-            obtenidos por yield/rendimiento del MXI comprado. Esto garantiza estabilidad en el
-            mercado y protege el valor de la moneda.
+            {t('vestingDescriptionText')}
           </Text>
           <Text style={styles.descriptionText}>
             {isLaunched 
-              ? `Cada 10 días se libera el ${releasePercentage}% de tu saldo en vesting, que podrás retirar una vez cumplas los requisitos (5 referidos activos y KYC aprobado).`
-              : `Una vez lanzada la moneda, cada 10 días se liberará el ${releasePercentage}% de tu saldo en vesting para retiro.`}
+              ? t('vestingReleaseInfoText', { percentage: releasePercentage })
+              : t('vestingReleaseInfoPreLaunchText', { percentage: releasePercentage })}
           </Text>
           <Text style={[styles.descriptionText, styles.importantNote]}>
-            ⚠️ Importante: Solo el MXI comprado directamente genera rendimiento de vesting. 
-            Las comisiones NO generan vesting. El gráfico "Balance MXI" muestra tu crecimiento 
-            personal en MXI, no el vesting en sí.
+            {t('vestingImportantNoteText')}
           </Text>
         </View>
 
@@ -268,9 +263,9 @@ export default function VestingScreen() {
                 color={colors.success}
               />
               <View style={styles.actionText}>
-                <Text style={styles.actionTitle}>Retirar MXI</Text>
+                <Text style={styles.actionTitle}>{t('withdrawMXIText')}</Text>
                 <Text style={styles.actionSubtitle}>
-                  Retira tu saldo de vesting liberado
+                  {t('withdrawVestingBalanceText')}
                 </Text>
               </View>
               <IconSymbol

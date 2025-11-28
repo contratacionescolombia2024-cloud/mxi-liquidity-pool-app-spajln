@@ -1342,6 +1342,43 @@ Users accept that the rewards granted are promotional, digital, and without comm
     idNumberAlreadyRegisteredText: 'This ID number is already registered to another account',
     successText2: 'Success',
     errorText2: 'Error',
+    
+    // Transaction History - Additional
+    couldNotLoadTransactionHistory: 'Could not load transaction history',
+    couldNotOpenPaymentLink: 'Could not open payment link',
+    cancelledByUser: 'Cancelled by user',
+    cancelled: 'Cancelled',
+    sessionExpired: 'Session expired. Please log in again.',
+    details: 'Details',
+    unknownError: 'Unknown',
+    
+    // Support - Additional
+    failedToLoadMessages: 'Failed to load messages',
+    
+    // Lottery - Additional
+    failedToLoadBonusData: 'Failed to load bonus data. Please try again.',
+    failedToDeductBalance: 'Failed to deduct balance',
+    tie: 'Tie',
+    forfeit: 'Forfeit',
+    
+    // Contrataciones - Additional
+    mustLoginToTest: 'You must log in to perform this test',
+    couldNotTestEnvironmentVariables: 'Could not test environment variables: {{message}}',
+    sessionError: 'Session error',
+    mustLoginToContinue: 'You must log in to continue',
+    errorReadingServerResponse: 'Error reading server response',
+    serverReturnedInvalidResponse: 'The server returned an invalid response (not valid JSON)',
+    unknownServerError: 'Unknown server error',
+    errorCreatingPayment: 'Error creating payment',
+    paymentProviderError: 'Payment provider error: {{message}}. Please try again.',
+    sessionExpiredLogout: 'Your session has expired. Please log out and log in again.',
+    errorGettingPhaseInfo: 'Error getting phase information. Please try again.',
+    errorSavingPayment: 'Error saving payment. Please try again.',
+    errorOpeningBrowser: 'Error opening browser',
+    couldNotOpenBrowserAutomatically: 'Could not open browser automatically. URL: {{url}}',
+    copyURL: 'Copy URL',
+    noPaymentURLReceived: 'No payment URL received from server',
+    couldNotCreatePayment: 'Could not create payment',
   },
   es: {
     // Common
@@ -2682,6 +2719,43 @@ Los usuarios aceptan que las recompensas otorgadas son promocionales, digitales 
     idNumberAlreadyRegisteredText: 'Este número de identificación ya está registrado en otra cuenta',
     successText2: 'Éxito',
     errorText2: 'Error',
+    
+    // Transaction History - Additional
+    couldNotLoadTransactionHistory: 'No se pudo cargar el historial de transacciones',
+    couldNotOpenPaymentLink: 'No se pudo abrir el enlace de pago',
+    cancelledByUser: 'Cancelado por el usuario',
+    cancelled: 'Cancelado',
+    sessionExpired: 'Sesión expirada. Por favor inicia sesión nuevamente.',
+    details: 'Detalles',
+    unknownError: 'Desconocido',
+    
+    // Support - Additional
+    failedToLoadMessages: 'Error al cargar mensajes',
+    
+    // Lottery - Additional
+    failedToLoadBonusData: 'Error al cargar datos del bonus. Por favor intenta nuevamente.',
+    failedToDeductBalance: 'Error al deducir saldo',
+    tie: 'Empate',
+    forfeit: 'Abandono',
+    
+    // Contrataciones - Additional
+    mustLoginToTest: 'Debes iniciar sesión para realizar esta prueba',
+    couldNotTestEnvironmentVariables: 'No se pudo probar las variables de entorno: {{message}}',
+    sessionError: 'Error de sesión',
+    mustLoginToContinue: 'Debes iniciar sesión para continuar',
+    errorReadingServerResponse: 'Error al leer la respuesta del servidor',
+    serverReturnedInvalidResponse: 'El servidor devolvió una respuesta inválida (no es JSON válido)',
+    unknownServerError: 'Error desconocido del servidor',
+    errorCreatingPayment: 'Error al crear el pago',
+    paymentProviderError: 'Error del proveedor de pagos: {{message}}. Por favor, intenta nuevamente.',
+    sessionExpiredLogout: 'Tu sesión ha expirado. Por favor, cierra sesión e inicia sesión nuevamente.',
+    errorGettingPhaseInfo: 'Error al obtener información de fase. Por favor, intenta nuevamente.',
+    errorSavingPayment: 'Error al guardar el pago. Por favor, intenta nuevamente.',
+    errorOpeningBrowser: 'Error al abrir navegador',
+    couldNotOpenBrowserAutomatically: 'No se pudo abrir el navegador automáticamente. URL: {{url}}',
+    copyURL: 'Copiar URL',
+    noPaymentURLReceived: 'No se recibió URL de pago del servidor',
+    couldNotCreatePayment: 'No se pudo crear el pago',
   },
   pt: {
     // Common
@@ -4021,6 +4095,43 @@ Os usuários aceitam que as recompensas concedidas são promocionais, digitais e
     idNumberAlreadyRegisteredText: 'Este número de identificação já está registrado em outra conta',
     successText2: 'Sucesso',
     errorText2: 'Erro',
+    
+    // Transaction History - Additional
+    couldNotLoadTransactionHistory: 'Não foi possível carregar o histórico de transações',
+    couldNotOpenPaymentLink: 'Não foi possível abrir o link de pagamento',
+    cancelledByUser: 'Cancelado pelo usuário',
+    cancelled: 'Cancelado',
+    sessionExpired: 'Sessão expirada. Por favor faça login novamente.',
+    details: 'Detalhes',
+    unknownError: 'Desconhecido',
+    
+    // Support - Additional
+    failedToLoadMessages: 'Falha ao carregar mensagens',
+    
+    // Lottery - Additional
+    failedToLoadBonusData: 'Falha ao carregar dados do bônus. Por favor tente novamente.',
+    failedToDeductBalance: 'Falha ao deduzir saldo',
+    tie: 'Empate',
+    forfeit: 'Abandono',
+    
+    // Contrataciones - Additional
+    mustLoginToTest: 'Você deve fazer login para realizar este teste',
+    couldNotTestEnvironmentVariables: 'Não foi possível testar as variáveis de ambiente: {{message}}',
+    sessionError: 'Erro de sessão',
+    mustLoginToContinue: 'Você deve fazer login para continuar',
+    errorReadingServerResponse: 'Erro ao ler a resposta do servidor',
+    serverReturnedInvalidResponse: 'O servidor retornou uma resposta inválida (não é JSON válido)',
+    unknownServerError: 'Erro desconhecido do servidor',
+    errorCreatingPayment: 'Erro ao criar o pagamento',
+    paymentProviderError: 'Erro do provedor de pagamentos: {{message}}. Por favor, tente novamente.',
+    sessionExpiredLogout: 'Sua sessão expirou. Por favor, saia e faça login novamente.',
+    errorGettingPhaseInfo: 'Erro ao obter informações de fase. Por favor, tente novamente.',
+    errorSavingPayment: 'Erro ao salvar o pagamento. Por favor, tente novamente.',
+    errorOpeningBrowser: 'Erro ao abrir navegador',
+    couldNotOpenBrowserAutomatically: 'Não foi possível abrir o navegador automaticamente. URL: {{url}}',
+    copyURL: 'Copiar URL',
+    noPaymentURLReceived: 'Nenhuma URL de pagamento recebida do servidor',
+    couldNotCreatePayment: 'Não foi possível criar o pagamento',
   },
 };
 

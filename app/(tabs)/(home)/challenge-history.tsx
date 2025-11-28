@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   View,
@@ -35,6 +36,7 @@ interface ChallengeHistory {
 export default function ChallengeHistoryScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [history, setHistory] = useState<ChallengeHistory[]>([]);
@@ -115,39 +117,42 @@ export default function ChallengeHistoryScreen() {
     
     // Validate amount
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Monto Inválido', 'Por favor ingresa un monto válido');
+      Alert.alert(t('invalidAmountEnterValidText'), t('pleaseEnterValidAmount'));
       return;
     }
 
     // Check minimum withdrawal
     if (amount < 50) {
-      Alert.alert('Monto Mínimo', 'El retiro mínimo es de 50 MXI');
+      Alert.alert(t('minimumWithdrawal'), t('minimumWithdrawalIs50Text'));
       return;
     }
 
     // Check available balance
     if (amount > mxiFromChallenges) {
-      Alert.alert('Saldo Insuficiente', `Solo tienes ${mxiFromChallenges.toFixed(2)} MXI disponibles de ganancias de torneos`);
+      Alert.alert(
+        t('insufficientBalance'), 
+        t('insufficientBalanceOnlyHaveText', { available: mxiFromChallenges.toFixed(2) })
+      );
       return;
     }
 
     // Check active referrals requirement
     if (user.activeReferrals < 5) {
       Alert.alert(
-        'Requisitos No Cumplidos',
-        `Necesitas 5 referidos activos que hayan comprado el mínimo de MXI.\n\nActualmente tienes: ${user.activeReferrals} referidos activos`
+        t('requirementsNotMet'),
+        t('requirementsNotMetNeed5ReferralsText', { count: user.activeReferrals })
       );
       return;
     }
 
     // Confirm withdrawal
     Alert.alert(
-      'Confirmar Retiro a Balance MXI',
-      `¿Deseas transferir ${amount.toFixed(2)} MXI de ganancias de torneos a tu balance principal?\n\nEsto te permitirá usar estos MXI para compras y otras funciones.`,
+      t('confirmWithdrawalToMXIBalanceText'),
+      t('doYouWantToTransferFromWinningsText', { amount: amount.toFixed(2) }),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         {
-          text: 'Confirmar',
+          text: t('confirmText'),
           onPress: async () => {
             setWithdrawLoading(true);
             try {
@@ -158,18 +163,18 @@ export default function ChallengeHistoryScreen() {
 
               if (error) {
                 console.error('Withdrawal error:', error);
-                Alert.alert('Error', error.message || 'No se pudo completar el retiro');
+                Alert.alert(t('error'), error.message || t('couldNotCompleteWithdrawal'));
                 return;
               }
 
               if (!data || !data.success) {
-                Alert.alert('Error', data?.error || 'No se pudo completar el retiro');
+                Alert.alert(t('error'), data?.error || t('couldNotCompleteWithdrawal'));
                 return;
               }
 
               Alert.alert(
-                'Retiro Exitoso',
-                `Se han transferido ${amount.toFixed(2)} MXI a tu balance principal`
+                t('withdrawalSuccessful'),
+                t('withdrawalSuccessfulTransferredText', { amount: amount.toFixed(2) })
               );
               
               setWithdrawAmount('');
@@ -177,7 +182,7 @@ export default function ChallengeHistoryScreen() {
               await loadMxiFromChallenges();
             } catch (error: any) {
               console.error('Exception during withdrawal:', error);
-              Alert.alert('Error', error.message || 'Ocurrió un error inesperado');
+              Alert.alert(t('error'), error.message || t('unexpectedError'));
             } finally {
               setWithdrawLoading(false);
             }
@@ -198,7 +203,7 @@ export default function ChallengeHistoryScreen() {
 
   const getChallengeLabel = (type: string) => {
     switch (type) {
-      case 'lottery': return 'Lottery';
+      case 'lottery': return t('bonusParticipation');
       default: return type;
     }
   };
@@ -225,6 +230,16 @@ export default function ChallengeHistoryScreen() {
         return { ios: 'flag.fill', android: 'flag' };
       default:
         return { ios: 'circle.fill', android: 'circle' };
+    }
+  };
+
+  const getResultText = (result: string) => {
+    switch (result) {
+      case 'win': return t('winsText');
+      case 'loss': return t('lossesText');
+      case 'tie': return t('tie');
+      case 'forfeit': return t('forfeit');
+      default: return result;
     }
   };
 
@@ -263,7 +278,7 @@ export default function ChallengeHistoryScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Challenge History</Text>
+        <Text style={styles.headerTitle}>{t('challengeHistoryText')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -273,7 +288,7 @@ export default function ChallengeHistoryScreen() {
           onPress={() => setFilter('all')}
         >
           <Text style={[styles.filterButtonText, filter === 'all' && styles.filterButtonTextActive]}>
-            All
+            {t('allText')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -281,7 +296,7 @@ export default function ChallengeHistoryScreen() {
           onPress={() => setFilter('win')}
         >
           <Text style={[styles.filterButtonText, filter === 'win' && styles.filterButtonTextActive]}>
-            Wins
+            {t('winsText')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -289,7 +304,7 @@ export default function ChallengeHistoryScreen() {
           onPress={() => setFilter('loss')}
         >
           <Text style={[styles.filterButtonText, filter === 'loss' && styles.filterButtonTextActive]}>
-            Losses
+            {t('lossesText')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -309,17 +324,17 @@ export default function ChallengeHistoryScreen() {
               size={32} 
               color={colors.primary} 
             />
-            <Text style={styles.summaryTitle}>Ganancias de Torneos</Text>
+            <Text style={styles.summaryTitle}>{t('tournamentWinningsText')}</Text>
           </View>
           
           <View style={styles.summaryStats}>
             <View style={styles.summaryStatItem}>
-              <Text style={styles.summaryStatLabel}>Total Ganado</Text>
+              <Text style={styles.summaryStatLabel}>{t('totalWonText')}</Text>
               <Text style={styles.summaryStatValue}>{totalWinnings.toFixed(2)} MXI</Text>
             </View>
             <View style={styles.summaryDivider} />
             <View style={styles.summaryStatItem}>
-              <Text style={styles.summaryStatLabel}>Disponible</Text>
+              <Text style={styles.summaryStatLabel}>{t('availableText2')}</Text>
               <Text style={[styles.summaryStatValue, { color: colors.success }]}>
                 {mxiFromChallenges.toFixed(2)} MXI
               </Text>
@@ -336,10 +351,10 @@ export default function ChallengeHistoryScreen() {
                   size={24} 
                   color={colors.primary} 
                 />
-                <Text style={styles.withdrawTitle}>Retirar a Balance MXI</Text>
+                <Text style={styles.withdrawTitle}>{t('withdrawToMXIBalanceText')}</Text>
               </View>
               <Text style={styles.withdrawDescription}>
-                Transfiere tus ganancias a tu balance principal de MXI para usarlas en compras y otras funciones.
+                {t('transferWinningsToMainBalanceText')}
               </Text>
               
               {!showWithdrawModal ? (
@@ -353,22 +368,22 @@ export default function ChallengeHistoryScreen() {
                     size={20} 
                     color="#fff" 
                   />
-                  <Text style={buttonStyles.primaryText}>Retirar a Balance</Text>
+                  <Text style={buttonStyles.primaryText}>{t('withdrawToBalance')}</Text>
                 </TouchableOpacity>
               ) : (
                 <View style={styles.withdrawForm}>
                   <View style={styles.inputContainer}>
-                    <Text style={styles.inputLabel}>Monto a Retirar (MXI)</Text>
+                    <Text style={styles.inputLabel}>{t('amountToWithdrawMXIText')}</Text>
                     <TextInput
                       style={styles.input}
                       value={withdrawAmount}
                       onChangeText={setWithdrawAmount}
                       keyboardType="decimal-pad"
-                      placeholder="Mínimo 50 MXI"
+                      placeholder={t('minimum50MXIRequiredText')}
                       placeholderTextColor={colors.textSecondary}
                     />
                     <Text style={styles.inputHint}>
-                      Disponible: {mxiFromChallenges.toFixed(2)} MXI
+                      {t('availableText2')}: {mxiFromChallenges.toFixed(2)} MXI
                     </Text>
                   </View>
                   
@@ -381,7 +396,7 @@ export default function ChallengeHistoryScreen() {
                       }}
                       disabled={withdrawLoading}
                     >
-                      <Text style={buttonStyles.secondaryText}>Cancelar</Text>
+                      <Text style={buttonStyles.secondaryText}>{t('cancel')}</Text>
                     </TouchableOpacity>
                     
                     <TouchableOpacity
@@ -392,7 +407,7 @@ export default function ChallengeHistoryScreen() {
                       {withdrawLoading ? (
                         <ActivityIndicator color="#fff" />
                       ) : (
-                        <Text style={buttonStyles.primaryText}>Confirmar</Text>
+                        <Text style={buttonStyles.primaryText}>{t('confirmText')}</Text>
                       )}
                     </TouchableOpacity>
                   </View>
@@ -400,7 +415,7 @@ export default function ChallengeHistoryScreen() {
               )}
 
               <View style={styles.requirementsBox}>
-                <Text style={styles.requirementsTitle}>Requisitos:</Text>
+                <Text style={styles.requirementsTitle}>{t('requirementsTitleText')}</Text>
                 <View style={styles.requirementItem}>
                   <IconSymbol 
                     ios_icon_name={user && user.activeReferrals >= 5 ? 'checkmark.circle.fill' : 'xmark.circle.fill'} 
@@ -409,7 +424,7 @@ export default function ChallengeHistoryScreen() {
                     color={user && user.activeReferrals >= 5 ? colors.success : colors.error} 
                   />
                   <Text style={styles.requirementText}>
-                    5 referidos activos ({user?.activeReferrals || 0}/5)
+                    5 {t('activeReferralsText')} ({user?.activeReferrals || 0}/5)
                   </Text>
                 </View>
                 <View style={styles.requirementItem}>
@@ -420,7 +435,7 @@ export default function ChallengeHistoryScreen() {
                     color={mxiFromChallenges >= 50 ? colors.success : colors.error} 
                   />
                   <Text style={styles.requirementText}>
-                    Mínimo 50 MXI
+                    {t('minimumText')} 50 MXI
                   </Text>
                 </View>
               </View>
@@ -431,9 +446,9 @@ export default function ChallengeHistoryScreen() {
         {history.length === 0 ? (
           <View style={styles.emptyState}>
             <IconSymbol ios_icon_name="tray.fill" android_material_icon_name="inbox" size={64} color={colors.textSecondary} />
-            <Text style={styles.emptyTitle}>No History Yet</Text>
+            <Text style={styles.emptyTitle}>{t('noHistoryYetText')}</Text>
             <Text style={styles.emptyText}>
-              Your challenge history will appear here once you participate in games
+              {t('challengeHistoryWillAppearText')}
             </Text>
           </View>
         ) : (
@@ -465,7 +480,7 @@ export default function ChallengeHistoryScreen() {
                       color={getResultColor(record.result)}
                     />
                     <Text style={[styles.resultText, { color: getResultColor(record.result) }]}>
-                      {record.result.toUpperCase()}
+                      {getResultText(record.result).toUpperCase()}
                     </Text>
                   </View>
                 </View>
@@ -473,21 +488,21 @@ export default function ChallengeHistoryScreen() {
                 <View style={styles.historyDetails}>
                   {record.score !== null && (
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Score:</Text>
+                      <Text style={styles.detailLabel}>{t('scoreText')}:</Text>
                       <Text style={styles.detailValue}>{record.score}</Text>
                     </View>
                   )}
                   {record.rank !== null && record.total_participants !== null && (
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Rank:</Text>
+                      <Text style={styles.detailLabel}>{t('rankText')}:</Text>
                       <Text style={styles.detailValue}>
-                        {record.rank} of {record.total_participants}
+                        {record.rank} {t('of')} {record.total_participants}
                       </Text>
                     </View>
                   )}
                   {record.amount_won > 0 && (
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Won:</Text>
+                      <Text style={styles.detailLabel}>{t('wonText')}:</Text>
                       <Text style={[styles.detailValue, { color: colors.success }]}>
                         +{record.amount_won.toFixed(2)} MXI
                       </Text>
@@ -495,7 +510,7 @@ export default function ChallengeHistoryScreen() {
                   )}
                   {record.amount_lost > 0 && (
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Lost:</Text>
+                      <Text style={styles.detailLabel}>{t('lostText')}:</Text>
                       <Text style={[styles.detailValue, { color: colors.error }]}>
                         -{record.amount_lost.toFixed(2)} MXI
                       </Text>
@@ -503,8 +518,8 @@ export default function ChallengeHistoryScreen() {
                   )}
                   {daysUntilExpiry > 0 && (
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Expires in:</Text>
-                      <Text style={styles.detailValue}>{daysUntilExpiry} days</Text>
+                      <Text style={styles.detailLabel}>{t('expiresInText')}:</Text>
+                      <Text style={styles.detailValue}>{daysUntilExpiry} {t('daysRemainingText')}</Text>
                     </View>
                   )}
                 </View>

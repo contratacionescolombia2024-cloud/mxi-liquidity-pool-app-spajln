@@ -17,6 +17,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { useRouter } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/lib/supabase';
 import * as WebBrowser from 'expo-web-browser';
 
@@ -368,6 +369,7 @@ interface ErrorDetails {
 export default function ContratacionesScreen() {
   const router = useRouter();
   const { user, getPhaseInfo } = useAuth();
+  const { t } = useLanguage();
   const [currentPrice, setCurrentPrice] = useState(0.40);
   const [currentPhase, setCurrentPhase] = useState(1);
   const [amount, setAmount] = useState('');
@@ -462,7 +464,7 @@ export default function ContratacionesScreen() {
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError || !sessionData.session) {
-        Alert.alert('Error', 'Debes iniciar sesión para realizar esta prueba');
+        Alert.alert(t('error'), t('mustLoginToTest'));
         setTestingEnv(false);
         return;
       }
@@ -487,7 +489,7 @@ export default function ContratacionesScreen() {
       }
     } catch (error: any) {
       console.error('Error testing environment:', error);
-      Alert.alert('Error', `No se pudo probar las variables de entorno: ${error.message}`);
+      Alert.alert(t('error'), t('couldNotTestEnvironmentVariables', { message: error.message }));
     } finally {
       setTestingEnv(false);
     }
@@ -495,12 +497,12 @@ export default function ContratacionesScreen() {
 
   const handleCreatePayment = async () => {
     if (!amount || parseFloat(amount) < 3) {
-      Alert.alert('Error', 'El monto mínimo es 3 USDT');
+      Alert.alert(t('error'), t('minimumAmountIs3USDT'));
       return;
     }
 
     if (parseFloat(amount) > 500000) {
-      Alert.alert('Error', 'El monto máximo es 500,000 USDT');
+      Alert.alert(t('error'), t('maximumAmountIs500000USDT'));
       return;
     }
 
@@ -516,12 +518,12 @@ export default function ContratacionesScreen() {
       
       if (sessionError) {
         console.log(`Error obteniendo sesión: ${sessionError.message}`);
-        throw new Error(`Error de sesión: ${sessionError.message}`);
+        throw new Error(`${t('sessionError')}: ${sessionError.message}`);
       }
 
       if (!sessionData.session) {
         console.log('No hay sesión activa');
-        Alert.alert('Error', 'Debes iniciar sesión para continuar');
+        Alert.alert(t('error'), t('mustLoginToContinue'));
         setLoading(false);
         return;
       }
@@ -561,7 +563,7 @@ export default function ContratacionesScreen() {
         
         const errorDetail: ErrorDetails = {
           timestamp: new Date().toISOString(),
-          errorMessage: `Error de conexión: ${fetchError.message}`,
+          errorMessage: `${t('connectionError')}: ${fetchError.message}`,
           errorCode: 'FETCH_ERROR',
           requestUrl,
           requestBody,
@@ -572,7 +574,7 @@ export default function ContratacionesScreen() {
 
         setErrorDetails(errorDetail);
         setShowErrorModal(true);
-        throw new Error(`Error de conexión: ${fetchError.message}`);
+        throw new Error(`${t('connectionError')}: ${fetchError.message}`);
       }
 
       const endTime = Date.now();
@@ -590,7 +592,7 @@ export default function ContratacionesScreen() {
         
         const errorDetail: ErrorDetails = {
           timestamp: new Date().toISOString(),
-          errorMessage: 'Error al leer la respuesta del servidor',
+          errorMessage: t('errorReadingServerResponse'),
           errorCode: 'RESPONSE_READ_ERROR',
           statusCode: response.status,
           requestUrl,
@@ -602,7 +604,7 @@ export default function ContratacionesScreen() {
 
         setErrorDetails(errorDetail);
         setShowErrorModal(true);
-        throw new Error('Error al leer la respuesta del servidor');
+        throw new Error(t('errorReadingServerResponse'));
       }
 
       console.log('Step 5: Parseando JSON...');
@@ -619,7 +621,7 @@ export default function ContratacionesScreen() {
         
         const errorDetail: ErrorDetails = {
           timestamp: new Date().toISOString(),
-          errorMessage: 'El servidor devolvió una respuesta inválida (no es JSON válido)',
+          errorMessage: t('serverReturnedInvalidResponse'),
           errorCode: 'INVALID_JSON_RESPONSE',
           statusCode: response.status,
           requestUrl,
@@ -632,7 +634,7 @@ export default function ContratacionesScreen() {
 
         setErrorDetails(errorDetail);
         setShowErrorModal(true);
-        throw new Error('El servidor devolvió una respuesta inválida');
+        throw new Error(t('serverReturnedInvalidResponse'));
       }
 
       if (!response.ok || !result.success) {
@@ -648,7 +650,7 @@ export default function ContratacionesScreen() {
         
         const errorDetail: ErrorDetails = {
           timestamp: new Date().toISOString(),
-          errorMessage: result.error || result.message || 'Error desconocido del servidor',
+          errorMessage: result.error || result.message || t('unknownServerError'),
           errorCode: result.code || 'UNKNOWN',
           statusCode: response.status,
           requestUrl,
@@ -662,16 +664,16 @@ export default function ContratacionesScreen() {
         setErrorDetails(errorDetail);
         setShowErrorModal(true);
         
-        let userMessage = result.error || 'Error al crear el pago';
+        let userMessage = result.error || t('errorCreatingPayment');
         
         if (result.code === 'NOWPAYMENTS_API_ERROR') {
-          userMessage = `Error del proveedor de pagos: ${result.details?.message || 'Error desconocido'}. Por favor, intenta nuevamente.`;
+          userMessage = t('paymentProviderError', { message: result.details?.message || t('unknownError') });
         } else if (result.code === 'INVALID_SESSION') {
-          userMessage = 'Tu sesión ha expirado. Por favor, cierra sesión e inicia sesión nuevamente.';
+          userMessage = t('sessionExpiredLogout');
         } else if (result.code === 'METRICS_ERROR') {
-          userMessage = 'Error al obtener información de fase. Por favor, intenta nuevamente.';
+          userMessage = t('errorGettingPhaseInfo');
         } else if (result.code === 'DATABASE_ERROR') {
-          userMessage = 'Error al guardar el pago. Por favor, intenta nuevamente.';
+          userMessage = t('errorSavingPayment');
         }
         
         throw new Error(userMessage);
@@ -702,13 +704,13 @@ export default function ContratacionesScreen() {
         } catch (browserError: any) {
           console.log(`Error abriendo navegador: ${browserError.message}`);
           Alert.alert(
-            'Error al abrir navegador',
-            `No se pudo abrir el navegador automáticamente. URL: ${result.intent.invoice_url}`,
+            t('errorOpeningBrowser'),
+            t('couldNotOpenBrowserAutomatically', { url: result.intent.invoice_url }),
             [
-              { text: 'Copiar URL', onPress: () => {
+              { text: t('copyURL'), onPress: () => {
                 console.log('URL to copy:', result.intent.invoice_url);
               }},
-              { text: 'OK' }
+              { text: t('ok') }
             ]
           );
         }
@@ -716,16 +718,16 @@ export default function ContratacionesScreen() {
         startPolling(result.intent.order_id);
 
         Alert.alert(
-          'Pago Creado',
-          'Se ha abierto la página de pago. Completa el pago y regresa a la app para ver el estado.',
-          [{ text: 'OK' }]
+          t('paymentCreated'),
+          t('paymentPageOpened'),
+          [{ text: t('ok') }]
         );
 
         setAmount('');
         loadRecentPayments();
       } else {
         console.log('ERROR: No se recibió invoice_url en la respuesta');
-        throw new Error('No se recibió URL de pago del servidor');
+        throw new Error(t('noPaymentURLReceived'));
       }
     } catch (error: any) {
       console.error('Error creating payment:', error);
@@ -735,14 +737,14 @@ export default function ContratacionesScreen() {
         if (!errorDetails) {
           const errorDetail: ErrorDetails = {
             timestamp: new Date().toISOString(),
-            errorMessage: error.message || 'Error desconocido',
+            errorMessage: error.message || t('unknownError'),
             stackTrace: error.stack,
           };
           setErrorDetails(errorDetail);
           setShowErrorModal(true);
         }
         
-        Alert.alert('Error', error.message || 'No se pudo crear el pago');
+        Alert.alert(t('error'), error.message || t('couldNotCreatePayment'));
       }
     } finally {
       setLoading(false);
@@ -775,21 +777,21 @@ export default function ContratacionesScreen() {
 
           if (data.status === 'finished' || data.status === 'confirmed') {
             Alert.alert(
-              '¡Pago Completado!',
-              `Has recibido ${parseFloat(data.mxi_amount).toFixed(2)} MXI tokens`,
-              [{ text: 'OK' }]
+              t('paymentCompleted'),
+              t('youHaveReceived', { amount: parseFloat(data.mxi_amount).toFixed(2) }),
+              [{ text: t('ok') }]
             );
           } else if (data.status === 'failed') {
             Alert.alert(
-              'Pago Fallido',
-              'El pago no se pudo completar. Por favor, intenta nuevamente.',
-              [{ text: 'OK' }]
+              t('paymentFailedTitle'),
+              t('paymentCouldNotBeCompleted'),
+              [{ text: t('ok') }]
             );
           } else if (data.status === 'expired') {
             Alert.alert(
-              'Pago Expirado',
-              'El tiempo para completar el pago ha expirado. Por favor, crea un nuevo pago.',
-              [{ text: 'OK' }]
+              t('paymentExpired'),
+              t('paymentTimeExpired'),
+              [{ text: t('ok') }]
             );
           }
         }
@@ -823,21 +825,21 @@ export default function ContratacionesScreen() {
   const getStatusText = (status: string) => {
     switch (status) {
       case 'finished':
-        return 'Completado';
+        return t('completed');
       case 'confirmed':
-        return 'Confirmado';
+        return t('confirmed');
       case 'waiting':
-        return 'Esperando';
+        return t('waitingForPayment');
       case 'pending':
-        return 'Pendiente';
+        return t('pending');
       case 'confirming':
-        return 'Confirmando';
+        return t('confirming');
       case 'failed':
-        return 'Fallido';
+        return t('failed');
       case 'expired':
-        return 'Expirado';
+        return t('expired');
       case 'cancelled':
-        return 'Cancelado';
+        return t('cancelled');
       default:
         return status;
     }
@@ -849,7 +851,7 @@ export default function ContratacionesScreen() {
       console.log('=== ERROR DETAILS ===');
       console.log(errorText);
       console.log('=== END ERROR DETAILS ===');
-      Alert.alert('Detalles Copiados', 'Los detalles del error han sido copiados al log de la consola');
+      Alert.alert(t('detailsCopied'), t('errorDetailsCopiedToConsole'));
     }
   };
 
@@ -867,60 +869,60 @@ export default function ContratacionesScreen() {
             color={colors.text}
           />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Comprar MXI</Text>
+        <Text style={styles.headerTitle}>{t('buyMXI')}</Text>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {showConfigError && (
           <View style={styles.configErrorCard}>
-            <Text style={styles.configErrorTitle}>⚠️ Error de Configuración del Servidor</Text>
+            <Text style={styles.configErrorTitle}>{t('serverConfigurationError')}</Text>
             <Text style={styles.configErrorText}>
-              El sistema de pagos no está configurado correctamente. Este es un problema del servidor que debe ser resuelto por el administrador.
+              {t('paymentSystemNotConfigured')}
             </Text>
             <Text style={[styles.configErrorText, { marginTop: 12, fontWeight: '600' }]}>
-              Problema Detectado:
+              {t('problemDetected')}
             </Text>
             <Text style={styles.configErrorBullet}>
-              • Las credenciales de NOWPayments no están configuradas en el servidor
+              • {t('nowPaymentsCredentialsNotConfigured')}
             </Text>
             <Text style={[styles.configErrorText, { marginTop: 12, fontWeight: '600' }]}>
-              Solución (Para el Administrador):
+              {t('solutionForAdministrator')}
             </Text>
             <Text style={styles.configErrorBullet}>
-              1. Ir al Dashboard de Supabase
+              {t('goToSupabaseDashboard')}
             </Text>
             <Text style={styles.configErrorBullet}>
-              2. Navegar a Project Settings → Edge Functions
+              {t('navigateToProjectSettings')}
             </Text>
             <Text style={styles.configErrorBullet}>
-              3. Agregar las siguientes variables de entorno:
+              {t('addEnvironmentVariables')}
             </Text>
             <Text style={styles.configErrorHighlight}>
               NOWPAYMENTS_API_KEY{'\n'}
               NOWPAYMENTS_IPN_SECRET
             </Text>
             <Text style={styles.configErrorBullet}>
-              4. Redesplegar las Edge Functions
+              {t('redeployEdgeFunctions')}
             </Text>
             <Text style={[styles.configErrorText, { marginTop: 12, fontStyle: 'italic' }]}>
-              Por favor, contacta al administrador del sistema para resolver este problema.
+              {t('contactAdministrator')}
             </Text>
           </View>
         )}
 
         {envTestResult && envTestResult.environment_variables?.NOWPAYMENTS_API_KEY !== 'MISSING' && (
           <View style={styles.successCard}>
-            <Text style={styles.successTitle}>✅ Configuración Correcta</Text>
+            <Text style={styles.successTitle}>{t('configurationCorrect')}</Text>
             <Text style={styles.successText}>
-              Las variables de entorno están configuradas correctamente. El sistema de pagos debería funcionar.
+              {t('environmentVariablesConfigured')}
             </Text>
           </View>
         )}
 
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Diagnóstico del Sistema</Text>
+          <Text style={styles.sectionTitle}>{t('diagnosticSystem')}</Text>
           <Text style={styles.infoText}>
-            Si experimentas problemas con los pagos, usa este botón para verificar que las variables de entorno estén configuradas correctamente.
+            {t('ifExperiencingProblems')}
           </Text>
           <TouchableOpacity
             style={styles.testButton}
@@ -931,57 +933,57 @@ export default function ContratacionesScreen() {
               <ActivityIndicator color="#FFFFFF" />
             ) : (
               <Text style={styles.testButtonText}>
-                Probar Configuración del Servidor
+                {t('testServerConfiguration')}
               </Text>
             )}
           </TouchableOpacity>
         </View>
 
         <View style={styles.warningCard}>
-          <Text style={styles.warningTitle}>⚠️ Importante</Text>
+          <Text style={styles.warningTitle}>{t('importantPaymentInfo')}</Text>
           <Text style={styles.warningText}>
-            • Los pagos se procesan con USDT en la red Ethereum (ERC20){'\n'}
-            • Asegúrate de usar la red correcta al pagar{'\n'}
-            • El pago expira en 1 hora{'\n'}
-            • Los tokens se acreditan automáticamente al confirmar
+            • {t('paymentsProcessedInUSDT')}{'\n'}
+            • {t('useCorrectNetwork')}{'\n'}
+            • {t('paymentExpiresIn1Hour')}{'\n'}
+            • {t('tokensAutomaticallyCredited')}
           </Text>
         </View>
 
         <View style={styles.phaseInfoCard}>
-          <Text style={styles.phaseTitle}>🚀 Fase Actual de Preventa</Text>
+          <Text style={styles.phaseTitle}>{t('currentPresalePhaseTitle')}</Text>
           <View style={styles.phaseRow}>
-            <Text style={styles.phaseLabel}>Fase Activa:</Text>
-            <Text style={styles.phaseValue}>Fase {currentPhase} de 3</Text>
+            <Text style={styles.phaseLabel}>{t('activePhaseLabel')}:</Text>
+            <Text style={styles.phaseValue}>{t('phase')} {currentPhase} {t('of')} 3</Text>
           </View>
           <View style={styles.phaseRow}>
-            <Text style={styles.phaseLabel}>Precio Actual:</Text>
-            <Text style={styles.phaseValue}>{currentPrice.toFixed(2)} USDT por MXI</Text>
+            <Text style={styles.phaseLabel}>{t('currentPriceLabel')}:</Text>
+            <Text style={styles.phaseValue}>{currentPrice.toFixed(2)} USDT {t('perMXI')}</Text>
           </View>
           <View style={styles.phaseDivider} />
           <View style={styles.phaseRow}>
-            <Text style={styles.phaseLabel}>Fase 1:</Text>
+            <Text style={styles.phaseLabel}>{t('phase')} 1:</Text>
             <Text style={styles.phaseValue}>0.40 USDT</Text>
           </View>
           <View style={styles.phaseRow}>
-            <Text style={styles.phaseLabel}>Fase 2:</Text>
+            <Text style={styles.phaseLabel}>{t('phase')} 2:</Text>
             <Text style={styles.phaseValue}>0.70 USDT</Text>
           </View>
           <View style={styles.phaseRow}>
-            <Text style={styles.phaseLabel}>Fase 3:</Text>
+            <Text style={styles.phaseLabel}>{t('phase')} 3:</Text>
             <Text style={styles.phaseValue}>1.00 USDT</Text>
           </View>
           {phaseInfo && (
             <React.Fragment>
               <View style={styles.phaseDivider} />
               <View style={styles.phaseRow}>
-                <Text style={styles.phaseLabel}>Tokens Vendidos:</Text>
+                <Text style={styles.phaseLabel}>{t('tokensSoldLabel')}:</Text>
                 <Text style={styles.phaseValue}>
                   {phaseInfo.totalTokensSold.toLocaleString()} MXI
                 </Text>
               </View>
               {currentPhase < 3 && (
                 <View style={styles.phaseRow}>
-                  <Text style={styles.phaseLabel}>Hasta Siguiente Fase:</Text>
+                  <Text style={styles.phaseLabel}>{t('untilNextPhaseLabel')}:</Text>
                   <Text style={styles.phaseValue}>
                     {phaseInfo.tokensUntilNextPhase.toLocaleString()} MXI
                   </Text>
@@ -992,12 +994,12 @@ export default function ContratacionesScreen() {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Realizar Pago</Text>
+          <Text style={styles.sectionTitle}>{t('makePayment')}</Text>
           
-          <Text style={styles.inputLabel}>Monto en USDT (mín: 3, máx: 500,000)</Text>
+          <Text style={styles.inputLabel}>{t('amountInUSDT')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="Ingresa el monto"
+            placeholder={t('enterAmount')}
             placeholderTextColor="#666666"
             keyboardType="numeric"
             value={amount}
@@ -1007,7 +1009,7 @@ export default function ContratacionesScreen() {
 
           {mxiAmount > 0 && (
             <View style={styles.calculationRow}>
-              <Text style={styles.calculationLabel}>Recibirás:</Text>
+              <Text style={styles.calculationLabel}>{t('youWillReceive')}:</Text>
               <Text style={styles.calculationValue}>{mxiAmount.toFixed(2)} MXI</Text>
             </View>
           )}
@@ -1029,7 +1031,7 @@ export default function ContratacionesScreen() {
                   (loading || !amount || parseFloat(amount) < 3) && styles.payButtonTextDisabled,
                 ]}
               >
-                Pagar con USDT (ETH)
+                {t('payWithUSDTETH')}
               </Text>
             )}
           </TouchableOpacity>
@@ -1037,11 +1039,11 @@ export default function ContratacionesScreen() {
 
         {recentPayments.length > 0 && (
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Pagos Recientes</Text>
+            <Text style={styles.sectionTitle}>{t('recentPayments')}</Text>
             {recentPayments.map((payment, index) => (
               <View key={index} style={styles.statusCard}>
                 <View style={styles.statusRow}>
-                  <Text style={styles.statusLabel}>Monto:</Text>
+                  <Text style={styles.statusLabel}>{t('amount')}:</Text>
                   <Text style={styles.statusValue}>
                     {parseFloat(payment.price_amount).toFixed(2)} USDT
                   </Text>
@@ -1053,19 +1055,19 @@ export default function ContratacionesScreen() {
                   </Text>
                 </View>
                 <View style={styles.statusRow}>
-                  <Text style={styles.statusLabel}>Precio:</Text>
+                  <Text style={styles.statusLabel}>{t('price')}:</Text>
                   <Text style={styles.statusValue}>
                     {parseFloat(payment.price_per_mxi).toFixed(2)} USDT/MXI
                   </Text>
                 </View>
                 <View style={styles.statusRow}>
-                  <Text style={styles.statusLabel}>Fase:</Text>
+                  <Text style={styles.statusLabel}>{t('phase')}:</Text>
                   <Text style={styles.statusValue}>
-                    Fase {payment.phase}
+                    {t('phase')} {payment.phase}
                   </Text>
                 </View>
                 <View style={styles.statusRow}>
-                  <Text style={styles.statusLabel}>Estado:</Text>
+                  <Text style={styles.statusLabel}>{t('status')}:</Text>
                   <View
                     style={[
                       styles.statusBadge,
@@ -1078,7 +1080,7 @@ export default function ContratacionesScreen() {
                   </View>
                 </View>
                 <View style={styles.statusRow}>
-                  <Text style={styles.statusLabel}>Fecha:</Text>
+                  <Text style={styles.statusLabel}>{t('date')}:</Text>
                   <Text style={styles.statusValue}>
                     {new Date(payment.created_at).toLocaleDateString()}
                   </Text>
@@ -1089,24 +1091,24 @@ export default function ContratacionesScreen() {
         )}
 
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Beneficios del Pool</Text>
+          <Text style={styles.sectionTitle}>{t('poolBenefits')}</Text>
           <Text style={styles.infoText}>
-            • Recibe MXI tokens por tu participación
+            • {t('receiveMXITokens')}
           </Text>
           <Text style={styles.infoText}>
-            • Genera rendimientos del 0.005% por hora
+            • {t('generateYield')}
           </Text>
           <Text style={styles.infoText}>
-            • Gana comisiones por referidos (5%, 2%, 1%)
+            • {t('earnCommissions')}
           </Text>
           <Text style={styles.infoText}>
-            • Participa en el pool de liquidez
+            • {t('participateInLiquidityPool')}
           </Text>
           <Text style={styles.infoText}>
-            • Acceso anticipado al lanzamiento oficial
+            • {t('earlyAccessToLaunch')}
           </Text>
           <Text style={styles.infoText}>
-            • Precio preferencial en preventa (aumenta por fase)
+            • {t('preferentialPresalePrice')}
           </Text>
         </View>
 
@@ -1122,38 +1124,38 @@ export default function ContratacionesScreen() {
         <View style={styles.errorModal}>
           <ScrollView style={{ width: '100%', maxWidth: 400 }} contentContainerStyle={{ padding: 20 }}>
             <View style={styles.errorModalContent}>
-              <Text style={styles.errorModalTitle}>⚠️ Error de Pago</Text>
+              <Text style={styles.errorModalTitle}>{t('errorModalTitle')}</Text>
 
               {errorDetails && (
                 <React.Fragment>
                   <View style={styles.errorModalSection}>
-                    <Text style={styles.errorModalLabel}>Mensaje de Error:</Text>
+                    <Text style={styles.errorModalLabel}>{t('errorMessage')}:</Text>
                     <Text style={styles.errorModalText}>{errorDetails.errorMessage}</Text>
                   </View>
 
                   {errorDetails.errorCode && (
                     <View style={styles.errorModalSection}>
-                      <Text style={styles.errorModalLabel}>Código de Error:</Text>
+                      <Text style={styles.errorModalLabel}>{t('errorCode')}:</Text>
                       <Text style={styles.errorModalText}>{errorDetails.errorCode}</Text>
                     </View>
                   )}
 
                   {errorDetails.requestId && (
                     <View style={styles.errorModalSection}>
-                      <Text style={styles.errorModalLabel}>Request ID:</Text>
+                      <Text style={styles.errorModalLabel}>{t('requestID')}:</Text>
                       <Text style={styles.errorModalText}>{errorDetails.requestId}</Text>
                     </View>
                   )}
 
                   {errorDetails.statusCode && (
                     <View style={styles.errorModalSection}>
-                      <Text style={styles.errorModalLabel}>Código de Estado HTTP:</Text>
+                      <Text style={styles.errorModalLabel}>{t('httpStatusCode')}:</Text>
                       <Text style={styles.errorModalText}>{errorDetails.statusCode}</Text>
                     </View>
                   )}
 
                   <View style={styles.errorModalSection}>
-                    <Text style={styles.errorModalLabel}>Timestamp:</Text>
+                    <Text style={styles.errorModalLabel}>{t('timestamp')}:</Text>
                     <Text style={styles.errorModalText}>{errorDetails.timestamp}</Text>
                   </View>
 
@@ -1164,7 +1166,7 @@ export default function ContratacionesScreen() {
                     onPress={copyErrorDetails}
                   >
                     <Text style={styles.errorModalCopyButtonText}>
-                      Copiar Detalles a Consola
+                      {t('copyDetailsToConsole')}
                     </Text>
                   </TouchableOpacity>
                 </React.Fragment>
@@ -1174,7 +1176,7 @@ export default function ContratacionesScreen() {
                 style={styles.errorModalButton}
                 onPress={() => setShowErrorModal(false)}
               >
-                <Text style={styles.errorModalButtonText}>Cerrar</Text>
+                <Text style={styles.errorModalButtonText}>{t('close')}</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
