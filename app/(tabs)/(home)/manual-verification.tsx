@@ -17,6 +17,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { useRouter } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/lib/supabase';
 import * as Clipboard2 from 'expo-clipboard';
 
@@ -47,6 +48,7 @@ const NETWORKS = [
 export default function ManualVerificationScreen() {
   const router = useRouter();
   const { user, session } = useAuth();
+  const { t } = useLanguage();
   
   // Payment history state
   const [payments, setPayments] = useState<any[]>([]);
@@ -141,7 +143,7 @@ export default function ManualVerificationScreen() {
       setPayments(data || []);
     } catch (error) {
       console.error('❌ [ManualVerification] Error loading payments:', error);
-      Alert.alert('Error', 'No se pudieron cargar los pagos');
+      Alert.alert(t('error'), t('couldNotLoadVestingInfo'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -187,7 +189,7 @@ export default function ManualVerificationScreen() {
   const copyToClipboard = async (text: string, label: string) => {
     try {
       await Clipboard2.setStringAsync(text);
-      Alert.alert('✅ Copiado', `${label} copiado al portapapeles`);
+      Alert.alert(t('copied2'), `${label} ${t('addressCopiedToClipboard')}`);
     } catch (error) {
       console.error('❌ [ManualVerification] Error copying:', error);
     }
@@ -211,13 +213,13 @@ export default function ManualVerificationScreen() {
 
     if (!user) {
       console.error('❌ [ManualVerification] No user found!');
-      Alert.alert('Error', 'Usuario no autenticado');
+      Alert.alert(t('error'), t('authenticationErrorText'));
       return;
     }
 
     if (!session) {
       console.error('❌ [ManualVerification] No session found!');
-      Alert.alert('Error', 'Sesión no válida. Por favor, inicia sesión nuevamente.');
+      Alert.alert(t('error'), t('authenticationErrorText'));
       return;
     }
 
@@ -226,27 +228,27 @@ export default function ManualVerificationScreen() {
     if (existingRequest) {
       console.log('⚠️ [ManualVerification] Verification request already exists:', existingRequest);
       Alert.alert(
-        'Solicitud Existente',
-        `Ya existe una solicitud de verificación para este pago.\n\nEstado: ${existingRequest.status}\n\nPor favor, espera a que el administrador la revise.`
+        t('existingRequest'),
+        t('existingRequestMessage', { status: existingRequest.status })
       );
       return;
     }
 
     Alert.alert(
-      '📋 Solicitar Verificación Manual',
-      `¿Deseas solicitar la verificación manual de este pago de NowPayments?\n\n` +
-      `Monto: ${parseFloat(payment.price_amount).toFixed(2)} USDT\n` +
-      `MXI: ${parseFloat(payment.mxi_amount).toFixed(2)} MXI\n` +
-      `Orden: ${payment.order_id}\n\n` +
-      `Un administrador revisará tu pago y lo aprobará manualmente. Este proceso puede tomar hasta 2 horas.`,
+      t('requestManualVerificationNowPayments'),
+      t('doYouWantToRequestNowPaymentsVerification', {
+        amount: parseFloat(payment.price_amount).toFixed(2),
+        mxi: parseFloat(payment.mxi_amount).toFixed(2),
+        order: payment.order_id
+      }),
       [
         { 
-          text: 'Cancelar', 
+          text: t('cancel'), 
           style: 'cancel',
           onPress: () => console.log('🟡 [ManualVerification] User cancelled verification request')
         },
         {
-          text: 'Solicitar',
+          text: t('request'),
           onPress: async () => {
             console.log('🟢 [ManualVerification] User confirmed, creating verification request...');
             try {
@@ -273,12 +275,10 @@ export default function ManualVerificationScreen() {
               console.log('✅ [ManualVerification] Verification request created successfully:', JSON.stringify(data, null, 2));
 
               Alert.alert(
-                '✅ Solicitud Enviada',
-                `Tu solicitud de verificación manual ha sido enviada exitosamente.\n\n` +
-                `Un administrador revisará tu pago en las próximas 2 horas.\n\n` +
-                `Recibirás una notificación cuando tu pago sea verificado.`,
+                t('requestSentSuccessfullyTitle'),
+                t('requestSentMessage'),
                 [{ 
-                  text: 'OK', 
+                  text: t('ok'), 
                   onPress: () => {
                     console.log('🟢 [ManualVerification] Reloading verification requests...');
                     loadVerificationRequests();
@@ -294,11 +294,8 @@ export default function ManualVerificationScreen() {
               console.error('❌ [ManualVerification] Error code:', error.code);
               
               Alert.alert(
-                'Error', 
-                `No se pudo enviar la solicitud de verificación.\n\n` +
-                `Detalles: ${error.message || 'Error desconocido'}\n` +
-                `Código: ${error.code || 'N/A'}\n\n` +
-                `Por favor, intenta nuevamente o contacta al soporte.`
+                t('error'), 
+                t('couldNotSendVerificationRequestText', { error: error.message || t('unknownError'), code: error.code || 'N/A' })
               );
             }
           },
@@ -326,27 +323,27 @@ export default function ManualVerificationScreen() {
 
     if (!user) {
       console.error('❌ [ManualVerification] No user found!');
-      Alert.alert('Error', 'Usuario no autenticado');
+      Alert.alert(t('error'), t('authenticationErrorText'));
       return;
     }
 
     if (!session) {
       console.error('❌ [ManualVerification] No session found!');
-      Alert.alert('Error', 'Sesión no válida. Por favor, inicia sesión nuevamente.');
+      Alert.alert(t('error'), t('authenticationErrorText'));
       return;
     }
 
     if (!txHash.trim()) {
       console.log('⚠️ [ManualVerification] Empty TX hash');
-      Alert.alert('Error', 'Por favor ingresa el hash de la transacción');
+      Alert.alert(t('error'), t('pleaseEnterTransactionHash'));
       return;
     }
 
     if (!txHash.startsWith('0x') || txHash.length !== 66) {
       console.log('⚠️ [ManualVerification] Invalid TX hash format');
       Alert.alert(
-        'Hash Inválido',
-        'El hash de transacción debe comenzar con 0x y tener 66 caracteres\n\nHash actual: ' + txHash.length + ' caracteres'
+        t('invalidHash'),
+        t('hashMustStartWith0x', { count: txHash.length })
       );
       return;
     }
@@ -355,19 +352,20 @@ export default function ManualVerificationScreen() {
     console.log('🟢 [ManualVerification] Selected network data:', selectedNetworkData);
 
     Alert.alert(
-      '📋 Solicitar Verificación Manual USDT',
-      `¿Deseas enviar una solicitud de verificación manual al administrador?\n\n` +
-      `Red: ${selectedNetworkData?.name} (${selectedNetworkData?.label})\n` +
-      `Hash: ${txHash.substring(0, 10)}...${txHash.substring(txHash.length - 8)}\n\n` +
-      `Un administrador revisará tu transacción y la aprobará manualmente. Este proceso puede tomar hasta 2 horas.`,
+      t('requestManualUSDTVerification'),
+      t('doYouWantToRequestManualVerification', {
+        network: selectedNetworkData?.name,
+        label: selectedNetworkData?.label,
+        hash: `${txHash.substring(0, 10)}...${txHash.substring(txHash.length - 8)}`
+      }),
       [
         { 
-          text: 'Cancelar', 
+          text: t('cancel'), 
           style: 'cancel',
           onPress: () => console.log('🟡 [ManualVerification] User cancelled USDT verification request')
         },
         {
-          text: 'Enviar Solicitud',
+          text: t('sendRequest'),
           onPress: async () => {
             console.log('🟢 [ManualVerification] User confirmed, processing USDT verification...');
             setRequestingManualVerification(true);
@@ -383,18 +381,15 @@ export default function ManualVerificationScreen() {
 
               if (duplicateError) {
                 console.error('❌ [ManualVerification] Duplicate check error:', duplicateError);
-                throw new Error('Error al verificar duplicados en la base de datos');
+                throw new Error(t('databaseErrorText', { message: duplicateError.message }));
               }
 
               if (existingPayments && existingPayments.length > 0) {
                 const existingPayment = existingPayments[0];
                 console.log('⚠️ [ManualVerification] Duplicate hash found:', existingPayment);
                 Alert.alert(
-                  '⚠️ Hash Duplicado',
-                  `Este hash de transacción ya ha sido registrado anteriormente.\n\n` +
-                  `Orden: ${existingPayment.order_id}\n` +
-                  `Estado: ${existingPayment.estado}\n\n` +
-                  `No puedes usar el mismo hash de transacción dos veces.`
+                  t('hashDuplicateTitle'),
+                  t('hashAlreadyRegisteredText', { order: existingPayment.order_id, status: existingPayment.estado })
                 );
                 setRequestingManualVerification(false);
                 return;
@@ -457,16 +452,15 @@ export default function ManualVerificationScreen() {
               console.log('✅ [ManualVerification] Verification request created successfully');
 
               Alert.alert(
-                '✅ Solicitud Enviada',
-                `Tu solicitud de verificación manual ha sido enviada exitosamente.\n\n` +
-                `Orden: ${orderId}\n` +
-                `Red: ${selectedNetworkData?.name}\n` +
-                `Hash: ${txHash.substring(0, 10)}...${txHash.substring(txHash.length - 8)}\n\n` +
-                `Un administrador revisará tu transacción en las próximas 2 horas.\n\n` +
-                `Puedes ver el estado de tu solicitud en la sección de historial.`,
+                t('requestSentSuccessfullyTitle'),
+                t('manualVerificationRequestSentText', {
+                  order: orderId,
+                  network: selectedNetworkData?.name,
+                  hash: `${txHash.substring(0, 10)}...${txHash.substring(txHash.length - 8)}`
+                }),
                 [
                   {
-                    text: 'OK',
+                    text: t('ok'),
                     onPress: () => {
                       console.log('🟢 [ManualVerification] Clearing form and reloading data...');
                       setTxHash('');
@@ -485,11 +479,8 @@ export default function ManualVerificationScreen() {
               console.error('❌ [ManualVerification] Error code:', error.code);
               
               Alert.alert(
-                'Error', 
-                `No se pudo enviar la solicitud de verificación.\n\n` +
-                `Detalles: ${error.message || 'Error desconocido'}\n` +
-                `Código: ${error.code || 'N/A'}\n\n` +
-                `Por favor, intenta nuevamente o contacta al soporte.`
+                t('error'), 
+                t('couldNotSendVerificationRequestText', { error: error.message || t('unknownError'), code: error.code || 'N/A' })
               );
             } finally {
               console.log('🟢 [ManualVerification] Resetting requesting state');
@@ -516,19 +507,19 @@ export default function ManualVerificationScreen() {
     console.log('🟢 [ManualVerification] Session exists:', !!session);
 
     if (!userResponse.trim()) {
-      Alert.alert('Error', 'Por favor ingresa tu respuesta');
+      Alert.alert(t('error'), t('pleaseEnterSubjectAndMessageText'));
       return;
     }
 
     if (!user) {
       console.error('❌ [ManualVerification] No user found!');
-      Alert.alert('Error', 'Usuario no autenticado');
+      Alert.alert(t('error'), t('authenticationErrorText'));
       return;
     }
 
     if (!session) {
       console.error('❌ [ManualVerification] No session found!');
-      Alert.alert('Error', 'Sesión no válida. Por favor, inicia sesión nuevamente.');
+      Alert.alert(t('error'), t('authenticationErrorText'));
       return;
     }
 
@@ -561,10 +552,10 @@ export default function ManualVerificationScreen() {
       setSelectedVerificationRequest(null);
 
       Alert.alert(
-        '✅ Respuesta Enviada',
-        'Tu respuesta ha sido enviada al administrador. Recibirás una notificación cuando tu solicitud sea revisada.',
+        t('responseSent'),
+        t('responseSentToAdministrator'),
         [{ 
-          text: 'OK', 
+          text: t('ok'), 
           onPress: () => {
             console.log('🟢 [ManualVerification] Reloading verification requests...');
             loadVerificationRequests();
@@ -577,7 +568,7 @@ export default function ManualVerificationScreen() {
       console.error('❌ [ManualVerification] Error message:', error.message);
       console.error('❌ [ManualVerification] Error code:', error.code);
       
-      Alert.alert('Error', error.message || 'Error al enviar la respuesta');
+      Alert.alert(t('error'), error.message || t('errorSendingResponse'));
     } finally {
       console.log('🟢 [ManualVerification] Resetting submitting state');
       setSubmittingResponse(false);
@@ -605,19 +596,19 @@ export default function ManualVerificationScreen() {
   const getStatusText = (status: string) => {
     switch (status) {
       case 'finished':
-        return 'Completado';
+        return t('completed');
       case 'confirmed':
-        return 'Confirmado';
+        return t('confirmed');
       case 'waiting':
-        return 'Esperando Pago';
+        return t('waitingForPayment');
       case 'pending':
-        return 'Pendiente';
+        return t('pending');
       case 'confirming':
-        return 'Confirmando';
+        return t('confirming');
       case 'failed':
-        return 'Fallido';
+        return t('failed');
       case 'expired':
-        return 'Expirado';
+        return t('expired');
       default:
         return status;
     }
@@ -638,7 +629,7 @@ export default function ManualVerificationScreen() {
               color={colors.text}
             />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Verificación Manual</Text>
+          <Text style={styles.headerTitle}>{t('manualVerification')}</Text>
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -658,7 +649,7 @@ export default function ManualVerificationScreen() {
             color={colors.text}
           />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Verificación Manual</Text>
+        <Text style={styles.headerTitle}>{t('manualVerification')}</Text>
       </View>
 
       {/* Tab Selector */}
@@ -677,7 +668,7 @@ export default function ManualVerificationScreen() {
             color={activeTab === 'nowpayments' ? '#000000' : colors.textSecondary}
           />
           <Text style={[styles.tabText, activeTab === 'nowpayments' && styles.tabTextActive]}>
-            NowPayments
+            {t('nowPayments')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -694,7 +685,7 @@ export default function ManualVerificationScreen() {
             color={activeTab === 'usdt' ? '#000000' : colors.textSecondary}
           />
           <Text style={[styles.tabText, activeTab === 'usdt' && styles.tabTextActive]}>
-            USDT Directo
+            {t('directUSDT')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -717,10 +708,10 @@ export default function ManualVerificationScreen() {
                   size={32}
                   color={colors.primary}
                 />
-                <Text style={styles.infoTitle}>Verificación de Pagos NowPayments</Text>
+                <Text style={styles.infoTitle}>{t('verificationOfNowPayments')}</Text>
               </View>
               <Text style={styles.infoText}>
-                Aquí puedes ver el historial de tus pagos realizados a través de NowPayments y solicitar verificación manual si un pago no se acreditó automáticamente.
+                {t('viewHistoryAndRequestManualVerification')}
               </Text>
             </View>
 
@@ -733,7 +724,7 @@ export default function ManualVerificationScreen() {
                   color={colors.textSecondary}
                 />
                 <Text style={styles.emptyText}>
-                  No tienes pagos de NowPayments registrados.
+                  {t('noNowPaymentsRegistered')}
                 </Text>
               </View>
             ) : (
@@ -758,14 +749,14 @@ export default function ManualVerificationScreen() {
                     </View>
 
                     <View style={styles.paymentRow}>
-                      <Text style={styles.paymentLabel}>Moneda:</Text>
+                      <Text style={styles.paymentLabel}>{t('currency')}:</Text>
                       <Text style={styles.paymentValue}>{payment.pay_currency.toUpperCase()}</Text>
                     </View>
 
                     <View style={styles.orderIdContainer}>
                       <View style={styles.orderIdHeader}>
-                        <Text style={styles.orderIdLabel}>Orden:</Text>
-                        <TouchableOpacity onPress={() => copyToClipboard(payment.order_id, 'Orden')}>
+                        <Text style={styles.orderIdLabel}>{t('order')}:</Text>
+                        <TouchableOpacity onPress={() => copyToClipboard(payment.order_id, t('order'))}>
                           <IconSymbol
                             ios_icon_name="doc.on.doc.fill"
                             android_material_icon_name="content_copy"
@@ -780,8 +771,8 @@ export default function ManualVerificationScreen() {
                     {payment.payment_id && (
                       <View style={styles.orderIdContainer}>
                         <View style={styles.orderIdHeader}>
-                          <Text style={styles.orderIdLabel}>Payment ID:</Text>
-                          <TouchableOpacity onPress={() => copyToClipboard(payment.payment_id, 'Payment ID')}>
+                          <Text style={styles.orderIdLabel}>{t('paymentID')}:</Text>
+                          <TouchableOpacity onPress={() => copyToClipboard(payment.payment_id, t('paymentID'))}>
                             <IconSymbol
                               ios_icon_name="doc.on.doc.fill"
                               android_material_icon_name="content_copy"
@@ -797,7 +788,7 @@ export default function ManualVerificationScreen() {
                     <View style={styles.divider} />
 
                     <View style={styles.paymentRow}>
-                      <Text style={styles.paymentLabel}>Fecha:</Text>
+                      <Text style={styles.paymentLabel}>{t('date')}:</Text>
                       <Text style={styles.paymentValue}>
                         {new Date(payment.created_at).toLocaleString('es-ES', {
                           day: '2-digit',
@@ -819,7 +810,7 @@ export default function ManualVerificationScreen() {
                           color="#FFFFFF"
                         />
                         <Text style={styles.pendingVerificationText}>
-                          ⏳ Verificación manual solicitada. Un administrador revisará tu pago pronto.
+                          {t('manualVerificationRequested')}
                         </Text>
                       </View>
                     )}
@@ -833,7 +824,7 @@ export default function ManualVerificationScreen() {
                           color="#FFFFFF"
                         />
                         <Text style={styles.reviewingText}>
-                          👀 Un administrador está revisando tu pago ahora.
+                          {t('administratorReviewingPayment')}
                         </Text>
                       </View>
                     )}
@@ -841,11 +832,11 @@ export default function ManualVerificationScreen() {
                     {verificationRequest && verificationRequest.status === 'more_info_requested' && (
                       <View style={styles.moreInfoRequestedBadge}>
                         <Text style={styles.moreInfoRequestedTitle}>
-                          📋 El administrador solicita más información
+                          {t('administratorRequestsMoreInfo')}
                         </Text>
                         {verificationRequest.admin_request_info && (
                           <View style={styles.adminRequestBox}>
-                            <Text style={styles.adminRequestLabel}>Información solicitada:</Text>
+                            <Text style={styles.adminRequestLabel}>{t('informationRequested')}</Text>
                             <Text style={styles.adminRequestText}>{verificationRequest.admin_request_info}</Text>
                           </View>
                         )}
@@ -858,7 +849,7 @@ export default function ManualVerificationScreen() {
                               color="#2196F3"
                             />
                             <Text style={styles.infoText}>
-                              ✅ Respuesta enviada. El administrador la revisará pronto.
+                              {t('responseSent')}
                             </Text>
                           </View>
                         ) : (
@@ -872,7 +863,7 @@ export default function ManualVerificationScreen() {
                               size={20}
                               color="#9C27B0"
                             />
-                            <Text style={styles.respondButtonText}>Responder</Text>
+                            <Text style={styles.respondButtonText}>{t('respond')}</Text>
                           </TouchableOpacity>
                         )}
                       </View>
@@ -886,7 +877,7 @@ export default function ManualVerificationScreen() {
                           size={20}
                           color="#FFFFFF"
                         />
-                        <Text style={styles.approvedText}>✅ Verificación manual aprobada</Text>
+                        <Text style={styles.approvedText}>{t('manualVerificationApproved')}</Text>
                       </View>
                     )}
 
@@ -899,7 +890,7 @@ export default function ManualVerificationScreen() {
                           color="#FFFFFF"
                         />
                         <Text style={styles.rejectedText}>
-                          ❌ Rechazado: {verificationRequest.admin_notes || 'Sin motivo'}
+                          {t('rejectedReason', { reason: verificationRequest.admin_notes || t('noReason') })}
                         </Text>
                       </View>
                     )}
@@ -918,7 +909,7 @@ export default function ManualVerificationScreen() {
                           color="#FFFFFF"
                         />
                         <Text style={styles.requestVerificationButtonText}>
-                          Solicitar Verificación Manual
+                          {t('requestManualVerificationButton')}
                         </Text>
                       </TouchableOpacity>
                     )}
@@ -932,7 +923,7 @@ export default function ManualVerificationScreen() {
                           size={20}
                           color="#FFFFFF"
                         />
-                        <Text style={styles.successText}>✅ Pago acreditado exitosamente</Text>
+                        <Text style={styles.successText}>{t('paymentCreditedSuccessfully')}</Text>
                       </View>
                     )}
                   </View>
@@ -953,16 +944,16 @@ export default function ManualVerificationScreen() {
                   size={32}
                   color={colors.primary}
                 />
-                <Text style={styles.infoTitle}>Verificación de Pagos USDT</Text>
+                <Text style={styles.infoTitle}>{t('verificationOfUSDT')}</Text>
               </View>
               <Text style={styles.infoText}>
-                Solicita la verificación manual de tus pagos USDT directos ingresando el hash de la transacción. Un administrador revisará tu pago y lo acreditará manualmente.
+                {t('requestManualVerificationOfUSDT')}
               </Text>
             </View>
 
             {/* Network Selector */}
             <View style={styles.networkCard}>
-              <Text style={styles.networkTitle}>Selecciona la Red de Pago</Text>
+              <Text style={styles.networkTitle}>{t('selectPaymentNetwork')}</Text>
               <View style={styles.networkButtons}>
                 {NETWORKS.map((network, index) => (
                   <TouchableOpacity
@@ -1003,7 +994,7 @@ export default function ManualVerificationScreen() {
 
             {/* Transaction Hash Input */}
             <View style={styles.inputCard}>
-              <Text style={styles.inputLabel}>Hash de Transacción (txHash)</Text>
+              <Text style={styles.inputLabel}>{t('transactionHashTxHash')}</Text>
               <TextInput
                 style={styles.input}
                 placeholder="0x..."
@@ -1020,11 +1011,11 @@ export default function ManualVerificationScreen() {
                 numberOfLines={3}
               />
               <Text style={styles.inputHint}>
-                Pega el hash de tu transacción de {NETWORKS.find(n => n.id === selectedNetwork)?.name} aquí
+                {t('pasteYourTransactionHash', { network: NETWORKS.find(n => n.id === selectedNetwork)?.name })}
               </Text>
               {txHash.length > 0 && (
                 <Text style={[styles.inputHint, { marginTop: 4, color: txHash.length === 66 ? '#4CAF50' : colors.warning }]}>
-                  {txHash.length === 66 ? '✓ Longitud correcta' : `⚠️ ${txHash.length}/66 caracteres`}
+                  {txHash.length === 66 ? t('correctLength') : t('charactersCount', { count: txHash.length })}
                 </Text>
               )}
             </View>
@@ -1042,7 +1033,7 @@ export default function ManualVerificationScreen() {
               {requestingManualVerification ? (
                 <React.Fragment>
                   <ActivityIndicator size="small" color="#FFFFFF" />
-                  <Text style={styles.requestUSDTVerificationButtonText}>Enviando Solicitud...</Text>
+                  <Text style={styles.requestUSDTVerificationButtonText}>{t('sendingRequestText')}</Text>
                 </React.Fragment>
               ) : (
                 <React.Fragment>
@@ -1053,7 +1044,7 @@ export default function ManualVerificationScreen() {
                     color="#FFFFFF"
                   />
                   <Text style={styles.requestUSDTVerificationButtonText}>
-                    Solicitar Verificación Manual
+                    {t('requestManualVerificationButton')}
                   </Text>
                 </React.Fragment>
               )}
@@ -1061,7 +1052,7 @@ export default function ManualVerificationScreen() {
 
             {/* USDT Payment History */}
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Historial de Pagos USDT</Text>
+              <Text style={styles.sectionTitle}>{t('usdtPaymentHistory')}</Text>
             </View>
 
             {usdtPayments.length === 0 ? (
@@ -1073,7 +1064,7 @@ export default function ManualVerificationScreen() {
                   color={colors.textSecondary}
                 />
                 <Text style={styles.emptyText}>
-                  No tienes pagos USDT registrados.
+                  {t('noUSDTPaymentsRegistered')}
                 </Text>
               </View>
             ) : (
@@ -1099,15 +1090,15 @@ export default function ManualVerificationScreen() {
                     </View>
 
                     <View style={styles.paymentRow}>
-                      <Text style={styles.paymentLabel}>Red:</Text>
+                      <Text style={styles.paymentLabel}>{t('network')}:</Text>
                       <Text style={styles.paymentValue}>{payment.pay_currency.toUpperCase()}</Text>
                     </View>
 
                     {payment.tx_hash && (
                       <View style={styles.orderIdContainer}>
                         <View style={styles.orderIdHeader}>
-                          <Text style={styles.orderIdLabel}>Transaction Hash:</Text>
-                          <TouchableOpacity onPress={() => copyToClipboard(payment.tx_hash, 'Hash')}>
+                          <Text style={styles.orderIdLabel}>{t('transactionHash')}:</Text>
+                          <TouchableOpacity onPress={() => copyToClipboard(payment.tx_hash, t('transactionHash'))}>
                             <IconSymbol
                               ios_icon_name="doc.on.doc.fill"
                               android_material_icon_name="content_copy"
@@ -1123,7 +1114,7 @@ export default function ManualVerificationScreen() {
                     <View style={styles.divider} />
 
                     <View style={styles.paymentRow}>
-                      <Text style={styles.paymentLabel}>Fecha:</Text>
+                      <Text style={styles.paymentLabel}>{t('date')}:</Text>
                       <Text style={styles.paymentValue}>
                         {new Date(payment.created_at).toLocaleString('es-ES', {
                           day: '2-digit',
@@ -1145,7 +1136,7 @@ export default function ManualVerificationScreen() {
                           color="#FFFFFF"
                         />
                         <Text style={styles.pendingVerificationText}>
-                          ⏳ Verificación manual solicitada. Un administrador revisará tu pago pronto.
+                          {t('manualVerificationRequested')}
                         </Text>
                       </View>
                     )}
@@ -1159,7 +1150,7 @@ export default function ManualVerificationScreen() {
                           color="#FFFFFF"
                         />
                         <Text style={styles.reviewingText}>
-                          👀 Un administrador está revisando tu pago ahora.
+                          {t('administratorReviewingPayment')}
                         </Text>
                       </View>
                     )}
@@ -1167,11 +1158,11 @@ export default function ManualVerificationScreen() {
                     {verificationRequest && verificationRequest.status === 'more_info_requested' && (
                       <View style={styles.moreInfoRequestedBadge}>
                         <Text style={styles.moreInfoRequestedTitle}>
-                          📋 El administrador solicita más información
+                          {t('administratorRequestsMoreInfo')}
                         </Text>
                         {verificationRequest.admin_request_info && (
                           <View style={styles.adminRequestBox}>
-                            <Text style={styles.adminRequestLabel}>Información solicitada:</Text>
+                            <Text style={styles.adminRequestLabel}>{t('informationRequested')}</Text>
                             <Text style={styles.adminRequestText}>{verificationRequest.admin_request_info}</Text>
                           </View>
                         )}
@@ -1184,7 +1175,7 @@ export default function ManualVerificationScreen() {
                               color="#2196F3"
                             />
                             <Text style={styles.infoText}>
-                              ✅ Respuesta enviada. El administrador la revisará pronto.
+                              {t('responseSent')}
                             </Text>
                           </View>
                         ) : (
@@ -1198,7 +1189,7 @@ export default function ManualVerificationScreen() {
                               size={20}
                               color="#9C27B0"
                             />
-                            <Text style={styles.respondButtonText}>Responder</Text>
+                            <Text style={styles.respondButtonText}>{t('respond')}</Text>
                           </TouchableOpacity>
                         )}
                       </View>
@@ -1212,7 +1203,7 @@ export default function ManualVerificationScreen() {
                           size={20}
                           color="#FFFFFF"
                         />
-                        <Text style={styles.approvedText}>✅ Verificación manual aprobada</Text>
+                        <Text style={styles.approvedText}>{t('manualVerificationApproved')}</Text>
                       </View>
                     )}
 
@@ -1225,7 +1216,7 @@ export default function ManualVerificationScreen() {
                           color="#FFFFFF"
                         />
                         <Text style={styles.rejectedText}>
-                          ❌ Rechazado: {verificationRequest.admin_notes || 'Sin motivo'}
+                          {t('rejectedReason', { reason: verificationRequest.admin_notes || t('noReason') })}
                         </Text>
                       </View>
                     )}
@@ -1239,7 +1230,7 @@ export default function ManualVerificationScreen() {
                           size={20}
                           color="#FFFFFF"
                         />
-                        <Text style={styles.successText}>✅ Pago acreditado exitosamente</Text>
+                        <Text style={styles.successText}>{t('paymentCreditedSuccessfully')}</Text>
                       </View>
                     )}
                   </View>
@@ -1264,21 +1255,21 @@ export default function ManualVerificationScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Responder al Administrador</Text>
+            <Text style={styles.modalTitle}>{t('respondToAdministrator')}</Text>
             {selectedVerificationRequest?.admin_request_info && (
               <View style={styles.adminRequestBox}>
-                <Text style={styles.adminRequestLabel}>Información solicitada:</Text>
+                <Text style={styles.adminRequestLabel}>{t('informationRequested')}</Text>
                 <Text style={styles.adminRequestText}>
                   {selectedVerificationRequest.admin_request_info}
                 </Text>
               </View>
             )}
             <Text style={[styles.paymentLabel, { marginTop: 16, marginBottom: 12 }]}>
-              Tu respuesta:
+              {t('yourResponse')}
             </Text>
             <TextInput
               style={styles.modalInput}
-              placeholder="Escribe tu respuesta aquí..."
+              placeholder={t('writeYourResponseHere')}
               placeholderTextColor={colors.textSecondary}
               value={userResponse}
               onChangeText={setUserResponse}
@@ -1298,7 +1289,7 @@ export default function ManualVerificationScreen() {
                 disabled={submittingResponse}
               >
                 <Text style={[styles.modalButtonText, styles.modalButtonTextCancel]}>
-                  Cancelar
+                  {t('cancel')}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -1313,7 +1304,7 @@ export default function ManualVerificationScreen() {
                   <ActivityIndicator size="small" color="#000000" />
                 ) : (
                   <Text style={[styles.modalButtonText, styles.modalButtonTextSubmit]}>
-                    Enviar
+                    {t('send')}
                   </Text>
                 )}
               </TouchableOpacity>

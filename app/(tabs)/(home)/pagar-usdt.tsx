@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
 import { colors } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import * as Clipboard2 from 'expo-clipboard';
 import { supabase } from '@/lib/supabase';
 
@@ -29,7 +30,6 @@ const NETWORKS = [
     label: 'ERC20',
     color: '#627EEA',
     icon: 'Ξ',
-    description: 'Red Ethereum - Validación independiente'
   },
   {
     id: 'bnb',
@@ -37,7 +37,6 @@ const NETWORKS = [
     label: 'BEP20',
     color: '#F3BA2F',
     icon: 'B',
-    description: 'Red BNB Chain - Validación independiente'
   },
   {
     id: 'polygon',
@@ -45,13 +44,13 @@ const NETWORKS = [
     label: 'Matic',
     color: '#8247E5',
     icon: 'P',
-    description: 'Red Polygon - Validación independiente'
   }
 ];
 
 export default function PagarUSDTScreen() {
   const router = useRouter();
   const { user, session } = useAuth();
+  const { t } = useLanguage();
   const [selectedNetwork, setSelectedNetwork] = useState('ethereum');
   const [txHash, setTxHash] = useState('');
   const [loading, setLoading] = useState(false);
@@ -61,7 +60,7 @@ export default function PagarUSDTScreen() {
   const copyAddress = async () => {
     try {
       await Clipboard2.setStringAsync(RECIPIENT_ADDRESS);
-      Alert.alert('✅ Copiado', 'Dirección copiada al portapapeles');
+      Alert.alert(t('copied2'), t('addressCopiedToClipboard'));
     } catch (error) {
       console.error('Error copying:', error);
     }
@@ -75,15 +74,15 @@ export default function PagarUSDTScreen() {
 
     if (!txHash.trim()) {
       console.error('❌ [VERIFICAR] Error: Hash vacío');
-      Alert.alert('Error', 'Por favor ingresa el hash de la transacción');
+      Alert.alert(t('error'), t('pleaseEnterTransactionHash'));
       return;
     }
 
     if (!txHash.startsWith('0x') || txHash.length !== 66) {
       console.error('❌ [VERIFICAR] Error: Hash inválido - longitud:', txHash.length);
       Alert.alert(
-        'Hash Inválido',
-        'El hash de transacción debe comenzar con 0x y tener 66 caracteres\n\nHash actual: ' + txHash.length + ' caracteres'
+        t('invalidHash'),
+        t('hashMustStartWith0x', { count: txHash.length })
       );
       return;
     }
@@ -92,16 +91,16 @@ export default function PagarUSDTScreen() {
     console.log('🔍 [VERIFICAR] Datos de red:', selectedNetworkData);
 
     Alert.alert(
-      '⚠️ Confirmar Red',
-      `¿Estás seguro de que la transacción fue realizada en ${selectedNetworkData?.name} (${selectedNetworkData?.label})?\n\nLa validación se hará SOLO en esta red.`,
+      t('confirmNetworkTitle'),
+      t('areYouSureTransaction', { network: selectedNetworkData?.name, label: selectedNetworkData?.label }),
       [
         {
-          text: 'Cancelar',
+          text: t('cancel'),
           style: 'cancel',
           onPress: () => console.log('🔍 [VERIFICAR] Verificación cancelada por el usuario')
         },
         {
-          text: 'Sí, verificar',
+          text: t('yesVerifyButton'),
           onPress: () => performVerification()
         }
       ]
@@ -118,7 +117,7 @@ export default function PagarUSDTScreen() {
     console.log(`🚀 [${requestId}] Token de sesión:`, session?.access_token ? 'Presente' : 'Ausente');
 
     setLoading(true);
-    setVerificationStatus('Verificando hash duplicado...');
+    setVerificationStatus(t('verifying'));
 
     try {
       // 🔒 STEP 1: Check for duplicate hash
@@ -131,7 +130,7 @@ export default function PagarUSDTScreen() {
 
       if (duplicateError) {
         console.error(`❌ [${requestId}] Error verificando duplicados:`, duplicateError);
-        throw new Error('Error al verificar duplicados en la base de datos');
+        throw new Error(t('databaseErrorText', { message: duplicateError.message }));
       }
 
       if (existingPayments && existingPayments.length > 0) {
@@ -139,12 +138,9 @@ export default function PagarUSDTScreen() {
         console.error(`❌ [${requestId}] Hash duplicado encontrado:`, existingPayment);
         
         Alert.alert(
-          '⚠️ Hash Duplicado',
-          `Este hash de transacción ya ha sido registrado anteriormente.\n\n` +
-          `Orden: ${existingPayment.order_id}\n` +
-          `Estado: ${existingPayment.estado}\n\n` +
-          `No puedes usar el mismo hash de transacción dos veces. Si crees que esto es un error, contacta a soporte.`,
-          [{ text: 'OK' }]
+          t('hashDuplicateTitle'),
+          t('hashAlreadyRegisteredText', { order: existingPayment.order_id, status: existingPayment.estado }),
+          [{ text: t('ok') }]
         );
         setLoading(false);
         setVerificationStatus('');
@@ -154,7 +150,7 @@ export default function PagarUSDTScreen() {
       console.log(`✅ [${requestId}] Hash no duplicado, continuando...`);
 
       // STEP 2: Verify transaction on blockchain
-      setVerificationStatus('Conectando con el servidor...');
+      setVerificationStatus(t('verifying'));
 
       const url = 'https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/verificar-tx';
       const payload = {
@@ -165,8 +161,6 @@ export default function PagarUSDTScreen() {
 
       console.log(`📤 [${requestId}] URL:`, url);
       console.log(`📤 [${requestId}] Payload:`, JSON.stringify(payload, null, 2));
-
-      setVerificationStatus('Verificando transacción en blockchain...');
 
       const response = await fetch(url, {
         method: 'POST',
@@ -189,7 +183,7 @@ export default function PagarUSDTScreen() {
         console.log(`📥 [${requestId}] Response (parsed):`, JSON.stringify(data, null, 2));
       } catch (parseError) {
         console.error(`❌ [${requestId}] Error parseando JSON:`, parseError);
-        throw new Error('Respuesta inválida del servidor: ' + responseText.substring(0, 100));
+        throw new Error(t('unknownErrorText'));
       }
 
       if (data.ok) {
@@ -199,15 +193,15 @@ export default function PagarUSDTScreen() {
         console.log(`✅ [${requestId}] Red:`, data.network);
 
         Alert.alert(
-          '✅ Pago Confirmado',
-          `Se acreditaron ${data.mxi.toFixed(2)} MXI a tu cuenta.\n\nRed: ${data.network}\nUSDT pagados: ${data.usdt.toFixed(2)}`,
+          t('paymentConfirmedTitle'),
+          t('paymentConfirmedText', { amount: data.mxi.toFixed(2), network: data.network, usdt: data.usdt.toFixed(2) }),
           [
             {
-              text: 'Ver Saldo',
+              text: t('viewBalance'),
               onPress: () => router.push('/(tabs)/(home)/saldo-mxi'),
             },
             {
-              text: 'OK',
+              text: t('ok'),
               onPress: () => {
                 setTxHash('');
                 router.back();
@@ -221,72 +215,82 @@ export default function PagarUSDTScreen() {
         console.error(`❌ [${requestId}] Error message:`, data.message);
 
         let errorMessage = '';
-        let errorTitle = 'Error de Verificación';
+        let errorTitle = t('verificationError');
+        const selectedNetworkData = NETWORKS.find(n => n.id === selectedNetwork);
         
         switch (data.error) {
           case 'tx_not_found':
-            errorTitle = '🔍 Transacción No Encontrada';
-            errorMessage = `No se encontró la transacción en ${NETWORKS.find(n => n.id === selectedNetwork)?.name}.\n\n📋 Pasos para solucionar:\n\n1. Verifica que el hash sea correcto\n2. Asegúrate de que la transacción esté en la red ${NETWORKS.find(n => n.id === selectedNetwork)?.name}\n3. Espera a que la transacción tenga al menos 1 confirmación\n4. Verifica en un explorador de bloques:\n   • Ethereum: etherscan.io\n   • BNB Chain: bscscan.com\n   • Polygon: polygonscan.com`;
+            errorTitle = t('transactionNotFound');
+            errorMessage = t('transactionNotFoundText', { network: selectedNetworkData?.name });
             break;
           case 'pocas_confirmaciones':
-            errorTitle = '⏳ Esperando Confirmaciones';
-            errorMessage = `La transacción necesita más confirmaciones.\n\n${data.message || ''}\n\nConfirmaciones actuales: ${data.confirmations || 0}\nConfirmaciones requeridas: ${data.required || 3}\n\n⏰ Por favor espera unos minutos e intenta nuevamente.`;
+            errorTitle = t('waitingConfirmations');
+            errorMessage = t('waitingConfirmationsText', { 
+              message: data.message || '', 
+              confirmations: data.confirmations || 0, 
+              required: data.required || 3 
+            });
             break;
           case 'monto_insuficiente':
-            errorTitle = '💰 Monto Insuficiente';
-            errorMessage = `El monto mínimo es ${MIN_USDT} USDT.\n\n${data.message || ''}\n\nMonto recibido: ${data.usdt || 0} USDT\nMonto mínimo: ${data.minimum || MIN_USDT} USDT`;
+            errorTitle = t('insufficientAmountTitle');
+            errorMessage = t('insufficientAmountText', { 
+              min: MIN_USDT,
+              message: data.message || '', 
+              usdt: data.usdt || 0, 
+              minimum: data.minimum || MIN_USDT 
+            });
             break;
           case 'ya_procesado':
-            errorTitle = '✓ Ya Procesado';
-            errorMessage = 'Esta transacción ya ha sido procesada anteriormente.\n\nSi crees que esto es un error, contacta a soporte.';
+            errorTitle = t('alreadyProcessed');
+            errorMessage = t('alreadyProcessedText');
             break;
           case 'no_transfer_found':
-            errorTitle = '❌ Transferencia No Válida';
-            errorMessage = `No se encontró una transferencia USDT válida a la dirección receptora.\n\n📋 Verifica:\n\n1. Que enviaste USDT (no otro token)\n2. Que la dirección receptora es correcta:\n   ${RECIPIENT_ADDRESS}\n3. Que la transacción está en ${NETWORKS.find(n => n.id === selectedNetwork)?.name}`;
+            errorTitle = t('invalidTransfer');
+            errorMessage = t('invalidTransferText', { address: RECIPIENT_ADDRESS, network: selectedNetworkData?.name });
             break;
           case 'tx_failed':
-            errorTitle = '❌ Transacción Fallida';
-            errorMessage = 'La transacción falló en la blockchain.\n\nVerifica el estado de la transacción en un explorador de bloques.';
+            errorTitle = t('transactionFailed');
+            errorMessage = t('transactionFailedText');
             break;
           case 'invalid_network':
-            errorTitle = '🌐 Red No Válida';
-            errorMessage = data.message || 'Red no válida seleccionada.\n\nSelecciona una de las redes disponibles: Ethereum, BNB Chain o Polygon.';
+            errorTitle = t('invalidNetworkTitle');
+            errorMessage = data.message || t('invalidNetworkText');
             break;
           case 'rpc_not_configured':
-            errorTitle = '⚙️ Error de Configuración';
-            errorMessage = `Error de configuración del servidor.\n\n${data.message}\n\n⚠️ Contacta al administrador del sistema.`;
+            errorTitle = t('configurationError');
+            errorMessage = t('configurationErrorText', { message: data.message });
             break;
           case 'wrong_network':
-            errorTitle = '🌐 Red Incorrecta';
-            errorMessage = data.message || 'El RPC está conectado a la red incorrecta.\n\nContacta al administrador del sistema.';
+            errorTitle = t('incorrectNetwork');
+            errorMessage = data.message || t('incorrectNetworkText');
             break;
           case 'no_auth':
           case 'invalid_session':
           case 'unauthorized':
-            errorTitle = '🔐 Error de Autenticación';
-            errorMessage = 'Tu sesión ha expirado.\n\nPor favor cierra sesión y vuelve a iniciar sesión.';
+            errorTitle = t('authenticationError');
+            errorMessage = t('authenticationErrorText');
             break;
           case 'missing_fields':
-            errorTitle = '📝 Datos Incompletos';
-            errorMessage = 'Faltan datos requeridos.\n\nAsegúrate de ingresar el hash de transacción.';
+            errorTitle = t('incompleteData');
+            errorMessage = t('incompleteDataText');
             break;
           case 'database_error':
           case 'update_failed':
           case 'user_not_found':
-            errorTitle = '💾 Error de Base de Datos';
-            errorMessage = `Error al procesar la transacción.\n\n${data.message || ''}\n\nPor favor intenta nuevamente o contacta a soporte.`;
+            errorTitle = t('databaseError');
+            errorMessage = t('databaseErrorText', { message: data.message || '' });
             break;
           case 'rpc_connection_failed':
-            errorTitle = '🔌 Error de Conexión RPC';
-            errorMessage = `No se pudo conectar al nodo de blockchain.\n\n${data.message || ''}\n\nPor favor intenta nuevamente en unos minutos.`;
+            errorTitle = t('rpcConnectionError');
+            errorMessage = t('rpcConnectionErrorText', { message: data.message || '' });
             break;
           case 'internal_error':
-            errorTitle = '⚠️ Error Interno';
-            errorMessage = `Error interno del servidor.\n\n${data.message || ''}\n\nPor favor intenta nuevamente o contacta a soporte.`;
+            errorTitle = t('internalError');
+            errorMessage = t('internalErrorText', { message: data.message || '' });
             break;
           default:
-            errorTitle = '❌ Error Desconocido';
-            errorMessage = data.message || 'Error al verificar el pago.\n\nPor favor intenta nuevamente o contacta a soporte.';
+            errorTitle = t('unknownError');
+            errorMessage = data.message || t('unknownErrorText');
         }
 
         console.error(`❌ [${requestId}] Mostrando error al usuario:`, errorTitle);
@@ -299,8 +303,8 @@ export default function PagarUSDTScreen() {
       console.error(`❌ [${requestId}] Error stack:`, error.stack);
 
       Alert.alert(
-        '🔌 Error de Conexión',
-        `No se pudo conectar con el servidor.\n\nDetalles técnicos:\n${error.message}\n\n📋 Pasos para solucionar:\n\n1. Verifica tu conexión a internet\n2. Intenta nuevamente en unos segundos\n3. Si el problema persiste, contacta a soporte`
+        t('connectionError'),
+        t('connectionErrorText', { message: error.message })
       );
     } finally {
       setLoading(false);
@@ -318,15 +322,15 @@ export default function PagarUSDTScreen() {
 
     if (!txHash.trim()) {
       console.error('❌ [MANUAL] Error: Hash vacío');
-      Alert.alert('Error', 'Por favor ingresa el hash de la transacción');
+      Alert.alert(t('error'), t('pleaseEnterTransactionHash'));
       return;
     }
 
     if (!txHash.startsWith('0x') || txHash.length !== 66) {
       console.error('❌ [MANUAL] Error: Hash inválido - longitud:', txHash.length);
       Alert.alert(
-        'Hash Inválido',
-        'El hash de transacción debe comenzar con 0x y tener 66 caracteres\n\nHash actual: ' + txHash.length + ' caracteres'
+        t('invalidHash'),
+        t('hashMustStartWith0x', { count: txHash.length })
       );
       return;
     }
@@ -334,18 +338,19 @@ export default function PagarUSDTScreen() {
     const selectedNetworkData = NETWORKS.find(n => n.id === selectedNetwork);
 
     Alert.alert(
-      '📋 Solicitar Verificación Manual',
-      `¿Deseas enviar una solicitud de verificación manual al administrador?\n\n` +
-      `Red: ${selectedNetworkData?.name} (${selectedNetworkData?.label})\n` +
-      `Hash: ${txHash.substring(0, 10)}...${txHash.substring(txHash.length - 8)}\n\n` +
-      `Un administrador revisará tu transacción y la aprobará manualmente. Este proceso puede tomar hasta 2 horas.`,
+      t('requestManualVerificationTitle'),
+      t('doYouWantToSendManualRequest', { 
+        network: selectedNetworkData?.name, 
+        label: selectedNetworkData?.label,
+        hash: `${txHash.substring(0, 10)}...${txHash.substring(txHash.length - 8)}`
+      }),
       [
         {
-          text: 'Cancelar',
+          text: t('cancel'),
           style: 'cancel',
         },
         {
-          text: 'Enviar Solicitud',
+          text: t('sendRequest'),
           onPress: () => performManualVerificationRequest(),
         },
       ]
@@ -373,7 +378,7 @@ export default function PagarUSDTScreen() {
 
       if (duplicateError) {
         console.error(`❌ [${requestId}] Error verificando duplicados:`, duplicateError);
-        throw new Error('Error al verificar duplicados en la base de datos');
+        throw new Error(t('databaseErrorText', { message: duplicateError.message }));
       }
 
       if (existingPayments && existingPayments.length > 0) {
@@ -381,12 +386,9 @@ export default function PagarUSDTScreen() {
         console.error(`❌ [${requestId}] Hash duplicado encontrado:`, existingPayment);
         
         Alert.alert(
-          '⚠️ Hash Duplicado',
-          `Este hash de transacción ya ha sido registrado anteriormente.\n\n` +
-          `Orden: ${existingPayment.order_id}\n` +
-          `Estado: ${existingPayment.estado}\n\n` +
-          `No puedes usar el mismo hash de transacción dos veces.`,
-          [{ text: 'OK' }]
+          t('hashDuplicateTitle'),
+          t('hashAlreadyRegisteredText', { order: existingPayment.order_id, status: existingPayment.estado }),
+          [{ text: t('ok') }]
         );
         setRequestingManualVerification(false);
         return;
@@ -448,20 +450,19 @@ export default function PagarUSDTScreen() {
       console.log(`✅ [${requestId}] ========== SOLICITUD MANUAL EXITOSA ==========`);
 
       Alert.alert(
-        '✅ Solicitud Enviada',
-        `Tu solicitud de verificación manual ha sido enviada exitosamente.\n\n` +
-        `Orden: ${orderId}\n` +
-        `Red: ${selectedNetworkData?.name}\n` +
-        `Hash: ${txHash.substring(0, 10)}...${txHash.substring(txHash.length - 8)}\n\n` +
-        `Un administrador revisará tu transacción en las próximas 2 horas y la aprobará manualmente.\n\n` +
-        `Puedes ver el estado de tu solicitud en el historial de transacciones.`,
+        t('requestSentSuccessfullyTitle'),
+        t('manualVerificationRequestSentText', {
+          order: orderId,
+          network: selectedNetworkData?.name,
+          hash: `${txHash.substring(0, 10)}...${txHash.substring(txHash.length - 8)}`
+        }),
         [
           {
-            text: 'Ver Historial',
+            text: t('viewTransactions'),
             onPress: () => router.push('/(tabs)/(home)/payment-history'),
           },
           {
-            text: 'OK',
+            text: t('ok'),
             onPress: () => {
               setTxHash('');
               router.back();
@@ -475,11 +476,9 @@ export default function PagarUSDTScreen() {
       console.error(`❌ [${requestId}] Error message:`, error.message);
 
       Alert.alert(
-        '❌ Error',
-        `No se pudo enviar la solicitud de verificación manual.\n\n` +
-        `Detalles: ${error.message}\n\n` +
-        `Por favor intenta nuevamente o contacta a soporte.`,
-        [{ text: 'OK' }]
+        t('errorSendingRequestTitle'),
+        t('couldNotSendVerificationRequestText', { error: error.message, code: error.code || 'N/A' }),
+        [{ text: t('ok') }]
       );
     } finally {
       setRequestingManualVerification(false);
@@ -503,14 +502,14 @@ export default function PagarUSDTScreen() {
             color={colors.text}
           />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Pagar en USDT</Text>
+        <Text style={styles.headerTitle}>{t('payInUSDT')}</Text>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={[styles.networkCard, { borderColor: selectedNetworkData?.color }]}>
-          <Text style={styles.networkTitle}>Selecciona la Red de Pago</Text>
+          <Text style={styles.networkTitle}>{t('selectPaymentNetwork')}</Text>
           <Text style={styles.networkSubtitle}>
-            Cada red valida sus transacciones de forma independiente
+            {t('eachNetworkValidatesIndependently')}
           </Text>
           <View style={styles.networkButtons}>
             {NETWORKS.map((network, index) => (
@@ -535,7 +534,9 @@ export default function PagarUSDTScreen() {
                 <View style={styles.networkInfo}>
                   <Text style={styles.networkName}>{network.name}</Text>
                   <Text style={styles.networkLabel}>{network.label}</Text>
-                  <Text style={styles.networkDescription}>{network.description}</Text>
+                  <Text style={styles.networkDescription}>
+                    {t('networkDescription', { network: network.name })}
+                  </Text>
                 </View>
                 {selectedNetwork === network.id && (
                   <IconSymbol
@@ -560,10 +561,10 @@ export default function PagarUSDTScreen() {
             />
             <View style={styles.validationInfo}>
               <Text style={[styles.validationTitle, { color: selectedNetworkData?.color }]}>
-                Validación en {selectedNetworkData?.name}
+                {t('validationIn', { network: selectedNetworkData?.name })}
               </Text>
               <Text style={styles.validationText}>
-                Los pagos en {selectedNetworkData?.name} solo se validan en la red {selectedNetworkData?.name}
+                {t('paymentsOnlyValidatedOnNetwork', { network: selectedNetworkData?.name })}
               </Text>
             </View>
           </View>
@@ -577,44 +578,44 @@ export default function PagarUSDTScreen() {
               size={32}
               color={colors.primary}
             />
-            <Text style={styles.infoTitle}>Instrucciones de Pago</Text>
+            <Text style={styles.infoTitle}>{t('paymentInstructions')}</Text>
           </View>
           
           <View style={styles.stepsList}>
             <View style={styles.stepItem}>
               <Text style={styles.stepNumber}>1</Text>
               <Text style={styles.stepText}>
-                Selecciona la red que vas a usar ({selectedNetworkData?.label})
+                {t('selectNetworkYouWillUse', { label: selectedNetworkData?.label })}
               </Text>
             </View>
             <View style={styles.stepItem}>
               <Text style={styles.stepNumber}>2</Text>
               <Text style={styles.stepText}>
-                Envía USDT desde cualquier wallet a la dirección receptora
+                {t('sendUSDTFromAnyWallet')}
               </Text>
             </View>
             <View style={styles.stepItem}>
               <Text style={styles.stepNumber}>3</Text>
               <Text style={styles.stepText}>
-                Monto mínimo: {MIN_USDT} USDT
+                {t('minimumAmountLabel', { min: MIN_USDT })}
               </Text>
             </View>
             <View style={styles.stepItem}>
               <Text style={styles.stepNumber}>4</Text>
               <Text style={styles.stepText}>
-                Copia el hash de la transacción (txHash)
+                {t('copyTransactionHash')}
               </Text>
             </View>
             <View style={styles.stepItem}>
               <Text style={styles.stepNumber}>5</Text>
               <Text style={styles.stepText}>
-                Pega el txHash aquí y verifica el pago
+                {t('pasteHashAndVerify')}
               </Text>
             </View>
             <View style={styles.stepItem}>
               <Text style={styles.stepNumber}>6</Text>
               <Text style={styles.stepText}>
-                Recibirás MXI = USDT × {MXI_RATE}
+                {t('youWillReceiveMXI', { rate: MXI_RATE })}
               </Text>
             </View>
           </View>
@@ -622,7 +623,7 @@ export default function PagarUSDTScreen() {
 
         <View style={styles.addressCard}>
           <Text style={styles.addressLabel}>
-            Dirección Receptora ({selectedNetworkData?.label})
+            {t('recipientAddress', { label: selectedNetworkData?.label })}
           </Text>
           <View style={styles.addressContainer}>
             <Text style={styles.addressText} numberOfLines={1} ellipsizeMode="middle">
@@ -648,13 +649,13 @@ export default function PagarUSDTScreen() {
               color={selectedNetworkData?.color}
             />
             <Text style={[styles.addressWarning, { color: selectedNetworkData?.color }]}>
-              ⚠️ Solo envía USDT en la red {selectedNetworkData?.name} ({selectedNetworkData?.label})
+              {t('onlySendUSDTOnNetwork', { network: selectedNetworkData?.name, label: selectedNetworkData?.label })}
             </Text>
           </View>
         </View>
 
         <View style={styles.calculatorCard}>
-          <Text style={styles.calculatorTitle}>Calculadora de MXI</Text>
+          <Text style={styles.calculatorTitle}>{t('mxiCalculator')}</Text>
           <View style={styles.calculatorRow}>
             <Text style={styles.calculatorLabel}>20 USDT</Text>
             <Text style={styles.calculatorArrow}>→</Text>
@@ -678,7 +679,7 @@ export default function PagarUSDTScreen() {
         </View>
 
         <View style={styles.inputCard}>
-          <Text style={styles.inputLabel}>Hash de Transacción (txHash)</Text>
+          <Text style={styles.inputLabel}>{t('transactionHashTxHash')}</Text>
           <TextInput
             style={styles.input}
             placeholder="0x..."
@@ -695,11 +696,11 @@ export default function PagarUSDTScreen() {
             numberOfLines={3}
           />
           <Text style={styles.inputHint}>
-            Pega el hash de tu transacción de {selectedNetworkData?.name} aquí
+            {t('pasteYourTransactionHash', { network: selectedNetworkData?.name })}
           </Text>
           {txHash.length > 0 && (
             <Text style={[styles.inputHint, { marginTop: 4, color: txHash.length === 66 ? colors.success : colors.warning }]}>
-              {txHash.length === 66 ? '✓ Longitud correcta' : `⚠️ ${txHash.length}/66 caracteres`}
+              {txHash.length === 66 ? t('correctLength') : t('charactersCount', { count: txHash.length })}
             </Text>
           )}
         </View>
@@ -730,7 +731,7 @@ export default function PagarUSDTScreen() {
                 color="#FFFFFF"
               />
               <Text style={styles.verifyButtonText}>
-                Verificar Automáticamente
+                {t('verifyAutomatically')}
               </Text>
             </React.Fragment>
           )}
@@ -748,7 +749,7 @@ export default function PagarUSDTScreen() {
           {requestingManualVerification ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator color="#FFFFFF" size="small" />
-              <Text style={styles.manualVerifyButtonText}>Enviando Solicitud...</Text>
+              <Text style={styles.manualVerifyButtonText}>{t('sendingRequestText')}</Text>
             </View>
           ) : (
             <React.Fragment>
@@ -759,7 +760,7 @@ export default function PagarUSDTScreen() {
                 color="#FFFFFF"
               />
               <Text style={styles.manualVerifyButtonText}>
-                Solicitar Verificación Manual
+                {t('requestManualVerificationButton')}
               </Text>
             </React.Fragment>
           )}
@@ -773,30 +774,30 @@ export default function PagarUSDTScreen() {
             color={colors.warning}
           />
           <View style={styles.warningContent}>
-            <Text style={styles.warningTitle}>⚠️ Importante - Validación por Red</Text>
+            <Text style={styles.warningTitle}>{t('importantValidationByNetwork')}</Text>
             <Text style={styles.warningText}>
-              • Cada red valida sus transacciones de forma independiente
+              • {t('eachNetworkValidatesIndependentlyInfo')}
             </Text>
             <Text style={styles.warningText}>
-              • Los pagos en ETH solo se validan en la red Ethereum
+              • {t('paymentsOnETHOnlyValidatedOnETH')}
             </Text>
             <Text style={styles.warningText}>
-              • Los pagos en BNB solo se validan en la red BNB Chain
+              • {t('paymentsOnBNBOnlyValidatedOnBNB')}
             </Text>
             <Text style={styles.warningText}>
-              • Los pagos en Polygon solo se validan en la red Polygon
+              • {t('paymentsOnPolygonOnlyValidatedOnPolygon')}
             </Text>
             <Text style={styles.warningText}>
-              • Asegúrate de seleccionar la red correcta antes de verificar
+              • {t('ensureCorrectNetworkBeforeVerifying')}
             </Text>
             <Text style={styles.warningText}>
-              • La transacción debe tener al menos 3 confirmaciones
+              • {t('transactionMustHave3Confirmations')}
             </Text>
             <Text style={styles.warningText}>
-              • ⚠️ NO PUEDES USAR EL MISMO HASH DOS VECES - Sistema anti-duplicados activo
+              • {t('cannotUseSameHashTwice')}
             </Text>
             <Text style={styles.warningText}>
-              • 📋 Si la verificación automática falla, usa la verificación manual
+              • {t('ifAutomaticFailsUseManual')}
             </Text>
           </View>
         </View>

@@ -16,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
@@ -26,6 +27,7 @@ type DocumentType = 'passport' | 'national_id' | 'drivers_license';
 export default function KYCVerificationScreen() {
   const router = useRouter();
   const { user, updateUser } = useAuth();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingFront, setUploadingFront] = useState(false);
@@ -56,8 +58,8 @@ export default function KYCVerificationScreen() {
       
       if (status !== 'granted') {
         Alert.alert(
-          'Permiso Requerido',
-          'Por favor otorga permisos de galería para subir documentos.'
+          t('error'),
+          t('pleaseUploadFrontDocument')
         );
       }
     } catch (error) {
@@ -144,7 +146,7 @@ export default function KYCVerificationScreen() {
     } catch (error) {
       const timestamp = new Date().toISOString();
       console.error(`[${timestamp}] Error picking image:`, error);
-      Alert.alert('Error', 'Error al seleccionar imagen. Por favor intenta de nuevo.');
+      Alert.alert(t('error'), t('errorUploadingDocument'));
     }
   };
 
@@ -152,7 +154,7 @@ export default function KYCVerificationScreen() {
     if (!user) {
       const timestamp = new Date().toISOString();
       console.error(`[${timestamp}] No user found for upload`);
-      Alert.alert('Error', 'Debes estar autenticado para subir documentos');
+      Alert.alert(t('error'), t('authenticationErrorText'));
       return;
     }
 
@@ -240,14 +242,17 @@ export default function KYCVerificationScreen() {
         console.log(`[${timestamp}] Back document URL set:`, urlData.publicUrl);
       }
 
-      Alert.alert('Éxito', `Documento ${side === 'front' ? 'frontal' : 'trasero'} subido exitosamente!`);
+      Alert.alert(
+        t('successUploadDocument'), 
+        side === 'front' ? t('frontDocumentUploaded') : t('backDocumentUploaded')
+      );
     } catch (error: any) {
       const timestamp = new Date().toISOString();
       console.error(`[${timestamp}] === UPLOAD ERROR FOR ${side.toUpperCase()} ===`);
       console.error(`[${timestamp}] Error:`, error);
       console.error(`[${timestamp}] Error message:`, error.message);
       console.error(`[${timestamp}] Error stack:`, error.stack);
-      Alert.alert('Error de Subida', error.message || 'Error al subir documento. Por favor intenta de nuevo.');
+      Alert.alert(t('uploadError'), error.message || t('errorUploadingDocument'));
     } finally {
       setUploading(false);
     }
@@ -267,7 +272,7 @@ export default function KYCVerificationScreen() {
 
     if (!user) {
       console.error(`[${timestamp}] ERROR: No user found`);
-      Alert.alert('Error', 'Usuario no autenticado');
+      Alert.alert(t('error'), t('authenticationErrorText'));
       return;
     }
 
@@ -284,25 +289,25 @@ export default function KYCVerificationScreen() {
     
     if (!fullName.trim()) {
       console.log(`[${timestamp}] VALIDATION FAILED: Full name is empty`);
-      Alert.alert('Error', 'Por favor ingresa tu nombre completo');
+      Alert.alert(t('error'), t('pleaseEnterFullNameText'));
       return;
     }
 
     if (!documentNumber.trim()) {
       console.log(`[${timestamp}] VALIDATION FAILED: Document number is empty`);
-      Alert.alert('Error', 'Por favor ingresa tu número de documento');
+      Alert.alert(t('error'), t('pleaseEnterDocumentNumber'));
       return;
     }
 
     if (!documentFrontUrl) {
       console.log(`[${timestamp}] VALIDATION FAILED: Front document not uploaded`);
-      Alert.alert('Error', 'Por favor sube el frente de tu documento de identidad');
+      Alert.alert(t('error'), t('pleaseUploadFrontDocument'));
       return;
     }
 
     if (!documentBackUrl && documentType !== 'passport') {
       console.log(`[${timestamp}] VALIDATION FAILED: Back document not uploaded (required for non-passport)`);
-      Alert.alert('Error', 'Por favor sube el reverso de tu documento de identidad');
+      Alert.alert(t('error'), t('pleaseUploadBackDocument'));
       return;
     }
 
@@ -344,7 +349,7 @@ export default function KYCVerificationScreen() {
         console.error(`[${timestamp}] Error message:`, insertError.message);
         console.error(`[${timestamp}] Error details:`, JSON.stringify(insertError, null, 2));
         console.error(`[${timestamp}] Error hint:`, insertError.hint);
-        throw new Error(insertError.message || 'Error al insertar verificación KYC');
+        throw new Error(insertError.message || t('errorSubmittingKYC'));
       }
 
       console.log(`[${timestamp}] === INSERT SUCCESS ===`);
@@ -376,11 +381,11 @@ export default function KYCVerificationScreen() {
 
       // Show success message
       Alert.alert(
-        '✅ KYC Enviado Exitosamente',
-        'Tu verificación KYC ha sido enviada y está bajo revisión. Serás notificado una vez que haya sido procesada (típicamente dentro de 24-48 horas).',
+        t('kycSubmittedSuccessfully'),
+        t('kycUnderReview'),
         [
           {
-            text: 'OK',
+            text: t('ok'),
             onPress: () => {
               console.log(`[${timestamp}] User acknowledged success, navigating back`);
               router.back();
@@ -399,8 +404,8 @@ export default function KYCVerificationScreen() {
       console.error(`[${timestamp}] Error name:`, error.name);
       
       Alert.alert(
-        'Error de Envío',
-        error.message || 'Error al enviar verificación KYC. Por favor intenta de nuevo o contacta soporte si el problema persiste.'
+        t('submissionError'),
+        error.message || t('errorSubmittingKYC')
       );
     } finally {
       setSubmitting(false);
@@ -414,7 +419,7 @@ export default function KYCVerificationScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Cargando datos de usuario...</Text>
+          <Text style={styles.loadingText}>{t('loadingUserData')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -448,6 +453,21 @@ export default function KYCVerificationScreen() {
     }
   };
 
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'not_submitted':
+        return t('notSubmitted');
+      case 'pending':
+        return t('pending');
+      case 'approved':
+        return t('approved');
+      case 'rejected':
+        return t('rejected');
+      default:
+        return status;
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -455,14 +475,14 @@ export default function KYCVerificationScreen() {
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.primary} />
           </TouchableOpacity>
-          <Text style={styles.title}>Verificación KYC</Text>
-          <Text style={styles.subtitle}>Completa tu verificación de identidad</Text>
+          <Text style={styles.title}>{t('kycVerification')}</Text>
+          <Text style={styles.subtitle}>{t('completeYourKYCVerification')}</Text>
         </View>
 
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Cargando datos KYC...</Text>
+            <Text style={styles.loadingText}>{t('loadingKYCData')}</Text>
           </View>
         ) : (
           <>
@@ -475,18 +495,16 @@ export default function KYCVerificationScreen() {
                   color={getStatusColor(user.kycStatus)}
                 />
                 <View style={styles.statusInfo}>
-                  <Text style={styles.statusLabel}>Estado de Verificación</Text>
+                  <Text style={styles.statusLabel}>{t('verificationStatus')}</Text>
                   <Text style={[styles.statusValue, { color: getStatusColor(user.kycStatus) }]}>
-                    {user.kycStatus === 'not_submitted' ? 'No Enviado' :
-                     user.kycStatus === 'pending' ? 'En Revisión' :
-                     user.kycStatus === 'approved' ? 'Aprobado' : 'Rechazado'}
+                    {getStatusText(user.kycStatus)}
                   </Text>
                 </View>
               </View>
 
               {user.kycStatus === 'approved' && user.kycVerifiedAt && (
                 <Text style={styles.statusDate}>
-                  Verificado el {new Date(user.kycVerifiedAt).toLocaleDateString()}
+                  {t('verifiedOn')} {new Date(user.kycVerifiedAt).toLocaleDateString()}
                 </Text>
               )}
 
@@ -494,7 +512,7 @@ export default function KYCVerificationScreen() {
                 <View style={styles.pendingNotice}>
                   <IconSymbol ios_icon_name="info.circle" android_material_icon_name="info" size={18} color={colors.warning} />
                   <Text style={styles.pendingText}>
-                    Tu verificación KYC está siendo revisada. Esto típicamente toma 24-48 horas.
+                    {t('yourKYCIsBeingReviewed')}
                   </Text>
                 </View>
               )}
@@ -503,10 +521,10 @@ export default function KYCVerificationScreen() {
                 <View style={styles.rejectionNotice}>
                   <IconSymbol ios_icon_name="exclamationmark.triangle" android_material_icon_name="warning" size={18} color={colors.error} />
                   <Text style={styles.rejectionText}>
-                    Razón de Rechazo: {kycData.rejection_reason}
+                    {t('rejectionReason')}: {kycData.rejection_reason}
                   </Text>
                   <Text style={styles.rejectionHint}>
-                    Por favor corrige los problemas mencionados y vuelve a enviar tu verificación.
+                    {t('pleaseCorrectIssues')}
                   </Text>
                 </View>
               )}
@@ -517,25 +535,25 @@ export default function KYCVerificationScreen() {
                 <View style={[commonStyles.card, styles.infoCard]}>
                   <IconSymbol ios_icon_name="info.circle.fill" android_material_icon_name="info" size={20} color={colors.primary} />
                   <View style={styles.infoContent}>
-                    <Text style={styles.infoTitle}>Por qué se requiere KYC:</Text>
+                    <Text style={styles.infoTitle}>{t('whyKYCRequired')}</Text>
                     <Text style={styles.infoText}>
-                      - La verificación KYC es obligatoria para todos los retiros{'\n'}
-                      - Ayuda a prevenir fraude y lavado de dinero{'\n'}
-                      - Asegura cumplimiento con regulaciones financieras{'\n'}
-                      - Protege tu cuenta y fondos{'\n'}
-                      - Proceso de verificación único
+                      - {t('kycMandatoryForWithdrawals')}{'\n'}
+                      - {t('helpPreventFraud')}{'\n'}
+                      - {t('ensureCompliance')}{'\n'}
+                      - {t('protectYourAccount')}{'\n'}
+                      - {t('oneTimeVerification')}
                     </Text>
                   </View>
                 </View>
 
                 <View style={[commonStyles.card, styles.formCard]}>
-                  <Text style={styles.formTitle}>Información Personal</Text>
+                  <Text style={styles.formTitle}>{t('personalInformation')}</Text>
 
                   <View style={styles.inputContainer}>
-                    <Text style={commonStyles.label}>Nombre Legal Completo</Text>
+                    <Text style={commonStyles.label}>{t('fullLegalName')}</Text>
                     <TextInput
                       style={commonStyles.input}
-                      placeholder="Ingresa tu nombre completo como aparece en tu ID"
+                      placeholder={t('enterFullNameAsOnID')}
                       placeholderTextColor={colors.textSecondary}
                       value={fullName}
                       onChangeText={(text) => {
@@ -549,7 +567,7 @@ export default function KYCVerificationScreen() {
                   </View>
 
                   <View style={styles.inputContainer}>
-                    <Text style={commonStyles.label}>Tipo de Documento</Text>
+                    <Text style={commonStyles.label}>{t('documentType')}</Text>
                     <View style={styles.documentTypeContainer}>
                       <TouchableOpacity
                         style={[
@@ -575,7 +593,7 @@ export default function KYCVerificationScreen() {
                             documentType === 'national_id' && styles.documentTypeTextActive,
                           ]}
                         >
-                          Cédula
+                          {t('nationalID')}
                         </Text>
                       </TouchableOpacity>
 
@@ -603,7 +621,7 @@ export default function KYCVerificationScreen() {
                             documentType === 'passport' && styles.documentTypeTextActive,
                           ]}
                         >
-                          Pasaporte
+                          {t('passport')}
                         </Text>
                       </TouchableOpacity>
 
@@ -631,17 +649,17 @@ export default function KYCVerificationScreen() {
                             documentType === 'drivers_license' && styles.documentTypeTextActive,
                           ]}
                         >
-                          Licencia
+                          {t('driversLicense')}
                         </Text>
                       </TouchableOpacity>
                     </View>
                   </View>
 
                   <View style={styles.inputContainer}>
-                    <Text style={commonStyles.label}>Número de Documento</Text>
+                    <Text style={commonStyles.label}>{t('documentNumber')}</Text>
                     <TextInput
                       style={commonStyles.input}
-                      placeholder="Ingresa tu número de documento"
+                      placeholder={t('enterYourDocumentNumber')}
                       placeholderTextColor={colors.textSecondary}
                       value={documentNumber}
                       onChangeText={(text) => {
@@ -655,9 +673,9 @@ export default function KYCVerificationScreen() {
                   </View>
 
                   <View style={styles.inputContainer}>
-                    <Text style={commonStyles.label}>Documento Frontal *</Text>
+                    <Text style={commonStyles.label}>{t('frontDocument')}</Text>
                     <Text style={styles.uploadHint}>
-                      Sube una foto clara del frente de tu documento de identidad
+                      {t('uploadClearPhotoOfFront')}
                     </Text>
                     <TouchableOpacity
                       style={styles.uploadButton}
@@ -667,7 +685,7 @@ export default function KYCVerificationScreen() {
                       {uploadingFront ? (
                         <View style={styles.uploadContent}>
                           <ActivityIndicator color={colors.primary} />
-                          <Text style={styles.uploadText}>Subiendo...</Text>
+                          <Text style={styles.uploadText}>{t('uploading')}</Text>
                         </View>
                       ) : documentFrontUri || documentFrontUrl ? (
                         <View style={styles.uploadedContainer}>
@@ -677,13 +695,13 @@ export default function KYCVerificationScreen() {
                           />
                           <View style={styles.uploadedOverlay}>
                             <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={32} color={colors.success} />
-                            <Text style={styles.uploadedText}>Toca para cambiar</Text>
+                            <Text style={styles.uploadedText}>{t('tapToChange')}</Text>
                           </View>
                         </View>
                       ) : (
                         <View style={styles.uploadContent}>
                           <IconSymbol ios_icon_name="photo" android_material_icon_name="photo" size={32} color={colors.primary} />
-                          <Text style={styles.uploadText}>Toca para subir frente</Text>
+                          <Text style={styles.uploadText}>{t('tapToUploadFront')}</Text>
                         </View>
                       )}
                     </TouchableOpacity>
@@ -691,9 +709,9 @@ export default function KYCVerificationScreen() {
 
                   {documentType !== 'passport' && (
                     <View style={styles.inputContainer}>
-                      <Text style={commonStyles.label}>Documento Trasero *</Text>
+                      <Text style={commonStyles.label}>{t('backDocument')}</Text>
                       <Text style={styles.uploadHint}>
-                        Sube una foto clara del reverso de tu documento de identidad
+                        {t('uploadClearPhotoOfBack')}
                       </Text>
                       <TouchableOpacity
                         style={styles.uploadButton}
@@ -703,7 +721,7 @@ export default function KYCVerificationScreen() {
                         {uploadingBack ? (
                           <View style={styles.uploadContent}>
                             <ActivityIndicator color={colors.primary} />
-                            <Text style={styles.uploadText}>Subiendo...</Text>
+                            <Text style={styles.uploadText}>{t('uploading')}</Text>
                           </View>
                         ) : documentBackUri || documentBackUrl ? (
                           <View style={styles.uploadedContainer}>
@@ -713,13 +731,13 @@ export default function KYCVerificationScreen() {
                             />
                             <View style={styles.uploadedOverlay}>
                               <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={32} color={colors.success} />
-                              <Text style={styles.uploadedText}>Toca para cambiar</Text>
+                              <Text style={styles.uploadedText}>{t('tapToChange')}</Text>
                             </View>
                           </View>
                         ) : (
                           <View style={styles.uploadContent}>
                             <IconSymbol ios_icon_name="photo" android_material_icon_name="photo" size={32} color={colors.primary} />
-                            <Text style={styles.uploadText}>Toca para subir reverso</Text>
+                            <Text style={styles.uploadText}>{t('tapToUploadBack')}</Text>
                           </View>
                         )}
                       </TouchableOpacity>
@@ -738,12 +756,12 @@ export default function KYCVerificationScreen() {
                     {submitting ? (
                       <>
                         <ActivityIndicator color="#fff" />
-                        <Text style={styles.buttonText}>Enviando...</Text>
+                        <Text style={styles.buttonText}>{t('submitting')}</Text>
                       </>
                     ) : (
                       <>
                         <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={20} color="#fff" />
-                        <Text style={styles.buttonText}>Enviar Verificación KYC</Text>
+                        <Text style={styles.buttonText}>{t('submitKYCVerification')}</Text>
                       </>
                     )}
                   </TouchableOpacity>
@@ -752,11 +770,9 @@ export default function KYCVerificationScreen() {
                 <View style={[commonStyles.card, styles.securityCard]}>
                   <IconSymbol ios_icon_name="lock.shield.fill" android_material_icon_name="security" size={24} color={colors.success} />
                   <View style={styles.securityContent}>
-                    <Text style={styles.securityTitle}>Tus Datos están Seguros</Text>
+                    <Text style={styles.securityTitle}>{t('yourDataIsSecure')}</Text>
                     <Text style={styles.securityText}>
-                      Toda la información personal y documentos están encriptados y almacenados de forma segura. 
-                      Cumplimos con regulaciones internacionales de protección de datos y nunca compartiremos tu
-                      información con terceros sin tu consentimiento.
+                      {t('dataEncryptedAndSecure')}
                     </Text>
                   </View>
                 </View>
@@ -766,10 +782,9 @@ export default function KYCVerificationScreen() {
             {user.kycStatus === 'approved' && (
               <View style={[commonStyles.card, styles.successCard]}>
                 <IconSymbol ios_icon_name="checkmark.seal.fill" android_material_icon_name="verified" size={48} color={colors.success} />
-                <Text style={styles.successTitle}>¡KYC Verificado!</Text>
+                <Text style={styles.successTitle}>{t('kycVerified')}</Text>
                 <Text style={styles.successText}>
-                  Tu identidad ha sido verificada exitosamente. Ahora puedes retirar tus fondos
-                  una vez que cumplas con todos los demás requisitos.
+                  {t('identityVerifiedSuccessfully')}
                 </Text>
               </View>
             )}
