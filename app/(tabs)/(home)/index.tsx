@@ -527,7 +527,7 @@ export default function HomeScreen() {
             <View style={styles.currentPhaseInfo}>
               <Text style={styles.currentPhaseLabel}>{t('currentPhase')}: {phaseInfo.currentPhase || 1}</Text>
               <Text style={styles.currentPhasePrice}>
-                ${(phaseInfo.currentPriceUsdt || 0.40).toFixed(2)} USDT por MXI
+                ${(phaseInfo.currentPriceUsdt || 0.40).toFixed(2)} {t('usdtPerMXI')}
               </Text>
             </View>
 
