@@ -34,6 +34,7 @@ const translations = {
     request: 'Request',
     sendRequest: 'Send Request',
     respond: 'Respond',
+    pending: 'Pending',
     
     // Auth
     login: 'Login',
@@ -188,7 +189,6 @@ const translations = {
     nameLabel: 'Name',
     mxiToCredit: 'MXI to Credit',
     currentBalance: 'Current Balance',
-    phaseLabel: 'Phase',
     currencyLabel: 'Currency',
     requestedAt: 'Requested',
     reviewedAt: 'Reviewed',
@@ -244,6 +244,8 @@ const translations = {
     mxiTournaments: 'MXI Tournaments',
     vestingRealTimeLabel: 'Vesting (Real-Time)',
     updatingEverySecond: 'Updating every second',
+    generatingChartData: 'Generating chart data...',
+    loadingChart: 'Loading chart...',
     
     // Vesting Details
     generatingPerSecond: 'Generating per second',
@@ -256,6 +258,17 @@ const translations = {
     perHour: 'Per Hour',
     dailyYield: 'Daily Yield',
     yieldInfo: 'Yield Information',
+    noYield: 'No Yield Available',
+    needMoreYield: 'You need to accumulate more yield before claiming.',
+    requirementsNotMet: 'Requirements Not Met',
+    claimRequirements: 'You need at least 5 active referrals to claim yield. You currently have {{count}}.',
+    kycRequired: 'KYC Required',
+    kycRequiredMessage: 'You must complete KYC verification before claiming yield.',
+    yieldClaimed: 'Yield Claimed',
+    yieldClaimedMessage: 'Successfully claimed {{amount}} MXI yield!',
+    claimFailed: 'Claim Failed',
+    claiming: 'Claiming...',
+    claimYield: 'Claim Yield',
     
     // Tournaments Screen
     tournamentsTitle: 'Tournaments',
@@ -343,6 +356,7 @@ const translations = {
     request: 'Solicitar',
     sendRequest: 'Enviar Solicitud',
     respond: 'Responder',
+    pending: 'Pendiente',
     
     // Auth
     login: 'Iniciar Sesión',
@@ -388,7 +402,7 @@ const translations = {
     withdrawals: 'Retiros',
     supportMessages: 'Mensajes Soporte',
     basicUsers: 'Usuarios Básico',
-    vestingAnalytics: 'Vesting Analytics',
+    vestingAnalytics: 'Análisis de Vesting',
     settings: 'Configuración',
     resetSystemTitle: '¿Reiniciar Todo el Sistema?',
     resetSystemMessage: 'Esta acción es IRREVERSIBLE y reiniciará todos los contadores a 0 (INCLUYENDO EL ADMINISTRADOR):',
@@ -428,7 +442,7 @@ const translations = {
     withdrawalsButton: 'Retiros',
     supportMessagesButton: 'Mensajes Soporte',
     basicUsersButton: 'Usuarios Básico',
-    vestingAnalyticsButton: 'Vesting Analytics',
+    vestingAnalyticsButton: 'Análisis de Vesting',
     settingsButton: 'Configuración',
     resetSystemModalTitle: '¿Reiniciar Todo el Sistema?',
     resetSystemModalMessage: 'Esta acción es IRREVERSIBLE y reiniciará todos los contadores a 0 (INCLUYENDO EL ADMINISTRADOR):',
@@ -486,8 +500,8 @@ const translations = {
     requestedAt: 'Solicitado',
     reviewedAt: 'Revisado',
     orderIdLabel: 'ID de Orden',
-    paymentIdLabel: 'Payment ID',
-    transactionHashLabel: 'Transaction Hash',
+    paymentIdLabel: 'ID de Pago',
+    transactionHashLabel: 'Hash de Transacción',
     adminRequestedInfo: '📋 Información Solicitada al Usuario:',
     userResponseLabel: '💬 Respuesta del Usuario:',
     requestedOn: 'Solicitado',
@@ -537,6 +551,8 @@ const translations = {
     mxiTournaments: 'MXI Torneos',
     vestingRealTimeLabel: 'Vesting (Tiempo Real)',
     updatingEverySecond: 'Actualizando cada segundo',
+    generatingChartData: 'Generando datos del gráfico...',
+    loadingChart: 'Cargando gráfico...',
     
     // Vesting Details
     generatingPerSecond: 'Generando por segundo',
@@ -549,6 +565,17 @@ const translations = {
     perHour: 'Por Hora',
     dailyYield: 'Rendimiento Diario',
     yieldInfo: 'Información de Rendimiento',
+    noYield: 'Sin Rendimiento Disponible',
+    needMoreYield: 'Necesitas acumular más rendimiento antes de reclamar.',
+    requirementsNotMet: 'Requisitos No Cumplidos',
+    claimRequirements: 'Necesitas al menos 5 referidos activos para reclamar rendimiento. Actualmente tienes {{count}}.',
+    kycRequired: 'KYC Requerido',
+    kycRequiredMessage: 'Debes completar la verificación KYC antes de reclamar rendimiento.',
+    yieldClaimed: 'Rendimiento Reclamado',
+    yieldClaimedMessage: '¡Reclamaste exitosamente {{amount}} MXI de rendimiento!',
+    claimFailed: 'Reclamo Fallido',
+    claiming: 'Reclamando...',
+    claimYield: 'Reclamar Rendimiento',
     
     // Tournaments Screen
     tournamentsTitle: 'Torneos',
@@ -636,6 +663,7 @@ const translations = {
     request: 'Solicitar',
     sendRequest: 'Enviar Solicitação',
     respond: 'Responder',
+    pending: 'Pendente',
     
     // Auth
     login: 'Entrar',
@@ -665,6 +693,24 @@ const translations = {
     adminPanel: 'Painel de Administração',
     backToHome: 'Voltar ao Início',
     welcomeAdmin: 'Bem-vindo',
+    dangerZone: '⚠️ ZONA DE PERIGO',
+    dangerZoneDescription: 'Reiniciar todos os contadores de MXI para 0 (INCLUINDO ADMIN). As relações de indicação serão preservadas. Esta ação é IRREVERSÍVEL.',
+    resetEverything: 'Reiniciar Tudo',
+    presaleMetrics: 'Métricas de Pré-venda',
+    users: 'Usuários',
+    active: 'Ativos',
+    totalUSDT: 'Total USDT',
+    totalMXI: 'Total MXI',
+    quickActions: 'Ações Rápidas',
+    manualVerifications: 'Verificações Manuais',
+    advancedManagement: 'Gestão Avançada',
+    creditManualPayment: 'Creditar Pagamento Manual',
+    approveKYC: 'Aprovar KYC',
+    withdrawals: 'Saques',
+    supportMessages: 'Mensagens de Suporte',
+    basicUsers: 'Usuários Básicos',
+    vestingAnalytics: 'Análise de Vesting',
+    settings: 'Configurações',
     
     // Home Screen
     hello: 'Olá',
@@ -693,6 +739,8 @@ const translations = {
     mxiTournaments: 'MXI Torneios',
     vestingRealTimeLabel: 'Vesting (Tempo Real)',
     updatingEverySecond: 'Atualizando a cada segundo',
+    generatingChartData: 'Gerando dados do gráfico...',
+    loadingChart: 'Carregando gráfico...',
     
     // Vesting Details
     generatingPerSecond: 'Gerando por segundo',
@@ -705,6 +753,17 @@ const translations = {
     perHour: 'Por Hora',
     dailyYield: 'Rendimento Diário',
     yieldInfo: 'Informações de Rendimento',
+    noYield: 'Sem Rendimento Disponível',
+    needMoreYield: 'Você precisa acumular mais rendimento antes de reivindicar.',
+    requirementsNotMet: 'Requisitos Não Atendidos',
+    claimRequirements: 'Você precisa de pelo menos 5 indicações ativas para reivindicar rendimento. Você tem atualmente {{count}}.',
+    kycRequired: 'KYC Necessário',
+    kycRequiredMessage: 'Você deve completar a verificação KYC antes de reivindicar rendimento.',
+    yieldClaimed: 'Rendimento Reivindicado',
+    yieldClaimedMessage: 'Reivindicou com sucesso {{amount}} MXI de rendimento!',
+    claimFailed: 'Reivindicação Falhou',
+    claiming: 'Reivindicando...',
+    claimYield: 'Reivindicar Rendimento',
     
     // Tournaments Screen
     tournamentsTitle: 'Torneios',
