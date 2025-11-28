@@ -233,6 +233,30 @@ const translations = {
     poolClose: 'Pool closes',
     perMXIText: 'per MXI',
     
+    // Balance and Chart
+    totalMXIBalance: 'Total MXI Balance',
+    allSourcesIncluded: 'All sources included',
+    chartShowsTotalBalance: 'Chart shows total balance over time',
+    mxiTotal: 'MXI Total',
+    purchased: 'Purchased',
+    commissions: 'Commissions',
+    completeBreakdown: 'Complete Breakdown',
+    mxiTournaments: 'MXI Tournaments',
+    vestingRealTimeLabel: 'Vesting (Real-Time)',
+    updatingEverySecond: 'Updating every second',
+    
+    // Vesting Details
+    generatingPerSecond: 'Generating per second',
+    mxiPurchasedVestingBase: 'MXI Purchased (Vesting Base)',
+    onlyPurchasedMXIGeneratesVesting: 'Only purchased MXI generates vesting',
+    currentSession: 'Current Session',
+    totalAccumulated: 'Total Accumulated',
+    perSecond: 'Per Second',
+    perMinute: 'Per Minute',
+    perHour: 'Per Hour',
+    dailyYield: 'Daily Yield',
+    yieldInfo: 'Yield Information',
+    
     // Tournaments Screen
     tournamentsTitle: 'Tournaments',
     distributionOfRewards: 'Distribution of Rewards',
@@ -502,6 +526,30 @@ const translations = {
     poolClose: 'Cierre del pool',
     perMXIText: 'por MXI',
     
+    // Balance and Chart
+    totalMXIBalance: 'Balance Total MXI',
+    allSourcesIncluded: 'Todas las fuentes incluidas',
+    chartShowsTotalBalance: 'El gráfico muestra el balance total a lo largo del tiempo',
+    mxiTotal: 'MXI Total',
+    purchased: 'Comprados',
+    commissions: 'Comisiones',
+    completeBreakdown: 'Desglose Completo',
+    mxiTournaments: 'MXI Torneos',
+    vestingRealTimeLabel: 'Vesting (Tiempo Real)',
+    updatingEverySecond: 'Actualizando cada segundo',
+    
+    // Vesting Details
+    generatingPerSecond: 'Generando por segundo',
+    mxiPurchasedVestingBase: 'MXI Comprados (Base de Vesting)',
+    onlyPurchasedMXIGeneratesVesting: 'Solo los MXI comprados generan vesting',
+    currentSession: 'Sesión Actual',
+    totalAccumulated: 'Total Acumulado',
+    perSecond: 'Por Segundo',
+    perMinute: 'Por Minuto',
+    perHour: 'Por Hora',
+    dailyYield: 'Rendimiento Diario',
+    yieldInfo: 'Información de Rendimiento',
+    
     // Tournaments Screen
     tournamentsTitle: 'Torneos',
     distributionOfRewards: 'Distribución de Recompensas',
@@ -633,6 +681,30 @@ const translations = {
     mxiDeliveredToAllUsers: 'MXI entregue a todos os usuários (todas as fontes)',
     poolClose: 'Fechamento do pool',
     perMXIText: 'por MXI',
+    
+    // Balance and Chart
+    totalMXIBalance: 'Saldo Total MXI',
+    allSourcesIncluded: 'Todas as fontes incluídas',
+    chartShowsTotalBalance: 'O gráfico mostra o saldo total ao longo do tempo',
+    mxiTotal: 'MXI Total',
+    purchased: 'Comprados',
+    commissions: 'Comissões',
+    completeBreakdown: 'Detalhamento Completo',
+    mxiTournaments: 'MXI Torneios',
+    vestingRealTimeLabel: 'Vesting (Tempo Real)',
+    updatingEverySecond: 'Atualizando a cada segundo',
+    
+    // Vesting Details
+    generatingPerSecond: 'Gerando por segundo',
+    mxiPurchasedVestingBase: 'MXI Comprados (Base de Vesting)',
+    onlyPurchasedMXIGeneratesVesting: 'Apenas MXI comprados geram vesting',
+    currentSession: 'Sessão Atual',
+    totalAccumulated: 'Total Acumulado',
+    perSecond: 'Por Segundo',
+    perMinute: 'Por Minuto',
+    perHour: 'Por Hora',
+    dailyYield: 'Rendimento Diário',
+    yieldInfo: 'Informações de Rendimento',
     
     // Tournaments Screen
     tournamentsTitle: 'Torneios',
