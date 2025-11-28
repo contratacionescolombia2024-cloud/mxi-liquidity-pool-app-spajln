@@ -712,15 +712,15 @@ export default function RetirosScreen() {
             <Text style={styles.infoTitle}>{t('importantInformation')}</Text>
           </View>
           <View style={styles.infoList}>
-            <Text style={styles.infoItem}>- <Text style={styles.bold}>{t('withdrawalsInUSDTETH')}:</Text> {t('withdrawalsInUSDTETH')}</Text>
-            <Text style={styles.infoItem}>- <Text style={styles.bold}>{t('conversion')}:</Text> 1 MXI = 0.4 USDT</Text>
+            <Text style={styles.infoItem}>- <Text style={styles.bold}>{t('withdrawalsInUSDTETHInfo')}:</Text> {t('withdrawalsInUSDTETHInfo')}</Text>
+            <Text style={styles.infoItem}>- <Text style={styles.bold}>{t('conversionInfo')}:</Text> {t('conversionInfo')}</Text>
             <Text style={styles.infoItem}>- <Text style={styles.bold}>{t('mxiCommissionsText')}:</Text> {t('mxiCommissionsAvailableImmediately')}</Text>
             <Text style={styles.infoItem}>- <Text style={styles.bold}>{t('mxiTournamentsText')}:</Text> {t('mxiTournamentsAvailableSameAsCommissions')}</Text>
             <Text style={styles.infoItem}>- <Text style={styles.bold}>{t('mxiVestingText')}:</Text> {t('mxiVestingRequires10Referrals')}</Text>
             <Text style={styles.infoItem}>- <Text style={styles.bold}>{t('mxiPurchasedText')}:</Text> {t('mxiPurchasedLockedUntilLaunch')}</Text>
-            <Text style={styles.infoItem}>- <Text style={styles.bold}>{t('realTimeUpdate')}:</Text> {t('realTimeUpdate')}</Text>
-            <Text style={styles.infoItem}>- {t('processingTime')}</Text>
-            <Text style={styles.infoItem}>- {t('verifyWalletAddress')}</Text>
+            <Text style={styles.infoItem}>- <Text style={styles.bold}>{t('realTimeUpdateInfo')}:</Text> {t('realTimeUpdateInfo')}</Text>
+            <Text style={styles.infoItem}>- {t('processingTimeInfo')}</Text>
+            <Text style={styles.infoItem}>- {t('verifyWalletAddressInfo')}</Text>
           </View>
         </View>
 
