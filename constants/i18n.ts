@@ -35,6 +35,7 @@ const translations = {
     sendRequest: 'Send Request',
     respond: 'Respond',
     pending: 'Pending',
+    selectLanguage: 'Select Language',
     
     // Auth - Login Screen
     login: 'Login',
@@ -614,6 +615,7 @@ const translations = {
     sendRequest: 'Enviar Solicitud',
     respond: 'Responder',
     pending: 'Pendiente',
+    selectLanguage: 'Seleccionar Idioma',
     
     // Auth - Login Screen
     login: 'Iniciar Sesión',
@@ -1193,6 +1195,7 @@ const translations = {
     sendRequest: 'Enviar Solicitação',
     respond: 'Responder',
     pending: 'Pendente',
+    selectLanguage: 'Selecionar Idioma',
     
     // Auth - Login Screen
     login: 'Entrar',
@@ -1760,7 +1763,7 @@ export const initializeLanguage = async () => {
     const savedLanguage = await AsyncStorage.getItem(LANGUAGE_KEY);
     
     if (savedLanguage) {
-      i.locale = savedLanguage;
+      i18n.locale = savedLanguage;
     } else {
       // Get device locale
       const deviceLocale = Localization.getLocales()[0]?.languageCode || 'es';
