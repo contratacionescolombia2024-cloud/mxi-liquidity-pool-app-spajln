@@ -314,7 +314,7 @@ const translations = {
     processingTimeInfo: 'Processing time: 24-48 hours',
     verifyWalletAddress: 'Carefully verify the ETH wallet address',
     verifyWalletAddressInfo: 'Carefully verify the ETH wallet address',
-    viewWithdrawalHistory2: 'View Withdrawal History',
+    viewWithdrawalHistory2: 'Ver Withdrawal History',
     invalidAmount: 'Invalid Amount',
     enterValidAmount: 'Please enter a valid amount',
     missingInformation: 'Missing Information',
@@ -1760,7 +1760,7 @@ export const initializeLanguage = async () => {
     const savedLanguage = await AsyncStorage.getItem(LANGUAGE_KEY);
     
     if (savedLanguage) {
-      i18n.locale = savedLanguage;
+      i.locale = savedLanguage;
     } else {
       // Get device locale
       const deviceLocale = Localization.getLocales()[0]?.languageCode || 'es';
