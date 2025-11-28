@@ -387,7 +387,7 @@ const translations = {
     ecosystem: '🌐 MXI Ecosystem',
     liquidityPool: 'Maxcoin Liquidity Pool',
     whatIsMXI: 'What is MXI? 💎',
-    howItWorks: 'How does it work? 🚀',
+    howItWorksTab: 'How does it work? 🚀',
     whyBuy: 'Why buy? 💰',
     meta: 'META 🎯',
     ecosystemTab: 'Ecosystem 🌱',
@@ -675,7 +675,6 @@ const translations = {
     // Transaction History Page
     transactionHistoryTitle: 'Transaction History',
     loadingHistory: 'Loading history...',
-    pending: 'Pending',
     successful: 'Successful',
     failed: 'Failed',
     noTransactions: 'No transactions',
@@ -798,7 +797,6 @@ const translations = {
     
     // Ecosystem Page - Additional translations
     whatIsMXITab: 'What is MXI? 💎',
-    howItWorksTab: 'How does it work? 🚀',
     whyBuyTab: 'Why buy? 💰',
     metaTab: 'META 🎯',
     ecosystemTabLabel: 'Ecosystem 🌱',
@@ -811,9 +809,7 @@ const translations = {
     // Profile Page - Additional translations
     updateYourInfo: 'Update your information',
     viewYieldGeneration: 'View yield generation',
-    viewPreviousWithdrawals: 'View previous withdrawals',
     viewGameRecords: 'View game records',
-    getHelp: 'Get help',
     areYouSureLogout: 'Are you sure you want to log out?',
     
     // Subpages - USDT Payment
@@ -1308,7 +1304,7 @@ const translations = {
     ecosystem: '🌐 Ecosistema MXI',
     liquidityPool: 'Pool de Liquidez Maxcoin',
     whatIsMXI: '¿Qué es MXI? 💎',
-    howItWorks: '¿Cómo funciona? 🚀',
+    howItWorksTab: '¿Cómo funciona? 🚀',
     whyBuy: '¿Por qué comprar? 💰',
     meta: 'META 🎯',
     ecosystemTab: 'Ecosistema 🌱',
@@ -1733,9 +1729,7 @@ const translations = {
     // Profile Page - Additional translations
     updateYourInfo: 'Actualiza tu información',
     viewYieldGeneration: 'Ver generación de rendimiento',
-    viewPreviousWithdrawals: 'Ver retiros anteriores',
     viewGameRecords: 'Ver registros de juegos',
-    getHelp: 'Obtener ayuda',
     areYouSureLogout: '¿Estás seguro que deseas cerrar sesión?',
     
     // Subpages - USDT Payment
@@ -2230,7 +2224,7 @@ const translations = {
     ecosystem: '🌐 Ecossistema MXI',
     liquidityPool: 'Pool de Liquidez Maxcoin',
     whatIsMXI: 'O que é MXI? 💎',
-    howItWorks: 'Como funciona? 🚀',
+    howItWorksTab: 'Como funciona? 🚀',
     whyBuy: 'Por que comprar? 💰',
     meta: 'META 🎯',
     ecosystemTab: 'Ecossistema 🌱',
@@ -2655,9 +2649,7 @@ const translations = {
     // Profile Page - Additional translations
     updateYourInfo: 'Atualize suas informações',
     viewYieldGeneration: 'Ver geração de rendimento',
-    viewPreviousWithdrawals: 'Ver retiradas anteriores',
     viewGameRecords: 'Ver registros de jogos',
-    getHelp: 'Obter ajuda',
     areYouSureLogout: 'Tem certeza de que deseja sair?',
     
     // Subpages - USDT Payment
