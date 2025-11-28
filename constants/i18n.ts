@@ -312,7 +312,7 @@ const translations = {
     realTimeUpdateInfo: 'Vesting balances update every second',
     processingTime: 'Processing time: 24-48 hours',
     verifyWalletAddress: 'Carefully verify the ETH wallet address',
-    viewWithdrawalHistory2: 'View Withdrawal History',
+    viewWithdrawalHistory2: 'Ver Withdrawal History',
     invalidAmount: 'Invalid Amount',
     enterValidAmount: 'Please enter a valid amount',
     missingInformation: 'Missing Information',
