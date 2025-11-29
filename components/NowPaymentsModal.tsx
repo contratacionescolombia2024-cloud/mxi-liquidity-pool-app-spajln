@@ -23,6 +23,10 @@ import PaymentStatusPoller from '@/components/PaymentStatusPoller';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+// Purchase limits
+const MIN_PURCHASE_USD = 30;
+const MAX_PURCHASE_USD = 500000;
+
 interface Currency {
   code: string;
   name: string;
@@ -181,17 +185,43 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
     return filtered;
   };
 
+  const validateAmount = (amount: string): { valid: boolean; error?: string } => {
+    const value = parseFloat(amount);
+    
+    if (isNaN(value) || value <= 0) {
+      return { valid: false, error: 'Por favor ingresa un monto válido' };
+    }
+    
+    if (value < MIN_PURCHASE_USD) {
+      return { 
+        valid: false, 
+        error: `El monto mínimo de compra es ${MIN_PURCHASE_USD} USD` 
+      };
+    }
+    
+    if (value > MAX_PURCHASE_USD) {
+      return { 
+        valid: false, 
+        error: `El monto máximo por transacción es ${MAX_PURCHASE_USD.toLocaleString()} USD` 
+      };
+    }
+    
+    return { valid: true };
+  };
+
   const handleCreatePayment = async () => {
     if (!selectedCurrency || !usdtAmount) {
       Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
 
-    const amount = parseFloat(usdtAmount);
-    if (isNaN(amount) || amount < 2) {
-      Alert.alert('Error', 'El monto mínimo es 2 USDT');
+    const validation = validateAmount(usdtAmount);
+    if (!validation.valid) {
+      Alert.alert('Error', validation.error);
       return;
     }
+
+    const amount = parseFloat(usdtAmount);
 
     setLoading(true);
 
@@ -408,69 +438,100 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
     onClose();
   };
 
-  const renderAmountStep = () => (
-    <ScrollView style={styles.stepContainer} showsVerticalScrollIndicator={false}>
-      <Text style={styles.stepTitle}>💰 Ingresa el Monto</Text>
-      <Text style={styles.stepSubtitle}>
-        Monto mínimo: 2 USDT
-      </Text>
+  const renderAmountStep = () => {
+    const validation = validateAmount(usdtAmount);
+    
+    return (
+      <ScrollView style={styles.stepContainer} showsVerticalScrollIndicator={false}>
+        <Text style={styles.stepTitle}>💰 Ingresa el Monto</Text>
+        <Text style={styles.stepSubtitle}>
+          Monto mínimo: {MIN_PURCHASE_USD} USD • Máximo: {MAX_PURCHASE_USD.toLocaleString()} USD por transacción
+        </Text>
 
-      <View style={styles.inputSection}>
-        <Text style={styles.label}>Monto en USDT</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ej: 10"
-          placeholderTextColor="#666666"
-          keyboardType="numeric"
-          value={usdtAmount}
-          onChangeText={setUsdtAmount}
-        />
-        {usdtAmount && parseFloat(usdtAmount) > 0 && (
-          <View style={styles.calculationBox}>
-            <Text style={styles.calculationLabel}>Recibirás:</Text>
-            <Text style={styles.calculationValue}>
-              {calculateMXI(usdtAmount).toFixed(2)} MXI
-            </Text>
-            <Text style={styles.calculationSubtext}>
-              Precio: {currentPrice} USDT por MXI
+        <View style={styles.inputSection}>
+          <Text style={styles.label}>Monto en USDT</Text>
+          <TextInput
+            style={styles.input}
+            placeholder={`Ej: ${MIN_PURCHASE_USD}`}
+            placeholderTextColor="#666666"
+            keyboardType="numeric"
+            value={usdtAmount}
+            onChangeText={setUsdtAmount}
+          />
+          {usdtAmount && !validation.valid && (
+            <View style={styles.errorBox}>
+              <IconSymbol
+                ios_icon_name="exclamationmark.triangle.fill"
+                android_material_icon_name="warning"
+                size={16}
+                color={colors.error}
+              />
+              <Text style={styles.errorText}>{validation.error}</Text>
+            </View>
+          )}
+          {usdtAmount && validation.valid && (
+            <View style={styles.calculationBox}>
+              <Text style={styles.calculationLabel}>Recibirás:</Text>
+              <Text style={styles.calculationValue}>
+                {calculateMXI(usdtAmount).toFixed(2)} MXI
+              </Text>
+              <Text style={styles.calculationSubtext}>
+                Precio: {currentPrice} USDT por MXI
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.quickAmounts}>
+          <Text style={styles.quickAmountsLabel}>Montos rápidos:</Text>
+          <View style={styles.quickAmountsRow}>
+            {['30', '50', '100', '500', '1000', '5000'].map((amount, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.quickAmountButton}
+                onPress={() => setUsdtAmount(amount)}
+              >
+                <Text style={styles.quickAmountText}>${amount}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.limitsCard}>
+          <IconSymbol
+            ios_icon_name="info.circle.fill"
+            android_material_icon_name="info"
+            size={20}
+            color={colors.primary}
+          />
+          <View style={styles.limitsContent}>
+            <Text style={styles.limitsTitle}>Límites de Compra</Text>
+            <Text style={styles.limitsText}>
+              • Mínimo: {MIN_PURCHASE_USD} USD por transacción{'\n'}
+              • Máximo: {MAX_PURCHASE_USD.toLocaleString()} USD por transacción
             </Text>
           </View>
-        )}
-      </View>
-
-      <View style={styles.quickAmounts}>
-        <Text style={styles.quickAmountsLabel}>Montos rápidos:</Text>
-        <View style={styles.quickAmountsRow}>
-          {['2', '5', '10', '50', '100', '500'].map((amount, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.quickAmountButton}
-              onPress={() => setUsdtAmount(amount)}
-            >
-              <Text style={styles.quickAmountText}>${amount}</Text>
-            </TouchableOpacity>
-          ))}
         </View>
-      </View>
 
-      <TouchableOpacity
-        style={[
-          styles.primaryButton,
-          (!usdtAmount || parseFloat(usdtAmount) < 2) && styles.buttonDisabled,
-        ]}
-        onPress={() => setStep('currency')}
-        disabled={!usdtAmount || parseFloat(usdtAmount) < 2}
-      >
-        <Text style={styles.primaryButtonText}>Continuar</Text>
-        <IconSymbol
-          ios_icon_name="arrow.right"
-          android_material_icon_name="arrow_forward"
-          size={20}
-          color="#000000"
-        />
-      </TouchableOpacity>
-    </ScrollView>
-  );
+        <TouchableOpacity
+          style={[
+            styles.primaryButton,
+            !validation.valid && styles.buttonDisabled,
+          ]}
+          onPress={() => setStep('currency')}
+          disabled={!validation.valid}
+        >
+          <Text style={styles.primaryButtonText}>Continuar</Text>
+          <IconSymbol
+            ios_icon_name="arrow.right"
+            android_material_icon_name="arrow_forward"
+            size={20}
+            color="#000000"
+          />
+        </TouchableOpacity>
+      </ScrollView>
+    );
+  };
 
   const renderCurrencyStep = () => {
     const filteredCurrencies = getFilteredCurrencies();
@@ -919,6 +980,23 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '600',
   },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+    padding: 12,
+    backgroundColor: colors.error + '15',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.error,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.error,
+    fontWeight: '600',
+  },
   calculationBox: {
     marginTop: 16,
     padding: 16,
@@ -967,6 +1045,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
+  },
+  limitsCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    padding: 16,
+    backgroundColor: colors.primary + '15',
+    borderRadius: 12,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  limitsContent: {
+    flex: 1,
+  },
+  limitsTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  limitsText: {
+    fontSize: 13,
+    color: colors.text,
+    lineHeight: 20,
   },
   searchContainer: {
     flexDirection: 'row',

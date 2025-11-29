@@ -20,7 +20,8 @@ import * as Clipboard2 from 'expo-clipboard';
 import { supabase } from '@/lib/supabase';
 
 const RECIPIENT_ADDRESS = '0x68F0d7c607617DA0b1a0dC7b72885E11ddFec623';
-const MIN_USDT = 20;
+const MIN_USDT = 30;
+const MAX_USDT = 500000;
 const MXI_RATE = 2.5;
 
 const NETWORKS = [
