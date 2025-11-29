@@ -33,7 +33,7 @@ export function YieldDisplay() {
       return;
     }
 
-    // Check eligibility before claiming
+    // Check eligibility before claiming - SAME AS WITHDRAWAL CONDITIONS
     if (!user.canWithdraw) {
       Alert.alert(
         t('requirementsNotMet'),
@@ -75,6 +75,9 @@ export function YieldDisplay() {
   const yieldPerSecond = user.yieldRatePerMinute / 60;
   const totalYield = user.accumulatedYield + currentYield;
   const mxiPurchased = user.mxiPurchasedDirectly || 0;
+
+  // Check if button should be enabled - SAME AS WITHDRAWAL CONDITIONS
+  const canClaim = user.canWithdraw && user.kycStatus === 'approved' && currentYield >= 0.000001;
 
   return (
     <View style={styles.container}>
@@ -136,17 +139,17 @@ export function YieldDisplay() {
       </View>
 
       <TouchableOpacity
-        style={[styles.claimButton, claiming && styles.claimButtonDisabled]}
+        style={[styles.claimButton, !canClaim && styles.claimButtonDisabled]}
         onPress={handleClaimYield}
-        disabled={claiming || currentYield < 0.000001}
+        disabled={!canClaim || claiming}
       >
         <IconSymbol 
           ios_icon_name="arrow.down.circle.fill" 
           android_material_icon_name="arrow_circle_down"
           size={20} 
-          color={claiming || currentYield < 0.000001 ? colors.textSecondary : '#fff'} 
+          color={canClaim && !claiming ? '#fff' : colors.textSecondary} 
         />
-        <Text style={[styles.claimButtonText, claiming && styles.claimButtonTextDisabled]}>
+        <Text style={[styles.claimButtonText, !canClaim && styles.claimButtonTextDisabled]}>
           {claiming ? t('claiming') : t('claimYield')}
         </Text>
       </TouchableOpacity>
@@ -157,6 +160,34 @@ export function YieldDisplay() {
           {t('yieldInfo')}
         </Text>
       </View>
+
+      {!canClaim && (
+        <View style={styles.requirementsBox}>
+          <Text style={styles.requirementsTitle}>📋 {t('requirementsToWithdraw')}</Text>
+          <View style={styles.requirementItem}>
+            <IconSymbol 
+              ios_icon_name={user.activeReferrals >= 5 ? "checkmark.circle.fill" : "xmark.circle.fill"}
+              android_material_icon_name={user.activeReferrals >= 5 ? "check_circle" : "cancel"}
+              size={20} 
+              color={user.activeReferrals >= 5 ? colors.success : colors.error} 
+            />
+            <Text style={styles.requirementText}>
+              {t('activeReferralsForGeneralWithdrawals', { count: user.activeReferrals })}
+            </Text>
+          </View>
+          <View style={styles.requirementItem}>
+            <IconSymbol 
+              ios_icon_name={user.kycStatus === 'approved' ? "checkmark.circle.fill" : "xmark.circle.fill"}
+              android_material_icon_name={user.kycStatus === 'approved' ? "check_circle" : "cancel"}
+              size={20} 
+              color={user.kycStatus === 'approved' ? colors.success : colors.error} 
+            />
+            <Text style={styles.requirementText}>
+              {t('kycApproved')}
+            </Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -360,6 +391,7 @@ const styles = StyleSheet.create({
     gap: 8,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
+    marginBottom: 12,
   },
   infoIcon: {
     fontSize: 16,
@@ -369,5 +401,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
     lineHeight: 18,
+  },
+  requirementsBox: {
+    backgroundColor: 'rgba(255, 193, 7, 0.08)',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 193, 7, 0.3)',
+  },
+  requirementsTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  requirementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  requirementText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.text,
   },
 });

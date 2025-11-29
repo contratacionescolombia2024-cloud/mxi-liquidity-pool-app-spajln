@@ -48,7 +48,7 @@ export default function TournamentsScreen() {
   const [joining, setJoining] = useState(false);
   const [showPlayerSelector, setShowPlayerSelector] = useState(false);
   const [selectedGame, setSelectedGame] = useState<TournamentGame | null>(null);
-  const [selectedPlayerCount, setSelectedPlayerCount] = useState<number>(3);
+  const [selectedPlayerCount, setSelectedPlayerCount] = useState<number>(2);
 
   useEffect(() => {
     console.log('[Tournaments] Mounted - User:', user?.id);
@@ -126,7 +126,7 @@ export default function TournamentsScreen() {
     // If no available session, show player count selector
     if (!hasAvailableSession) {
       setSelectedGame(game);
-      setSelectedPlayerCount(3);
+      setSelectedPlayerCount(2);
       setShowPlayerSelector(true);
     } else {
       // Join existing session
@@ -458,7 +458,7 @@ export default function TournamentsScreen() {
             </Text>
 
             <View style={styles.playerOptions}>
-              {[3, 4, 5].map((count) => (
+              {[2, 3, 4, 5].map((count) => (
                 <TouchableOpacity
                   key={count}
                   style={[
