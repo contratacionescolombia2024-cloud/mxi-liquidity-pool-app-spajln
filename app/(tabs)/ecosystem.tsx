@@ -29,7 +29,7 @@ export default function EcosystemScreen() {
         <Text style={styles.headerSubtitle}>{t('liquidityPool')}</Text>
       </View>
 
-      {/* Tab Navigation - SCROLL BARS HIDDEN */}
+      {/* Tab Navigation */}
       <View style={styles.tabScrollContainer}>
         <ScrollView 
           horizontal 
@@ -129,7 +129,7 @@ export default function EcosystemScreen() {
         </ScrollView>
       </View>
 
-      {/* Tab Content - SCROLL BAR HIDDEN */}
+      {/* Tab Content */}
       <ScrollView 
         style={styles.contentScrollView} 
         contentContainerStyle={styles.scrollContent}
@@ -150,17 +150,15 @@ export default function EcosystemScreen() {
   );
 }
 
-// Note: The tab content components (QueEsMXITab, ComoFuncionaTab, etc.) remain the same
-// as they contain Spanish content that is intentional for the ecosystem information.
-// These are educational content pages that are meant to be in Spanish.
-
 // ¿Qué es MXI? Tab Content
 function QueEsMXITab() {
+  const { t } = useLanguage();
+  
   return (
     <View>
       {/* Main Title */}
       <View style={styles.titleSection}>
-        <Text style={styles.mainTitle}>¿Qué es MXI? 🚀</Text>
+        <Text style={styles.mainTitle}>{t('whatIsMXITitle')}</Text>
       </View>
 
       {/* Logo Image */}
@@ -181,78 +179,78 @@ function QueEsMXITab() {
           style={styles.contentGradient}
         >
           <Text style={styles.introText}>
-            💎 <Text style={styles.boldText}>MAXCOIN</Text> es mucho más que una criptomoneda.
+            💎 <Text style={styles.boldText}>{t('maxcoinIsMoreThanCrypto')}</Text>
           </Text>
 
           <View style={styles.divider} />
 
           <Text style={styles.bodyText}>
-            🌍 Será un <Text style={styles.highlightText}>ecosistema financiero global</Text>, creado para unir tecnología, rendimiento y comunidad en una misma red.
+            🌍 {t('globalFinancialEcosystem')}
           </Text>
 
           <View style={styles.divider} />
 
           <Text style={styles.bodyText}>
-            ⚡ Nace bajo la visión de transformar la blockchain en una <Text style={styles.highlightText}>herramienta de crecimiento real</Text>.
+            ⚡ {t('transformBlockchain')}
           </Text>
 
           <Text style={styles.bodyText}>
-            🪙 Cada token representa un fragmento de una <Text style={styles.highlightText}>economía digital en expansión</Text>, donde tu inversión impulsa utilidad, liquidez y adopción global.
+            🪙 {t('digitalEconomyFragment')}
           </Text>
 
           <View style={styles.divider} />
 
           <Text style={styles.emphasisText}>
-            🎯 MAXCOIN no busca especulación: <Text style={styles.boldText}>construye valor real con productos reales</Text>.
+            🎯 {t('maxcoinNoSpeculation')}
           </Text>
 
           <View style={styles.divider} />
 
           <Text style={styles.bodyText}>
-            💼 Pagos, préstamos, staking, minería y recompensas por participación, todo en un <Text style={styles.highlightText}>entorno seguro y auditable</Text>.
+            💼 {t('paymentsLoansStaking')}
           </Text>
         </LinearGradient>
       </View>
 
       {/* Features Grid */}
       <View style={styles.featuresSection}>
-        <Text style={styles.sectionTitle}>✨ Características Principales</Text>
+        <Text style={styles.sectionTitle}>{t('mainFeatures')}</Text>
         
         <View style={styles.featuresGrid}>
           <View style={[commonStyles.card, styles.featureCard]}>
             <Text style={styles.featureEmoji}>💳</Text>
-            <Text style={styles.featureTitle}>Pagos</Text>
-            <Text style={styles.featureDescription}>Sistema de pagos global y seguro</Text>
+            <Text style={styles.featureTitle}>{t('payments')}</Text>
+            <Text style={styles.featureDescription}>{t('globalSecurePaymentSystem')}</Text>
           </View>
 
           <View style={[commonStyles.card, styles.featureCard]}>
             <Text style={styles.featureEmoji}>💰</Text>
-            <Text style={styles.featureTitle}>Préstamos</Text>
-            <Text style={styles.featureDescription}>Acceso a crédito descentralizado</Text>
+            <Text style={styles.featureTitle}>{t('loans')}</Text>
+            <Text style={styles.featureDescription}>{t('accessToDecentralizedCredit')}</Text>
           </View>
 
           <View style={[commonStyles.card, styles.featureCard]}>
             <Text style={styles.featureEmoji}>🔒</Text>
-            <Text style={styles.featureTitle}>Staking</Text>
-            <Text style={styles.featureDescription}>Genera ingresos pasivos</Text>
+            <Text style={styles.featureTitle}>{t('staking')}</Text>
+            <Text style={styles.featureDescription}>{t('generatePassiveIncomeStaking')}</Text>
           </View>
 
           <View style={[commonStyles.card, styles.featureCard]}>
             <Text style={styles.featureEmoji}>⛏️</Text>
-            <Text style={styles.featureTitle}>Minería</Text>
-            <Text style={styles.featureDescription}>Participa en la red</Text>
+            <Text style={styles.featureTitle}>{t('mining')}</Text>
+            <Text style={styles.featureDescription}>{t('participateInNetwork')}</Text>
           </View>
 
           <View style={[commonStyles.card, styles.featureCard]}>
             <Text style={styles.featureEmoji}>🎁</Text>
-            <Text style={styles.featureTitle}>Recompensas</Text>
-            <Text style={styles.featureDescription}>Beneficios por participación</Text>
+            <Text style={styles.featureTitle}>{t('rewardsFeature')}</Text>
+            <Text style={styles.featureDescription}>{t('benefitsForParticipation')}</Text>
           </View>
 
           <View style={[commonStyles.card, styles.featureCard]}>
             <Text style={styles.featureEmoji}>🛡️</Text>
-            <Text style={styles.featureTitle}>Seguridad</Text>
-            <Text style={styles.featureDescription}>Entorno auditable</Text>
+            <Text style={styles.featureTitle}>{t('security')}</Text>
+            <Text style={styles.featureDescription}>{t('auditableEnvironment')}</Text>
           </View>
         </View>
       </View>
@@ -266,24 +264,23 @@ function QueEsMXITab() {
           style={styles.visionGradient}
         >
           <Text style={styles.visionEmoji}>🌟</Text>
-          <Text style={styles.visionTitle}>Nuestra Visión</Text>
+          <Text style={styles.visionTitle}>{t('ourVision')}</Text>
           <Text style={styles.visionText}>
-            Transformar la forma en que el mundo interactúa con las finanzas digitales, 
-            creando un ecosistema donde cada participante es parte del crecimiento y éxito colectivo.
+            {t('visionText')}
           </Text>
         </LinearGradient>
       </View>
 
       {/* Values Section */}
       <View style={styles.valuesSection}>
-        <Text style={styles.sectionTitle}>💡 Nuestros Valores</Text>
+        <Text style={styles.sectionTitle}>{t('ourValues')}</Text>
         
         <View style={[commonStyles.card, styles.valueCard]}>
           <Text style={styles.valueEmoji}>🤝</Text>
           <View style={styles.valueContent}>
-            <Text style={styles.valueTitle}>Comunidad</Text>
+            <Text style={styles.valueTitle}>{t('community')}</Text>
             <Text style={styles.valueDescription}>
-              Unidos construimos un futuro financiero más inclusivo
+              {t('communityText')}
             </Text>
           </View>
         </View>
@@ -291,9 +288,9 @@ function QueEsMXITab() {
         <View style={[commonStyles.card, styles.valueCard]}>
           <Text style={styles.valueEmoji}>🔬</Text>
           <View style={styles.valueContent}>
-            <Text style={styles.valueTitle}>Tecnología</Text>
+            <Text style={styles.valueTitle}>{t('technology')}</Text>
             <Text style={styles.valueDescription}>
-              Innovación blockchain de última generación
+              {t('technologyText')}
             </Text>
           </View>
         </View>
@@ -301,9 +298,9 @@ function QueEsMXITab() {
         <View style={[commonStyles.card, styles.valueCard]}>
           <Text style={styles.valueEmoji}>📈</Text>
           <View style={styles.valueContent}>
-            <Text style={styles.valueTitle}>Rendimiento</Text>
+            <Text style={styles.valueTitle}>{t('performance')}</Text>
             <Text style={styles.valueDescription}>
-              Crecimiento sostenible y valor real para todos
+              {t('performanceText')}
             </Text>
           </View>
         </View>
@@ -311,9 +308,9 @@ function QueEsMXITab() {
         <View style={[commonStyles.card, styles.valueCard]}>
           <Text style={styles.valueEmoji}>🔐</Text>
           <View style={styles.valueContent}>
-            <Text style={styles.valueTitle}>Transparencia</Text>
+            <Text style={styles.valueTitle}>{t('transparency')}</Text>
             <Text style={styles.valueDescription}>
-              Operaciones auditables y verificables en todo momento
+              {t('transparencyText')}
             </Text>
           </View>
         </View>
@@ -328,12 +325,12 @@ function QueEsMXITab() {
           style={styles.ctaGradient}
         >
           <Text style={styles.ctaEmoji}>🚀</Text>
-          <Text style={styles.ctaTitle}>Únete al Futuro</Text>
+          <Text style={styles.ctaTitle}>{t('joinTheFuture')}</Text>
           <Text style={styles.ctaText}>
-            Sé parte de la revolución financiera con MAXCOIN
+            {t('joinTheFutureText')}
           </Text>
           <Text style={styles.ctaSubtext}>
-            💎 Inversión mínima desde 50 USDT
+            {t('minimumInvestment')}
           </Text>
         </LinearGradient>
       </View>
@@ -341,11 +338,808 @@ function QueEsMXITab() {
   );
 }
 
-// Note: All other tab content functions (ComoFuncionaTab, PorQueComprarTab, etc.) 
-// remain unchanged as they contain intentional Spanish educational content
+// Cómo Funciona Tab Content
+function ComoFuncionaTab() {
+  const { t } = useLanguage();
+  
+  return (
+    <View>
+      <View style={styles.titleSection}>
+        <Text style={styles.mainTitle}>{t('howItWorksTitle')}</Text>
+      </View>
 
-// [Include all the other tab content functions here - they remain the same as in the original file]
-// For brevity, I'm not repeating all the tab content functions, but they should all be included
+      <View style={styles.imageContainer}>
+        <Image
+          source={require('@/assets/images/76715c1f-8b5b-4e0a-8692-d6d7963a0d99.png')}
+          style={styles.heroImage}
+          resizeMode="contain"
+        />
+      </View>
+
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '10', colors.accent + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.bodyText}>
+            {t('howItWorksIntro')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('step1Title')}</Text>
+          <Text style={styles.bodyText}>
+            {t('step1Description')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('step2Title')}</Text>
+          <Text style={styles.bodyText}>
+            {t('step2Description')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('step3Title')}</Text>
+          <Text style={styles.bodyText}>
+            {t('step3Description')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('step4Title')}</Text>
+          <Text style={styles.bodyText}>
+            {t('step4Description')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      <View style={styles.featuresSection}>
+        <Text style={styles.sectionTitle}>{t('keyBenefits')}</Text>
+        
+        <View style={[commonStyles.card, styles.valueCard]}>
+          <Text style={styles.valueEmoji}>⚡</Text>
+          <View style={styles.valueContent}>
+            <Text style={styles.valueTitle}>{t('instantTransactions')}</Text>
+            <Text style={styles.valueDescription}>
+              {t('instantTransactionsDesc')}
+            </Text>
+          </View>
+        </View>
+
+        <View style={[commonStyles.card, styles.valueCard]}>
+          <Text style={styles.valueEmoji}>🔒</Text>
+          <View style={styles.valueContent}>
+            <Text style={styles.valueTitle}>{t('maximumSecurity')}</Text>
+            <Text style={styles.valueDescription}>
+              {t('maximumSecurityDesc')}
+            </Text>
+          </View>
+        </View>
+
+        <View style={[commonStyles.card, styles.valueCard]}>
+          <Text style={styles.valueEmoji}>🌐</Text>
+          <View style={styles.valueContent}>
+            <Text style={styles.valueTitle}>{t('globalAccess')}</Text>
+            <Text style={styles.valueDescription}>
+              {t('globalAccessDesc')}
+            </Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// Por Qué Comprar Tab Content
+function PorQueComprarTab() {
+  const { t } = useLanguage();
+  
+  return (
+    <View>
+      <View style={styles.titleSection}>
+        <Text style={styles.mainTitle}>{t('whyBuyTitle')}</Text>
+      </View>
+
+      <View style={styles.imageContainer}>
+        <Image
+          source={require('@/assets/images/d6069fba-4cc4-4ec4-8cd1-68a3ad5241d5.png')}
+          style={styles.whyBuyImage}
+          resizeMode="contain"
+        />
+      </View>
+
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '10', colors.accent + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.bodyText}>
+            {t('whyBuyIntro')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.emphasisText}>
+            {t('whyBuyReason1')}
+          </Text>
+
+          <Text style={styles.bodyText}>
+            {t('whyBuyReason1Desc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.emphasisText}>
+            {t('whyBuyReason2')}
+          </Text>
+
+          <Text style={styles.bodyText}>
+            {t('whyBuyReason2Desc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.emphasisText}>
+            {t('whyBuyReason3')}
+          </Text>
+
+          <Text style={styles.bodyText}>
+            {t('whyBuyReason3Desc')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      <View style={styles.featuresSection}>
+        <Text style={styles.sectionTitle}>{t('investmentAdvantages')}</Text>
+        
+        <View style={styles.featuresGrid}>
+          <View style={[commonStyles.card, styles.featureCard]}>
+            <Text style={styles.featureEmoji}>📈</Text>
+            <Text style={styles.featureTitle}>{t('growthPotential')}</Text>
+            <Text style={styles.featureDescription}>{t('growthPotentialDesc')}</Text>
+          </View>
+
+          <View style={[commonStyles.card, styles.featureCard]}>
+            <Text style={styles.featureEmoji}>💎</Text>
+            <Text style={styles.featureTitle}>{t('limitedSupply')}</Text>
+            <Text style={styles.featureDescription}>{t('limitedSupplyDesc')}</Text>
+          </View>
+
+          <View style={[commonStyles.card, styles.featureCard]}>
+            <Text style={styles.featureEmoji}>🎯</Text>
+            <Text style={styles.featureTitle}>{t('realUtility')}</Text>
+            <Text style={styles.featureDescription}>{t('realUtilityDesc')}</Text>
+          </View>
+
+          <View style={[commonStyles.card, styles.featureCard]}>
+            <Text style={styles.featureEmoji}>🌍</Text>
+            <Text style={styles.featureTitle}>{t('globalCommunity')}</Text>
+            <Text style={styles.featureDescription}>{t('globalCommunityDesc')}</Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// Meta Tab Content
+function MetaTab() {
+  const { t } = useLanguage();
+  
+  return (
+    <View>
+      <View style={styles.titleSection}>
+        <Text style={styles.mainTitle}>{t('metaTitle')}</Text>
+      </View>
+
+      <View style={styles.imageContainer}>
+        <Image
+          source={require('@/assets/images/d97c8946-5e7b-4cd6-8c87-ad57cdc96e34.png')}
+          style={styles.metaImage}
+          resizeMode="contain"
+        />
+      </View>
+
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '20', colors.accent + '20']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.bodyText}>
+            {t('metaIntro')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('metaGoal1')}</Text>
+          <Text style={styles.bodyText}>
+            {t('metaGoal1Desc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('metaGoal2')}</Text>
+          <Text style={styles.bodyText}>
+            {t('metaGoal2Desc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('metaGoal3')}</Text>
+          <Text style={styles.bodyText}>
+            {t('metaGoal3Desc')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      <View style={[commonStyles.card, styles.visionCard]}>
+        <LinearGradient
+          colors={[colors.primary, colors.accent]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.visionGradient}
+        >
+          <Text style={styles.visionEmoji}>🎯</Text>
+          <Text style={styles.ctaTitle}>{t('ourMission')}</Text>
+          <Text style={styles.ctaText}>
+            {t('ourMissionDesc')}
+          </Text>
+        </LinearGradient>
+      </View>
+    </View>
+  );
+}
+
+// Ecosistema Tab Content
+function EcosistemaTab() {
+  const { t } = useLanguage();
+  
+  return (
+    <View>
+      <View style={styles.titleSection}>
+        <Text style={styles.mainTitle}>{t('ecosystemTitle')}</Text>
+      </View>
+
+      <View style={styles.imageContainer}>
+        <Image
+          source={require('@/assets/images/76b95e25-0844-42d7-915d-4be1ebdeb915.png')}
+          style={styles.ecosistemaImage}
+          resizeMode="contain"
+        />
+      </View>
+
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '10', colors.accent + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.bodyText}>
+            {t('ecosystemIntro')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('ecosystemComponent1')}</Text>
+          <Text style={styles.bodyText}>
+            {t('ecosystemComponent1Desc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('ecosystemComponent2')}</Text>
+          <Text style={styles.bodyText}>
+            {t('ecosystemComponent2Desc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('ecosystemComponent3')}</Text>
+          <Text style={styles.bodyText}>
+            {t('ecosystemComponent3Desc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('ecosystemComponent4')}</Text>
+          <Text style={styles.bodyText}>
+            {t('ecosystemComponent4Desc')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      <View style={styles.featuresSection}>
+        <Text style={styles.sectionTitle}>{t('ecosystemBenefits')}</Text>
+        
+        <View style={[commonStyles.card, styles.valueCard]}>
+          <Text style={styles.valueEmoji}>🔄</Text>
+          <View style={styles.valueContent}>
+            <Text style={styles.valueTitle}>{t('interconnection')}</Text>
+            <Text style={styles.valueDescription}>
+              {t('interconnectionDesc')}
+            </Text>
+          </View>
+        </View>
+
+        <View style={[commonStyles.card, styles.valueCard]}>
+          <Text style={styles.valueEmoji}>💪</Text>
+          <View style={styles.valueContent}>
+            <Text style={styles.valueTitle}>{t('synergy')}</Text>
+            <Text style={styles.valueDescription}>
+              {t('synergyDesc')}
+            </Text>
+          </View>
+        </View>
+
+        <View style={[commonStyles.card, styles.valueCard]}>
+          <Text style={styles.valueEmoji}>🚀</Text>
+          <View style={styles.valueContent}>
+            <Text style={styles.valueTitle}>{t('continuousGrowth')}</Text>
+            <Text style={styles.valueDescription}>
+              {t('continuousGrowthDesc')}
+            </Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// Seguridad Cuántica Tab Content
+function SeguridadCuanticaTab() {
+  const { t } = useLanguage();
+  
+  return (
+    <View>
+      <View style={styles.titleSection}>
+        <Text style={styles.mainTitle}>{t('quantumSecurityTitle')}</Text>
+      </View>
+
+      <View style={styles.imageContainer}>
+        <Image
+          source={require('@/assets/images/657e167a-42d3-407c-840d-5cdea04dc9b1.png')}
+          style={styles.seguridadCuanticaImage}
+          resizeMode="contain"
+        />
+      </View>
+
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '10', colors.accent + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.bodyText}>
+            {t('quantumSecurityIntro')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('quantumThreat')}</Text>
+          <Text style={styles.bodyText}>
+            {t('quantumThreatDesc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('ourSolution')}</Text>
+          <Text style={styles.bodyText}>
+            {t('ourSolutionDesc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('futureProof')}</Text>
+          <Text style={styles.bodyText}>
+            {t('futureProofDesc')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      <View style={styles.featuresSection}>
+        <Text style={styles.sectionTitle}>{t('securityFeatures')}</Text>
+        
+        <View style={styles.featuresGrid}>
+          <View style={[commonStyles.card, styles.featureCard]}>
+            <Text style={styles.featureEmoji}>🔐</Text>
+            <Text style={styles.featureTitle}>{t('advancedEncryption')}</Text>
+            <Text style={styles.featureDescription}>{t('advancedEncryptionDesc')}</Text>
+          </View>
+
+          <View style={[commonStyles.card, styles.featureCard]}>
+            <Text style={styles.featureEmoji}>🛡️</Text>
+            <Text style={styles.featureTitle}>{t('multiLayerProtection')}</Text>
+            <Text style={styles.featureDescription}>{t('multiLayerProtectionDesc')}</Text>
+          </View>
+
+          <View style={[commonStyles.card, styles.featureCard]}>
+            <Text style={styles.featureEmoji}>🔬</Text>
+            <Text style={styles.featureTitle}>{t('constantResearch')}</Text>
+            <Text style={styles.featureDescription}>{t('constantResearchDesc')}</Text>
+          </View>
+
+          <View style={[commonStyles.card, styles.featureCard]}>
+            <Text style={styles.featureEmoji}>✅</Text>
+            <Text style={styles.featureTitle}>{t('regularAudits')}</Text>
+            <Text style={styles.featureDescription}>{t('regularAuditsDesc')}</Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// Sostenibilidad Tab Content
+function SostenibilidadTab() {
+  const { t } = useLanguage();
+  
+  return (
+    <View>
+      <View style={styles.titleSection}>
+        <Text style={styles.mainTitle}>{t('sustainabilityTitle')}</Text>
+      </View>
+
+      <View style={styles.imageContainer}>
+        <Image
+          source={require('@/assets/images/d99e6be8-2e44-4eb0-98ad-d07c2ca5d07f.png')}
+          style={styles.sostenibilidadImage}
+          resizeMode="contain"
+        />
+      </View>
+
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '10', colors.accent + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.bodyText}>
+            {t('sustainabilityIntro')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('ecoFriendly')}</Text>
+          <Text style={styles.bodyText}>
+            {t('ecoFriendlyDesc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('energyEfficiency')}</Text>
+          <Text style={styles.bodyText}>
+            {t('energyEfficiencyDesc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('carbonNeutral')}</Text>
+          <Text style={styles.bodyText}>
+            {t('carbonNeutralDesc')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      <View style={styles.featuresSection}>
+        <Text style={styles.sectionTitle}>{t('sustainabilityCommitments')}</Text>
+        
+        <View style={[commonStyles.card, styles.valueCard]}>
+          <Text style={styles.valueEmoji}>🌱</Text>
+          <View style={styles.valueContent}>
+            <Text style={styles.valueTitle}>{t('greenMining')}</Text>
+            <Text style={styles.valueDescription}>
+              {t('greenMiningDesc')}
+            </Text>
+          </View>
+        </View>
+
+        <View style={[commonStyles.card, styles.valueCard]}>
+          <Text style={styles.valueEmoji}>♻️</Text>
+          <View style={styles.valueContent}>
+            <Text style={styles.valueTitle}>{t('renewableEnergy')}</Text>
+            <Text style={styles.valueDescription}>
+              {t('renewableEnergyDesc')}
+            </Text>
+          </View>
+        </View>
+
+        <View style={[commonStyles.card, styles.valueCard]}>
+          <Text style={styles.valueEmoji}>🌍</Text>
+          <View style={styles.valueContent}>
+            <Text style={styles.valueTitle}>{t('environmentalImpact')}</Text>
+            <Text style={styles.valueDescription}>
+              {t('environmentalImpactDesc')}
+            </Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// Vesting Diario Tab Content
+function VestingDiarioTab() {
+  const { t } = useLanguage();
+  
+  return (
+    <View>
+      <View style={styles.titleSection}>
+        <Text style={styles.mainTitle}>{t('dailyVestingTitle')}</Text>
+      </View>
+
+      <View style={styles.imageContainer}>
+        <Image
+          source={require('@/assets/images/ea3e731d-9789-4bbd-8839-11314ccf85d3.png')}
+          style={styles.vestingImage}
+          resizeMode="contain"
+        />
+      </View>
+
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '10', colors.accent + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.bodyText}>
+            {t('dailyVestingIntro')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('howVestingWorks')}</Text>
+          <Text style={styles.bodyText}>
+            {t('howVestingWorksDesc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('vestingBenefits')}</Text>
+          <Text style={styles.bodyText}>
+            {t('vestingBenefitsDesc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('vestingCalculation')}</Text>
+          <Text style={styles.bodyText}>
+            {t('vestingCalculationDesc')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      <View style={styles.featuresSection}>
+        <Text style={styles.sectionTitle}>{t('vestingAdvantages')}</Text>
+        
+        <View style={styles.featuresGrid}>
+          <View style={[commonStyles.card, styles.featureCard]}>
+            <Text style={styles.featureEmoji}>💰</Text>
+            <Text style={styles.featureTitle}>{t('passiveIncome')}</Text>
+            <Text style={styles.featureDescription}>{t('passiveIncomeDesc')}</Text>
+          </View>
+
+          <View style={[commonStyles.card, styles.featureCard]}>
+            <Text style={styles.featureEmoji}>📊</Text>
+            <Text style={styles.featureTitle}>{t('compoundGrowth')}</Text>
+            <Text style={styles.featureDescription}>{t('compoundGrowthDesc')}</Text>
+          </View>
+
+          <View style={[commonStyles.card, styles.featureCard]}>
+            <Text style={styles.featureEmoji}>🔄</Text>
+            <Text style={styles.featureTitle}>{t('automaticReinvestment')}</Text>
+            <Text style={styles.featureDescription}>{t('automaticReinvestmentDesc')}</Text>
+          </View>
+
+          <View style={[commonStyles.card, styles.featureCard]}>
+            <Text style={styles.featureEmoji}>📈</Text>
+            <Text style={styles.featureTitle}>{t('longTermValue')}</Text>
+            <Text style={styles.featureDescription}>{t('longTermValueDesc')}</Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// En la Práctica Tab Content
+function EnLaPracticaTab() {
+  const { t } = useLanguage();
+  
+  return (
+    <View>
+      <View style={styles.titleSection}>
+        <Text style={styles.mainTitle}>{t('inPracticeTitle')}</Text>
+      </View>
+
+      <View style={styles.imageContainer}>
+        <Image
+          source={require('@/assets/images/e69b6404-eff5-4cce-ae86-7b18bd41bdf6.png')}
+          style={styles.practicaImage}
+          resizeMode="contain"
+        />
+      </View>
+
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '10', colors.accent + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.bodyText}>
+            {t('inPracticeIntro')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('practicalUse1')}</Text>
+          <Text style={styles.bodyText}>
+            {t('practicalUse1Desc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('practicalUse2')}</Text>
+          <Text style={styles.bodyText}>
+            {t('practicalUse2Desc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('practicalUse3')}</Text>
+          <Text style={styles.bodyText}>
+            {t('practicalUse3Desc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('practicalUse4')}</Text>
+          <Text style={styles.bodyText}>
+            {t('practicalUse4Desc')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      <View style={styles.featuresSection}>
+        <Text style={styles.sectionTitle}>{t('realWorldApplications')}</Text>
+        
+        <View style={[commonStyles.card, styles.valueCard]}>
+          <Text style={styles.valueEmoji}>🛒</Text>
+          <View style={styles.valueContent}>
+            <Text style={styles.valueTitle}>{t('ecommerce')}</Text>
+            <Text style={styles.valueDescription}>
+              {t('ecommerceDesc')}
+            </Text>
+          </View>
+        </View>
+
+        <View style={[commonStyles.card, styles.valueCard]}>
+          <Text style={styles.valueEmoji}>🏦</Text>
+          <View style={styles.valueContent}>
+            <Text style={styles.valueTitle}>{t('defi')}</Text>
+            <Text style={styles.valueDescription}>
+              {t('defiDesc')}
+            </Text>
+          </View>
+        </View>
+
+        <View style={[commonStyles.card, styles.valueCard]}>
+          <Text style={styles.valueEmoji}>🎮</Text>
+          <View style={styles.valueContent}>
+            <Text style={styles.valueTitle}>{t('gaming')}</Text>
+            <Text style={styles.valueDescription}>
+              {t('gamingDesc')}
+            </Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// Tokenómica Tab Content
+function TokenomicaTab() {
+  const { t } = useLanguage();
+  
+  return (
+    <View>
+      <View style={styles.titleSection}>
+        <Text style={styles.mainTitle}>{t('tokenomicsTitle')}</Text>
+      </View>
+
+      <View style={styles.imageContainer}>
+        <Image
+          source={require('@/assets/images/eb420121-1582-4bc8-8b9d-8df76bb28c3a.png')}
+          style={styles.tokenomicaImage}
+          resizeMode="contain"
+        />
+      </View>
+
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '10', colors.accent + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.bodyText}>
+            {t('tokenomicsIntro')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('totalSupply')}</Text>
+          <Text style={styles.bodyText}>
+            {t('totalSupplyDesc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('distribution')}</Text>
+          <Text style={styles.bodyText}>
+            {t('distributionDesc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('burnMechanism')}</Text>
+          <Text style={styles.bodyText}>
+            {t('burnMechanismDesc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('stakingRewards')}</Text>
+          <Text style={styles.bodyText}>
+            {t('stakingRewardsDesc')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      <View style={styles.featuresSection}>
+        <Text style={styles.sectionTitle}>{t('tokenomicsHighlights')}</Text>
+        
+        <View style={styles.featuresGrid}>
+          <View style={[commonStyles.card, styles.featureCard]}>
+            <Text style={styles.featureEmoji}>🔥</Text>
+            <Text style={styles.featureTitle}>{t('deflationaryModel')}</Text>
+            <Text style={styles.featureDescription}>{t('deflationaryModelDesc')}</Text>
+          </View>
+
+          <View style={[commonStyles.card, styles.featureCard]}>
+            <Text style={styles.featureEmoji}>💎</Text>
+            <Text style={styles.featureTitle}>{t('fairDistribution')}</Text>
+            <Text style={styles.featureDescription}>{t('fairDistributionDesc')}</Text>
+          </View>
+
+          <View style={[commonStyles.card, styles.featureCard]}>
+            <Text style={styles.featureEmoji}>🎁</Text>
+            <Text style={styles.featureTitle}>{t('incentiveProgram')}</Text>
+            <Text style={styles.featureDescription}>{t('incentiveProgramDesc')}</Text>
+          </View>
+
+          <View style={[commonStyles.card, styles.featureCard]}>
+            <Text style={styles.featureEmoji}>🔒</Text>
+            <Text style={styles.featureTitle}>{t('liquidityLock')}</Text>
+            <Text style={styles.featureDescription}>{t('liquidityLockDesc')}</Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -368,7 +1162,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
   },
-  // FIXED TAB STYLES - SCROLL BARS HIDDEN
   tabScrollContainer: {
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -515,6 +1308,13 @@ const styles = StyleSheet.create({
     color: colors.text,
     lineHeight: 28,
     marginBottom: 8,
+    fontWeight: '600',
+  },
+  sectionSubtitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.primary,
+    marginBottom: 8,
   },
   divider: {
     height: 1,
@@ -645,10 +1445,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '600',
   },
-  // (Include all other styles from the original file)
 });
-
-// Include all other tab content functions here
-// (ComoFuncionaTab, PorQueComprarTab, MetaTab, EcosistemaTab, SeguridadCuanticaTab, 
-//  SostenibilidadTab, VestingDiarioTab, EnLaPracticaTab, TokenomicaTab)
-// They remain the same as in the original file
