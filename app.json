@@ -1,7 +1,8 @@
+
 {
   "expo": {
-    "name": "MXI Liquidity Pool",
-    "slug": "MXI Liquidity Pool",
+    "name": "mxi-liquidity-pool-app-spajln",
+    "slug": "mxi-liquidity-pool-app-spajln",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/04a4d9ac-4539-41d2-bafd-67dd75925bde.png",
@@ -26,7 +27,7 @@
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.mxistrategic.pruebaapp",
+      "package": "com.mxistrategicholdingsltd.mxistrategic_presale_play",
       "intentFilters": [
         {
           "action": "VIEW",
@@ -84,6 +85,5 @@
     "extra": {
       "router": {}
     }
-  },
-  "scheme": "MXI Liquidity Pool"
+  }
 }
