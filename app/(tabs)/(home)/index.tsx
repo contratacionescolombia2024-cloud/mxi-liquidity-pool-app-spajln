@@ -93,11 +93,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
     borderWidth: 1,
     borderColor: 'rgba(99, 102, 241, 0.3)',
-    shadowColor: '#6366F1',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
   },
   cardTitle: {
     fontSize: 16,
@@ -224,8 +219,8 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     marginBottom: 16,
-    borderWidth: 2,
-    borderColor: 'rgba(76, 175, 80, 0.4)',
+    borderWidth: 1,
+    borderColor: 'rgba(76, 175, 80, 0.3)',
   },
   totalMxiDeliveredHeader: {
     flexDirection: 'row',

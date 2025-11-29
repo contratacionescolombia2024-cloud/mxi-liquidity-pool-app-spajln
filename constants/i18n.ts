@@ -37,6 +37,16 @@ const translations = {
     pending: 'Pending',
     selectLanguage: 'Select Language',
     
+    // Tab Navigation
+    tabHome: 'Home',
+    tabDeposit: 'Deposit',
+    tabWithdraw: 'Withdraw',
+    tabReferrals: 'Referrals',
+    tabTournaments: 'Tournaments',
+    tabRewards: 'Rewards',
+    tabEcosystem: 'Ecosystem',
+    tabProfile: 'Profile',
+    
     // Auth - Login Screen
     login: 'Login',
     loginButton: 'Login',
@@ -479,7 +489,7 @@ const translations = {
     processingTimeInfo: 'Processing time: 24-48 hours',
     verifyWalletAddress: 'Carefully verify the ETH wallet address',
     verifyWalletAddressInfo: 'Carefully verify the ETH wallet address',
-    viewWithdrawalHistory2: 'Ver Withdrawal History',
+    viewWithdrawalHistory2: 'View Withdrawal History',
     invalidAmount: 'Invalid Amount',
     enterValidAmount: 'Please enter a valid amount',
     missingInformation: 'Missing Information',
@@ -715,6 +725,12 @@ const translations = {
     prize: 'Prize',
     createTournamentOf: 'Create Tournament of {{count}}',
     participateFor: 'Participate for {{fee}} MXI',
+    joinTournament: 'Join Tournament',
+    availableTournaments: 'Available Tournaments',
+    noAvailableTournaments: 'No available tournaments',
+    createNewTournament: 'Create New Tournament',
+    waitingForPlayers: 'Waiting for players',
+    spotsAvailable: '{{spots}} spots available',
     
     // Launch Countdown
     officialLaunch: 'Official Launch',
@@ -785,6 +801,16 @@ const translations = {
     respond: 'Responder',
     pending: 'Pendiente',
     selectLanguage: 'Seleccionar Idioma',
+    
+    // Tab Navigation
+    tabHome: 'Inicio',
+    tabDeposit: 'Depósito',
+    tabWithdraw: 'Retirar',
+    tabReferrals: 'Referidos',
+    tabTournaments: 'Torneos',
+    tabRewards: 'Recompensas',
+    tabEcosystem: 'Ecosistema',
+    tabProfile: 'Perfil',
     
     // Auth - Login Screen
     login: 'Iniciar Sesión',
@@ -1271,8 +1297,8 @@ const translations = {
     creditManualPayment: 'Acreditar Pago Manual',
     approveKYC: 'Aprobar KYC',
     withdrawals: 'Retiros',
-    supportMessages: 'Mensajes Soporte',
-    basicUsers: 'Usuarios Básico',
+    supportMessages: 'Mensajes de Soporte',
+    basicUsers: 'Usuarios Básicos',
     vestingAnalytics: 'Análisis de Vesting',
     settings: 'Configuración',
     resetSystemTitle: '¿Reiniciar Todo el Sistema?',
@@ -1310,8 +1336,8 @@ const translations = {
     creditManualPaymentButton: 'Acreditar Pago Manual',
     approveKYCButton: 'Aprobar KYC',
     withdrawalsButton: 'Retiros',
-    supportMessagesButton: 'Mensajes Soporte',
-    basicUsersButton: 'Usuarios Básico',
+    supportMessagesButton: 'Mensajes de Soporte',
+    basicUsersButton: 'Usuarios Básicos',
     vestingAnalyticsButton: 'Análisis de Vesting',
     settingsButton: 'Configuración',
     resetSystemModalTitle: '¿Reiniciar Todo el Sistema?',
@@ -1464,6 +1490,12 @@ const translations = {
     prize: 'Premio',
     createTournamentOf: 'Crear Torneo de {{count}}',
     participateFor: 'Participar por {{fee}} MXI',
+    joinTournament: 'Unirse al Torneo',
+    availableTournaments: 'Torneos Disponibles',
+    noAvailableTournaments: 'No hay torneos disponibles',
+    createNewTournament: 'Crear Nuevo Torneo',
+    waitingForPlayers: 'Esperando jugadores',
+    spotsAvailable: '{{spots}} cupos disponibles',
     
     // Launch Countdown
     officialLaunch: 'Lanzamiento Oficial',
@@ -1534,6 +1566,16 @@ const translations = {
     respond: 'Responder',
     pending: 'Pendente',
     selectLanguage: 'Selecionar Idioma',
+    
+    // Tab Navigation
+    tabHome: 'Início',
+    tabDeposit: 'Depósito',
+    tabWithdraw: 'Sacar',
+    tabReferrals: 'Indicações',
+    tabTournaments: 'Torneios',
+    tabRewards: 'Recompensas',
+    tabEcosystem: 'Ecossistema',
+    tabProfile: 'Perfil',
     
     // Auth - Login Screen
     login: 'Entrar',
@@ -2213,6 +2255,12 @@ const translations = {
     prize: 'Prêmio',
     createTournamentOf: 'Criar Torneio de {{count}}',
     participateFor: 'Participar por {{fee}} MXI',
+    joinTournament: 'Entrar no Torneio',
+    availableTournaments: 'Torneios Disponíveis',
+    noAvailableTournaments: 'Nenhum torneio disponível',
+    createNewTournament: 'Criar Novo Torneio',
+    waitingForPlayers: 'Aguardando jogadores',
+    spotsAvailable: '{{spots}} vagas disponíveis',
     
     // Launch Countdown
     officialLaunch: 'Lançamento Oficial',
