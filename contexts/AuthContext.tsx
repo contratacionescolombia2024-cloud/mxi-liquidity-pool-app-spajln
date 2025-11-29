@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { useRouter } from 'expo-router';
 import { notificationService } from '@/utils/notificationService';
+import { Platform } from 'react-native';
 
 interface User {
   id: string;
@@ -114,13 +115,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Initialize notification service
+  // Initialize notification service (only on native platforms)
   useEffect(() => {
-    notificationService.initialize();
-    
-    return () => {
-      notificationService.cleanup();
-    };
+    if (Platform.OS !== 'web') {
+      notificationService.initialize();
+      
+      return () => {
+        notificationService.cleanup();
+      };
+    }
   }, []);
 
   // Subscribe to real-time updates when user is authenticated
@@ -129,23 +132,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     console.log('Setting up real-time subscriptions for user:', user.id);
 
-    // Subscribe to balance changes
-    const unsubscribeBalance = notificationService.subscribeToBalanceChanges(
-      user.id,
-      (oldBalance, newBalance) => {
-        console.log('Balance changed:', { oldBalance, newBalance });
-        // Reload user data to get updated balance
-        loadUserData(user.id);
-      }
-    );
+    // Subscribe to balance changes (only on native)
+    let unsubscribeBalance = () => {};
+    let unsubscribeMessages = () => {};
+    
+    if (Platform.OS !== 'web') {
+      unsubscribeBalance = notificationService.subscribeToBalanceChanges(
+        user.id,
+        (oldBalance, newBalance) => {
+          console.log('Balance changed:', { oldBalance, newBalance });
+          loadUserData(user.id);
+        }
+      );
 
-    // Subscribe to messages
-    const unsubscribeMessages = notificationService.subscribeToMessages(
-      user.id,
-      (message) => {
-        console.log('New message received:', message);
-      }
-    );
+      unsubscribeMessages = notificationService.subscribeToMessages(
+        user.id,
+        (message) => {
+          console.log('New message received:', message);
+        }
+      );
+    }
 
     // Subscribe to withdrawal status changes
     const withdrawalChannel = supabase
@@ -160,10 +166,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
         (payload: any) => {
           if (payload.new?.status === 'approved' && payload.old?.status !== 'approved') {
-            notificationService.notifyWithdrawalApproved(
-              payload.new.amount,
-              payload.new.currency
-            );
+            if (Platform.OS !== 'web') {
+              notificationService.notifyWithdrawalApproved(
+                payload.new.amount,
+                payload.new.currency
+              );
+            }
           }
         }
       )
@@ -178,11 +186,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           event: 'UPDATE',
           schema: 'public',
           table: 'users',
-          filter: `id=eq.${user.id}`,
+          filter: `user_id=eq.${user.id}`,
         },
         (payload: any) => {
           if (payload.new?.kyc_status !== payload.old?.kyc_status) {
-            notificationService.notifyKYCStatusChange(payload.new.kyc_status);
+            if (Platform.OS !== 'web') {
+              notificationService.notifyKYCStatusChange(payload.new.kyc_status);
+            }
             loadUserData(user.id);
           }
         }
@@ -202,11 +212,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
         (payload: any) => {
           if (payload.new) {
-            notificationService.notifyReferralCommission(
-              payload.new.amount,
-              payload.new.level || 1,
-              'Your Referral'
-            );
+            if (Platform.OS !== 'web') {
+              notificationService.notifyReferralCommission(
+                payload.new.amount,
+                payload.new.level || 1,
+                'Your Referral'
+              );
+            }
             loadUserData(user.id);
           }
         }
@@ -223,18 +235,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user?.id]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session:', session);
-      setSession(session);
-      if (session) {
-        loadUserData(session.user.id);
-      } else {
+    console.log('=== AUTH CONTEXT INITIALIZATION ===');
+    console.log('Platform:', Platform.OS);
+    console.log('Supabase client available:', !!supabase);
+    
+    // Add a timeout to prevent infinite loading
+    const loadingTimeout = setTimeout(() => {
+      console.warn('Auth initialization timeout - forcing loading to false');
+      if (loading) {
         setLoading(false);
       }
-    });
+    }, 10000); // 10 second timeout
+
+    supabase.auth.getSession()
+      .then(({ data: { session }, error }) => {
+        clearTimeout(loadingTimeout);
+        
+        if (error) {
+          console.error('Error getting initial session:', error);
+          setLoading(false);
+          return;
+        }
+        
+        console.log('Initial session:', session ? 'Found' : 'Not found');
+        setSession(session);
+        
+        if (session) {
+          console.log('Loading user data for session user:', session.user.id);
+          loadUserData(session.user.id);
+        } else {
+          console.log('No session found, setting loading to false');
+          setLoading(false);
+        }
+      })
+      .catch((error) => {
+        clearTimeout(loadingTimeout);
+        console.error('Exception getting initial session:', error);
+        setLoading(false);
+      });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      console.log('Auth state changed:', _event, session);
+      console.log('=== AUTH STATE CHANGE ===');
+      console.log('Event:', _event);
+      console.log('Session:', session ? 'Present' : 'Null');
+      
       setSession(session);
       
       if (_event === 'SIGNED_OUT') {
@@ -246,6 +290,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       if (_event === 'SIGNED_IN' && session) {
+        console.log('User signed in, checking if user exists in database');
         const { data: existingUser } = await supabase
           .from('users')
           .select('id')
@@ -253,6 +298,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .single();
         
         if (!existingUser && session.user.email) {
+          console.log('New user, updating email verification status');
           await supabase
             .from('users')
             .update({ email_verified: true })
@@ -261,20 +307,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         loadUserData(session.user.id);
       } else if (session) {
+        console.log('Session present, loading user data');
         loadUserData(session.user.id);
       } else {
+        console.log('No session, clearing user state');
         setUser(null);
         setIsAuthenticated(false);
         setLoading(false);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(loadingTimeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const loadUserData = async (userId: string) => {
     try {
-      console.log('Loading user data for:', userId);
+      console.log('=== LOADING USER DATA ===');
+      console.log('User ID:', userId);
       
       const { data: userData, error: userError } = await supabase
         .from('users')
@@ -293,6 +345,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLoading(false);
         return;
       }
+
+      console.log('User data loaded:', userData.email);
 
       const { data: referralData } = await supabase
         .from('referrals')
@@ -376,6 +430,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('=== LOGIN FUNCTION START ===');
       console.log('Attempting login for:', email);
+      console.log('Platform:', Platform.OS);
       
       // First, try to sign in
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -833,8 +888,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
 
-      // Notify about payment confirmation
-      await notificationService.notifyPaymentConfirmed(usdtAmount, mxiTokens);
+      // Notify about payment confirmation (only on native)
+      if (Platform.OS !== 'web') {
+        await notificationService.notifyPaymentConfirmed(usdtAmount, mxiTokens);
+      }
 
       await loadUserData(user.id);
 

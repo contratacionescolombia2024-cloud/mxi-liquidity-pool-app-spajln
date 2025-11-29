@@ -27,7 +27,7 @@ const REMEMBER_PASSWORD_KEY = '@mxi_remember_password';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login, resendVerificationEmail } = useAuth();
+  const { login, resendVerificationEmail, loading: authLoading } = useAuth();
   const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -146,6 +146,16 @@ export default function LoginScreen() {
       ]
     );
   };
+
+  // Show loading overlay if auth is initializing
+  if (authLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Cargando...</Text>
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -528,6 +538,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: colors.text,
   },
   languageSelectorContainer: {
     position: 'absolute',
