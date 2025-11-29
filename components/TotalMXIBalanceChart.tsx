@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, ScrollView, ActivityIndicator } from 'react-native';
 import { Svg, Rect, Line, Text as SvgText, G, Path, Defs, LinearGradient, Stop, Circle } from 'react-native-svg';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -8,11 +8,10 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-const CHART_WIDTH = Dimensions.get('window').width - 80;
 const CHART_HEIGHT = 320;
 const PADDING = { top: 20, right: 10, bottom: 70, left: 60 };
-
-type TimeRange = '1d' | '3d' | '7d';
+const MIN_CHART_WIDTH = Dimensions.get('window').width - 80;
+const POINT_SPACING = 80; // Minimum spacing between data points
 
 interface BalanceDataPoint {
   timestamp: Date;
@@ -21,12 +20,13 @@ interface BalanceDataPoint {
   mxiTournaments: number;
   mxiVesting: number;
   totalBalance: number;
+  transactionType?: string;
+  transactionAmount?: number;
 }
 
 export function TotalMXIBalanceChart() {
   const { user } = useAuth();
   const { t } = useLanguage();
-  const [timeRange, setTimeRange] = useState<TimeRange>('1d');
   const [balanceData, setBalanceData] = useState<BalanceDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentVesting, setCurrentVesting] = useState(0);
@@ -65,63 +65,31 @@ export function TotalMXIBalanceChart() {
   useEffect(() => {
     if (user) {
       loadBalanceData();
-      // Refresh data periodically based on timeframe
-      const refreshInterval = getRefreshInterval();
-      const interval = setInterval(loadBalanceData, refreshInterval);
+      // Refresh data every 30 seconds to catch new transactions
+      const interval = setInterval(loadBalanceData, 30000);
       return () => clearInterval(interval);
     }
-  }, [user, timeRange]);
-
-  const getRefreshInterval = () => {
-    switch (timeRange) {
-      case '1d':
-        return 120000; // 2 minutes
-      case '3d':
-        return 180000; // 3 minutes
-      case '7d':
-        return 300000; // 5 minutes
-      default:
-        return 120000;
-    }
-  };
-
-  const getTimeRangeMs = () => {
-    const now = Date.now();
-    switch (timeRange) {
-      case '1d':
-        return 24 * 60 * 60 * 1000;
-      case '3d':
-        return 3 * 24 * 60 * 60 * 1000;
-      case '7d':
-        return 7 * 24 * 60 * 60 * 1000;
-      default:
-        return 24 * 60 * 60 * 1000;
-    }
-  };
+  }, [user]);
 
   const loadBalanceData = async () => {
     try {
       setLoading(true);
 
-      const now = new Date();
-      const startTime = new Date(now.getTime() - getTimeRangeMs());
-
-      // Fetch balance history from database
+      // Fetch ALL balance history from database (no time limit)
       const { data: historyData, error } = await supabase
         .from('mxi_balance_history')
         .select('*')
         .eq('user_id', user?.id)
-        .gte('timestamp', startTime.toISOString())
         .order('timestamp', { ascending: true });
 
       if (error) {
         console.error('Error loading balance history:', error);
-        generateSyntheticData();
+        generateInitialDataPoint();
         return;
       }
 
       if (!historyData || historyData.length === 0) {
-        generateSyntheticData();
+        generateInitialDataPoint();
         return;
       }
 
@@ -133,77 +101,45 @@ export function TotalMXIBalanceChart() {
         mxiTournaments: parseFloat(item.mxi_challenges || '0'),
         mxiVesting: parseFloat(item.mxi_vesting || '0'),
         totalBalance: parseFloat(item.total_balance || '0'),
+        transactionType: item.transaction_type,
+        transactionAmount: parseFloat(item.transaction_amount || '0'),
       }));
 
       setBalanceData(transformedData);
     } catch (error) {
       console.error('Error in loadBalanceData:', error);
-      generateSyntheticData();
+      generateInitialDataPoint();
     } finally {
       setLoading(false);
     }
   };
 
-  const generateSyntheticData = () => {
+  const generateInitialDataPoint = () => {
     if (!user) return;
 
     const now = new Date();
-    const rangeMs = getTimeRangeMs();
-    const dataPoints = getDataPointCount();
-    const intervalMs = rangeMs / dataPoints;
-
     const mxiPurchased = user.mxiPurchasedDirectly || 0;
     const mxiCommissions = user.mxiFromUnifiedCommissions || 0;
     const mxiTournaments = user.mxiFromChallenges || 0;
-    const mxiVesting = user.mxiVestingLocked || 0;
+    const mxiVesting = currentVesting || 0;
 
-    const MONTHLY_YIELD_PERCENTAGE = 0.03;
-    const SECONDS_IN_MONTH = 2592000;
-    // ONLY purchased MXI generates vesting
-    const maxMonthlyYield = mxiPurchased * MONTHLY_YIELD_PERCENTAGE;
-    const yieldPerSecond = mxiPurchased > 0 ? maxMonthlyYield / SECONDS_IN_MONTH : 0;
-    const yieldPerInterval = yieldPerSecond * (intervalMs / 1000);
+    const initialPoint: BalanceDataPoint = {
+      timestamp: now,
+      mxiPurchased,
+      mxiCommissions,
+      mxiTournaments,
+      mxiVesting,
+      totalBalance: mxiPurchased + mxiCommissions + mxiTournaments + mxiVesting,
+    };
 
-    const synthetic: BalanceDataPoint[] = [];
-    let cumulativeVesting = Math.max(0, currentVesting - (yieldPerInterval * dataPoints));
-
-    for (let i = dataPoints; i >= 0; i--) {
-      const timestamp = new Date(now.getTime() - (i * intervalMs));
-      const vestingAtPoint = cumulativeVesting;
-      
-      synthetic.push({
-        timestamp,
-        mxiPurchased,
-        mxiCommissions,
-        mxiTournaments,
-        mxiVesting: vestingAtPoint,
-        totalBalance: mxiPurchased + mxiCommissions + mxiTournaments + vestingAtPoint,
-      });
-
-      cumulativeVesting += yieldPerInterval;
-    }
-
-    setBalanceData(synthetic);
+    setBalanceData([initialPoint]);
   };
 
-  const getDataPointCount = () => {
-    switch (timeRange) {
-      case '1d':
-        return 96; // 15 minute intervals
-      case '3d':
-        return 72; // 1 hour intervals
-      case '7d':
-        return 168; // 1 hour intervals
-      default:
-        return 96;
-    }
-  };
-
-  const renderFuturisticChart = () => {
+  const renderDynamicChart = () => {
     if (balanceData.length === 0) {
       return (
         <View style={styles.emptyChart}>
-          <Text style={styles.emptyText}>{t('generatingChartData')}</Text>
+          <Text style={styles.emptyText}>{t('noBalanceHistory')}</Text>
         </View>
       );
     }
@@ -213,11 +149,17 @@ export function TotalMXIBalanceChart() {
       ? balanceData[balanceData.length - 1].totalBalance 
       : 0;
 
+    // Dynamic chart width based on number of data points
+    const dynamicChartWidth = Math.max(
+      MIN_CHART_WIDTH,
+      balanceData.length * POINT_SPACING
+    );
+
     // Y-axis scale: Always start from 0, max is 2x the total MXI for balanced view
     const maxY = Math.max(currentTotal * 2, 10); // Minimum 10 to avoid division by zero
     const minY = 0; // Always start from 0
 
-    const chartWidth = CHART_WIDTH - PADDING.left - PADDING.right;
+    const chartWidth = dynamicChartWidth - PADDING.left - PADDING.right;
     const chartHeight = CHART_HEIGHT - PADDING.top - PADDING.bottom;
 
     // Y-axis scale - always starts from 0
@@ -226,47 +168,30 @@ export function TotalMXIBalanceChart() {
       return PADDING.top + chartHeight - ((value - minY) / (maxY - minY)) * chartHeight;
     };
 
-    // X-axis scale - normalized from 0.0 to 1.0
-    const xScale = (normalizedTime: number) => {
-      return PADDING.left + (normalizedTime * chartWidth);
+    // X-axis scale - evenly distribute points across chart width
+    const xScale = (index: number) => {
+      if (balanceData.length === 1) {
+        return PADDING.left + chartWidth / 2;
+      }
+      return PADDING.left + (index / (balanceData.length - 1)) * chartWidth;
     };
 
-    // Get time range in milliseconds
-    const rangeMs = getTimeRangeMs();
-    const startTime = balanceData.length > 0 ? balanceData[0].timestamp.getTime() : Date.now() - rangeMs;
-    const endTime = balanceData.length > 0 ? balanceData[balanceData.length - 1].timestamp.getTime() : Date.now();
-    const actualRangeMs = endTime - startTime;
-
-    // Create smooth line path that starts from (0,0) and connects all points
+    // Create smooth line path that connects all balance change points
     const createSmoothPath = () => {
       if (balanceData.length === 0) return '';
       
       let path = '';
       
-      // Start from origin (0,0) - bottom left corner of chart
-      const originX = PADDING.left;
-      const originY = yScale(0);
-      path += `M ${originX} ${originY}`;
-      
-      // Connect to all data points with smooth curves
       balanceData.forEach((point, index) => {
-        // Normalize time to 0.0 - 1.0 range
-        const normalizedTime = actualRangeMs > 0 
-          ? (point.timestamp.getTime() - startTime) / actualRangeMs 
-          : 0;
-        const x = xScale(normalizedTime);
+        const x = xScale(index);
         const y = yScale(point.totalBalance);
         
         if (index === 0) {
-          // First point: smooth curve from origin to first data point
-          const cpX = (originX + x) / 2;
-          path += ` Q ${cpX} ${originY}, ${x} ${y}`;
+          // Start from first point
+          path += `M ${x} ${y}`;
         } else {
-          // Subsequent points: use smooth curve between points
-          const prevNormalizedTime = actualRangeMs > 0 
-            ? (balanceData[index - 1].timestamp.getTime() - startTime) / actualRangeMs 
-            : 0;
-          const prevX = xScale(prevNormalizedTime);
+          // Smooth curve to next point
+          const prevX = xScale(index - 1);
           const prevY = yScale(balanceData[index - 1].totalBalance);
           const cpX = (prevX + x) / 2;
           path += ` Q ${cpX} ${prevY}, ${x} ${y}`;
@@ -283,61 +208,28 @@ export function TotalMXIBalanceChart() {
       let path = createSmoothPath();
       
       // Close the path to create filled area
-      const lastNormalizedTime = actualRangeMs > 0 
-        ? (balanceData[balanceData.length - 1].timestamp.getTime() - startTime) / actualRangeMs 
-        : 1;
-      const lastX = xScale(lastNormalizedTime);
+      const lastX = xScale(balanceData.length - 1);
+      const firstX = xScale(0);
       const baseY = yScale(0);
       path += ` L ${lastX} ${baseY}`;
-      path += ` L ${PADDING.left} ${baseY}`;
+      path += ` L ${firstX} ${baseY}`;
       path += ' Z';
       
       return path;
     };
 
-    // Generate time labels at constant intervals
-    const getTimeLabels = () => {
-      const labels: { normalizedTime: number; label: string; fullLabel: string }[] = [];
-      
-      // Add origin label (0.0)
-      labels.push({
-        normalizedTime: 0,
-        label: '0.0',
-        fullLabel: formatTimeLabel(new Date(startTime), true),
-      });
-
-      // Determine number of intervals based on time range
-      let intervalCount = 5;
-      switch (timeRange) {
-        case '1d':
-          intervalCount = 6; // Every 4 hours
-          break;
-        case '3d':
-          intervalCount = 6; // Every 12 hours
-          break;
-        case '7d':
-          intervalCount = 7; // Every day
-          break;
-      }
-
-      // Generate labels at equal intervals
-      for (let i = 1; i <= intervalCount; i++) {
-        const normalizedTime = i / intervalCount;
-        const timestamp = new Date(startTime + (normalizedTime * actualRangeMs));
-        labels.push({
-          normalizedTime,
-          label: formatTimeLabel(timestamp, false),
-          fullLabel: formatTimeLabel(timestamp, true),
-        });
-      }
-
-      return labels;
+    // Format timestamp for display
+    const formatTimestamp = (date: Date) => {
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      return `${day}/${month}/${year}\n${hours}:${minutes}`;
     };
 
-    const timeLabels = getTimeLabels();
-
     return (
-      <Svg width={CHART_WIDTH} height={CHART_HEIGHT}>
+      <Svg width={dynamicChartWidth} height={CHART_HEIGHT}>
         <Defs>
           {/* Green gradient for main line */}
           <LinearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
@@ -359,7 +251,7 @@ export function TotalMXIBalanceChart() {
           </LinearGradient>
         </Defs>
 
-        {/* Grid lines with futuristic glow - Y axis */}
+        {/* Grid lines - Y axis */}
         {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
           const y = PADDING.top + chartHeight * ratio;
           const value = maxY - ((maxY - minY) * ratio);
@@ -368,7 +260,7 @@ export function TotalMXIBalanceChart() {
               <Line
                 x1={PADDING.left}
                 y1={y}
-                x2={CHART_WIDTH - PADDING.right}
+                x2={dynamicChartWidth - PADDING.right}
                 y2={y}
                 stroke="rgba(0, 255, 136, 0.15)"
                 strokeWidth="1"
@@ -388,12 +280,12 @@ export function TotalMXIBalanceChart() {
           );
         })}
 
-        {/* Grid lines - X axis (vertical lines at time intervals) */}
-        {timeLabels.map((label, i) => {
-          const x = xScale(label.normalizedTime);
+        {/* Vertical grid lines at each data point */}
+        {balanceData.map((point, index) => {
+          const x = xScale(index);
           return (
             <Line
-              key={`grid-x-${i}`}
+              key={`grid-x-${index}`}
               x1={x}
               y1={PADDING.top}
               x2={x}
@@ -412,7 +304,7 @@ export function TotalMXIBalanceChart() {
           opacity={0.4}
         />
 
-        {/* Main trend line with glow effect - starts from (0,0) and connects all points */}
+        {/* Main trend line with glow effect */}
         <Path
           d={createSmoothPath()}
           stroke="#ffdd00"
@@ -428,35 +320,13 @@ export function TotalMXIBalanceChart() {
           opacity={1}
         />
 
-        {/* Origin point at (0,0) */}
-        <G>
-          <Circle
-            cx={PADDING.left}
-            cy={yScale(0)}
-            r="6"
-            fill="#ffdd00"
-            opacity={0.3}
-          />
-          <Circle
-            cx={PADDING.left}
-            cy={yScale(0)}
-            r="3"
-            fill="#00ff88"
-            opacity={1}
-          />
-        </G>
-
-        {/* Data points with glow - show every few points for clarity */}
-        {balanceData.filter((_, i) => i % Math.ceil(balanceData.length / 20) === 0).map((point, i) => {
-          const index = balanceData.indexOf(point);
-          const normalizedTime = actualRangeMs > 0 
-            ? (point.timestamp.getTime() - startTime) / actualRangeMs 
-            : 0;
-          const x = xScale(normalizedTime);
+        {/* Data points with glow - show all points */}
+        {balanceData.map((point, index) => {
+          const x = xScale(index);
           const y = yScale(point.totalBalance);
           
           return (
-            <G key={`point-${i}`}>
+            <G key={`point-${index}`}>
               {/* Outer glow */}
               <Circle
                 cx={x}
@@ -477,13 +347,15 @@ export function TotalMXIBalanceChart() {
           );
         })}
 
-        {/* X-axis labels - time intervals */}
-        {timeLabels.map((label, i) => {
-          const x = xScale(label.normalizedTime);
+        {/* X-axis labels - date and time for each balance change */}
+        {balanceData.map((point, index) => {
+          const x = xScale(index);
+          const formattedTime = formatTimestamp(point.timestamp);
+          const lines = formattedTime.split('\n');
           
           return (
-            <G key={`x-label-${i}`}>
-              {/* Short label (time) */}
+            <G key={`x-label-${index}`}>
+              {/* Date */}
               <SvgText
                 x={x}
                 y={CHART_HEIGHT - PADDING.bottom + 15}
@@ -492,9 +364,9 @@ export function TotalMXIBalanceChart() {
                 textAnchor="middle"
                 fontWeight="600"
               >
-                {label.label}
+                {lines[0]}
               </SvgText>
-              {/* Full label (date + time) on second line */}
+              {/* Time */}
               <SvgText
                 x={x}
                 y={CHART_HEIGHT - PADDING.bottom + 28}
@@ -503,7 +375,7 @@ export function TotalMXIBalanceChart() {
                 textAnchor="middle"
                 fontWeight="500"
               >
-                {label.fullLabel}
+                {lines[1]}
               </SvgText>
             </G>
           );
@@ -524,43 +396,17 @@ export function TotalMXIBalanceChart() {
 
         {/* X-axis label */}
         <SvgText
-          x={CHART_WIDTH / 2}
+          x={dynamicChartWidth / 2}
           y={CHART_HEIGHT - 5}
           fill="#00ff88"
           fontSize="11"
           textAnchor="middle"
           fontWeight="700"
         >
-          {t('time')}
+          {t('balanceChangeTimestamps')}
         </SvgText>
       </Svg>
     );
-  };
-
-  const formatTimeLabel = (date: Date, includeDateAndTime: boolean) => {
-    if (includeDateAndTime) {
-      // Full format: DD/MM HH:MM
-      const day = date.getDate().toString().padStart(2, '0');
-      const month = (date.getMonth() + 1).toString().padStart(2, '0');
-      const hours = date.getHours().toString().padStart(2, '0');
-      const minutes = date.getMinutes().toString().padStart(2, '0');
-      return `${day}/${month} ${hours}:${minutes}`;
-    }
-
-    // Short format based on time range
-    switch (timeRange) {
-      case '1d':
-        // Show HH:00
-        return `${date.getHours().toString().padStart(2, '0')}:00`;
-      case '3d':
-        // Show DD/MM HH:00
-        return `${date.getDate()}/${date.getMonth() + 1} ${date.getHours().toString().padStart(2, '0')}:00`;
-      case '7d':
-        // Show DD/MM
-        return `${date.getDate()}/${date.getMonth() + 1}`;
-      default:
-        return '';
-    }
   };
 
   const getChangeData = () => {
@@ -575,8 +421,7 @@ export function TotalMXIBalanceChart() {
   const { change, percentage } = getChangeData();
   const isPositive = change >= 0;
 
-  // ✅ FIXED: Calculate the TOTAL MXI balance from ALL sources (purchased + commissions + tournaments + vesting)
-  // This ensures the display always shows the correct total
+  // Calculate the TOTAL MXI balance from ALL sources
   const currentTotal = (user?.mxiPurchasedDirectly || 0) + 
                        (user?.mxiFromUnifiedCommissions || 0) + 
                        (user?.mxiFromChallenges || 0) + 
@@ -597,6 +442,7 @@ export function TotalMXIBalanceChart() {
     tournaments: currentBreakdown.mxiTournaments,
     vesting: currentBreakdown.mxiVesting,
     total: currentTotal,
+    dataPoints: balanceData.length,
   });
 
   return (
@@ -637,35 +483,25 @@ export function TotalMXIBalanceChart() {
           color="#00ff88" 
         />
         <Text style={styles.infoText}>
-          {t('chartShowsTotalBalance')}
+          {t('chartShowsDynamicBalance')}
         </Text>
       </View>
 
-      {/* Time Range Selector - 1d, 3d, 7d */}
-      <View style={styles.timeRangeSelector}>
-        {(['1d', '3d', '7d'] as TimeRange[]).map((range) => (
-          <TouchableOpacity
-            key={range}
-            style={[
-              styles.timeRangeButton,
-              timeRange === range && styles.timeRangeButtonActive,
-            ]}
-            onPress={() => setTimeRange(range)}
-          >
-            <Text
-              style={[
-                styles.timeRangeText,
-                timeRange === range && styles.timeRangeTextActive,
-              ]}
-            >
-              {range}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      {/* Transaction Count Badge */}
+      <View style={styles.transactionBadge}>
+        <IconSymbol 
+          ios_icon_name="chart.line.uptrend.xyaxis" 
+          android_material_icon_name="show_chart" 
+          size={16} 
+          color="#ffdd00" 
+        />
+        <Text style={styles.transactionText}>
+          {balanceData.length} {t('balanceChanges')}
+        </Text>
       </View>
 
-      {/* Chart */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chartScroll}>
+      {/* Chart - Horizontally scrollable for many transactions */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={true} style={styles.chartScroll}>
         <View style={styles.chartContainer}>
           {loading ? (
             <View style={styles.loadingContainer}>
@@ -673,7 +509,7 @@ export function TotalMXIBalanceChart() {
               <Text style={styles.loadingText}>{t('loadingChart')}</Text>
             </View>
           ) : (
-            renderFuturisticChart()
+            renderDynamicChart()
           )}
         </View>
       </ScrollView>
@@ -908,7 +744,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: 'rgba(0, 255, 136, 0.3)',
   },
@@ -919,34 +755,22 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontWeight: '600',
   },
-  timeRangeSelector: {
+  transactionBadge: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderRadius: 12,
-    padding: 4,
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255, 221, 0, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(0, 255, 136, 0.2)',
+    borderColor: 'rgba(255, 221, 0, 0.3)',
+    alignSelf: 'flex-start',
   },
-  timeRangeButton: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  timeRangeButtonActive: {
-    backgroundColor: 'rgba(0, 255, 136, 0.2)',
-    borderWidth: 1,
-    borderColor: '#00ff88',
-  },
-  timeRangeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: 'rgba(0, 255, 136, 0.5)',
-  },
-  timeRangeTextActive: {
-    color: '#00ff88',
+  transactionText: {
+    fontSize: 12,
+    color: '#ffdd00',
     fontWeight: '700',
   },
   chartScroll: {
@@ -960,7 +784,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0, 255, 136, 0.2)',
   },
   emptyChart: {
-    width: CHART_WIDTH,
+    width: MIN_CHART_WIDTH,
     height: CHART_HEIGHT,
     justifyContent: 'center',
     alignItems: 'center',
@@ -970,7 +794,7 @@ const styles = StyleSheet.create({
     color: '#00ff88',
   },
   loadingContainer: {
-    width: CHART_WIDTH,
+    width: MIN_CHART_WIDTH,
     height: CHART_HEIGHT,
     justifyContent: 'center',
     alignItems: 'center',
