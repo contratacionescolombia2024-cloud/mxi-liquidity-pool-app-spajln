@@ -6,7 +6,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   Modal,
 } from 'react-native';
@@ -17,6 +16,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { showConfirm, showAlert } from '@/utils/confirmDialog';
 
 interface TournamentGame {
   id: string;
@@ -81,7 +81,7 @@ export default function TournamentsScreen() {
       setAvailableMXI(total);
     } catch (error) {
       console.error('[Tournaments] Load error:', error);
-      Alert.alert(t('error'), t('availableGames'));
+      showAlert(t('error'), t('availableGames'), undefined, 'error');
     } finally {
       setLoading(false);
     }
@@ -94,9 +94,11 @@ export default function TournamentsScreen() {
     
     // Check balance
     if (availableMXI < game.entry_fee) {
-      Alert.alert(
+      showAlert(
         t('insufficientBalance'),
-        t('insufficientBalanceNeed', { needed: game.entry_fee, available: availableMXI.toFixed(2) })
+        t('insufficientBalanceNeed', { needed: game.entry_fee, available: availableMXI.toFixed(2) }),
+        undefined,
+        'warning'
       );
       return;
     }
@@ -139,17 +141,21 @@ export default function TournamentsScreen() {
       ? t('createTournamentOf', { count: playerCount }) + ` ${t('participateFor', { fee: game.entry_fee })}?\n\n🏆 ${t('prize')}: 90% del pool\n👥 ${playerCount} ${t('players')}`
       : t('participateFor', { fee: game.entry_fee }) + `?\n\n🏆 ${t('prize')}: 90% del pool\n👥 ${game.min_players}-${game.max_players} ${t('players')}`;
 
-    Alert.alert(
-      game.name,
-      message,
-      [
-        { text: t('cancel'), style: 'cancel' },
-        { 
-          text: t('continue'), 
-          onPress: () => executeJoin(game, playerCount)
-        }
-      ]
-    );
+    showConfirm({
+      title: game.name,
+      message: message,
+      confirmText: t('continue'),
+      cancelText: t('cancel'),
+      type: 'info',
+      icon: {
+        ios: 'gamecontroller.fill',
+        android: 'sports_esports',
+      },
+      onConfirm: () => executeJoin(game, playerCount),
+      onCancel: () => {
+        console.log('Join cancelled');
+      },
+    });
   };
 
   const executeJoin = async (game: TournamentGame, playerCount: number | null) => {
@@ -311,7 +317,7 @@ export default function TournamentsScreen() {
 
     } catch (error: any) {
       console.error('[Tournaments] JOIN ERROR:', error);
-      Alert.alert(t('error'), error.message || t('joiningGame'));
+      showAlert(t('error'), error.message || t('joiningGame'), undefined, 'error');
     } finally {
       setJoining(false);
     }

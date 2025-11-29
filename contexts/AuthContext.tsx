@@ -5,6 +5,7 @@ import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { useRouter } from 'expo-router';
 import { notificationService } from '@/utils/notificationService';
 import { Platform } from 'react-native';
+import { showConfirm } from '@/utils/confirmDialog';
 
 interface User {
   id: string;
@@ -756,37 +757,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    try {
-      console.log('=== LOGOUT START ===');
-      console.log('Current session:', session?.user?.id);
-      console.log('Current user:', user?.id);
-      
-      // Sign out from Supabase FIRST
-      const { error } = await supabase.auth.signOut({ scope: 'local' });
-      
-      if (error) {
-        console.error('Supabase signOut error:', error);
-        // Continue anyway to clear local state
-      } else {
-        console.log('Supabase signOut successful');
-      }
-      
-      // Then clear local state - this will trigger the navigation in _layout.tsx
-      setUser(null);
-      setSession(null);
-      setIsAuthenticated(false);
-      
-      console.log('Local state cleared');
-      console.log('=== LOGOUT COMPLETE ===');
-    } catch (error) {
-      console.error('=== LOGOUT EXCEPTION ===');
-      console.error('Logout error:', error);
-      
-      // Ensure state is cleared even on error
-      setUser(null);
-      setSession(null);
-      setIsAuthenticated(false);
-    }
+    // Show confirmation dialog before logging out
+    showConfirm({
+      title: '¿Cerrar Sesión?',
+      message: '¿Estás seguro de que deseas cerrar sesión?',
+      confirmText: 'Cerrar Sesión',
+      cancelText: 'Cancelar',
+      type: 'warning',
+      icon: {
+        ios: 'rectangle.portrait.and.arrow.right',
+        android: 'logout',
+      },
+      onConfirm: async () => {
+        try {
+          console.log('=== LOGOUT START ===');
+          console.log('Current session:', session?.user?.id);
+          console.log('Current user:', user?.id);
+          
+          // Sign out from Supabase FIRST
+          const { error } = await supabase.auth.signOut({ scope: 'local' });
+          
+          if (error) {
+            console.error('Supabase signOut error:', error);
+            // Continue anyway to clear local state
+          } else {
+            console.log('Supabase signOut successful');
+          }
+          
+          // Then clear local state - this will trigger the navigation in _layout.tsx
+          setUser(null);
+          setSession(null);
+          setIsAuthenticated(false);
+          
+          console.log('Local state cleared');
+          console.log('=== LOGOUT COMPLETE ===');
+        } catch (error) {
+          console.error('=== LOGOUT EXCEPTION ===');
+          console.error('Logout error:', error);
+          
+          // Ensure state is cleared even on error
+          setUser(null);
+          setSession(null);
+          setIsAuthenticated(false);
+        }
+      },
+      onCancel: () => {
+        console.log('Logout cancelled');
+      },
+    });
   };
 
   const updateUser = async (updates: Partial<User>) => {

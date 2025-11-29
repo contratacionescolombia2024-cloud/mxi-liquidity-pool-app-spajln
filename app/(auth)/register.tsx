@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Alert,
   ActivityIndicator,
   Image,
   Modal,
@@ -19,6 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
+import { showAlert } from '@/utils/confirmDialog';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -42,32 +42,34 @@ export default function RegisterScreen() {
     const { name, idNumber, address, email, password, confirmPassword, referralCode } = formData;
 
     if (!name || !idNumber || !address || !email || !password || !confirmPassword) {
-      Alert.alert(t('error'), t('fillAllFields'));
+      showAlert(t('error'), t('fillAllFields'), undefined, 'error');
       return;
     }
 
     if (!acceptedTerms) {
-      Alert.alert(
+      showAlert(
         t('termsAndConditionsRequired'),
-        t('youMustAcceptTerms')
+        t('youMustAcceptTerms'),
+        undefined,
+        'warning'
       );
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert(t('error'), t('passwordsDontMatch'));
+      showAlert(t('error'), t('passwordsDontMatch'), undefined, 'error');
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert(t('error'), t('passwordTooShort'));
+      showAlert(t('error'), t('passwordTooShort'), undefined, 'error');
       return;
     }
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      Alert.alert(t('error'), t('invalidEmail'));
+      showAlert(t('error'), t('invalidEmail'), undefined, 'error');
       return;
     }
 
@@ -96,15 +98,14 @@ export default function RegisterScreen() {
     setLoading(false);
 
     if (result.success) {
-      Alert.alert(
+      showAlert(
         t('success'),
         t('accountCreatedSuccessfully'),
-        [
-          { text: t('ok'), onPress: () => router.replace('/(auth)/login') },
-        ]
+        () => router.replace('/(auth)/login'),
+        'success'
       );
     } else {
-      Alert.alert(t('error'), result.error || t('failedToCreateAccount'));
+      showAlert(t('error'), result.error || t('failedToCreateAccount'), undefined, 'error');
     }
   };
 

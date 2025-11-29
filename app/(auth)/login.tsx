@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Alert,
   ActivityIndicator,
   Image,
   Modal,
@@ -21,6 +20,7 @@ import Footer from '@/components/Footer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
+import { showAlert, showConfirm } from '@/utils/confirmDialog';
 
 const REMEMBER_EMAIL_KEY = '@mxi_remember_email';
 const REMEMBER_PASSWORD_KEY = '@mxi_remember_password';
@@ -79,7 +79,7 @@ export default function LoginScreen() {
     console.log('Email:', email);
     
     if (!email || !password) {
-      Alert.alert(t('error'), t('fillAllFields'));
+      showAlert(t('error'), t('fillAllFields'), undefined, 'error');
       return;
     }
 
@@ -100,21 +100,24 @@ export default function LoginScreen() {
       const errorMessage = result.error?.toLowerCase() || '';
       if (errorMessage.includes('verif') || errorMessage.includes('email')) {
         setNeedsVerification(true);
-        Alert.alert(
-          t('emailVerificationRequired'),
-          t('pleaseVerifyEmail'),
-          [
-            { text: t('cancel'), style: 'cancel' },
-            { text: t('resendEmail'), onPress: handleResendVerification },
-          ]
-        );
+        showConfirm({
+          title: t('emailVerificationRequired'),
+          message: t('pleaseVerifyEmail'),
+          confirmText: t('resendEmail'),
+          cancelText: t('cancel'),
+          type: 'warning',
+          onConfirm: handleResendVerification,
+          onCancel: () => {},
+        });
       } else if (errorMessage.includes('invalid') || errorMessage.includes('credentials')) {
-        Alert.alert(
+        showAlert(
           t('loginError'),
-          t('invalidCredentials')
+          t('invalidCredentials'),
+          undefined,
+          'error'
         );
       } else {
-        Alert.alert(t('error'), result.error || t('errorLoggingIn'));
+        showAlert(t('error'), result.error || t('errorLoggingIn'), undefined, 'error');
       }
     }
     
@@ -128,23 +131,24 @@ export default function LoginScreen() {
     setLoading(false);
 
     if (result.success) {
-      Alert.alert(t('success'), t('emailVerificationSent'));
+      showAlert(t('success'), t('emailVerificationSent'), undefined, 'success');
     } else {
-      Alert.alert(t('error'), result.error || t('errorResendingEmail'));
+      showAlert(t('error'), result.error || t('errorResendingEmail'), undefined, 'error');
     }
   };
 
   const handleForgotPassword = () => {
-    Alert.alert(
-      t('recoverPasswordTitle'),
-      t('recoverPasswordMessage'),
-      [
-        { text: t('cancel'), style: 'cancel' },
-        { text: t('contactSupport'), onPress: () => {
-          Alert.alert(t('support'), `${t('sendEmailTo')} ${t('supportEmail')}`);
-        }},
-      ]
-    );
+    showConfirm({
+      title: t('recoverPasswordTitle'),
+      message: t('recoverPasswordMessage'),
+      confirmText: t('contactSupport'),
+      cancelText: t('cancel'),
+      type: 'info',
+      onConfirm: () => {
+        showAlert(t('support'), `${t('sendEmailTo')} ${t('supportEmail')}`, undefined, 'info');
+      },
+      onCancel: () => {},
+    });
   };
 
   // Show loading overlay if auth is initializing

@@ -9,7 +9,6 @@ import {
   TextInput,
   ScrollView,
   ActivityIndicator,
-  Alert,
   Linking,
   Platform,
   Dimensions,
@@ -20,6 +19,7 @@ import { supabase } from '@/lib/supabase';
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
 import PaymentStatusPoller from '@/components/PaymentStatusPoller';
+import { showAlert, showConfirm } from '@/utils/confirmDialog';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -120,10 +120,11 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
         
         if (remaining === 0) {
           clearInterval(interval);
-          Alert.alert(
+          showAlert(
             '⏰ Pago Expirado',
             'El tiempo para completar el pago ha expirado. Por favor crea un nuevo pago.',
-            [{ text: 'OK', onPress: handleClose }]
+            handleClose,
+            'warning'
           );
         }
       }, 1000);
@@ -211,13 +212,13 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
 
   const handleCreatePayment = async () => {
     if (!selectedCurrency || !usdtAmount) {
-      Alert.alert('Error', 'Por favor completa todos los campos');
+      showAlert('Error', 'Por favor completa todos los campos', undefined, 'error');
       return;
     }
 
     const validation = validateAmount(usdtAmount);
     if (!validation.valid) {
-      Alert.alert('Error', validation.error);
+      showAlert('Error', validation.error || 'Monto inválido', undefined, 'error');
       return;
     }
 
@@ -324,9 +325,11 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
       setStep('payment');
     } catch (error: any) {
       console.error('Error creating payment:', error);
-      Alert.alert(
+      showAlert(
         'Error',
-        error.message || 'No se pudo crear el pago. Por favor intenta nuevamente.'
+        error.message || 'No se pudo crear el pago. Por favor intenta nuevamente.',
+        undefined,
+        'error'
       );
     } finally {
       setLoading(false);
@@ -336,9 +339,10 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
   const copyToClipboard = async (text: string, label: string) => {
     try {
       await Clipboard.setStringAsync(text);
-      Alert.alert('✅ Copiado', `${label} copiado al portapapeles`);
+      showAlert('✅ Copiado', `${label} copiado al portapapeles`, undefined, 'success');
     } catch (error) {
       console.error('Error copying:', error);
+      showAlert('Error', 'No se pudo copiar al portapapeles', undefined, 'error');
     }
   };
 
@@ -350,7 +354,7 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
 
   const handleOpenPaymentPage = async () => {
     if (!paymentIntent?.invoice_url) {
-      Alert.alert('Error', 'No hay URL de pago disponible');
+      showAlert('Error', 'No hay URL de pago disponible', undefined, 'error');
       return;
     }
 
@@ -387,50 +391,41 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
       }
       
       // Show success message
-      Alert.alert(
+      showAlert(
         '✅ Página de Pago Abierta',
         'La página de pago se ha abierto en tu navegador. Completa el pago y regresa aquí para verificar el estado.',
-        [{ text: 'OK' }]
+        undefined,
+        'success'
       );
     } catch (error: any) {
       console.error('❌ [PAYMENT] Error opening browser:', error);
       
       // Show detailed error with copy option
-      Alert.alert(
-        '⚠️ No se pudo abrir el navegador',
-        `Puedes copiar la URL y abrirla manualmente en tu navegador:\n\n${paymentIntent.invoice_url}`,
-        [
-          {
-            text: 'Copiar URL',
-            onPress: () => copyToClipboard(paymentIntent.invoice_url, 'URL de pago'),
-          },
-          {
-            text: 'Cancelar',
-            style: 'cancel',
-          },
-        ]
-      );
+      showConfirm({
+        title: '⚠️ No se pudo abrir el navegador',
+        message: `Puedes copiar la URL y abrirla manualmente en tu navegador:\n\n${paymentIntent.invoice_url}`,
+        confirmText: 'Copiar URL',
+        cancelText: 'Cancelar',
+        type: 'warning',
+        onConfirm: () => copyToClipboard(paymentIntent.invoice_url, 'URL de pago'),
+        onCancel: () => {},
+      });
     }
   };
 
   const handlePaymentConfirmed = () => {
-    Alert.alert(
-      '✅ Pago Confirmado',
-      'Tu pago ha sido confirmado y los MXI han sido acreditados a tu cuenta.',
-      [
-        {
-          text: 'Ver Saldo',
-          onPress: () => {
-            handleClose();
-            // Navigate to balance screen
-          },
-        },
-        {
-          text: 'OK',
-          onPress: handleClose,
-        },
-      ]
-    );
+    showConfirm({
+      title: '✅ Pago Confirmado',
+      message: 'Tu pago ha sido confirmado y los MXI han sido acreditados a tu cuenta.',
+      confirmText: 'Ver Saldo',
+      cancelText: 'OK',
+      type: 'success',
+      onConfirm: () => {
+        handleClose();
+        // Navigate to balance screen
+      },
+      onCancel: handleClose,
+    });
   };
 
   const handleClose = () => {

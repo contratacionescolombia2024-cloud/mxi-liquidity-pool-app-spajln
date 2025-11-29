@@ -6,7 +6,7 @@ import { Stack, router, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { SystemBars } from "react-native-edge-to-edge";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { useColorScheme, Alert } from "react-native";
+import { useColorScheme } from "react-native";
 import { useNetworkState } from "expo-network";
 import * as Linking from "expo-linking";
 import {
@@ -20,6 +20,8 @@ import { WidgetProvider } from "@/contexts/WidgetContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { LanguageProvider, useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/lib/supabase";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import { registerWebConfirmHandler, ConfirmConfig, showAlert } from "@/utils/confirmDialog";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -33,6 +35,16 @@ function RootLayoutNav() {
   const segments = useSegments();
   const colorScheme = useColorScheme();
   const [isMounted, setIsMounted] = useState(false);
+  
+  // State for web confirmation dialog
+  const [confirmConfig, setConfirmConfig] = useState<ConfirmConfig | null>(null);
+
+  // Register web confirm handler
+  useEffect(() => {
+    registerWebConfirmHandler((config) => {
+      setConfirmConfig(config);
+    });
+  }, []);
 
   // Mark component as mounted after first render
   useEffect(() => {
@@ -141,6 +153,29 @@ function RootLayoutNav() {
           }}
         />
       </Stack>
+      
+      {/* Global Confirmation Dialog for Web */}
+      {confirmConfig && (
+        <ConfirmDialog
+          visible={true}
+          title={confirmConfig.title}
+          message={confirmConfig.message}
+          confirmText={confirmConfig.confirmText}
+          cancelText={confirmConfig.cancelText}
+          onConfirm={() => {
+            confirmConfig.onConfirm();
+            setConfirmConfig(null);
+          }}
+          onCancel={() => {
+            if (confirmConfig.onCancel) {
+              confirmConfig.onCancel();
+            }
+            setConfirmConfig(null);
+          }}
+          type={confirmConfig.type}
+          icon={confirmConfig.icon}
+        />
+      )}
     </ThemeProvider>
   );
 }
@@ -192,9 +227,11 @@ function OfflineHandler() {
       networkState.isInternetReachable === false &&
       !hasShownOfflineAlert
     ) {
-      Alert.alert(
+      showAlert(
         t("offlineTitle"),
-        t("offlineMessage")
+        t("offlineMessage"),
+        undefined,
+        'warning'
       );
       setHasShownOfflineAlert(true);
     } else if (networkState.isConnected && hasShownOfflineAlert) {
