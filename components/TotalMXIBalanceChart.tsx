@@ -10,9 +10,9 @@ import { useLanguage } from '@/contexts/LanguageContext';
 
 const CHART_WIDTH = Dimensions.get('window').width - 80;
 const CHART_HEIGHT = 320;
-const PADDING = { top: 20, right: 10, bottom: 50, left: 60 };
+const PADDING = { top: 20, right: 10, bottom: 70, left: 60 };
 
-type TimeRange = '12h' | '24h' | '7d';
+type TimeRange = '1h' | '4h' | '12h' | '24h' | '7d';
 
 interface BalanceDataPoint {
   timestamp: Date;
@@ -74,10 +74,14 @@ export function TotalMXIBalanceChart() {
 
   const getRefreshInterval = () => {
     switch (timeRange) {
-      case '12h':
+      case '1h':
+        return 15000; // 15 seconds
+      case '4h':
         return 30000; // 30 seconds
-      case '24h':
+      case '12h':
         return 60000; // 1 minute
+      case '24h':
+        return 120000; // 2 minutes
       case '7d':
         return 300000; // 5 minutes
       default:
@@ -88,6 +92,10 @@ export function TotalMXIBalanceChart() {
   const getTimeRangeMs = () => {
     const now = Date.now();
     switch (timeRange) {
+      case '1h':
+        return 1 * 60 * 60 * 1000;
+      case '4h':
+        return 4 * 60 * 60 * 1000;
       case '12h':
         return 12 * 60 * 60 * 1000;
       case '24h':
@@ -188,6 +196,10 @@ export function TotalMXIBalanceChart() {
 
   const getDataPointCount = () => {
     switch (timeRange) {
+      case '1h':
+        return 60; // 1 minute intervals
+      case '4h':
+        return 48; // 5 minute intervals
       case '12h':
         return 72; // 10 minute intervals
       case '24h':
@@ -213,14 +225,12 @@ export function TotalMXIBalanceChart() {
       ? balanceData[balanceData.length - 1].totalBalance 
       : 0;
 
-    // Y-axis scale: 2x the total MXI for balanced view
-    const maxY = currentTotal * 2;
+    // Y-axis scale: Always start from 0, max is 2x the total MXI for balanced view
+    const maxY = Math.max(currentTotal * 2, 10); // Minimum 10 to avoid division by zero
     const minY = 0; // Always start from 0
 
     const chartWidth = CHART_WIDTH - PADDING.left - PADDING.right;
     const chartHeight = CHART_HEIGHT - PADDING.top - PADDING.bottom;
-    const barWidth = Math.max(2, (chartWidth / balanceData.length) - 2);
-    const barSpacing = chartWidth / balanceData.length;
 
     // Y-axis scale - always starts from 0
     const yScale = (value: number) => {
@@ -228,10 +238,16 @@ export function TotalMXIBalanceChart() {
       return PADDING.top + chartHeight - ((value - minY) / (maxY - minY)) * chartHeight;
     };
 
-    // X-axis scale
-    const xScale = (index: number) => {
-      return PADDING.left + (index * barSpacing) + (barSpacing / 2);
+    // X-axis scale - normalized from 0.0 to 1.0
+    const xScale = (normalizedTime: number) => {
+      return PADDING.left + (normalizedTime * chartWidth);
     };
+
+    // Get time range in milliseconds
+    const rangeMs = getTimeRangeMs();
+    const startTime = balanceData.length > 0 ? balanceData[0].timestamp.getTime() : Date.now() - rangeMs;
+    const endTime = balanceData.length > 0 ? balanceData[balanceData.length - 1].timestamp.getTime() : Date.now();
+    const actualRangeMs = endTime - startTime;
 
     // Create smooth line path that starts from (0,0) and connects all points
     const createSmoothPath = () => {
@@ -246,7 +262,11 @@ export function TotalMXIBalanceChart() {
       
       // Connect to all data points with smooth curves
       balanceData.forEach((point, index) => {
-        const x = xScale(index);
+        // Normalize time to 0.0 - 1.0 range
+        const normalizedTime = actualRangeMs > 0 
+          ? (point.timestamp.getTime() - startTime) / actualRangeMs 
+          : 0;
+        const x = xScale(normalizedTime);
         const y = yScale(point.totalBalance);
         
         if (index === 0) {
@@ -255,7 +275,10 @@ export function TotalMXIBalanceChart() {
           path += ` Q ${cpX} ${originY}, ${x} ${y}`;
         } else {
           // Subsequent points: use smooth curve between points
-          const prevX = xScale(index - 1);
+          const prevNormalizedTime = actualRangeMs > 0 
+            ? (balanceData[index - 1].timestamp.getTime() - startTime) / actualRangeMs 
+            : 0;
+          const prevX = xScale(prevNormalizedTime);
           const prevY = yScale(balanceData[index - 1].totalBalance);
           const cpX = (prevX + x) / 2;
           path += ` Q ${cpX} ${prevY}, ${x} ${y}`;
@@ -272,7 +295,10 @@ export function TotalMXIBalanceChart() {
       let path = createSmoothPath();
       
       // Close the path to create filled area
-      const lastX = xScale(balanceData.length - 1);
+      const lastNormalizedTime = actualRangeMs > 0 
+        ? (balanceData[balanceData.length - 1].timestamp.getTime() - startTime) / actualRangeMs 
+        : 1;
+      const lastX = xScale(lastNormalizedTime);
       const baseY = yScale(0);
       path += ` L ${lastX} ${baseY}`;
       path += ` L ${PADDING.left} ${baseY}`;
@@ -280,6 +306,53 @@ export function TotalMXIBalanceChart() {
       
       return path;
     };
+
+    // Generate time labels at constant intervals
+    const getTimeLabels = () => {
+      const labels: { normalizedTime: number; label: string; fullLabel: string }[] = [];
+      
+      // Add origin label (0.0)
+      labels.push({
+        normalizedTime: 0,
+        label: '0.0',
+        fullLabel: formatTimeLabel(new Date(startTime), true),
+      });
+
+      // Determine number of intervals based on time range
+      let intervalCount = 5;
+      switch (timeRange) {
+        case '1h':
+          intervalCount = 6; // Every 10 minutes
+          break;
+        case '4h':
+          intervalCount = 4; // Every hour
+          break;
+        case '12h':
+          intervalCount = 6; // Every 2 hours
+          break;
+        case '24h':
+          intervalCount = 6; // Every 4 hours
+          break;
+        case '7d':
+          intervalCount = 7; // Every day
+          break;
+      }
+
+      // Generate labels at equal intervals
+      for (let i = 1; i <= intervalCount; i++) {
+        const normalizedTime = i / intervalCount;
+        const timestamp = new Date(startTime + (normalizedTime * actualRangeMs));
+        labels.push({
+          normalizedTime,
+          label: formatTimeLabel(timestamp, false),
+          fullLabel: formatTimeLabel(timestamp, true),
+        });
+      }
+
+      return labels;
+    };
+
+    const timeLabels = getTimeLabels();
 
     return (
       <Svg width={CHART_WIDTH} height={CHART_HEIGHT}>
@@ -304,12 +377,12 @@ export function TotalMXIBalanceChart() {
           </LinearGradient>
         </Defs>
 
-        {/* Grid lines with futuristic glow */}
+        {/* Grid lines with futuristic glow - Y axis */}
         {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
           const y = PADDING.top + chartHeight * ratio;
           const value = maxY - ((maxY - minY) * ratio);
           return (
-            <G key={`grid-${i}`}>
+            <G key={`grid-y-${i}`}>
               <Line
                 x1={PADDING.left}
                 y1={y}
@@ -330,6 +403,23 @@ export function TotalMXIBalanceChart() {
                 {value.toFixed(2)}
               </SvgText>
             </G>
+          );
+        })}
+
+        {/* Grid lines - X axis (vertical lines at time intervals) */}
+        {timeLabels.map((label, i) => {
+          const x = xScale(label.normalizedTime);
+          return (
+            <Line
+              key={`grid-x-${i}`}
+              x1={x}
+              y1={PADDING.top}
+              x2={x}
+              y2={CHART_HEIGHT - PADDING.bottom}
+              stroke="rgba(0, 255, 136, 0.15)"
+              strokeWidth="1"
+              strokeDasharray="4,4"
+            />
           );
         })}
 
@@ -377,7 +467,10 @@ export function TotalMXIBalanceChart() {
         {/* Data points with glow - show every few points for clarity */}
         {balanceData.filter((_, i) => i % Math.ceil(balanceData.length / 20) === 0).map((point, i) => {
           const index = balanceData.indexOf(point);
-          const x = xScale(index);
+          const normalizedTime = actualRangeMs > 0 
+            ? (point.timestamp.getTime() - startTime) / actualRangeMs 
+            : 0;
+          const x = xScale(normalizedTime);
           const y = yScale(point.totalBalance);
           
           return (
@@ -402,24 +495,35 @@ export function TotalMXIBalanceChart() {
           );
         })}
 
-        {/* X-axis labels */}
-        {balanceData.filter((_, i) => i % Math.ceil(balanceData.length / 6) === 0).map((point, i) => {
-          const index = balanceData.indexOf(point);
-          const x = xScale(index);
-          const label = formatTimeLabel(point.timestamp);
+        {/* X-axis labels - time intervals */}
+        {timeLabels.map((label, i) => {
+          const x = xScale(label.normalizedTime);
           
           return (
-            <SvgText
-              key={`x-label-${i}`}
-              x={x}
-              y={CHART_HEIGHT - PADDING.bottom + 20}
-              fill="#00ff88"
-              fontSize="9"
-              textAnchor="middle"
-              fontWeight="600"
-            >
-              {label}
-            </SvgText>
+            <G key={`x-label-${i}`}>
+              {/* Short label (time) */}
+              <SvgText
+                x={x}
+                y={CHART_HEIGHT - PADDING.bottom + 15}
+                fill="#00ff88"
+                fontSize="9"
+                textAnchor="middle"
+                fontWeight="600"
+              >
+                {label.label}
+              </SvgText>
+              {/* Full label (date + time) on second line */}
+              <SvgText
+                x={x}
+                y={CHART_HEIGHT - PADDING.bottom + 28}
+                fill="#ffdd00"
+                fontSize="8"
+                textAnchor="middle"
+                fontWeight="500"
+              >
+                {label.fullLabel}
+              </SvgText>
+            </G>
           );
         })}
 
@@ -435,17 +539,44 @@ export function TotalMXIBalanceChart() {
         >
           {t('mxiTotal')}
         </SvgText>
+
+        {/* X-axis label */}
+        <SvgText
+          x={CHART_WIDTH / 2}
+          y={CHART_HEIGHT - 5}
+          fill="#00ff88"
+          fontSize="11"
+          textAnchor="middle"
+          fontWeight="700"
+        >
+          {t('time')}
+        </SvgText>
       </Svg>
     );
   };
 
-  const formatTimeLabel = (date: Date) => {
+  const formatTimeLabel = (date: Date, includeDateAndTime: boolean) => {
+    if (includeDateAndTime) {
+      // Full format: DD/MM HH:MM
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      return `${day}/${month} ${hours}:${minutes}`;
+    }
+
+    // Short format based on time range
     switch (timeRange) {
-      case '12h':
+      case '1h':
+      case '4h':
+        // Show HH:MM
         return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+      case '12h':
       case '24h':
-        return `${date.getHours()}:00`;
+        // Show HH:00
+        return `${date.getHours().toString().padStart(2, '0')}:00`;
       case '7d':
+        // Show DD/MM
         return `${date.getDate()}/${date.getMonth() + 1}`;
       default:
         return '';
@@ -530,9 +661,9 @@ export function TotalMXIBalanceChart() {
         </Text>
       </View>
 
-      {/* Time Range Selector - ONLY 12h, 24h, 7d */}
+      {/* Time Range Selector - 1h, 4h, 12h, 24h, 7d */}
       <View style={styles.timeRangeSelector}>
-        {(['12h', '24h', '7d'] as TimeRange[]).map((range) => (
+        {(['1h', '4h', '12h', '24h', '7d'] as TimeRange[]).map((range) => (
           <TouchableOpacity
             key={range}
             style={[
@@ -820,7 +951,7 @@ const styles = StyleSheet.create({
   timeRangeButton: {
     flex: 1,
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     borderRadius: 8,
     alignItems: 'center',
   },
@@ -830,7 +961,7 @@ const styles = StyleSheet.create({
     borderColor: '#00ff88',
   },
   timeRangeText: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '600',
     color: 'rgba(0, 255, 136, 0.5)',
   },
