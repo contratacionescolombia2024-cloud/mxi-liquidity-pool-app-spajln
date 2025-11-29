@@ -12,7 +12,7 @@ const CHART_WIDTH = Dimensions.get('window').width - 80;
 const CHART_HEIGHT = 320;
 const PADDING = { top: 20, right: 10, bottom: 70, left: 60 };
 
-type TimeRange = '1h' | '4h' | '12h' | '24h' | '7d';
+type TimeRange = '1d' | '3d' | '7d';
 
 interface BalanceDataPoint {
   timestamp: Date;
@@ -26,7 +26,7 @@ interface BalanceDataPoint {
 export function TotalMXIBalanceChart() {
   const { user } = useAuth();
   const { t } = useLanguage();
-  const [timeRange, setTimeRange] = useState<TimeRange>('24h');
+  const [timeRange, setTimeRange] = useState<TimeRange>('1d');
   const [balanceData, setBalanceData] = useState<BalanceDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentVesting, setCurrentVesting] = useState(0);
@@ -74,32 +74,24 @@ export function TotalMXIBalanceChart() {
 
   const getRefreshInterval = () => {
     switch (timeRange) {
-      case '1h':
-        return 15000; // 15 seconds
-      case '4h':
-        return 30000; // 30 seconds
-      case '12h':
-        return 60000; // 1 minute
-      case '24h':
+      case '1d':
         return 120000; // 2 minutes
+      case '3d':
+        return 180000; // 3 minutes
       case '7d':
         return 300000; // 5 minutes
       default:
-        return 60000;
+        return 120000;
     }
   };
 
   const getTimeRangeMs = () => {
     const now = Date.now();
     switch (timeRange) {
-      case '1h':
-        return 1 * 60 * 60 * 1000;
-      case '4h':
-        return 4 * 60 * 60 * 1000;
-      case '12h':
-        return 12 * 60 * 60 * 1000;
-      case '24h':
+      case '1d':
         return 24 * 60 * 60 * 1000;
+      case '3d':
+        return 3 * 24 * 60 * 60 * 1000;
       case '7d':
         return 7 * 24 * 60 * 60 * 1000;
       default:
@@ -196,14 +188,10 @@ export function TotalMXIBalanceChart() {
 
   const getDataPointCount = () => {
     switch (timeRange) {
-      case '1h':
-        return 60; // 1 minute intervals
-      case '4h':
-        return 48; // 5 minute intervals
-      case '12h':
-        return 72; // 10 minute intervals
-      case '24h':
+      case '1d':
         return 96; // 15 minute intervals
+      case '3d':
+        return 72; // 1 hour intervals
       case '7d':
         return 168; // 1 hour intervals
       default:
@@ -321,17 +309,11 @@ export function TotalMXIBalanceChart() {
       // Determine number of intervals based on time range
       let intervalCount = 5;
       switch (timeRange) {
-        case '1h':
-          intervalCount = 6; // Every 10 minutes
-          break;
-        case '4h':
-          intervalCount = 4; // Every hour
-          break;
-        case '12h':
-          intervalCount = 6; // Every 2 hours
-          break;
-        case '24h':
+        case '1d':
           intervalCount = 6; // Every 4 hours
+          break;
+        case '3d':
+          intervalCount = 6; // Every 12 hours
           break;
         case '7d':
           intervalCount = 7; // Every day
@@ -567,14 +549,12 @@ export function TotalMXIBalanceChart() {
 
     // Short format based on time range
     switch (timeRange) {
-      case '1h':
-      case '4h':
-        // Show HH:MM
-        return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-      case '12h':
-      case '24h':
+      case '1d':
         // Show HH:00
         return `${date.getHours().toString().padStart(2, '0')}:00`;
+      case '3d':
+        // Show DD/MM HH:00
+        return `${date.getDate()}/${date.getMonth() + 1} ${date.getHours().toString().padStart(2, '0')}:00`;
       case '7d':
         // Show DD/MM
         return `${date.getDate()}/${date.getMonth() + 1}`;
@@ -661,9 +641,9 @@ export function TotalMXIBalanceChart() {
         </Text>
       </View>
 
-      {/* Time Range Selector - 1h, 4h, 12h, 24h, 7d */}
+      {/* Time Range Selector - 1d, 3d, 7d */}
       <View style={styles.timeRangeSelector}>
-        {(['1h', '4h', '12h', '24h', '7d'] as TimeRange[]).map((range) => (
+        {(['1d', '3d', '7d'] as TimeRange[]).map((range) => (
           <TouchableOpacity
             key={range}
             style={[
