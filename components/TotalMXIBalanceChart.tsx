@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, ActivityIndicator, Platform, ScrollView } from 'react-native';
 import { Svg, Rect, Line, Text as SvgText, G, Path, Defs, LinearGradient, Stop, Circle } from 'react-native-svg';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -229,183 +229,189 @@ export function TotalMXIBalanceChart() {
     };
 
     return (
-      <Svg width={dynamicChartWidth} height={CHART_HEIGHT}>
-        <Defs>
-          {/* Green gradient for main line */}
-          <LinearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor="#00ff88" stopOpacity="1" />
-            <Stop offset="100%" stopColor="#00cc66" stopOpacity="1" />
-          </LinearGradient>
-          
-          {/* Yellow gradient for glow */}
-          <LinearGradient id="yellowGradient" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor="#ffdd00" stopOpacity="0.8" />
-            <Stop offset="100%" stopColor="#ffaa00" stopOpacity="0.6" />
-          </LinearGradient>
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingRight: 20 }}
+      >
+        <Svg width={dynamicChartWidth} height={CHART_HEIGHT}>
+          <Defs>
+            {/* Green gradient for main line */}
+            <LinearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0%" stopColor="#00ff88" stopOpacity="1" />
+              <Stop offset="100%" stopColor="#00cc66" stopOpacity="1" />
+            </LinearGradient>
+            
+            {/* Yellow gradient for glow */}
+            <LinearGradient id="yellowGradient" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0%" stopColor="#ffdd00" stopOpacity="0.8" />
+              <Stop offset="100%" stopColor="#ffaa00" stopOpacity="0.6" />
+            </LinearGradient>
 
-          {/* Area fill gradient */}
-          <LinearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor="#00ff88" stopOpacity="0.3" />
-            <Stop offset="50%" stopColor="#00cc66" stopOpacity="0.15" />
-            <Stop offset="100%" stopColor="#008844" stopOpacity="0.05" />
-          </LinearGradient>
-        </Defs>
+            {/* Area fill gradient */}
+            <LinearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0%" stopColor="#00ff88" stopOpacity="0.3" />
+              <Stop offset="50%" stopColor="#00cc66" stopOpacity="0.15" />
+              <Stop offset="100%" stopColor="#008844" stopOpacity="0.05" />
+            </LinearGradient>
+          </Defs>
 
-        {/* Grid lines - Y axis */}
-        {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
-          const y = PADDING.top + chartHeight * ratio;
-          const value = maxY - ((maxY - minY) * ratio);
-          return (
-            <G key={`grid-y-${i}`}>
+          {/* Grid lines - Y axis */}
+          {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
+            const y = PADDING.top + chartHeight * ratio;
+            const value = maxY - ((maxY - minY) * ratio);
+            return (
+              <G key={`grid-y-${i}`}>
+                <Line
+                  x1={PADDING.left}
+                  y1={y}
+                  x2={dynamicChartWidth - PADDING.right}
+                  y2={y}
+                  stroke="rgba(0, 255, 136, 0.15)"
+                  strokeWidth="1"
+                  strokeDasharray="4,4"
+                />
+                <SvgText
+                  x={PADDING.left - 8}
+                  y={y + 4}
+                  fill="#00ff88"
+                  fontSize="10"
+                  textAnchor="end"
+                  fontWeight="600"
+                >
+                  {value.toFixed(2)}
+                </SvgText>
+              </G>
+            );
+          })}
+
+          {/* Vertical grid lines at each data point */}
+          {balanceData.map((point, index) => {
+            const x = xScale(index);
+            return (
               <Line
-                x1={PADDING.left}
-                y1={y}
-                x2={dynamicChartWidth - PADDING.right}
-                y2={y}
+                key={`grid-x-${index}`}
+                x1={x}
+                y1={PADDING.top}
+                x2={x}
+                y2={CHART_HEIGHT - PADDING.bottom}
                 stroke="rgba(0, 255, 136, 0.15)"
                 strokeWidth="1"
                 strokeDasharray="4,4"
               />
-              <SvgText
-                x={PADDING.left - 8}
-                y={y + 4}
-                fill="#00ff88"
-                fontSize="10"
-                textAnchor="end"
-                fontWeight="600"
-              >
-                {value.toFixed(2)}
-              </SvgText>
-            </G>
-          );
-        })}
+            );
+          })}
 
-        {/* Vertical grid lines at each data point */}
-        {balanceData.map((point, index) => {
-          const x = xScale(index);
-          return (
-            <Line
-              key={`grid-x-${index}`}
-              x1={x}
-              y1={PADDING.top}
-              x2={x}
-              y2={CHART_HEIGHT - PADDING.bottom}
-              stroke="rgba(0, 255, 136, 0.15)"
-              strokeWidth="1"
-              strokeDasharray="4,4"
-            />
-          );
-        })}
+          {/* Area fill under the line */}
+          <Path
+            d={createAreaPath()}
+            fill="url(#areaGradient)"
+            opacity={0.4}
+          />
 
-        {/* Area fill under the line */}
-        <Path
-          d={createAreaPath()}
-          fill="url(#areaGradient)"
-          opacity={0.4}
-        />
+          {/* Main trend line with glow effect */}
+          <Path
+            d={createSmoothPath()}
+            stroke="#ffdd00"
+            strokeWidth="4"
+            fill="none"
+            opacity={0.3}
+          />
+          <Path
+            d={createSmoothPath()}
+            stroke="url(#greenGradient)"
+            strokeWidth="3"
+            fill="none"
+            opacity={1}
+          />
 
-        {/* Main trend line with glow effect */}
-        <Path
-          d={createSmoothPath()}
-          stroke="#ffdd00"
-          strokeWidth="4"
-          fill="none"
-          opacity={0.3}
-        />
-        <Path
-          d={createSmoothPath()}
-          stroke="url(#greenGradient)"
-          strokeWidth="3"
-          fill="none"
-          opacity={1}
-        />
+          {/* Data points with glow - show all points */}
+          {balanceData.map((point, index) => {
+            const x = xScale(index);
+            const y = yScale(point.totalBalance);
+            
+            return (
+              <G key={`point-${index}`}>
+                {/* Outer glow */}
+                <Circle
+                  cx={x}
+                  cy={y}
+                  r="6"
+                  fill="#ffdd00"
+                  opacity={0.3}
+                />
+                {/* Inner point */}
+                <Circle
+                  cx={x}
+                  cy={y}
+                  r="3"
+                  fill="#00ff88"
+                  opacity={1}
+                />
+              </G>
+            );
+          })}
 
-        {/* Data points with glow - show all points */}
-        {balanceData.map((point, index) => {
-          const x = xScale(index);
-          const y = yScale(point.totalBalance);
-          
-          return (
-            <G key={`point-${index}`}>
-              {/* Outer glow */}
-              <Circle
-                cx={x}
-                cy={y}
-                r="6"
-                fill="#ffdd00"
-                opacity={0.3}
-              />
-              {/* Inner point */}
-              <Circle
-                cx={x}
-                cy={y}
-                r="3"
-                fill="#00ff88"
-                opacity={1}
-              />
-            </G>
-          );
-        })}
+          {/* X-axis labels - date and time for each balance change */}
+          {balanceData.map((point, index) => {
+            const x = xScale(index);
+            const formattedTime = formatTimestamp(point.timestamp);
+            const lines = formattedTime.split('\n');
+            
+            return (
+              <G key={`x-label-${index}`}>
+                {/* Date */}
+                <SvgText
+                  x={x}
+                  y={CHART_HEIGHT - PADDING.bottom + 15}
+                  fill="#00ff88"
+                  fontSize="9"
+                  textAnchor="middle"
+                  fontWeight="600"
+                >
+                  {lines[0]}
+                </SvgText>
+                {/* Time */}
+                <SvgText
+                  x={x}
+                  y={CHART_HEIGHT - PADDING.bottom + 28}
+                  fill="#ffdd00"
+                  fontSize="8"
+                  textAnchor="middle"
+                  fontWeight="500"
+                >
+                  {lines[1]}
+                </SvgText>
+              </G>
+            );
+          })}
 
-        {/* X-axis labels - date and time for each balance change */}
-        {balanceData.map((point, index) => {
-          const x = xScale(index);
-          const formattedTime = formatTimestamp(point.timestamp);
-          const lines = formattedTime.split('\n');
-          
-          return (
-            <G key={`x-label-${index}`}>
-              {/* Date */}
-              <SvgText
-                x={x}
-                y={CHART_HEIGHT - PADDING.bottom + 15}
-                fill="#00ff88"
-                fontSize="9"
-                textAnchor="middle"
-                fontWeight="600"
-              >
-                {lines[0]}
-              </SvgText>
-              {/* Time */}
-              <SvgText
-                x={x}
-                y={CHART_HEIGHT - PADDING.bottom + 28}
-                fill="#ffdd00"
-                fontSize="8"
-                textAnchor="middle"
-                fontWeight="500"
-              >
-                {lines[1]}
-              </SvgText>
-            </G>
-          );
-        })}
+          {/* Y-axis label */}
+          <SvgText
+            x={15}
+            y={CHART_HEIGHT / 2}
+            fill="#00ff88"
+            fontSize="11"
+            textAnchor="middle"
+            fontWeight="700"
+            transform={`rotate(-90, 15, ${CHART_HEIGHT / 2})`}
+          >
+            {t('mxiTotal')}
+          </SvgText>
 
-        {/* Y-axis label */}
-        <SvgText
-          x={15}
-          y={CHART_HEIGHT / 2}
-          fill="#00ff88"
-          fontSize="11"
-          textAnchor="middle"
-          fontWeight="700"
-          transform={`rotate(-90, 15, ${CHART_HEIGHT / 2})`}
-        >
-          {t('mxiTotal')}
-        </SvgText>
-
-        {/* X-axis label */}
-        <SvgText
-          x={dynamicChartWidth / 2}
-          y={CHART_HEIGHT - 5}
-          fill="#00ff88"
-          fontSize="11"
-          textAnchor="middle"
-          fontWeight="700"
-        >
-          {t('balanceChangeTimestamps')}
-        </SvgText>
-      </Svg>
+          {/* X-axis label */}
+          <SvgText
+            x={dynamicChartWidth / 2}
+            y={CHART_HEIGHT - 5}
+            fill="#00ff88"
+            fontSize="11"
+            textAnchor="middle"
+            fontWeight="700"
+          >
+            {t('balanceChangeTimestamps')}
+          </SvgText>
+        </Svg>
+      </ScrollView>
     );
   };
 
@@ -487,7 +493,7 @@ export function TotalMXIBalanceChart() {
         </Text>
       </View>
 
-      {/* Chart - No horizontal scroll, removed showsHorizontalScrollIndicator */}
+      {/* Chart - Horizontal scroll enabled, scrollbar hidden */}
       <View style={styles.chartContainer}>
         {loading ? (
           <View style={styles.loadingContainer}>
