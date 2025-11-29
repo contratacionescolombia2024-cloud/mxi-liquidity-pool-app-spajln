@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { useRouter } from 'expo-router';
+import { notificationService } from '@/utils/notificationService';
 
 interface User {
   id: string;
@@ -112,6 +113,114 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Initialize notification service
+  useEffect(() => {
+    notificationService.initialize();
+    
+    return () => {
+      notificationService.cleanup();
+    };
+  }, []);
+
+  // Subscribe to real-time updates when user is authenticated
+  useEffect(() => {
+    if (!user?.id) return;
+
+    console.log('Setting up real-time subscriptions for user:', user.id);
+
+    // Subscribe to balance changes
+    const unsubscribeBalance = notificationService.subscribeToBalanceChanges(
+      user.id,
+      (oldBalance, newBalance) => {
+        console.log('Balance changed:', { oldBalance, newBalance });
+        // Reload user data to get updated balance
+        loadUserData(user.id);
+      }
+    );
+
+    // Subscribe to messages
+    const unsubscribeMessages = notificationService.subscribeToMessages(
+      user.id,
+      (message) => {
+        console.log('New message received:', message);
+      }
+    );
+
+    // Subscribe to withdrawal status changes
+    const withdrawalChannel = supabase
+      .channel(`withdrawals-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'withdrawals',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload: any) => {
+          if (payload.new?.status === 'approved' && payload.old?.status !== 'approved') {
+            notificationService.notifyWithdrawalApproved(
+              payload.new.amount,
+              payload.new.currency
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    // Subscribe to KYC status changes
+    const kycChannel = supabase
+      .channel(`kyc-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'users',
+          filter: `id=eq.${user.id}`,
+        },
+        (payload: any) => {
+          if (payload.new?.kyc_status !== payload.old?.kyc_status) {
+            notificationService.notifyKYCStatusChange(payload.new.kyc_status);
+            loadUserData(user.id);
+          }
+        }
+      )
+      .subscribe();
+
+    // Subscribe to commission earnings
+    const commissionChannel = supabase
+      .channel(`commissions-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'commissions',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload: any) => {
+          if (payload.new) {
+            notificationService.notifyReferralCommission(
+              payload.new.amount,
+              payload.new.level || 1,
+              'Your Referral'
+            );
+            loadUserData(user.id);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      unsubscribeBalance();
+      unsubscribeMessages();
+      supabase.removeChannel(withdrawalChannel);
+      supabase.removeChannel(kycChannel);
+      supabase.removeChannel(commissionChannel);
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -723,6 +832,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           p_user_id: user.referredBy,
         });
       }
+
+      // Notify about payment confirmation
+      await notificationService.notifyPaymentConfirmed(usdtAmount, mxiTokens);
 
       await loadUserData(user.id);
 

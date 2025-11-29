@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, ActivityIndicator, Platform } from 'react-native';
 import { Svg, Rect, Line, Text as SvgText, G, Path, Defs, LinearGradient, Stop, Circle } from 'react-native-svg';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -487,32 +487,17 @@ export function TotalMXIBalanceChart() {
         </Text>
       </View>
 
-      {/* Transaction Count Badge */}
-      <View style={styles.transactionBadge}>
-        <IconSymbol 
-          ios_icon_name="chart.line.uptrend.xyaxis" 
-          android_material_icon_name="show_chart" 
-          size={16} 
-          color="#ffdd00" 
-        />
-        <Text style={styles.transactionText}>
-          {balanceData.length} {t('balanceChanges')}
-        </Text>
+      {/* Chart - No horizontal scroll, removed showsHorizontalScrollIndicator */}
+      <View style={styles.chartContainer}>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#00ff88" />
+            <Text style={styles.loadingText}>{t('loadingChart')}</Text>
+          </View>
+        ) : (
+          renderDynamicChart()
+        )}
       </View>
-
-      {/* Chart - Horizontally scrollable for many transactions */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={true} style={styles.chartScroll}>
-        <View style={styles.chartContainer}>
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#00ff88" />
-              <Text style={styles.loadingText}>{t('loadingChart')}</Text>
-            </View>
-          ) : (
-            renderDynamicChart()
-          )}
-        </View>
-      </ScrollView>
 
       {/* Legend */}
       <View style={styles.legend}>
@@ -755,33 +740,13 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontWeight: '600',
   },
-  transactionBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(255, 221, 0, 0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 221, 0, 0.3)',
-    alignSelf: 'flex-start',
-  },
-  transactionText: {
-    fontSize: 12,
-    color: '#ffdd00',
-    fontWeight: '700',
-  },
-  chartScroll: {
-    marginBottom: 16,
-  },
   chartContainer: {
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     borderRadius: 12,
     padding: 10,
     borderWidth: 1,
     borderColor: 'rgba(0, 255, 136, 0.2)',
+    marginBottom: 16,
   },
   emptyChart: {
     width: MIN_CHART_WIDTH,
