@@ -434,7 +434,7 @@ function ComoFuncionaTab() {
   );
 }
 
-// Por Qué Comprar Tab Content
+// Por Qué Comprar Tab Content - Image 0 (cd6409f5)
 function PorQueComprarTab() {
   const { t } = useLanguage();
   
@@ -446,7 +446,7 @@ function PorQueComprarTab() {
 
       <View style={styles.imageContainer}>
         <Image
-          source={require('@/assets/images/d6069fba-4cc4-4ec4-8cd1-68a3ad5241d5.png')}
+          source={require('@/assets/images/cd6409f5-2e6e-426b-9399-35c34f154df7.png')}
           style={styles.whyBuyImage}
           resizeMode="contain"
         />
@@ -528,7 +528,7 @@ function PorQueComprarTab() {
   );
 }
 
-// Meta Tab Content
+// Meta Tab Content - Image 1 (b359a5d1)
 function MetaTab() {
   const { t } = useLanguage();
   
@@ -540,7 +540,7 @@ function MetaTab() {
 
       <View style={styles.imageContainer}>
         <Image
-          source={require('@/assets/images/d97c8946-5e7b-4cd6-8c87-ad57cdc96e34.png')}
+          source={require('@/assets/images/b359a5d1-671d-4f57-a54c-219337b62602.png')}
           style={styles.metaImage}
           resizeMode="contain"
         />
@@ -694,7 +694,7 @@ function EcosistemaTab() {
   );
 }
 
-// Seguridad Cuántica Tab Content
+// Seguridad Cuántica Tab Content - Image 3 (67cb31d5)
 function SeguridadCuanticaTab() {
   const { t } = useLanguage();
   
@@ -706,7 +706,7 @@ function SeguridadCuanticaTab() {
 
       <View style={styles.imageContainer}>
         <Image
-          source={require('@/assets/images/657e167a-42d3-407c-840d-5cdea04dc9b1.png')}
+          source={require('@/assets/images/67cb31d5-9f16-4fe6-a660-8507d6b8e4bb.png')}
           style={styles.seguridadCuanticaImage}
           resizeMode="contain"
         />
@@ -779,7 +779,7 @@ function SeguridadCuanticaTab() {
   );
 }
 
-// Sostenibilidad Tab Content
+// Sostenibilidad Tab Content - No image provided, keeping existing
 function SostenibilidadTab() {
   const { t } = useLanguage();
   
@@ -868,7 +868,7 @@ function SostenibilidadTab() {
   );
 }
 
-// Vesting Diario Tab Content
+// Vesting Diario Tab Content - Image 4 (0bb04517)
 function VestingDiarioTab() {
   const { t } = useLanguage();
   
@@ -880,7 +880,7 @@ function VestingDiarioTab() {
 
       <View style={styles.imageContainer}>
         <Image
-          source={require('@/assets/images/ea3e731d-9789-4bbd-8839-11314ccf85d3.png')}
+          source={require('@/assets/images/0bb04517-a07a-45a8-bb08-aaeb2292d065.png')}
           style={styles.vestingImage}
           resizeMode="contain"
         />
@@ -953,7 +953,7 @@ function VestingDiarioTab() {
   );
 }
 
-// En la Práctica Tab Content
+// En la Práctica Tab Content - Image 2 (673e86be)
 function EnLaPracticaTab() {
   const { t } = useLanguage();
   
@@ -965,7 +965,7 @@ function EnLaPracticaTab() {
 
       <View style={styles.imageContainer}>
         <Image
-          source={require('@/assets/images/e69b6404-eff5-4cce-ae86-7b18bd41bdf6.png')}
+          source={require('@/assets/images/673e86be-8ebc-4cc7-bff8-ed7856d38892.png')}
           style={styles.practicaImage}
           resizeMode="contain"
         />

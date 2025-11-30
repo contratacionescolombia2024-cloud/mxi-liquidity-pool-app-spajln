@@ -463,7 +463,11 @@ export default function TournamentsScreen() {
               {t('asFirstPlayerChoosePlayers')}
             </Text>
 
-            <View style={styles.playerOptions}>
+            <ScrollView 
+              style={styles.playerOptionsScrollView}
+              contentContainerStyle={styles.playerOptions}
+              showsVerticalScrollIndicator={false}
+            >
               {[2, 3, 4, 5].map((count) => (
                 <TouchableOpacity
                   key={count}
@@ -499,7 +503,7 @@ export default function TournamentsScreen() {
                   </Text>
                 </TouchableOpacity>
               ))}
-            </View>
+            </ScrollView>
 
             <TouchableOpacity
               style={[buttonStyles.primary, styles.confirmButton]}
@@ -697,6 +701,7 @@ const styles = StyleSheet.create({
     padding: 24,
     width: '100%',
     maxWidth: 400,
+    maxHeight: '80%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -723,9 +728,12 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     lineHeight: 22,
   },
+  playerOptionsScrollView: {
+    maxHeight: 300,
+    marginBottom: 24,
+  },
   playerOptions: {
     gap: 12,
-    marginBottom: 24,
   },
   playerOption: {
     backgroundColor: colors.background,
