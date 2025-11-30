@@ -241,17 +241,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('Platform:', Platform.OS);
     console.log('Supabase client available:', !!supabase);
     
-    // Add a timeout to prevent infinite loading
+    // Shorter timeout for web to prevent hanging
+    const timeoutDuration = Platform.OS === 'web' ? 5000 : 10000;
+    
     const loadingTimeout = setTimeout(() => {
       console.warn('Auth initialization timeout - forcing loading to false');
       if (loading && !isInitialized) {
         setLoading(false);
         setIsInitialized(true);
       }
-    }, 10000); // 10 second timeout
+    }, timeoutDuration);
 
     const initAuth = async () => {
       try {
+        console.log('Getting initial session...');
         const { data: { session }, error } = await supabase.auth.getSession();
         
         clearTimeout(loadingTimeout);
@@ -263,7 +266,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return;
         }
         
-        console.log('Initial session:', session ? 'Found' : 'Not found');
+        console.log('Initial session:', session ? `Found for ${session.user.email}` : 'Not found');
         setSession(session);
         
         if (session) {
@@ -449,6 +452,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Attempting login for:', email);
       console.log('Platform:', Platform.OS);
       
+      // Set loading state immediately
+      setLoading(true);
+      
       // First, try to sign in
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
@@ -459,6 +465,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Supabase auth error:', error);
         console.error('Error code:', error.status);
         console.error('Error message:', error.message);
+        
+        setLoading(false);
         
         // Check if it's an invalid credentials error
         if (error.message.toLowerCase().includes('invalid') || error.status === 400) {
@@ -487,6 +495,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (!data.session) {
         console.error('No session created after login');
+        setLoading(false);
         return { success: false, error: 'No se pudo crear la sesión' };
       }
 
@@ -506,6 +515,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (userData && !userData.email_verified) {
         console.log('Email not verified, signing out user');
         await supabase.auth.signOut();
+        setLoading(false);
         return { 
           success: false, 
           error: 'Por favor verifica tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada para el enlace de verificación.' 
@@ -522,6 +532,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error: any) {
       console.error('=== LOGIN EXCEPTION ===');
       console.error('Login exception:', error);
+      setLoading(false);
       return { success: false, error: error.message || 'Error al iniciar sesión' };
     }
   };
