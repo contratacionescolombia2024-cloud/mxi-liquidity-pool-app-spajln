@@ -779,7 +779,7 @@ function SeguridadCuanticaTab() {
   );
 }
 
-// Sostenibilidad Tab Content - No image provided, keeping existing
+// Sostenibilidad Tab Content - NEW IMAGE ADDED (73b7a6c0)
 function SostenibilidadTab() {
   const { t } = useLanguage();
   
@@ -791,7 +791,7 @@ function SostenibilidadTab() {
 
       <View style={styles.imageContainer}>
         <Image
-          source={require('@/assets/images/d99e6be8-2e44-4eb0-98ad-d07c2ca5d07f.png')}
+          source={require('@/assets/images/73b7a6c0-a56f-4c91-8ab9-2ec0cd607287.png')}
           style={styles.sostenibilidadImage}
           resizeMode="contain"
         />
@@ -1049,7 +1049,7 @@ function EnLaPracticaTab() {
   );
 }
 
-// Tokenómica Tab Content
+// Tokenómica Tab Content - NEW IMAGE ADDED (c8e5b4e8)
 function TokenomicaTab() {
   const { t } = useLanguage();
   
@@ -1061,7 +1061,7 @@ function TokenomicaTab() {
 
       <View style={styles.imageContainer}>
         <Image
-          source={require('@/assets/images/eb420121-1582-4bc8-8b9d-8df76bb28c3a.png')}
+          source={require('@/assets/images/c8e5b4e8-eeb5-4ea6-a207-c930085bb758.png')}
           style={styles.tokenomicaImage}
           resizeMode="contain"
         />
