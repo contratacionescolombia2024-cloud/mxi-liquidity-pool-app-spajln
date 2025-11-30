@@ -731,6 +731,15 @@ const translations = {
     createNewTournament: 'Create New Tournament',
     waitingForPlayers: 'Waiting for players',
     spotsAvailable: '{{spots}} spots available',
+    waitingTournaments: 'Waiting Tournaments',
+    code: 'Code',
+    full: 'Full',
+    join: 'Join',
+    create: 'Create',
+    entryFee: 'Entry Fee',
+    alreadyJoined: 'Already Joined',
+    youAreAlreadyInThisTournament: 'You are already in this tournament',
+    creatingTournament: 'Creating tournament...',
     
     // Launch Countdown
     officialLaunch: 'Official Launch',
@@ -1496,6 +1505,15 @@ const translations = {
     createNewTournament: 'Crear Nuevo Torneo',
     waitingForPlayers: 'Esperando jugadores',
     spotsAvailable: '{{spots}} cupos disponibles',
+    waitingTournaments: 'Torneos en Espera',
+    code: 'Código',
+    full: 'Lleno',
+    join: 'Unirse',
+    create: 'Crear',
+    entryFee: 'Cuota de Entrada',
+    alreadyJoined: 'Ya Unido',
+    youAreAlreadyInThisTournament: 'Ya estás en este torneo',
+    creatingTournament: 'Creando torneo...',
     
     // Launch Countdown
     officialLaunch: 'Lanzamiento Oficial',
@@ -2261,6 +2279,15 @@ const translations = {
     createNewTournament: 'Criar Novo Torneio',
     waitingForPlayers: 'Aguardando jogadores',
     spotsAvailable: '{{spots}} vagas disponíveis',
+    waitingTournaments: 'Torneios Aguardando',
+    code: 'Código',
+    full: 'Cheio',
+    join: 'Entrar',
+    create: 'Criar',
+    entryFee: 'Taxa de Entrada',
+    alreadyJoined: 'Já Entrou',
+    youAreAlreadyInThisTournament: 'Você já está neste torneio',
+    creatingTournament: 'Criando torneio...',
     
     // Launch Countdown
     officialLaunch: 'Lançamento Oficial',

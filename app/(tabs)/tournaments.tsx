@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Modal,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -30,6 +31,20 @@ interface TournamentGame {
   is_active: boolean;
 }
 
+interface WaitingSession {
+  id: string;
+  session_code: string;
+  num_players: number;
+  current_players: number;
+  total_pool: number;
+  prize_amount: number;
+  game_id: string;
+  game_name: string;
+  game_type: string;
+  entry_fee: number;
+  created_at: string;
+}
+
 const GAME_ICONS = {
   tank_arena: { ios: 'shield.fill', android: 'security' },
   mini_cars: { ios: 'car.fill', android: 'directions_car' },
@@ -43,7 +58,9 @@ export default function TournamentsScreen() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const [games, setGames] = useState<TournamentGame[]>([]);
+  const [waitingSessions, setWaitingSessions] = useState<WaitingSession[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [availableMXI, setAvailableMXI] = useState(0);
   const [joining, setJoining] = useState(false);
   const [showPlayerSelector, setShowPlayerSelector] = useState(false);
@@ -69,6 +86,57 @@ export default function TournamentsScreen() {
       if (gamesError) throw gamesError;
       setGames(gamesData || []);
 
+      // Load waiting sessions with participant count
+      const { data: sessionsData, error: sessionsError } = await supabase
+        .rpc('get_waiting_sessions');
+
+      if (sessionsError) {
+        console.error('[Tournaments] RPC error, using fallback query:', sessionsError);
+        // Fallback: manual query
+        const { data: fallbackData } = await supabase
+          .from('game_sessions')
+          .select(`
+            id,
+            session_code,
+            num_players,
+            total_pool,
+            prize_amount,
+            created_at,
+            game_id,
+            tournament_games!inner(name, game_type, entry_fee)
+          `)
+          .eq('status', 'waiting')
+          .order('created_at', { ascending: false });
+
+        if (fallbackData) {
+          const formattedSessions = await Promise.all(
+            fallbackData.map(async (session: any) => {
+              const { count } = await supabase
+                .from('game_participants')
+                .select('*', { count: 'exact', head: true })
+                .eq('session_id', session.id);
+
+              return {
+                id: session.id,
+                session_code: session.session_code,
+                num_players: session.num_players,
+                current_players: count || 0,
+                total_pool: session.total_pool,
+                prize_amount: session.prize_amount,
+                game_id: session.game_id,
+                game_name: session.tournament_games.name,
+                game_type: session.tournament_games.game_type,
+                entry_fee: session.tournament_games.entry_fee,
+                created_at: session.created_at,
+              };
+            })
+          );
+          setWaitingSessions(formattedSessions);
+        }
+      } else {
+        setWaitingSessions(sessionsData || []);
+      }
+
       // Load balance
       const { data: userData, error: userError } = await supabase
         .from('users')
@@ -84,13 +152,186 @@ export default function TournamentsScreen() {
       showAlert(t('error'), t('availableGames'), undefined, 'error');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  const joinGame = async (game: TournamentGame) => {
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadData();
+  };
+
+  const joinExistingSession = async (session: WaitingSession) => {
     if (joining) return;
     
-    console.log('[Tournaments] JOIN GAME:', game.name, game.id);
+    console.log('[Tournaments] JOIN EXISTING SESSION:', session.session_code);
+    
+    // Check balance
+    if (availableMXI < session.entry_fee) {
+      showAlert(
+        t('insufficientBalance'),
+        t('insufficientBalanceNeed', { needed: session.entry_fee, available: availableMXI.toFixed(2) }),
+        undefined,
+        'warning'
+      );
+      return;
+    }
+
+    // Check if user is already in this session
+    const { data: existingParticipant } = await supabase
+      .from('game_participants')
+      .select('id')
+      .eq('session_id', session.id)
+      .eq('user_id', user!.id)
+      .single();
+
+    if (existingParticipant) {
+      showAlert(
+        t('alreadyJoined'),
+        t('youAreAlreadyInThisTournament'),
+        undefined,
+        'info'
+      );
+      return;
+    }
+
+    const message = `${t('joinTournament')} "${session.game_name}"?\n\n💰 ${t('entryFee')}: ${session.entry_fee} MXI\n👥 ${session.current_players}/${session.num_players} ${t('players')}\n🏆 ${t('prize')}: ${session.prize_amount.toFixed(2)} MXI`;
+
+    showConfirm({
+      title: t('joinTournament'),
+      message: message,
+      confirmText: t('join'),
+      cancelText: t('cancel'),
+      type: 'info',
+      icon: {
+        ios: 'gamecontroller.fill',
+        android: 'sports_esports',
+      },
+      onConfirm: () => executeJoinExisting(session),
+      onCancel: () => {
+        console.log('Join cancelled');
+      },
+    });
+  };
+
+  const executeJoinExisting = async (session: WaitingSession) => {
+    setJoining(true);
+    
+    try {
+      console.log('[Tournaments] EXECUTE JOIN EXISTING SESSION:', session.id);
+      
+      // 1. Get player number
+      const { data: participants } = await supabase
+        .from('game_participants')
+        .select('player_number')
+        .eq('session_id', session.id)
+        .order('player_number', { ascending: false })
+        .limit(1);
+
+      const playerNumber = participants && participants.length > 0 
+        ? participants[0].player_number + 1 
+        : 1;
+
+      console.log('[Tournaments] Player number:', playerNumber);
+
+      // 2. Deduct balance
+      const { data: userData } = await supabase
+        .from('users')
+        .select('mxi_from_unified_commissions, mxi_from_challenges')
+        .eq('id', user!.id)
+        .single();
+
+      let remaining = session.entry_fee;
+      let newCommissions = userData!.mxi_from_unified_commissions || 0;
+      let newChallenges = userData!.mxi_from_challenges || 0;
+
+      if (newCommissions >= remaining) {
+        newCommissions -= remaining;
+        remaining = 0;
+      } else {
+        remaining -= newCommissions;
+        newCommissions = 0;
+      }
+
+      if (remaining > 0) {
+        newChallenges -= remaining;
+      }
+
+      if (newChallenges < 0) {
+        throw new Error(t('insufficientBalance'));
+      }
+
+      const { error: balanceError } = await supabase
+        .from('users')
+        .update({
+          mxi_from_unified_commissions: newCommissions,
+          mxi_from_challenges: newChallenges
+        })
+        .eq('id', user!.id);
+
+      if (balanceError) throw balanceError;
+      console.log('[Tournaments] Balance updated');
+
+      // 3. Add participant
+      const { error: participantError } = await supabase
+        .from('game_participants')
+        .insert({
+          session_id: session.id,
+          user_id: user!.id,
+          player_number: playerNumber,
+          entry_paid: true
+        });
+
+      if (participantError) {
+        // Rollback balance
+        await supabase
+          .from('users')
+          .update({
+            mxi_from_unified_commissions: userData!.mxi_from_unified_commissions,
+            mxi_from_challenges: userData!.mxi_from_challenges
+          })
+          .eq('id', user!.id);
+        throw participantError;
+      }
+
+      console.log('[Tournaments] Participant added');
+
+      // 4. Update pool
+      const newPool = session.total_pool + session.entry_fee;
+      const prizeAmount = newPool * 0.9;
+
+      await supabase
+        .from('game_sessions')
+        .update({
+          total_pool: newPool,
+          prize_amount: prizeAmount
+        })
+        .eq('id', session.id);
+
+      console.log('[Tournaments] Pool updated');
+
+      // 5. Navigate
+      console.log('[Tournaments] NAVIGATING TO LOBBY');
+      router.push({
+        pathname: '/game-lobby',
+        params: { 
+          sessionId: session.id, 
+          gameType: session.game_type 
+        }
+      });
+
+    } catch (error: any) {
+      console.error('[Tournaments] JOIN ERROR:', error);
+      showAlert(t('error'), error.message || t('joiningGame'), undefined, 'error');
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  const createNewTournament = (game: TournamentGame) => {
+    if (joining) return;
+    
+    console.log('[Tournaments] CREATE NEW TOURNAMENT:', game.name, game.id);
     
     // Check balance
     if (availableMXI < game.entry_fee) {
@@ -103,127 +344,56 @@ export default function TournamentsScreen() {
       return;
     }
 
-    // Check if there are waiting sessions
-    const { data: sessions } = await supabase
-      .from('game_sessions')
-      .select('id, num_players, (game_participants(count))')
-      .eq('game_id', game.id)
-      .eq('status', 'waiting')
-      .order('created_at', { ascending: true });
-
-    console.log('[Tournaments] Found sessions:', sessions?.length);
-
-    // Check if any session has space
-    let hasAvailableSession = false;
-    if (sessions && sessions.length > 0) {
-      for (const session of sessions) {
-        const count = (session as any).game_participants?.[0]?.count || 0;
-        if (count < session.num_players) {
-          hasAvailableSession = true;
-          break;
-        }
-      }
-    }
-
-    // If no available session, show player count selector
-    if (!hasAvailableSession) {
-      setSelectedGame(game);
-      setSelectedPlayerCount(2);
-      setShowPlayerSelector(true);
-    } else {
-      // Join existing session
-      confirmJoin(game, null);
-    }
+    setSelectedGame(game);
+    setSelectedPlayerCount(2);
+    setShowPlayerSelector(true);
   };
 
-  const confirmJoin = (game: TournamentGame, playerCount: number | null) => {
-    const message = playerCount 
-      ? t('createTournamentOf', { count: playerCount }) + ` ${t('participateFor', { fee: game.entry_fee })}?\n\n🏆 ${t('prize')}: 90% del pool\n👥 ${playerCount} ${t('players')}`
-      : t('participateFor', { fee: game.entry_fee }) + `?\n\n🏆 ${t('prize')}: 90% del pool\n👥 ${game.min_players}-${game.max_players} ${t('players')}`;
+  const confirmCreateNew = (game: TournamentGame, playerCount: number) => {
+    const message = t('createTournamentOf', { count: playerCount }) + ` ${t('participateFor', { fee: game.entry_fee })}?\n\n🏆 ${t('prize')}: ${(game.entry_fee * playerCount * 0.9).toFixed(2)} MXI\n👥 ${playerCount} ${t('players')}`;
 
     showConfirm({
       title: game.name,
       message: message,
-      confirmText: t('continue'),
+      confirmText: t('create'),
       cancelText: t('cancel'),
       type: 'info',
       icon: {
         ios: 'gamecontroller.fill',
         android: 'sports_esports',
       },
-      onConfirm: () => executeJoin(game, playerCount),
+      onConfirm: () => executeCreateNew(game, playerCount),
       onCancel: () => {
-        console.log('Join cancelled');
+        console.log('Create cancelled');
       },
     });
   };
 
-  const executeJoin = async (game: TournamentGame, playerCount: number | null) => {
+  const executeCreateNew = async (game: TournamentGame, playerCount: number) => {
     setJoining(true);
     setShowPlayerSelector(false);
     
     try {
-      console.log('[Tournaments] EXECUTE JOIN START - Player count:', playerCount);
+      console.log('[Tournaments] EXECUTE CREATE NEW - Player count:', playerCount);
       
-      // 1. Find or create session
-      let sessionId: string | null = null;
-      
-      const { data: sessions } = await supabase
+      // 1. Create new session
+      const { data: newSession, error: createError } = await supabase
         .from('game_sessions')
-        .select('id, num_players, (game_participants(count))')
-        .eq('game_id', game.id)
-        .eq('status', 'waiting')
-        .order('created_at', { ascending: true });
+        .insert({
+          game_id: game.id,
+          session_code: `${game.game_type.toUpperCase()}-${Date.now().toString(36)}`,
+          num_players: playerCount,
+          status: 'waiting',
+          total_pool: 0,
+          prize_amount: 0
+        })
+        .select()
+        .single();
 
-      console.log('[Tournaments] Found sessions:', sessions?.length);
+      if (createError) throw createError;
+      console.log('[Tournaments] Created session:', newSession.id, 'with', newSession.num_players, 'players');
 
-      // Find session with space
-      if (sessions && sessions.length > 0) {
-        for (const session of sessions) {
-          const count = (session as any).game_participants?.[0]?.count || 0;
-          if (count < session.num_players) {
-            sessionId = session.id;
-            break;
-          }
-        }
-      }
-
-      // Create new session if needed
-      if (!sessionId) {
-        console.log('[Tournaments] Creating new session with', playerCount || game.min_players, 'players');
-        const { data: newSession, error: createError } = await supabase
-          .from('game_sessions')
-          .insert({
-            game_id: game.id,
-            session_code: `${game.game_type.toUpperCase()}-${Date.now().toString(36)}`,
-            num_players: playerCount || game.min_players,
-            status: 'waiting',
-            total_pool: 0,
-            prize_amount: 0
-          })
-          .select()
-          .single();
-
-        if (createError) throw createError;
-        sessionId = newSession.id;
-        console.log('[Tournaments] Created session:', sessionId, 'with', newSession.num_players, 'players');
-      }
-
-      // 2. Get player number
-      const { data: participants } = await supabase
-        .from('game_participants')
-        .select('player_number')
-        .eq('session_id', sessionId)
-        .order('player_number', { ascending: false })
-        .limit(1);
-
-      const playerNumber = participants && participants.length > 0 
-        ? participants[0].player_number + 1 
-        : 1;
-
-      console.log('[Tournaments] Player number:', playerNumber);
-
-      // 3. Deduct balance
+      // 2. Deduct balance
       const { data: userData } = await supabase
         .from('users')
         .select('mxi_from_unified_commissions, mxi_from_challenges')
@@ -261,13 +431,13 @@ export default function TournamentsScreen() {
       if (balanceError) throw balanceError;
       console.log('[Tournaments] Balance updated');
 
-      // 4. Add participant
+      // 3. Add participant
       const { error: participantError } = await supabase
         .from('game_participants')
         .insert({
-          session_id: sessionId,
+          session_id: newSession.id,
           user_id: user!.id,
-          player_number: playerNumber,
+          player_number: 1,
           entry_paid: true
         });
 
@@ -285,14 +455,8 @@ export default function TournamentsScreen() {
 
       console.log('[Tournaments] Participant added');
 
-      // 5. Update pool
-      const { data: sessionData } = await supabase
-        .from('game_sessions')
-        .select('total_pool')
-        .eq('id', sessionId)
-        .single();
-
-      const newPool = (sessionData!.total_pool || 0) + game.entry_fee;
+      // 4. Update pool
+      const newPool = game.entry_fee;
       const prizeAmount = newPool * 0.9;
 
       await supabase
@@ -301,23 +465,23 @@ export default function TournamentsScreen() {
           total_pool: newPool,
           prize_amount: prizeAmount
         })
-        .eq('id', sessionId);
+        .eq('id', newSession.id);
 
       console.log('[Tournaments] Pool updated');
 
-      // 6. Navigate
+      // 5. Navigate
       console.log('[Tournaments] NAVIGATING TO LOBBY');
       router.push({
         pathname: '/game-lobby',
         params: { 
-          sessionId: sessionId, 
+          sessionId: newSession.id, 
           gameType: game.game_type 
         }
       });
 
     } catch (error: any) {
-      console.error('[Tournaments] JOIN ERROR:', error);
-      showAlert(t('error'), error.message || t('joiningGame'), undefined, 'error');
+      console.error('[Tournaments] CREATE ERROR:', error);
+      showAlert(t('error'), error.message || t('creatingTournament'), undefined, 'error');
     } finally {
       setJoining(false);
     }
@@ -349,7 +513,12 @@ export default function TournamentsScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+        }
+      >
         <View style={[commonStyles.card, styles.infoCard]}>
           <View style={styles.infoHeader}>
             <IconSymbol 
@@ -384,7 +553,99 @@ export default function TournamentsScreen() {
           </Text>
         </View>
 
-        <Text style={styles.sectionTitle}>{t('availableGames')}</Text>
+        {/* Waiting Tournaments Section */}
+        {waitingSessions.length > 0 && (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{t('waitingTournaments')}</Text>
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{waitingSessions.length}</Text>
+              </View>
+            </View>
+
+            {waitingSessions.map((session) => {
+              const icon = GAME_ICONS[session.game_type as keyof typeof GAME_ICONS];
+              const isFull = session.current_players >= session.num_players;
+              
+              return (
+                <TouchableOpacity
+                  key={session.id}
+                  style={[commonStyles.card, styles.sessionCard, isFull && styles.sessionCardFull]}
+                  onPress={() => !isFull && joinExistingSession(session)}
+                  disabled={joining || isFull}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.sessionIcon}>
+                    <IconSymbol 
+                      ios_icon_name={icon.ios} 
+                      android_material_icon_name={icon.android} 
+                      size={28} 
+                      color={isFull ? colors.textSecondary : colors.primary} 
+                    />
+                  </View>
+                  <View style={styles.sessionInfo}>
+                    <Text style={[styles.sessionName, isFull && styles.sessionNameFull]}>
+                      {session.game_name}
+                    </Text>
+                    <Text style={styles.sessionCode}>
+                      {t('code')}: {session.session_code}
+                    </Text>
+                    <View style={styles.sessionStats}>
+                      <View style={styles.sessionStat}>
+                        <IconSymbol 
+                          ios_icon_name="person.2.fill" 
+                          android_material_icon_name="group" 
+                          size={14} 
+                          color={colors.textSecondary} 
+                        />
+                        <Text style={styles.sessionStatText}>
+                          {session.current_players}/{session.num_players}
+                        </Text>
+                      </View>
+                      <View style={styles.sessionStat}>
+                        <IconSymbol 
+                          ios_icon_name="trophy.fill" 
+                          android_material_icon_name="emoji_events" 
+                          size={14} 
+                          color={colors.success} 
+                        />
+                        <Text style={[styles.sessionStatText, { color: colors.success }]}>
+                          {session.prize_amount.toFixed(2)} MXI
+                        </Text>
+                      </View>
+                      <View style={styles.sessionStat}>
+                        <IconSymbol 
+                          ios_icon_name="dollarsign.circle" 
+                          android_material_icon_name="payments" 
+                          size={14} 
+                          color={colors.warning} 
+                        />
+                        <Text style={[styles.sessionStatText, { color: colors.warning }]}>
+                          {session.entry_fee} MXI
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                  {isFull ? (
+                    <View style={styles.fullBadge}>
+                      <Text style={styles.fullBadgeText}>{t('full')}</Text>
+                    </View>
+                  ) : (
+                    <IconSymbol 
+                      ios_icon_name="arrow.right.circle.fill" 
+                      android_material_icon_name="arrow_circle_right" 
+                      size={32} 
+                      color={colors.primary} 
+                    />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </>
+        )}
+
+        {/* Create New Tournament Section */}
+        <Text style={styles.sectionTitle}>{t('createNewTournament')}</Text>
 
         {games.map((game) => {
           const icon = GAME_ICONS[game.game_type as keyof typeof GAME_ICONS];
@@ -393,7 +654,7 @@ export default function TournamentsScreen() {
             <TouchableOpacity
               key={game.id}
               style={[commonStyles.card, styles.gameCard]}
-              onPress={() => joinGame(game)}
+              onPress={() => createNewTournament(game)}
               disabled={joining}
               activeOpacity={0.7}
             >
@@ -418,10 +679,10 @@ export default function TournamentsScreen() {
                 </View>
               </View>
               <IconSymbol 
-                ios_icon_name="chevron.right" 
-                android_material_icon_name="chevron_right" 
-                size={24} 
-                color={colors.textSecondary} 
+                ios_icon_name="plus.circle.fill" 
+                android_material_icon_name="add_circle" 
+                size={32} 
+                color={colors.success} 
               />
             </TouchableOpacity>
           );
@@ -509,7 +770,7 @@ export default function TournamentsScreen() {
               style={[buttonStyles.primary, styles.confirmButton]}
               onPress={() => {
                 if (selectedGame) {
-                  confirmJoin(selectedGame, selectedPlayerCount);
+                  confirmCreateNew(selectedGame, selectedPlayerCount);
                 }
               }}
             >
@@ -624,11 +885,92 @@ const styles = StyleSheet.create({
     color: colors.warning,
     fontWeight: '600',
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 16,
+  },
+  badge: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  badgeText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.background,
+  },
+  sessionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: colors.primary + '40',
+    backgroundColor: colors.primary + '08',
+  },
+  sessionCardFull: {
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    opacity: 0.6,
+  },
+  sessionIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    backgroundColor: colors.primary + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sessionInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  sessionName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  sessionNameFull: {
+    color: colors.textSecondary,
+  },
+  sessionCode: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontFamily: 'monospace',
+  },
+  sessionStats: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
+  },
+  sessionStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  sessionStatText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  fullBadge: {
+    backgroundColor: colors.textSecondary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  fullBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.background,
   },
   gameCard: {
     flexDirection: 'row',
