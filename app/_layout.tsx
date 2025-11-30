@@ -6,7 +6,7 @@ import { Stack, router, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { SystemBars } from "react-native-edge-to-edge";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { useColorScheme } from "react-native";
+import { useColorScheme, Platform } from "react-native";
 import { useNetworkState } from "expo-network";
 import * as Linking from "expo-linking";
 import {
@@ -22,6 +22,7 @@ import { LanguageProvider, useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/lib/supabase";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { registerWebConfirmHandler, ConfirmConfig, showAlert } from "@/utils/confirmDialog";
+import { APP_VERSION, BUILD_ID, BUILD_DATE, checkForUpdates, forceReload } from "@/constants/AppVersion";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -44,6 +45,31 @@ function RootLayoutNav() {
     registerWebConfirmHandler((config) => {
       setConfirmConfig(config);
     });
+  }, []);
+
+  // Check for updates on web platform
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      console.log('Checking for app updates...');
+      const needsUpdate = checkForUpdates();
+      
+      if (needsUpdate) {
+        console.log('Update detected, prompting user...');
+        showAlert(
+          'Nueva Versión Disponible',
+          'Se ha detectado una nueva versión de la aplicación. La página se recargará para aplicar las actualizaciones.',
+          [
+            {
+              text: 'Actualizar Ahora',
+              onPress: () => {
+                forceReload();
+              }
+            }
+          ],
+          'info'
+        );
+      }
+    }
   }, []);
 
   // Mark component as mounted after first render

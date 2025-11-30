@@ -18,6 +18,7 @@ import { YieldDisplay } from '@/components/YieldDisplay';
 import { LaunchCountdown } from '@/components/LaunchCountdown';
 import { TotalMXIBalanceChart } from '@/components/TotalMXIBalanceChart';
 import { LanguageSelector } from '@/components/LanguageSelector';
+import VersionDisplay from '@/components/VersionDisplay';
 import Footer from '@/components/Footer';
 import { supabase } from '@/lib/supabase';
 
@@ -466,6 +467,9 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Version Display - Top Right Corner */}
+      <VersionDisplay position="top" />
+
       {/* Animated Header with Logo, User Name, and Language Selector */}
       <Animated.View 
         style={[

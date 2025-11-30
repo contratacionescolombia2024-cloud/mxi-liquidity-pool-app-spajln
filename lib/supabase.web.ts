@@ -1,5 +1,6 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { APP_VERSION, BUILD_ID } from '@/constants/AppVersion';
 
 // Supabase configuration
 const supabaseUrl = 'https://aeyfnjuatbtcauiumbhn.supabase.co';
@@ -9,23 +10,31 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 const isBrowser = typeof window !== 'undefined' && typeof document !== 'undefined';
 
 console.log('Supabase Web Client - isBrowser:', isBrowser);
+console.log('Supabase Web Client - App Version:', APP_VERSION);
+console.log('Supabase Web Client - Build ID:', BUILD_ID);
 
-// For web, use localStorage directly
+// For web, use localStorage directly with version-specific keys
 const storage = {
   getItem: (key: string) => {
     if (typeof window !== 'undefined' && window.localStorage) {
-      return window.localStorage.getItem(key);
+      // Use version-specific key for non-auth data
+      const versionedKey = key.includes('supabase.auth') ? key : `${key}_${BUILD_ID}`;
+      return window.localStorage.getItem(versionedKey);
     }
     return null;
   },
   setItem: (key: string, value: string) => {
     if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.setItem(key, value);
+      // Use version-specific key for non-auth data
+      const versionedKey = key.includes('supabase.auth') ? key : `${key}_${BUILD_ID}`;
+      window.localStorage.setItem(versionedKey, value);
     }
   },
   removeItem: (key: string) => {
     if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.removeItem(key);
+      // Use version-specific key for non-auth data
+      const versionedKey = key.includes('supabase.auth') ? key : `${key}_${BUILD_ID}`;
+      window.localStorage.removeItem(versionedKey);
     }
   },
 };
@@ -41,7 +50,7 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
   },
 });
 
-console.log('Supabase client initialized for web');
+console.log('Supabase client initialized for web with version:', APP_VERSION);
 
 // Handle deep linking for email confirmation
 export const handleDeepLink = async (url: string) => {
