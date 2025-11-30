@@ -8,6 +8,7 @@ import {
   RefreshControl,
   Image,
   Animated,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,6 +30,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000000',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000000',
+    padding: 20,
+  },
+  loadingText: {
+    color: colors.text,
+    fontSize: 16,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  loadingSubtext: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    marginTop: 8,
+    textAlign: 'center',
   },
   headerContainer: {
     position: 'absolute',
@@ -288,6 +308,7 @@ export default function HomeScreen() {
   const { user, loading, checkWithdrawalEligibility, getPhaseInfo } = useAuth();
   const { t } = useLanguage();
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
   const [phaseInfo, setPhaseInfo] = useState<any>({
     currentPhase: 1,
     currentPriceUsdt: 0.40,
@@ -317,6 +338,18 @@ export default function HomeScreen() {
     outputRange: [1, 0.5, 0],
     extrapolate: 'clamp',
   });
+
+  // Set a timeout for loading state - if it takes too long, show error message
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (loading) {
+        console.warn('⚠️ Home screen loading timeout - data taking too long to load');
+        setLoadingTimeout(true);
+      }
+    }, 5000); // 5 seconds timeout
+
+    return () => clearTimeout(timeout);
+  }, [loading]);
 
   useEffect(() => {
     if (user) {
@@ -452,11 +485,38 @@ export default function HomeScreen() {
     setRefreshing(false);
   };
 
-  if (loading || !user) {
+  // Show loading screen with timeout message
+  if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-          <Text style={{ color: colors.text }}>{t('loading')}</Text>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>
+            {loadingTimeout ? t('loadingTakingLonger') : t('loading')}
+          </Text>
+          {loadingTimeout && (
+            <Text style={styles.loadingSubtext}>
+              {t('pleaseWaitOrRefresh')}
+            </Text>
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Show error if no user after loading completes
+  if (!user) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <IconSymbol 
+            ios_icon_name="exclamationmark.triangle" 
+            android_material_icon_name="warning" 
+            size={48} 
+            color={colors.error} 
+          />
+          <Text style={styles.loadingText}>{t('errorLoadingUser')}</Text>
+          <Text style={styles.loadingSubtext}>{t('pleaseTryAgain')}</Text>
         </View>
       </SafeAreaView>
     );

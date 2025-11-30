@@ -241,23 +241,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('Platform:', Platform.OS);
     console.log('Supabase client available:', !!supabase);
     
-    // Shorter timeout for web to prevent hanging
-    const timeoutDuration = Platform.OS === 'web' ? 5000 : 10000;
+    // Shorter timeout for web to prevent hanging - REDUCED TO 3 SECONDS
+    const timeoutDuration = Platform.OS === 'web' ? 3000 : 8000;
     
-    const loadingTimeout = setTimeout(() => {
-      console.warn('Auth initialization timeout - forcing loading to false');
-      if (loading && !isInitialized) {
-        setLoading(false);
-        setIsInitialized(true);
-      }
-    }, timeoutDuration);
+    let timeoutId: NodeJS.Timeout;
+    let isTimedOut = false;
 
     const initAuth = async () => {
       try {
         console.log('Getting initial session...');
+        
+        // Set timeout to force loading to false if initialization takes too long
+        timeoutId = setTimeout(() => {
+          console.warn('⚠️ Auth initialization timeout - forcing loading to false');
+          isTimedOut = true;
+          setLoading(false);
+          setIsInitialized(true);
+        }, timeoutDuration);
+
         const { data: { session }, error } = await supabase.auth.getSession();
         
-        clearTimeout(loadingTimeout);
+        // Clear timeout if we got a response
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+
+        // Don't process if we already timed out
+        if (isTimedOut) {
+          console.log('Already timed out, skipping session processing');
+          return;
+        }
         
         if (error) {
           console.error('Error getting initial session:', error);
@@ -279,7 +292,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         setIsInitialized(true);
       } catch (error) {
-        clearTimeout(loadingTimeout);
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
         console.error('Exception getting initial session:', error);
         setLoading(false);
         setIsInitialized(true);
@@ -338,7 +353,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return () => {
-      clearTimeout(loadingTimeout);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       subscription.unsubscribe();
     };
   }, []);
@@ -348,11 +365,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('=== LOADING USER DATA ===');
       console.log('User ID:', userId);
       
+      // Set a timeout for loading user data as well
+      const loadTimeout = setTimeout(() => {
+        console.warn('⚠️ User data loading timeout - forcing loading to false');
+        setLoading(false);
+      }, 5000);
+
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .single();
+
+      clearTimeout(loadTimeout);
 
       if (userError) {
         console.error('Error loading user data:', userError);
