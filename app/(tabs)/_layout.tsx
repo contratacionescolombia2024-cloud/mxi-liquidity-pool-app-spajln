@@ -48,11 +48,7 @@ export default function TabLayout() {
             />
           ) : null
         ),
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
-          marginTop: 4,
-        },
+        tabBarShowLabel: false,
         tabBarItemStyle: {
           paddingVertical: 4,
         },
@@ -61,12 +57,12 @@ export default function TabLayout() {
       <Tabs.Screen
         name="(home)"
         options={{
-          title: `🏠 ${t('tabHome')}`,
+          title: t('tabHome'),
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
               ios_icon_name={focused ? 'house.fill' : 'house'}
               android_material_icon_name="home"
-              size={24}
+              size={28}
               color={color}
             />
           ),
@@ -76,12 +72,12 @@ export default function TabLayout() {
       <Tabs.Screen
         name="deposit"
         options={{
-          title: `💰 ${t('tabDeposit')}`,
+          title: t('tabDeposit'),
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
               ios_icon_name={focused ? 'arrow.down.circle.fill' : 'arrow.down.circle'}
               android_material_icon_name="arrow_circle_down"
-              size={24}
+              size={28}
               color={color}
             />
           ),
@@ -91,12 +87,12 @@ export default function TabLayout() {
       <Tabs.Screen
         name="withdraw"
         options={{
-          title: `💸 ${t('tabWithdraw')}`,
+          title: t('tabWithdraw'),
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
               ios_icon_name={focused ? 'arrow.up.circle.fill' : 'arrow.up.circle'}
               android_material_icon_name="arrow_circle_up"
-              size={24}
+              size={28}
               color={color}
             />
           ),
@@ -106,12 +102,12 @@ export default function TabLayout() {
       <Tabs.Screen
         name="referrals"
         options={{
-          title: `👥 ${t('tabReferrals')}`,
+          title: t('tabReferrals'),
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
               ios_icon_name={focused ? 'person.3.fill' : 'person.3'}
               android_material_icon_name="group"
-              size={24}
+              size={28}
               color={color}
             />
           ),
@@ -121,12 +117,12 @@ export default function TabLayout() {
       <Tabs.Screen
         name="tournaments"
         options={{
-          title: `🏆 ${t('tabTournaments')}`,
+          title: t('tabTournaments'),
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
               ios_icon_name={focused ? 'trophy.fill' : 'trophy'}
               android_material_icon_name="emoji_events"
-              size={24}
+              size={28}
               color={color}
             />
           ),
@@ -136,12 +132,12 @@ export default function TabLayout() {
       <Tabs.Screen
         name="rewards"
         options={{
-          title: `🎁 ${t('tabRewards')}`,
+          title: t('tabRewards'),
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
               ios_icon_name={focused ? 'gift.fill' : 'gift'}
               android_material_icon_name="card_giftcard"
-              size={24}
+              size={28}
               color={color}
             />
           ),
@@ -151,12 +147,12 @@ export default function TabLayout() {
       <Tabs.Screen
         name="ecosystem"
         options={{
-          title: `🌐 ${t('tabEcosystem')}`,
+          title: t('tabEcosystem'),
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
               ios_icon_name={focused ? 'globe.americas.fill' : 'globe.americas'}
               android_material_icon_name="public"
-              size={24}
+              size={28}
               color={color}
             />
           ),
@@ -166,12 +162,12 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: `👤 ${t('tabProfile')}`,
+          title: t('tabProfile'),
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
               ios_icon_name={focused ? 'person.circle.fill' : 'person.circle'}
               android_material_icon_name="account_circle"
-              size={24}
+              size={28}
               color={color}
             />
           ),
