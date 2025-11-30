@@ -47,7 +47,7 @@ export default function DepositScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>💰 {t('deposit')}</Text>
+          <Text style={styles.headerTitle}>{t('deposit')}</Text>
           <Text style={styles.headerSubtitle}>{t('buyMXIWithMultipleOptions')}</Text>
         </View>
         <TouchableOpacity

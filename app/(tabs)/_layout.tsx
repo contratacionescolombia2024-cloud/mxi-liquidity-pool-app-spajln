@@ -48,7 +48,11 @@ export default function TabLayout() {
             />
           ) : null
         ),
-        tabBarShowLabel: false,
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+          marginTop: 4,
+        },
         tabBarItemStyle: {
           paddingVertical: 4,
         },
@@ -62,7 +66,7 @@ export default function TabLayout() {
             <IconSymbol
               ios_icon_name={focused ? 'house.fill' : 'house'}
               android_material_icon_name="home"
-              size={28}
+              size={24}
               color={color}
             />
           ),
@@ -77,7 +81,7 @@ export default function TabLayout() {
             <IconSymbol
               ios_icon_name={focused ? 'arrow.down.circle.fill' : 'arrow.down.circle'}
               android_material_icon_name="arrow_circle_down"
-              size={28}
+              size={24}
               color={color}
             />
           ),
@@ -92,7 +96,7 @@ export default function TabLayout() {
             <IconSymbol
               ios_icon_name={focused ? 'arrow.up.circle.fill' : 'arrow.up.circle'}
               android_material_icon_name="arrow_circle_up"
-              size={28}
+              size={24}
               color={color}
             />
           ),
@@ -107,7 +111,7 @@ export default function TabLayout() {
             <IconSymbol
               ios_icon_name={focused ? 'person.3.fill' : 'person.3'}
               android_material_icon_name="group"
-              size={28}
+              size={24}
               color={color}
             />
           ),
@@ -122,7 +126,7 @@ export default function TabLayout() {
             <IconSymbol
               ios_icon_name={focused ? 'trophy.fill' : 'trophy'}
               android_material_icon_name="emoji_events"
-              size={28}
+              size={24}
               color={color}
             />
           ),
@@ -137,7 +141,7 @@ export default function TabLayout() {
             <IconSymbol
               ios_icon_name={focused ? 'gift.fill' : 'gift'}
               android_material_icon_name="card_giftcard"
-              size={28}
+              size={24}
               color={color}
             />
           ),
@@ -152,7 +156,7 @@ export default function TabLayout() {
             <IconSymbol
               ios_icon_name={focused ? 'globe.americas.fill' : 'globe.americas'}
               android_material_icon_name="public"
-              size={28}
+              size={24}
               color={color}
             />
           ),
@@ -167,7 +171,7 @@ export default function TabLayout() {
             <IconSymbol
               ios_icon_name={focused ? 'person.circle.fill' : 'person.circle'}
               android_material_icon_name="account_circle"
-              size={28}
+              size={24}
               color={color}
             />
           ),

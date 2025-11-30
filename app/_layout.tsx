@@ -6,7 +6,7 @@ import { Stack, router, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { SystemBars } from "react-native-edge-to-edge";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { useColorScheme, View, Text, ActivityIndicator } from "react-native";
+import { useColorScheme } from "react-native";
 import { useNetworkState } from "expo-network";
 import * as Linking from "expo-linking";
 import {
@@ -23,17 +23,14 @@ import { supabase } from "@/lib/supabase";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { registerWebConfirmHandler, ConfirmConfig, showAlert } from "@/utils/confirmDialog";
 
-// Prevent splash screen from auto-hiding
-SplashScreen.preventAutoHideAsync().catch(() => {
-  console.log('Splash screen already hidden or error preventing auto-hide');
-});
+SplashScreen.preventAutoHideAsync();
 
 export const unstable_settings = {
   initialRouteName: "(auth)",
 };
 
 function RootLayoutNav() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { t } = useLanguage();
   const segments = useSegments();
   const colorScheme = useColorScheme();
@@ -51,18 +48,14 @@ function RootLayoutNav() {
 
   // Mark component as mounted after first render
   useEffect(() => {
-    console.log('RootLayoutNav mounted');
     setIsMounted(true);
   }, []);
 
-  // Handle navigation only after component is mounted and not loading
+  // Handle navigation only after component is mounted
   useEffect(() => {
-    if (!isMounted || loading) {
-      console.log('Navigation blocked - mounted:', isMounted, 'loading:', loading);
+    if (!isMounted) {
       return;
     }
-
-    console.log('Navigation check - authenticated:', isAuthenticated, 'segments:', segments);
 
     const inAuthGroup = segments[0] === "(auth)";
     const inEmailConfirmed = segments[0] === "email-confirmed";
@@ -73,13 +66,11 @@ function RootLayoutNav() {
     }
 
     if (!isAuthenticated && !inAuthGroup) {
-      console.log('Redirecting to login');
       router.replace("/(auth)/login");
     } else if (isAuthenticated && inAuthGroup) {
-      console.log('Redirecting to home');
       router.replace("/(tabs)/(home)/");
     }
-  }, [isAuthenticated, segments, isMounted, loading]);
+  }, [isAuthenticated, segments, isMounted]);
 
   // Handle deep linking for email confirmation
   useEffect(() => {
@@ -135,18 +126,6 @@ function RootLayoutNav() {
       notification: "rgb(244, 67, 54)",
     },
   };
-
-  // Show loading indicator while auth is initializing
-  if (loading) {
-    return (
-      <View style={{ flex: 1, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#2962FF" />
-        <Text style={{ color: '#FFFFFF', marginTop: 20, fontSize: 16 }}>
-          Inicializando MXI Strategic Presale...
-        </Text>
-      </View>
-    );
-  }
 
   return (
     <ThemeProvider
@@ -204,47 +183,19 @@ function RootLayoutNav() {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const networkState = useNetworkState();
-  const [loaded, error] = useFonts({
+  const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
-  const [appReady, setAppReady] = useState(false);
 
-  // DRASTIC FIX: Force app to be ready after maximum 2 seconds
   useEffect(() => {
-    console.log('=== ROOT LAYOUT INITIALIZATION ===');
-    console.log('Fonts loaded:', loaded);
-    console.log('Font error:', error);
-    
-    // Emergency timeout - force app to load after 2 seconds no matter what
-    const emergencyTimeout = setTimeout(() => {
-      console.log('⚠️ EMERGENCY TIMEOUT - Forcing app to load');
-      setAppReady(true);
-      SplashScreen.hideAsync().catch((e) => {
-        console.log('Error hiding splash screen:', e);
-      });
-    }, 2000);
-
-    // Normal flow - hide splash when fonts load
-    if (loaded || error) {
-      console.log('Fonts ready or error occurred, hiding splash screen');
-      clearTimeout(emergencyTimeout);
-      setAppReady(true);
-      SplashScreen.hideAsync().catch((e) => {
-        console.log('Error hiding splash screen:', e);
-      });
+    if (loaded) {
+      SplashScreen.hideAsync();
     }
+  }, [loaded]);
 
-    return () => {
-      clearTimeout(emergencyTimeout);
-    };
-  }, [loaded, error]);
-
-  // Don't render anything until app is ready
-  if (!appReady) {
+  if (!loaded) {
     return null;
   }
-
-  console.log('=== RENDERING ROOT LAYOUT ===');
 
   return (
     <>

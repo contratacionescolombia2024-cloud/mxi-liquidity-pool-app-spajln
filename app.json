@@ -2,10 +2,9 @@
   "expo": {
     "name": "MXI Liquidity Pool",
     "slug": "MXI Liquidity Pool",
-    "version": "1.0.2",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/04a4d9ac-4539-41d2-bafd-67dd75925bde.png",
-    "scheme": "mxiliquiditypool",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -15,10 +14,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.mxistrategic.liquiditypool",
+      "bundleIdentifier": "com.maxcoinpool.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "This app needs access to your camera to take photos for KYC verification.",
-        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to select images for KYC verification."
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSMicrophoneUsageDescription": "This app needs access to your microphone to play the AirBall game where you blow to keep the ball in the air."
       }
     },
     "android": {
@@ -26,45 +25,64 @@
         "foregroundImage": "./assets/images/04a4d9ac-4539-41d2-bafd-67dd75925bde.png",
         "backgroundColor": "#000000"
       },
-      "package": "com.mxistrategic.liquiditypool",
+      "edgeToEdgeEnabled": true,
+      "package": "com.mxistrategicholdingsltd.mxistrategic_presale_play",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "natively.dev",
+              "pathPrefix": "/email-confirmed"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
       "permissions": [
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
-      "bundler": "metro",
-      "output": "static",
       "favicon": "./assets/images/04a4d9ac-4539-41d2-bafd-67dd75925bde.png",
-      "build": {
-        "babel": {
-          "include": [
-            "@supabase/supabase-js"
-          ]
-        }
-      }
+      "bundler": "metro"
     },
     "plugins": [
+      "expo-font",
       "expo-router",
       [
-        "expo-image-picker",
+        "expo-web-browser",
         {
-          "photosPermission": "The app needs access to your photos to upload KYC documents.",
-          "cameraPermission": "The app needs access to your camera to take photos for KYC verification."
+          "preferredBrowserPackage": "com.android.chrome"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/04a4d9ac-4539-41d2-bafd-67dd75925bde.png",
+          "color": "#ffffff",
+          "sounds": []
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow MXI Liquidity Pool to access your microphone for the AirBall game."
         }
       ]
     ],
+    "scheme": "maxcoinpool",
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "router": {
-        "origin": false
-      },
-      "eas": {
-        "projectId": "your-project-id"
-      }
+      "router": {}
     }
   },
   "scheme": "MXI Liquidity Pool"

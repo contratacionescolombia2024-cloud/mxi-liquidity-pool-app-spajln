@@ -85,47 +85,40 @@ export default function LoginScreen() {
 
     setLoading(true);
     console.log('Calling login function...');
-    
-    try {
-      const result = await login(email, password);
-      console.log('Login result:', result);
+    const result = await login(email, password);
+    console.log('Login result:', result);
+    setLoading(false);
+
+    if (result.success) {
+      console.log('Login successful, saving credentials and navigating to home');
+      await saveCredentials();
+      router.replace('/(tabs)/(home)/');
+    } else {
+      console.log('Login failed with error:', result.error);
       
-      if (result.success) {
-        console.log('Login successful, saving credentials');
-        await saveCredentials();
-        // Navigation will be handled by AuthContext and _layout.tsx
+      // Check if error is related to email verification
+      const errorMessage = result.error?.toLowerCase() || '';
+      if (errorMessage.includes('verif') || errorMessage.includes('email')) {
+        setNeedsVerification(true);
+        showConfirm({
+          title: t('emailVerificationRequired'),
+          message: t('pleaseVerifyEmail'),
+          confirmText: t('resendEmail'),
+          cancelText: t('cancel'),
+          type: 'warning',
+          onConfirm: handleResendVerification,
+          onCancel: () => {},
+        });
+      } else if (errorMessage.includes('invalid') || errorMessage.includes('credentials')) {
+        showAlert(
+          t('loginError'),
+          t('invalidCredentials'),
+          undefined,
+          'error'
+        );
       } else {
-        console.log('Login failed with error:', result.error);
-        
-        // Check if error is related to email verification
-        const errorMessage = result.error?.toLowerCase() || '';
-        if (errorMessage.includes('verif') || errorMessage.includes('email')) {
-          setNeedsVerification(true);
-          showConfirm({
-            title: t('emailVerificationRequired'),
-            message: t('pleaseVerifyEmail'),
-            confirmText: t('resendEmail'),
-            cancelText: t('cancel'),
-            type: 'warning',
-            onConfirm: handleResendVerification,
-            onCancel: () => {},
-          });
-        } else if (errorMessage.includes('invalid') || errorMessage.includes('credentials')) {
-          showAlert(
-            t('loginError'),
-            t('invalidCredentials'),
-            undefined,
-            'error'
-          );
-        } else {
-          showAlert(t('error'), result.error || t('errorLoggingIn'), undefined, 'error');
-        }
+        showAlert(t('error'), result.error || t('errorLoggingIn'), undefined, 'error');
       }
-    } catch (error: any) {
-      console.error('Login exception:', error);
-      showAlert(t('error'), error.message || t('errorLoggingIn'), undefined, 'error');
-    } finally {
-      setLoading(false);
     }
     
     console.log('=== LOGIN ATTEMPT END ===');
@@ -158,7 +151,7 @@ export default function LoginScreen() {
     });
   };
 
-  // Show loading overlay only during initial auth check
+  // Show loading overlay if auth is initializing
   if (authLoading) {
     return (
       <View style={styles.loadingContainer}>
