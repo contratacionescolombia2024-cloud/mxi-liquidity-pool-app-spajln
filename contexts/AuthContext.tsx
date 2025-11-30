@@ -115,7 +115,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [isInitialized, setIsInitialized] = useState(false);
 
   // Initialize notification service (only on native platforms)
   useEffect(() => {
@@ -236,116 +235,82 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [user?.id]);
 
+  // DRASTIC FIX: Simplified initialization with aggressive timeout
   useEffect(() => {
-    console.log('=== AUTH CONTEXT INITIALIZATION ===');
+    console.log('=== AUTH CONTEXT INITIALIZATION START ===');
     console.log('Platform:', Platform.OS);
-    console.log('Supabase client available:', !!supabase);
     
-    // Shorter timeout for web to prevent hanging - REDUCED TO 3 SECONDS
-    const timeoutDuration = Platform.OS === 'web' ? 3000 : 8000;
-    
+    let isMounted = true;
     let timeoutId: NodeJS.Timeout;
-    let isTimedOut = false;
 
     const initAuth = async () => {
       try {
-        console.log('Getting initial session...');
-        
-        // Set timeout to force loading to false if initialization takes too long
+        // DRASTIC: Set a very short timeout - 1.5 seconds max
         timeoutId = setTimeout(() => {
-          console.warn('⚠️ Auth initialization timeout - forcing loading to false');
-          isTimedOut = true;
-          setLoading(false);
-          setIsInitialized(true);
-        }, timeoutDuration);
+          if (isMounted) {
+            console.warn('⚠️ AUTH TIMEOUT - Forcing loading to false');
+            setLoading(false);
+          }
+        }, 1500);
 
+        console.log('Getting initial session...');
         const { data: { session }, error } = await supabase.auth.getSession();
         
-        // Clear timeout if we got a response
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
-
-        // Don't process if we already timed out
-        if (isTimedOut) {
-          console.log('Already timed out, skipping session processing');
-          return;
-        }
+        if (!isMounted) return;
+        
+        clearTimeout(timeoutId);
         
         if (error) {
-          console.error('Error getting initial session:', error);
+          console.error('Session error:', error);
           setLoading(false);
-          setIsInitialized(true);
           return;
         }
         
-        console.log('Initial session:', session ? `Found for ${session.user.email}` : 'Not found');
+        console.log('Session:', session ? 'Found' : 'Not found');
         setSession(session);
         
         if (session) {
-          console.log('Loading user data for session user:', session.user.id);
+          // Load user data but don't wait forever
+          const loadTimeout = setTimeout(() => {
+            if (isMounted) {
+              console.warn('⚠️ USER DATA TIMEOUT - Forcing loading to false');
+              setLoading(false);
+            }
+          }, 1000);
+
           await loadUserData(session.user.id);
+          clearTimeout(loadTimeout);
         } else {
-          console.log('No session found, setting loading to false');
           setLoading(false);
         }
-        
-        setIsInitialized(true);
       } catch (error) {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
+        console.error('Init auth error:', error);
+        if (isMounted) {
+          setLoading(false);
         }
-        console.error('Exception getting initial session:', error);
-        setLoading(false);
-        setIsInitialized(true);
       }
     };
 
     initAuth();
 
+    // Auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      console.log('=== AUTH STATE CHANGE ===');
-      console.log('Event:', _event);
-      console.log('Session:', session ? 'Present' : 'Null');
+      console.log('Auth state change:', _event);
       
-      // Don't process auth state changes until initialized
-      if (!isInitialized) {
-        console.log('Auth not initialized yet, skipping state change');
-        return;
-      }
+      if (!isMounted) return;
       
       setSession(session);
       
       if (_event === 'SIGNED_OUT') {
-        console.log('User signed out, clearing state');
         setUser(null);
         setIsAuthenticated(false);
         setLoading(false);
         return;
       }
       
-      if (_event === 'SIGNED_IN' && session) {
-        console.log('User signed in, checking if user exists in database');
-        const { data: existingUser } = await supabase
-          .from('users')
-          .select('id')
-          .eq('id', session.user.id)
-          .single();
-        
-        if (!existingUser && session.user.email) {
-          console.log('New user, updating email verification status');
-          await supabase
-            .from('users')
-            .update({ email_verified: true })
-            .eq('email', session.user.email);
-        }
-        
-        await loadUserData(session.user.id);
-      } else if (session) {
-        console.log('Session present, loading user data');
+      if (session) {
         await loadUserData(session.user.id);
       } else {
-        console.log('No session, clearing user state');
         setUser(null);
         setIsAuthenticated(false);
         setLoading(false);
@@ -353,23 +318,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
+      isMounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
   }, []);
 
   const loadUserData = async (userId: string) => {
     try {
-      console.log('=== LOADING USER DATA ===');
-      console.log('User ID:', userId);
-      
-      // Set a timeout for loading user data as well
-      const loadTimeout = setTimeout(() => {
-        console.warn('⚠️ User data loading timeout - forcing loading to false');
-        setLoading(false);
-      }, 5000);
+      console.log('Loading user data for:', userId);
 
       const { data: userData, error: userError } = await supabase
         .from('users')
@@ -377,16 +334,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', userId)
         .single();
 
-      clearTimeout(loadTimeout);
-
-      if (userError) {
-        console.error('Error loading user data:', userError);
-        setLoading(false);
-        return;
-      }
-
-      if (!userData) {
-        console.log('No user data found');
+      if (userError || !userData) {
+        console.error('User data error:', userError);
         setLoading(false);
         return;
       }
@@ -453,64 +402,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         mxiFromChallenges: parseFloat(userData.mxi_from_challenges?.toString() || '0'),
       };
 
-      console.log('User data loaded successfully');
-      console.log('MXI Breakdown:', {
-        purchased: mappedUser.mxiPurchasedDirectly,
-        commissions: mappedUser.mxiFromUnifiedCommissions,
-        challenges: mappedUser.mxiFromChallenges,
-        vesting: mappedUser.accumulatedYield,
-        total: (mappedUser.mxiPurchasedDirectly || 0) + (mappedUser.mxiFromUnifiedCommissions || 0) + (mappedUser.mxiFromChallenges || 0) + mappedUser.accumulatedYield
-      });
+      console.log('User loaded successfully');
       
       setUser(mappedUser);
       setIsAuthenticated(true);
       setLoading(false);
     } catch (error) {
-      console.error('Error in loadUserData:', error);
+      console.error('Load user data error:', error);
       setLoading(false);
     }
   };
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      console.log('=== LOGIN FUNCTION START ===');
-      console.log('Attempting login for:', email);
-      console.log('Platform:', Platform.OS);
+      console.log('Login attempt for:', email);
       
-      // Set loading state immediately
       setLoading(true);
       
-      // First, try to sign in
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password,
       });
 
       if (error) {
-        console.error('Supabase auth error:', error);
-        console.error('Error code:', error.status);
-        console.error('Error message:', error.message);
-        
+        console.error('Login error:', error);
         setLoading(false);
         
-        // Check if it's an invalid credentials error
         if (error.message.toLowerCase().includes('invalid') || error.status === 400) {
-          // Check if user exists but email is not verified
           const { data: userData, error: userCheckError } = await supabase
             .from('users')
             .select('email_verified')
             .eq('email', email.trim().toLowerCase())
             .maybeSingle();
           
-          if (userCheckError) {
-            console.error('Error checking user:', userCheckError);
-          }
-          
           if (userData && !userData.email_verified) {
-            console.log('User exists but email not verified');
             return { 
               success: false, 
-              error: 'Por favor verifica tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada para el enlace de verificación.' 
+              error: 'Por favor verifica tu correo electrónico antes de iniciar sesión.' 
             };
           }
         }
@@ -519,43 +447,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (!data.session) {
-        console.error('No session created after login');
         setLoading(false);
         return { success: false, error: 'No se pudo crear la sesión' };
       }
 
-      console.log('Auth login successful, checking email verification...');
-
-      // Double-check email verification status in our users table
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('email_verified')
-        .eq('id', data.user.id)
-        .single();
-
-      if (userError) {
-        console.error('Error fetching user data:', userError);
-      }
-
-      if (userData && !userData.email_verified) {
-        console.log('Email not verified, signing out user');
-        await supabase.auth.signOut();
-        setLoading(false);
-        return { 
-          success: false, 
-          error: 'Por favor verifica tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada para el enlace de verificación.' 
-        };
-      }
-
-      console.log('Login successful, loading user data...');
+      console.log('Login successful');
       
-      // Load user data immediately after successful login
       await loadUserData(data.user.id);
       
-      console.log('=== LOGIN FUNCTION END ===');
       return { success: true };
     } catch (error: any) {
-      console.error('=== LOGIN EXCEPTION ===');
       console.error('Login exception:', error);
       setLoading(false);
       return { success: false, error: error.message || 'Error al iniciar sesión' };
@@ -564,44 +465,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = async (userData: RegisterData): Promise<{ success: boolean; error?: string }> => {
     try {
-      console.log('=== REGISTRATION START ===');
-      console.log('Attempting registration for:', userData.email);
-      console.log('User data:', { name: userData.name, idNumber: userData.idNumber, address: userData.address });
+      console.log('Registration attempt for:', userData.email);
 
       // Check for existing email
-      const { data: existingUser, error: emailCheckError } = await supabase
+      const { data: existingUser } = await supabase
         .from('users')
         .select('email')
         .eq('email', userData.email)
         .maybeSingle();
 
-      if (emailCheckError) {
-        console.error('Error checking existing email:', emailCheckError);
-      }
-
       if (existingUser) {
-        console.log('Email already exists');
         return { success: false, error: 'El correo electrónico ya está registrado' };
       }
 
       // Check for existing ID number
-      const { data: existingId, error: idCheckError } = await supabase
+      const { data: existingId } = await supabase
         .from('users')
         .select('id_number')
         .eq('id_number', userData.idNumber)
         .maybeSingle();
 
-      if (idCheckError) {
-        console.error('Error checking existing ID:', idCheckError);
-      }
-
       if (existingId) {
-        console.log('ID number already exists');
-        return { success: false, error: 'El número de identificación ya está registrado. Solo se permite una cuenta por persona.' };
+        return { success: false, error: 'El número de identificación ya está registrado' };
       }
 
       // Create auth user
-      console.log('Creating auth user...');
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: userData.email,
         password: userData.password,
@@ -621,70 +509,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (!authData.user) {
-        console.error('No user returned from signup');
         return { success: false, error: 'Error al crear usuario' };
       }
 
-      console.log('Auth user created successfully:', authData.user.id);
+      console.log('User created:', authData.user.id);
 
-      // Wait for trigger to fire
-      console.log('Waiting for database trigger to create profile...');
+      // Wait for trigger
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Check if profile was created by trigger
-      const { data: profileCheck, error: profileCheckError } = await supabase
+      // Check if profile was created
+      const { data: profileCheck } = await supabase
         .from('users')
-        .select('id, name, referral_code')
+        .select('id, referral_code')
         .eq('id', authData.user.id)
         .maybeSingle();
-
-      if (profileCheckError) {
-        console.error('Error checking profile:', profileCheckError);
-      }
 
       let referralCode: string;
       let referrerId: string | null = null;
 
-      // Find referrer if referral code provided
+      // Find referrer
       if (userData.referralCode) {
-        console.log('Looking up referrer with code:', userData.referralCode);
-        const { data: referrerData, error: referrerError } = await supabase
+        const { data: referrerData } = await supabase
           .from('users')
           .select('id')
           .eq('referral_code', userData.referralCode)
           .maybeSingle();
 
-        if (referrerError) {
-          console.error('Error finding referrer:', referrerError);
-        }
-
         if (referrerData) {
           referrerId = referrerData.id;
-          console.log('Found referrer:', referrerId);
-        } else {
-          console.log('Referral code not found, proceeding without referrer');
         }
       }
 
       if (profileCheck) {
-        // Profile was created by trigger, update it with complete data
-        console.log('Profile created by trigger, updating with complete user data');
-        
-        // Generate referral code if not already set
-        if (profileCheck.referral_code && profileCheck.referral_code.startsWith('MXI')) {
+        // Update existing profile
+        if (profileCheck.referral_code?.startsWith('MXI')) {
           referralCode = profileCheck.referral_code;
-          console.log('Using existing referral code:', referralCode);
         } else {
-          const { data: codeData, error: codeError } = await supabase.rpc('generate_referral_code');
-          if (codeError) {
-            console.error('Error generating referral code:', codeError);
-          }
+          const { data: codeData } = await supabase.rpc('generate_referral_code');
           referralCode = codeData || `MXI${Date.now().toString().slice(-6)}`;
-          console.log('Generated new referral code:', referralCode);
         }
 
-        // Update the profile with complete data
-        const { error: updateError } = await supabase
+        await supabase
           .from('users')
           .update({
             name: userData.name,
@@ -695,30 +560,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           })
           .eq('id', authData.user.id);
 
-        if (updateError) {
-          console.error('Profile update error:', updateError);
-          // Don't fail registration if update fails
-        } else {
-          console.log('Profile updated successfully');
-        }
-
-        // Create referral chain if applicable
         if (referrerId) {
-          console.log('Creating referral chain...');
           await createReferralChain(authData.user.id, referrerId);
         }
       } else {
-        // Trigger didn't work, create profile manually
-        console.log('Trigger did not create profile, creating manually');
-        
-        const { data: codeData, error: codeError } = await supabase.rpc('generate_referral_code');
-        if (codeError) {
-          console.error('Error generating referral code:', codeError);
-        }
+        // Create profile manually
+        const { data: codeData } = await supabase.rpc('generate_referral_code');
         referralCode = codeData || `MXI${Date.now().toString().slice(-6)}`;
-        console.log('Generated referral code:', referralCode);
 
-        const { error: insertError } = await supabase
+        await supabase
           .from('users')
           .insert({
             id: authData.user.id,
@@ -733,36 +583,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             kyc_status: 'not_submitted',
           });
 
-        if (insertError) {
-          console.error('User insert error:', insertError);
-          return { success: false, error: 'Error al crear perfil de usuario. Por favor contacta soporte.' };
-        }
-
-        console.log('Profile created manually');
-
         if (referrerId) {
-          console.log('Creating referral chain...');
           await createReferralChain(authData.user.id, referrerId);
         }
       }
 
-      // Final verification
-      const { data: finalCheck, error: finalCheckError } = await supabase
-        .from('users')
-        .select('id, name, email, referral_code')
-        .eq('id', authData.user.id)
-        .single();
-
-      if (finalCheckError || !finalCheck) {
-        console.error('Final verification failed:', finalCheckError);
-        return { success: false, error: 'El usuario fue creado pero hubo un problema al verificar. Por favor contacta soporte.' };
-      }
-
-      console.log('=== REGISTRATION SUCCESSFUL ===');
-      console.log('User profile verified:', finalCheck);
+      console.log('Registration successful');
       return { success: true };
     } catch (error: any) {
-      console.error('=== REGISTRATION EXCEPTION ===');
       console.error('Registration exception:', error);
       return { success: false, error: error.message || 'Error en el registro' };
     }
@@ -770,7 +598,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const createReferralChain = async (newUserId: string, directReferrerId: string) => {
     try {
-      console.log('Creating level 1 referral');
       await supabase.from('referrals').insert({
         referrer_id: directReferrerId,
         referred_id: newUserId,
@@ -784,7 +611,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (level2Data?.referred_by) {
-        console.log('Creating level 2 referral');
         await supabase.from('referrals').insert({
           referrer_id: level2Data.referred_by,
           referred_id: newUserId,
@@ -798,7 +624,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .single();
 
         if (level3Data?.referred_by) {
-          console.log('Creating level 3 referral');
           await supabase.from('referrals').insert({
             referrer_id: level3Data.referred_by,
             referred_id: newUserId,
@@ -806,14 +631,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
         }
       }
-      console.log('Referral chain created successfully');
     } catch (error) {
-      console.error('Error creating referral chain:', error);
+      console.error('Referral chain error:', error);
     }
   };
 
   const logout = async () => {
-    // Show confirmation dialog before logging out
     showConfirm({
       title: '¿Cerrar Sesión?',
       message: '¿Estás seguro de que deseas cerrar sesión?',
@@ -826,39 +649,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       },
       onConfirm: async () => {
         try {
-          console.log('=== LOGOUT START ===');
-          console.log('Current session:', session?.user?.id);
-          console.log('Current user:', user?.id);
+          console.log('Logging out');
           
-          // Sign out from Supabase FIRST
-          const { error } = await supabase.auth.signOut({ scope: 'local' });
+          await supabase.auth.signOut({ scope: 'local' });
           
-          if (error) {
-            console.error('Supabase signOut error:', error);
-            // Continue anyway to clear local state
-          } else {
-            console.log('Supabase signOut successful');
-          }
-          
-          // Then clear local state - this will trigger the navigation in _layout.tsx
           setUser(null);
           setSession(null);
           setIsAuthenticated(false);
           
-          console.log('Local state cleared');
-          console.log('=== LOGOUT COMPLETE ===');
+          console.log('Logout complete');
         } catch (error) {
-          console.error('=== LOGOUT EXCEPTION ===');
           console.error('Logout error:', error);
           
-          // Ensure state is cleared even on error
           setUser(null);
           setSession(null);
           setIsAuthenticated(false);
         }
-      },
-      onCancel: () => {
-        console.log('Logout cancelled');
       },
     });
   };
@@ -903,7 +709,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) return { success: false, error: 'Not authenticated' };
 
     try {
-      // Get current phase info to determine price
       const { data: phaseData, error: phaseError } = await supabase.rpc('get_phase_info');
 
       if (phaseError) {
@@ -948,7 +753,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'Failed to update balance' };
       }
 
-      // Update token sales tracking
       await supabase.rpc('update_token_sales', { p_tokens_sold: mxiTokens });
 
       await supabase.rpc('process_referral_commissions', {
@@ -962,7 +766,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
 
-      // Notify about payment confirmation (only on native)
       if (Platform.OS !== 'web') {
         await notificationService.notifyPaymentConfirmed(usdtAmount, mxiTokens);
       }
@@ -982,16 +785,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ): Promise<{ success: boolean; error?: string }> => {
     if (!user) return { success: false, error: 'Not authenticated' };
 
-    // Check KYC status
     if (user.kycStatus !== 'approved') {
       return { 
         success: false, 
-        error: 'KYC verification required. Please complete KYC verification before withdrawing.' 
+        error: 'KYC verification required' 
       };
     }
 
     if (!user.canWithdraw) {
-      return { success: false, error: 'Withdrawal not available. You need 5 active referrals and 10 days since joining.' };
+      return { success: false, error: 'Withdrawal not available' };
     }
 
     if (amount > user.commissions.available) {
@@ -1082,33 +884,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ): Promise<{ success: boolean; error?: string }> => {
     if (!user) return { success: false, error: 'Not authenticated' };
 
-    // Check KYC status
     if (user.kycStatus !== 'approved') {
       return { 
         success: false, 
-        error: 'KYC verification required. Please complete KYC verification before withdrawing.' 
+        error: 'KYC verification required' 
       };
     }
 
     try {
-      // Check available MXI from phased release
       const availableMXI = await getAvailableMXI();
 
       if (availableMXI === 0) {
         return { 
           success: false, 
-          error: 'No MXI available for withdrawal yet. Please wait for the next release cycle.' 
+          error: 'No MXI available for withdrawal yet' 
         };
       }
 
       if (amount > availableMXI) {
         return { 
           success: false, 
-          error: `You can only withdraw up to ${availableMXI.toFixed(2)} MXI at this time. The remaining balance will be released in weekly cycles.` 
+          error: `You can only withdraw up to ${availableMXI.toFixed(2)} MXI at this time` 
         };
       }
 
-      // Check basic eligibility
       const { data: canWithdrawMXI, error: eligibilityError } = await supabase
         .rpc('check_mxi_withdrawal_eligibility', { p_user_id: user.id });
 
@@ -1121,25 +920,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (user.activeReferrals < 5) {
           return { 
             success: false, 
-            error: `You need 5 active referrals to withdraw mined MXI. You currently have ${user.activeReferrals} active referrals.` 
-          };
-        }
-
-        const { data: poolStatus } = await supabase.rpc('get_pool_status');
-        const status = poolStatus?.[0];
-
-        if (status && !status.is_mxi_launched) {
-          const daysUntil = status.days_until_launch;
-          return { 
-            success: false, 
-            error: `MXI withdrawals will be available in ${daysUntil} days after the pool closes.` 
+            error: `You need 5 active referrals. You have ${user.activeReferrals}` 
           };
         }
 
         return { success: false, error: 'MXI withdrawals are not yet available' };
       }
 
-      // Create withdrawal request
       const { error: withdrawalError } = await supabase
         .from('withdrawals')
         .insert({
@@ -1155,7 +942,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'Failed to create withdrawal request' };
       }
 
-      // Update withdrawal schedule
       const { error: scheduleError } = await supabase
         .from('mxi_withdrawal_schedule')
         .update({
@@ -1315,8 +1101,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) return false;
 
     try {
-      console.log('Checking admin status for user:', user.id, user.email);
-      
       const { data, error } = await supabase
         .from('admin_users')
         .select('id, role')
@@ -1328,7 +1112,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
 
-      console.log('Admin check result:', data);
       return !!data;
     } catch (error) {
       console.error('Admin check exception:', error);
