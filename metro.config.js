@@ -26,26 +26,4 @@ config.transformer = {
   },
 };
 
-// Add custom serializer to inject version info
-const originalSerializer = config.serializer;
-config.serializer = {
-  ...originalSerializer,
-  customSerializer: (entryPoint, preModules, graph, options) => {
-    // Add build timestamp to the bundle
-    const buildInfo = `
-      // Build Information
-      // Version: 1.0.1
-      // Build Time: ${new Date().toISOString()}
-      // Build Timestamp: ${Date.now()}
-    `;
-    
-    if (originalSerializer?.customSerializer) {
-      const result = originalSerializer.customSerializer(entryPoint, preModules, graph, options);
-      return buildInfo + result;
-    }
-    
-    return buildInfo;
-  },
-};
-
 module.exports = config;
