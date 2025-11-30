@@ -8,6 +8,7 @@ import {
   Image,
   Dimensions,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, commonStyles } from '@/styles/commonStyles';
@@ -21,6 +22,22 @@ type TabType = 'que-es' | 'como-funciona' | 'por-que-comprar' | 'meta' | 'ecosis
 export default function EcosystemScreen() {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<TabType>('que-es');
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+  const [imageLoading, setImageLoading] = useState<Record<string, boolean>>({});
+
+  const handleImageError = (imageName: string) => {
+    console.log(`Error loading image: ${imageName}`);
+    setImageErrors(prev => ({ ...prev, [imageName]: true }));
+    setImageLoading(prev => ({ ...prev, [imageName]: false }));
+  };
+
+  const handleImageLoadStart = (imageName: string) => {
+    setImageLoading(prev => ({ ...prev, [imageName]: true }));
+  };
+
+  const handleImageLoadEnd = (imageName: string) => {
+    setImageLoading(prev => ({ ...prev, [imageName]: false }));
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -135,23 +152,71 @@ export default function EcosystemScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {activeTab === 'que-es' && <QueEsMXITab />}
-        {activeTab === 'como-funciona' && <ComoFuncionaTab />}
-        {activeTab === 'por-que-comprar' && <PorQueComprarTab />}
-        {activeTab === 'meta' && <MetaTab />}
-        {activeTab === 'ecosistema' && <EcosistemaTab />}
-        {activeTab === 'seguridad-cuantica' && <SeguridadCuanticaTab />}
-        {activeTab === 'sostenibilidad' && <SostenibilidadTab />}
-        {activeTab === 'vesting-diario' && <VestingDiarioTab />}
-        {activeTab === 'en-la-practica' && <EnLaPracticaTab />}
-        {activeTab === 'tokenomica' && <TokenomicaTab />}
+        {activeTab === 'que-es' && <QueEsMXITab imageErrors={imageErrors} imageLoading={imageLoading} onImageError={handleImageError} onImageLoadStart={handleImageLoadStart} onImageLoadEnd={handleImageLoadEnd} />}
+        {activeTab === 'como-funciona' && <ComoFuncionaTab imageErrors={imageErrors} imageLoading={imageLoading} onImageError={handleImageError} onImageLoadStart={handleImageLoadStart} onImageLoadEnd={handleImageLoadEnd} />}
+        {activeTab === 'por-que-comprar' && <PorQueComprarTab imageErrors={imageErrors} imageLoading={imageLoading} onImageError={handleImageError} onImageLoadStart={handleImageLoadStart} onImageLoadEnd={handleImageLoadEnd} />}
+        {activeTab === 'meta' && <MetaTab imageErrors={imageErrors} imageLoading={imageLoading} onImageError={handleImageError} onImageLoadStart={handleImageLoadStart} onImageLoadEnd={handleImageLoadEnd} />}
+        {activeTab === 'ecosistema' && <EcosistemaTab imageErrors={imageErrors} imageLoading={imageLoading} onImageError={handleImageError} onImageLoadStart={handleImageLoadStart} onImageLoadEnd={handleImageLoadEnd} />}
+        {activeTab === 'seguridad-cuantica' && <SeguridadCuanticaTab imageErrors={imageErrors} imageLoading={imageLoading} onImageError={handleImageError} onImageLoadStart={handleImageLoadStart} onImageLoadEnd={handleImageLoadEnd} />}
+        {activeTab === 'sostenibilidad' && <SostenibilidadTab imageErrors={imageErrors} imageLoading={imageLoading} onImageError={handleImageError} onImageLoadStart={handleImageLoadStart} onImageLoadEnd={handleImageLoadEnd} />}
+        {activeTab === 'vesting-diario' && <VestingDiarioTab imageErrors={imageErrors} imageLoading={imageLoading} onImageError={handleImageError} onImageLoadStart={handleImageLoadStart} onImageLoadEnd={handleImageLoadEnd} />}
+        {activeTab === 'en-la-practica' && <EnLaPracticaTab imageErrors={imageErrors} imageLoading={imageLoading} onImageError={handleImageError} onImageLoadStart={handleImageLoadStart} onImageLoadEnd={handleImageLoadEnd} />}
+        {activeTab === 'tokenomica' && <TokenomicaTab imageErrors={imageErrors} imageLoading={imageLoading} onImageError={handleImageError} onImageLoadStart={handleImageLoadStart} onImageLoadEnd={handleImageLoadEnd} />}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+// Image Component with Error Handling
+function EcosystemImage({ 
+  source, 
+  style, 
+  imageName, 
+  imageErrors, 
+  imageLoading, 
+  onImageError, 
+  onImageLoadStart, 
+  onImageLoadEnd 
+}: { 
+  source: any; 
+  style: any; 
+  imageName: string; 
+  imageErrors: Record<string, boolean>; 
+  imageLoading: Record<string, boolean>; 
+  onImageError: (name: string) => void; 
+  onImageLoadStart: (name: string) => void; 
+  onImageLoadEnd: (name: string) => void; 
+}) {
+  if (imageErrors[imageName]) {
+    return (
+      <View style={[style, styles.imageErrorContainer]}>
+        <Text style={styles.imageErrorText}>📷</Text>
+        <Text style={styles.imageErrorSubtext}>Image unavailable</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={style}>
+      <Image
+        source={source}
+        style={style}
+        resizeMode="contain"
+        onError={() => onImageError(imageName)}
+        onLoadStart={() => onImageLoadStart(imageName)}
+        onLoadEnd={() => onImageLoadEnd(imageName)}
+      />
+      {imageLoading[imageName] && (
+        <View style={[StyleSheet.absoluteFill, styles.imageLoadingContainer]}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      )}
+    </View>
+  );
+}
+
 // ¿Qué es MXI? Tab Content
-function QueEsMXITab() {
+function QueEsMXITab({ imageErrors, imageLoading, onImageError, onImageLoadStart, onImageLoadEnd }: any) {
   const { t } = useLanguage();
   
   return (
@@ -163,10 +228,15 @@ function QueEsMXITab() {
 
       {/* Logo Image */}
       <View style={styles.imageContainer}>
-        <Image
+        <EcosystemImage
           source={require('@/assets/images/bebe6626-b6ac-47d4-ad64-acdc0b562775.png')}
           style={styles.logoImage}
-          resizeMode="contain"
+          imageName="logo"
+          imageErrors={imageErrors}
+          imageLoading={imageLoading}
+          onImageError={onImageError}
+          onImageLoadStart={onImageLoadStart}
+          onImageLoadEnd={onImageLoadEnd}
         />
       </View>
 
@@ -339,7 +409,7 @@ function QueEsMXITab() {
 }
 
 // Cómo Funciona Tab Content
-function ComoFuncionaTab() {
+function ComoFuncionaTab({ imageErrors, imageLoading, onImageError, onImageLoadStart, onImageLoadEnd }: any) {
   const { t } = useLanguage();
   
   return (
@@ -349,10 +419,15 @@ function ComoFuncionaTab() {
       </View>
 
       <View style={styles.imageContainer}>
-        <Image
+        <EcosystemImage
           source={require('@/assets/images/76715c1f-8b5b-4e0a-8692-d6d7963a0d99.png')}
           style={styles.heroImage}
-          resizeMode="contain"
+          imageName="howItWorks"
+          imageErrors={imageErrors}
+          imageLoading={imageLoading}
+          onImageError={onImageError}
+          onImageLoadStart={onImageLoadStart}
+          onImageLoadEnd={onImageLoadEnd}
         />
       </View>
 
@@ -434,8 +509,8 @@ function ComoFuncionaTab() {
   );
 }
 
-// Por Qué Comprar Tab Content - Image 0 (cd6409f5)
-function PorQueComprarTab() {
+// Por Qué Comprar Tab Content
+function PorQueComprarTab({ imageErrors, imageLoading, onImageError, onImageLoadStart, onImageLoadEnd }: any) {
   const { t } = useLanguage();
   
   return (
@@ -445,10 +520,15 @@ function PorQueComprarTab() {
       </View>
 
       <View style={styles.imageContainer}>
-        <Image
+        <EcosystemImage
           source={require('@/assets/images/cd6409f5-2e6e-426b-9399-35c34f154df7.png')}
           style={styles.whyBuyImage}
-          resizeMode="contain"
+          imageName="whyBuy"
+          imageErrors={imageErrors}
+          imageLoading={imageLoading}
+          onImageError={onImageError}
+          onImageLoadStart={onImageLoadStart}
+          onImageLoadEnd={onImageLoadEnd}
         />
       </View>
 
@@ -528,8 +608,8 @@ function PorQueComprarTab() {
   );
 }
 
-// Meta Tab Content - Image 1 (b359a5d1)
-function MetaTab() {
+// Meta Tab Content
+function MetaTab({ imageErrors, imageLoading, onImageError, onImageLoadStart, onImageLoadEnd }: any) {
   const { t } = useLanguage();
   
   return (
@@ -539,10 +619,15 @@ function MetaTab() {
       </View>
 
       <View style={styles.imageContainer}>
-        <Image
+        <EcosystemImage
           source={require('@/assets/images/b359a5d1-671d-4f57-a54c-219337b62602.png')}
           style={styles.metaImage}
-          resizeMode="contain"
+          imageName="meta"
+          imageErrors={imageErrors}
+          imageLoading={imageLoading}
+          onImageError={onImageError}
+          onImageLoadStart={onImageLoadStart}
+          onImageLoadEnd={onImageLoadEnd}
         />
       </View>
 
@@ -599,7 +684,7 @@ function MetaTab() {
 }
 
 // Ecosistema Tab Content
-function EcosistemaTab() {
+function EcosistemaTab({ imageErrors, imageLoading, onImageError, onImageLoadStart, onImageLoadEnd }: any) {
   const { t } = useLanguage();
   
   return (
@@ -609,10 +694,15 @@ function EcosistemaTab() {
       </View>
 
       <View style={styles.imageContainer}>
-        <Image
+        <EcosystemImage
           source={require('@/assets/images/76b95e25-0844-42d7-915d-4be1ebdeb915.png')}
           style={styles.ecosistemaImage}
-          resizeMode="contain"
+          imageName="ecosistema"
+          imageErrors={imageErrors}
+          imageLoading={imageLoading}
+          onImageError={onImageError}
+          onImageLoadStart={onImageLoadStart}
+          onImageLoadEnd={onImageLoadEnd}
         />
       </View>
 
@@ -694,8 +784,8 @@ function EcosistemaTab() {
   );
 }
 
-// Seguridad Cuántica Tab Content - Image 3 (67cb31d5)
-function SeguridadCuanticaTab() {
+// Seguridad Cuántica Tab Content
+function SeguridadCuanticaTab({ imageErrors, imageLoading, onImageError, onImageLoadStart, onImageLoadEnd }: any) {
   const { t } = useLanguage();
   
   return (
@@ -705,10 +795,15 @@ function SeguridadCuanticaTab() {
       </View>
 
       <View style={styles.imageContainer}>
-        <Image
+        <EcosystemImage
           source={require('@/assets/images/67cb31d5-9f16-4fe6-a660-8507d6b8e4bb.png')}
           style={styles.seguridadCuanticaImage}
-          resizeMode="contain"
+          imageName="seguridadCuantica"
+          imageErrors={imageErrors}
+          imageLoading={imageLoading}
+          onImageError={onImageError}
+          onImageLoadStart={onImageLoadStart}
+          onImageLoadEnd={onImageLoadEnd}
         />
       </View>
 
@@ -779,8 +874,8 @@ function SeguridadCuanticaTab() {
   );
 }
 
-// Sostenibilidad Tab Content - NEW IMAGE ADDED (73b7a6c0)
-function SostenibilidadTab() {
+// Sostenibilidad Tab Content
+function SostenibilidadTab({ imageErrors, imageLoading, onImageError, onImageLoadStart, onImageLoadEnd }: any) {
   const { t } = useLanguage();
   
   return (
@@ -790,10 +885,15 @@ function SostenibilidadTab() {
       </View>
 
       <View style={styles.imageContainer}>
-        <Image
+        <EcosystemImage
           source={require('@/assets/images/73b7a6c0-a56f-4c91-8ab9-2ec0cd607287.png')}
           style={styles.sostenibilidadImage}
-          resizeMode="contain"
+          imageName="sostenibilidad"
+          imageErrors={imageErrors}
+          imageLoading={imageLoading}
+          onImageError={onImageError}
+          onImageLoadStart={onImageLoadStart}
+          onImageLoadEnd={onImageLoadEnd}
         />
       </View>
 
@@ -868,8 +968,8 @@ function SostenibilidadTab() {
   );
 }
 
-// Vesting Diario Tab Content - Image 4 (0bb04517)
-function VestingDiarioTab() {
+// Vesting Diario Tab Content
+function VestingDiarioTab({ imageErrors, imageLoading, onImageError, onImageLoadStart, onImageLoadEnd }: any) {
   const { t } = useLanguage();
   
   return (
@@ -879,10 +979,15 @@ function VestingDiarioTab() {
       </View>
 
       <View style={styles.imageContainer}>
-        <Image
+        <EcosystemImage
           source={require('@/assets/images/0bb04517-a07a-45a8-bb08-aaeb2292d065.png')}
           style={styles.vestingImage}
-          resizeMode="contain"
+          imageName="vesting"
+          imageErrors={imageErrors}
+          imageLoading={imageLoading}
+          onImageError={onImageError}
+          onImageLoadStart={onImageLoadStart}
+          onImageLoadEnd={onImageLoadEnd}
         />
       </View>
 
@@ -953,8 +1058,8 @@ function VestingDiarioTab() {
   );
 }
 
-// En la Práctica Tab Content - Image 2 (673e86be)
-function EnLaPracticaTab() {
+// En la Práctica Tab Content
+function EnLaPracticaTab({ imageErrors, imageLoading, onImageError, onImageLoadStart, onImageLoadEnd }: any) {
   const { t } = useLanguage();
   
   return (
@@ -964,10 +1069,15 @@ function EnLaPracticaTab() {
       </View>
 
       <View style={styles.imageContainer}>
-        <Image
+        <EcosystemImage
           source={require('@/assets/images/673e86be-8ebc-4cc7-bff8-ed7856d38892.png')}
           style={styles.practicaImage}
-          resizeMode="contain"
+          imageName="practica"
+          imageErrors={imageErrors}
+          imageLoading={imageLoading}
+          onImageError={onImageError}
+          onImageLoadStart={onImageLoadStart}
+          onImageLoadEnd={onImageLoadEnd}
         />
       </View>
 
@@ -1049,8 +1159,8 @@ function EnLaPracticaTab() {
   );
 }
 
-// Tokenómica Tab Content - NEW IMAGE ADDED (c8e5b4e8)
-function TokenomicaTab() {
+// Tokenómica Tab Content
+function TokenomicaTab({ imageErrors, imageLoading, onImageError, onImageLoadStart, onImageLoadEnd }: any) {
   const { t } = useLanguage();
   
   return (
@@ -1060,10 +1170,15 @@ function TokenomicaTab() {
       </View>
 
       <View style={styles.imageContainer}>
-        <Image
+        <EcosystemImage
           source={require('@/assets/images/c8e5b4e8-eeb5-4ea6-a207-c930085bb758.png')}
           style={styles.tokenomicaImage}
-          resizeMode="contain"
+          imageName="tokenomica"
+          imageErrors={imageErrors}
+          imageLoading={imageLoading}
+          onImageError={onImageError}
+          onImageLoadStart={onImageLoadStart}
+          onImageLoadEnd={onImageLoadEnd}
         />
       </View>
 
@@ -1273,6 +1388,28 @@ const styles = StyleSheet.create({
   tokenomicaImage: {
     width: width - 80,
     height: (width - 80) * 0.65,
+    borderRadius: 20,
+  },
+  imageErrorContainer: {
+    backgroundColor: colors.card,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  imageErrorText: {
+    fontSize: 48,
+    marginBottom: 8,
+  },
+  imageErrorSubtext: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  imageLoadingContainer: {
+    backgroundColor: colors.background + 'CC',
+    justifyContent: 'center',
+    alignItems: 'center',
     borderRadius: 20,
   },
   contentCard: {
