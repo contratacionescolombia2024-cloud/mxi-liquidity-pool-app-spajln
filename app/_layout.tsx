@@ -22,7 +22,6 @@ import { LanguageProvider, useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/lib/supabase";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { registerWebConfirmHandler, ConfirmConfig, showAlert } from "@/utils/confirmDialog";
-import { APP_VERSION, BUILD_ID, BUILD_DATE, BUILD_TIMESTAMP, checkForUpdates, forceReload, startUpdateChecker } from "@/constants/AppVersion";
 import VersionDisplay from "@/components/VersionDisplay";
 
 SplashScreen.preventAutoHideAsync();
@@ -37,7 +36,6 @@ function RootLayoutNav() {
   const segments = useSegments();
   const colorScheme = useColorScheme();
   const [isMounted, setIsMounted] = useState(false);
-  const [updatePromptShown, setUpdatePromptShown] = useState(false);
   
   // State for web confirmation dialog
   const [confirmConfig, setConfirmConfig] = useState<ConfirmConfig | null>(null);
@@ -48,81 +46,6 @@ function RootLayoutNav() {
       setConfirmConfig(config);
     });
   }, []);
-
-  // Check for updates on web platform - initial check
-  useEffect(() => {
-    if (Platform.OS === 'web' && !updatePromptShown) {
-      console.log('🔍 Verificando actualizaciones al iniciar...');
-      const needsUpdate = checkForUpdates();
-      
-      if (needsUpdate) {
-        console.log('✅ Nueva versión detectada, mostrando alerta...');
-        setUpdatePromptShown(true);
-        
-        setTimeout(() => {
-          showAlert(
-            '🔄 Nueva Versión Disponible',
-            'Se ha detectado una nueva versión de la aplicación. Se recomienda actualizar para obtener las últimas mejoras y correcciones.',
-            [
-              {
-                text: 'Actualizar Ahora',
-                onPress: () => {
-                  console.log('Usuario eligió actualizar');
-                  forceReload();
-                }
-              },
-              {
-                text: 'Más Tarde',
-                onPress: () => {
-                  console.log('Usuario pospuso la actualización');
-                }
-              }
-            ],
-            'info'
-          );
-        }, 2000);
-      } else {
-        console.log('✅ Aplicación actualizada');
-      }
-    }
-  }, [updatePromptShown]);
-
-  // Start periodic update checker
-  useEffect(() => {
-    if (Platform.OS === 'web') {
-      const cleanup = startUpdateChecker(() => {
-        if (!updatePromptShown) {
-          console.log('🔄 Actualización detectada por el verificador periódico');
-          setUpdatePromptShown(true);
-          
-          showAlert(
-            '🔄 Nueva Versión Disponible',
-            'Se ha publicado una nueva versión de la aplicación. Se recomienda actualizar para obtener las últimas mejoras.',
-            [
-              {
-                text: 'Actualizar Ahora',
-                onPress: () => {
-                  forceReload();
-                }
-              },
-              {
-                text: 'Más Tarde',
-                onPress: () => {
-                  // Reset flag after 10 minutes to allow showing again
-                  setTimeout(() => {
-                    setUpdatePromptShown(false);
-                  }, 10 * 60 * 1000);
-                }
-              }
-            ],
-            'info'
-          );
-        }
-      });
-      
-      return cleanup;
-    }
-  }, [updatePromptShown]);
 
   // Mark component as mounted after first render
   useEffect(() => {
