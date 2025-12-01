@@ -798,6 +798,10 @@ const translations = {
     maxTournamentsReached: 'This game has reached the maximum of 30 open tournaments. Please join an existing tournament instead of creating a new one.',
     leavingGameWarning: 'Leaving Game',
     leavingGameWarningMessage: 'If you leave this page, your active game will be cancelled and you will lose. Are you sure you want to leave?',
+    sessionCancelled: 'Session Cancelled',
+    sessionWasCancelled: 'The session was cancelled because all players left.',
+    removedFromSession: 'Removed from Session',
+    youWereRemovedFromSession: 'You were removed from the session.',
     
     // Launch Countdown
     officialLaunch: 'Official Launch',
@@ -1630,6 +1634,10 @@ const translations = {
     maxTournamentsReached: 'Este juego ha alcanzado el máximo de 30 torneos abiertos. Por favor únete a un torneo existente en lugar de crear uno nuevo.',
     leavingGameWarning: 'Abandonar Juego',
     leavingGameWarningMessage: 'Si abandonas esta página, tu juego activo será cancelado y perderás. ¿Estás seguro de que quieres salir?',
+    sessionCancelled: 'Sesión Cancelada',
+    sessionWasCancelled: 'La sesión fue cancelada porque todos los jugadores se fueron.',
+    removedFromSession: 'Removido de la Sesión',
+    youWereRemovedFromSession: 'Fuiste removido de la sesión.',
     
     // Launch Countdown
     officialLaunch: 'Lanzamiento Oficial',

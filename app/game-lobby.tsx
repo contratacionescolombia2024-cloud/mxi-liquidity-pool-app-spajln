@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -37,6 +37,7 @@ interface GameSession {
   tournament_games: {
     name: string;
     game_type: string;
+    entry_fee: number;
   };
 }
 
@@ -52,7 +53,8 @@ export default function GameLobbyScreen() {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(true);
   const [countdown, setCountdown] = useState<number | null>(null);
-  const [hasActiveGame, setHasActiveGame] = useState(false);
+  const [isInLobby, setIsInLobby] = useState(true);
+  const hasLeftRef = useRef(false);
 
   useEffect(() => {
     console.log('[GameLobby] Mounted - Session:', sessionId, 'Game:', gameType);
@@ -64,7 +66,7 @@ export default function GameLobbyScreen() {
       return;
     }
 
-    setHasActiveGame(true);
+    setIsInLobby(true);
     loadSession();
     
     // Subscribe to updates
@@ -73,31 +75,29 @@ export default function GameLobbyScreen() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'game_sessions', filter: `id=eq.${sessionId}` },
-        () => loadSession()
+        (payload) => {
+          console.log('[GameLobby] Session update:', payload);
+          loadSession();
+        }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'game_participants', filter: `session_id=eq.${sessionId}` },
-        () => loadSession()
+        (payload) => {
+          console.log('[GameLobby] Participants update:', payload);
+          loadSession();
+        }
       )
       .subscribe();
 
-    // Handle page exit - player loses if they leave
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasActiveGame) {
-        e.preventDefault();
-        e.returnValue = '';
-      }
-    };
-
-    if (typeof window !== 'undefined') {
-      window.addEventListener('beforeunload', handleBeforeUnload);
-    }
-
     return () => {
+      console.log('[GameLobby] Unmounting - isInLobby:', isInLobby);
       supabase.removeChannel(channel);
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('beforeunload', handleBeforeUnload);
+      
+      // If user is still in lobby when component unmounts, they're leaving
+      if (isInLobby && !hasLeftRef.current) {
+        console.log('[GameLobby] User left lobby without proper exit');
+        handleAutoLeave();
       }
     };
   }, [sessionId, gameType]);
@@ -123,12 +123,24 @@ export default function GameLobbyScreen() {
         .from('game_sessions')
         .select(`
           *,
-          tournament_games (name, game_type)
+          tournament_games (name, game_type, entry_fee)
         `)
         .eq('id', sessionId)
         .single();
 
       if (sessionError) throw sessionError;
+
+      // Check if session was cancelled
+      if (sessionData.status === 'cancelled') {
+        console.log('[GameLobby] Session was cancelled');
+        Alert.alert(
+          t('sessionCancelled'),
+          t('sessionWasCancelled'),
+          [{ text: t('ok'), onPress: () => router.replace('/(tabs)/tournaments') }]
+        );
+        return;
+      }
+
       setSession(sessionData);
 
       const { data: participantsData, error: participantsError } = await supabase
@@ -143,8 +155,20 @@ export default function GameLobbyScreen() {
       if (participantsError) throw participantsError;
       setParticipants(participantsData || []);
 
+      // Check if current user is still a participant
+      const isUserParticipant = participantsData?.some(p => p.user_id === user?.id);
+      if (!isUserParticipant && !hasLeftRef.current) {
+        console.log('[GameLobby] User is no longer a participant');
+        Alert.alert(
+          t('removedFromSession'),
+          t('youWereRemovedFromSession'),
+          [{ text: t('ok'), onPress: () => router.replace('/(tabs)/tournaments') }]
+        );
+        return;
+      }
+
       if (sessionData.status === 'ready') {
-        setHasActiveGame(false);
+        setIsInLobby(false);
         navigateToGame();
       }
     } catch (error) {
@@ -164,7 +188,7 @@ export default function GameLobbyScreen() {
         .update({ status: 'ready', started_at: new Date().toISOString() })
         .eq('id', sessionId);
 
-      setHasActiveGame(false);
+      setIsInLobby(false);
       navigateToGame();
     } catch (error) {
       console.error('[GameLobby] Start error:', error);
@@ -191,6 +215,15 @@ export default function GameLobbyScreen() {
     }
   };
 
+  const handleAutoLeave = async () => {
+    // Silent auto-leave when user navigates away
+    try {
+      await leaveSessionLogic();
+    } catch (error) {
+      console.error('[GameLobby] Auto-leave error:', error);
+    }
+  };
+
   const handleLeave = () => {
     showConfirm({
       title: t('leavingGameWarning'),
@@ -203,20 +236,11 @@ export default function GameLobbyScreen() {
         android: 'warning',
       },
       onConfirm: async () => {
+        hasLeftRef.current = true;
+        setIsInLobby(false);
+        
         try {
-          // Mark player as forfeit and cancel session
-          await supabase
-            .from('game_sessions')
-            .update({ status: 'cancelled' })
-            .eq('id', sessionId);
-
-          await supabase
-            .from('game_participants')
-            .delete()
-            .eq('session_id', sessionId)
-            .eq('user_id', user?.id);
-
-          setHasActiveGame(false);
+          await leaveSessionLogic();
           router.replace('/(tabs)/tournaments');
         } catch (error) {
           console.error('[GameLobby] Leave error:', error);
@@ -227,6 +251,82 @@ export default function GameLobbyScreen() {
         console.log('Leave cancelled');
       },
     });
+  };
+
+  const leaveSessionLogic = async () => {
+    if (!session || !user) return;
+
+    console.log('[GameLobby] Executing leave logic for session:', sessionId);
+
+    // 1. Get user's participant record
+    const { data: participant } = await supabase
+      .from('game_participants')
+      .select('id')
+      .eq('session_id', sessionId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (!participant) {
+      console.log('[GameLobby] No participant record found');
+      return;
+    }
+
+    // 2. Remove participant
+    await supabase
+      .from('game_participants')
+      .delete()
+      .eq('id', participant.id);
+
+    console.log('[GameLobby] Participant removed');
+
+    // 3. Check remaining participants
+    const { data: remainingParticipants } = await supabase
+      .from('game_participants')
+      .select('id')
+      .eq('session_id', sessionId);
+
+    const remainingCount = remainingParticipants?.length || 0;
+    console.log('[GameLobby] Remaining participants:', remainingCount);
+
+    if (remainingCount === 0) {
+      // No participants left - cancel session
+      console.log('[GameLobby] No participants left, cancelling session');
+      await supabase
+        .from('game_sessions')
+        .update({ status: 'cancelled' })
+        .eq('id', sessionId);
+    } else {
+      // Update pool and prize
+      const newPool = session.total_pool - session.tournament_games.entry_fee;
+      const prizeAmount = newPool * 0.9;
+
+      await supabase
+        .from('game_sessions')
+        .update({
+          total_pool: newPool,
+          prize_amount: prizeAmount
+        })
+        .eq('id', sessionId);
+
+      console.log('[GameLobby] Pool updated, new total:', newPool);
+    }
+
+    // 4. Refund entry fee
+    const { data: userData } = await supabase
+      .from('users')
+      .select('mxi_from_challenges')
+      .eq('id', user.id)
+      .single();
+
+    if (userData) {
+      const newBalance = (userData.mxi_from_challenges || 0) + session.tournament_games.entry_fee;
+      await supabase
+        .from('users')
+        .update({ mxi_from_challenges: newBalance })
+        .eq('id', user.id);
+
+      console.log('[GameLobby] Entry fee refunded:', session.tournament_games.entry_fee);
+    }
   };
 
   if (loading) {

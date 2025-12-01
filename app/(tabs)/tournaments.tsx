@@ -74,9 +74,40 @@ export default function TournamentsScreen() {
   useEffect(() => {
     console.log('[Tournaments] Mounted - User:', user?.id);
     if (user) {
+      // Clean up any abandoned sessions first
+      cleanupAbandonedSessions();
       loadData();
     }
   }, [user]);
+
+  const cleanupAbandonedSessions = async () => {
+    try {
+      console.log('[Tournaments] Cleaning up abandoned sessions...');
+      
+      // Cancel sessions with 0 participants
+      const { data: emptySessions } = await supabase
+        .from('game_sessions')
+        .select('id')
+        .eq('status', 'waiting')
+        .not('id', 'in', `(SELECT DISTINCT session_id FROM game_participants)`);
+
+      if (emptySessions && emptySessions.length > 0) {
+        const emptySessionIds = emptySessions.map(s => s.id);
+        await supabase
+          .from('game_sessions')
+          .update({ status: 'cancelled' })
+          .in('id', emptySessionIds);
+        
+        console.log('[Tournaments] Cancelled', emptySessions.length, 'empty sessions');
+      }
+
+      // Clean up old waiting sessions (>30 minutes)
+      await supabase.rpc('cleanup_abandoned_sessions');
+      
+    } catch (error) {
+      console.error('[Tournaments] Cleanup error:', error);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -88,7 +119,24 @@ export default function TournamentsScreen() {
         .order('created_at', { ascending: true });
 
       if (gamesError) throw gamesError;
-      setGames(gamesData || []);
+
+      // Count open tournaments for each game
+      const gamesWithCounts = await Promise.all(
+        (gamesData || []).map(async (game) => {
+          const { count } = await supabase
+            .from('game_sessions')
+            .select('*', { count: 'exact', head: true })
+            .eq('game_id', game.id)
+            .eq('status', 'waiting');
+
+          return {
+            ...game,
+            open_tournaments_count: count || 0,
+          };
+        })
+      );
+
+      setGames(gamesWithCounts);
 
       // Load waiting sessions with participant count
       const { data: sessionsData, error: sessionsError } = await supabase
@@ -135,7 +183,7 @@ export default function TournamentsScreen() {
               };
             })
           );
-          setWaitingSessions(formattedSessions);
+          setWaitingSessions(formattedSessions.filter(s => s.current_players < s.num_players));
         }
       } else {
         setWaitingSessions(sessionsData || []);
@@ -162,6 +210,7 @@ export default function TournamentsScreen() {
 
   const onRefresh = () => {
     setRefreshing(true);
+    cleanupAbandonedSessions();
     loadData();
   };
 
@@ -181,21 +230,24 @@ export default function TournamentsScreen() {
       return;
     }
 
-    // Check if user is already in this session
+    // Check if user is already in THIS SPECIFIC session
     const { data: existingParticipant } = await supabase
       .from('game_participants')
       .select('id')
       .eq('session_id', session.id)
       .eq('user_id', user!.id)
-      .single();
+      .maybeSingle();
 
     if (existingParticipant) {
-      showAlert(
-        t('alreadyJoined'),
-        t('youAreAlreadyInThisTournament'),
-        undefined,
-        'info'
-      );
+      console.log('[Tournaments] User already in this session, navigating to lobby');
+      // User is already in this session, just navigate to lobby
+      router.push({
+        pathname: '/game-lobby',
+        params: { 
+          sessionId: session.id, 
+          gameType: session.game_type 
+        }
+      });
       return;
     }
 
