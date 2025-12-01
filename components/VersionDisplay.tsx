@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
-import { APP_VERSION, BUILD_ID, BUILD_DATE, BUILD_TIMESTAMP, forceReload, startUpdateChecker } from '@/constants/AppVersion';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, Alert } from 'react-native';
+import { APP_VERSION, BUILD_ID, BUILD_DATE, BUILD_TIMESTAMP, forceReload, checkForUpdates } from '@/constants/AppVersion';
 import { colors } from '@/styles/commonStyles';
 
 interface VersionDisplayProps {
@@ -12,17 +12,16 @@ interface VersionDisplayProps {
 export default function VersionDisplay({ position = 'bottom', showDetails = false }: VersionDisplayProps) {
   const [expanded, setExpanded] = useState(showDetails);
   const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [lastChecked, setLastChecked] = useState<Date | null>(null);
 
-  // Start periodic update checker on web
+  // Check for updates on mount
   useEffect(() => {
     if (Platform.OS === 'web') {
-      const cleanup = startUpdateChecker(() => {
-        setUpdateAvailable(true);
-        setLastChecked(new Date());
-      });
+      const hasUpdate = checkForUpdates();
+      setUpdateAvailable(hasUpdate);
       
-      return cleanup;
+      if (hasUpdate) {
+        console.log('⚠️ Nueva versión disponible - mostrando indicador');
+      }
     }
   }, []);
 
@@ -32,7 +31,23 @@ export default function VersionDisplay({ position = 'bottom', showDetails = fals
 
   const handleForceReload = () => {
     if (Platform.OS === 'web') {
-      forceReload();
+      if (updateAvailable) {
+        // Show confirmation for update
+        if (window.confirm('¿Deseas actualizar la aplicación ahora? Se recargará la página.')) {
+          forceReload();
+        }
+      } else {
+        // Show confirmation for force reload
+        if (window.confirm('¿Deseas forzar la recarga de la aplicación? Esto limpiará la caché.')) {
+          forceReload();
+        }
+      }
+    } else {
+      Alert.alert(
+        'Actualización',
+        'La actualización manual solo está disponible en la versión web.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -45,6 +60,11 @@ export default function VersionDisplay({ position = 'bottom', showDetails = fals
       minute: '2-digit',
       second: '2-digit'
     });
+  };
+
+  const formatTimestamp = (timestamp: number) => {
+    const date = new Date(timestamp);
+    return formatDate(date);
   };
 
   return (
@@ -69,7 +89,7 @@ export default function VersionDisplay({ position = 'bottom', showDetails = fals
           
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Build ID:</Text>
-            <Text style={styles.detailValue}>{BUILD_ID}</Text>
+            <Text style={[styles.detailValue, styles.smallText]}>{BUILD_ID}</Text>
           </View>
           
           <View style={styles.detailRow}>
@@ -78,8 +98,8 @@ export default function VersionDisplay({ position = 'bottom', showDetails = fals
           </View>
           
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Fecha:</Text>
-            <Text style={styles.detailValue}>{formatDate(new Date(BUILD_DATE))}</Text>
+            <Text style={styles.detailLabel}>Fecha Build:</Text>
+            <Text style={[styles.detailValue, styles.smallText]}>{formatTimestamp(BUILD_TIMESTAMP)}</Text>
           </View>
           
           <View style={styles.detailRow}>
@@ -87,28 +107,32 @@ export default function VersionDisplay({ position = 'bottom', showDetails = fals
             <Text style={styles.detailValue}>{Platform.OS}</Text>
           </View>
           
-          {lastChecked && (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Última verificación:</Text>
-              <Text style={styles.detailValue}>{formatDate(lastChecked)}</Text>
-            </View>
-          )}
-          
           {updateAvailable && (
             <View style={styles.updateNotice}>
+              <Text style={styles.updateNoticeTitle}>🔄 Nueva Versión Disponible</Text>
               <Text style={styles.updateNoticeText}>
-                🔄 Nueva versión disponible
+                Se ha publicado una nueva versión de la aplicación. 
+                Se recomienda actualizar para obtener las últimas mejoras.
               </Text>
             </View>
           )}
           
           {Platform.OS === 'web' && (
-            <TouchableOpacity onPress={handleForceReload} style={styles.reloadButton}>
+            <TouchableOpacity onPress={handleForceReload} style={[
+              styles.reloadButton,
+              updateAvailable && styles.reloadButtonHighlight
+            ]}>
               <Text style={styles.reloadButtonText}>
                 {updateAvailable ? '🔄 Actualizar Ahora' : '🔄 Forzar Recarga'}
               </Text>
             </TouchableOpacity>
           )}
+          
+          <Text style={styles.helpText}>
+            {updateAvailable 
+              ? 'Toca "Actualizar Ahora" para aplicar la nueva versión.'
+              : 'Si experimentas problemas, usa "Forzar Recarga" para limpiar la caché.'}
+          </Text>
         </View>
       )}
     </View>
@@ -163,8 +187,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.primary,
-    minWidth: 280,
-    maxWidth: 320,
+    minWidth: 300,
+    maxWidth: 340,
   },
   detailTitle: {
     color: colors.primary,
@@ -189,37 +213,58 @@ const styles = StyleSheet.create({
   detailValue: {
     color: colors.text,
     fontSize: 10,
-    fontFamily: 'monospace',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     flex: 1,
     textAlign: 'right',
     marginLeft: 8,
   },
+  smallText: {
+    fontSize: 8,
+  },
   updateNotice: {
     marginTop: 12,
     marginBottom: 8,
-    padding: 10,
+    padding: 12,
     backgroundColor: 'rgba(255, 59, 48, 0.2)',
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#FF3B30',
   },
-  updateNoticeText: {
+  updateNoticeTitle: {
     color: '#FF3B30',
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: 'bold',
     textAlign: 'center',
+    marginBottom: 6,
+  },
+  updateNoticeText: {
+    color: '#FF6B6B',
+    fontSize: 10,
+    textAlign: 'center',
+    lineHeight: 14,
   },
   reloadButton: {
     marginTop: 12,
     backgroundColor: colors.primary,
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
     alignItems: 'center',
+  },
+  reloadButtonHighlight: {
+    backgroundColor: '#FF3B30',
   },
   reloadButtonText: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  helpText: {
+    marginTop: 8,
+    color: colors.textSecondary,
+    fontSize: 9,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    lineHeight: 12,
   },
 });
