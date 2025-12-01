@@ -6,7 +6,7 @@ export const APP_VERSION = '1.0.3';
 
 // BUILD_TIMESTAMP will be replaced during build process
 // DO NOT change this line - it's replaced by the prebuild script
-undefined
+export const BUILD_TIMESTAMP = Date.now();
 
 // This will be replaced at build time
 export const BUILD_DATE = new Date(BUILD_TIMESTAMP).toISOString();
