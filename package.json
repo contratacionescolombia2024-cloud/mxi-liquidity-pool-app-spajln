@@ -1,14 +1,16 @@
+
 {
   "name": "mxi-liquidity-pool-app-spajln",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "main": "index.ts",
   "scripts": {
     "dev": "EXPO_NO_TELEMETRY=1 expo start --tunnel",
     "android": "EXPO_NO_TELEMETRY=1 expo start --android",
     "ios": "EXPO_NO_TELEMETRY=1 expo start --ios",
     "web": "EXPO_NO_TELEMETRY=1 expo start --web",
-    "build:web": "expo export -p web && npx workbox generateSW workbox-config.js",
-    "build:android": "expo prebuild -p android",
+    "build:web": "npm run prebuild && expo export -p web && npx workbox generateSW workbox-config.js",
+    "build:android": "npm run prebuild && expo prebuild -p android",
+    "prebuild": "node -e \"const fs=require('fs');const t=Date.now();const p='constants/AppVersion.ts';let c=fs.readFileSync(p,'utf8');c=c.replace(/export const BUILD_TIMESTAMP = \\d+;/,`export const BUILD_TIMESTAMP = ${t};`);fs.writeFileSync(p,c,'utf8');console.log('✅ Build timestamp actualizado:',t);\"",
     "lint": "eslint ."
   },
   "dependencies": {
