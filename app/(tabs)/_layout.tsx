@@ -18,6 +18,7 @@ export default function TabLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
+        tabBarShowLabel: false,
         tabBarStyle: {
           position: 'absolute',
           bottom: 20,
@@ -48,11 +49,6 @@ export default function TabLayout() {
             />
           ) : null
         ),
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
-          marginTop: 4,
-        },
         tabBarItemStyle: {
           paddingVertical: 4,
         },
