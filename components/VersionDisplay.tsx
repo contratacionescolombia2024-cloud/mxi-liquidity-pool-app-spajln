@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
-import { APP_VERSION, BUILD_ID, BUILD_TIMESTAMP } from '@/constants/AppVersion';
+import { APP_VERSION } from '@/constants/AppVersion';
 import { colors } from '@/styles/commonStyles';
 
 interface VersionDisplayProps {
@@ -14,18 +14,6 @@ export default function VersionDisplay({ position = 'bottom', showDetails = fals
 
   const handlePress = () => {
     setExpanded(!expanded);
-  };
-
-  const formatTimestamp = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toLocaleString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
   };
 
   return (
@@ -41,21 +29,6 @@ export default function VersionDisplay({ position = 'bottom', showDetails = fals
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Versión:</Text>
             <Text style={styles.detailValue}>{APP_VERSION}</Text>
-          </View>
-          
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Build ID:</Text>
-            <Text style={[styles.detailValue, styles.smallText]}>{BUILD_ID}</Text>
-          </View>
-          
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Timestamp:</Text>
-            <Text style={styles.detailValue}>{BUILD_TIMESTAMP}</Text>
-          </View>
-          
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Fecha Build:</Text>
-            <Text style={[styles.detailValue, styles.smallText]}>{formatTimestamp(BUILD_TIMESTAMP)}</Text>
           </View>
           
           <View style={styles.detailRow}>
@@ -102,8 +75,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.primary,
-    minWidth: 300,
-    maxWidth: 340,
+    minWidth: 250,
+    maxWidth: 300,
   },
   detailTitle: {
     color: colors.primary,
@@ -132,8 +105,5 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'right',
     marginLeft: 8,
-  },
-  smallText: {
-    fontSize: 8,
   },
 });

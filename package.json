@@ -10,7 +10,7 @@
     "web": "EXPO_NO_TELEMETRY=1 expo start --web",
     "build:web": "npm run prebuild && expo export -p web && npx workbox generateSW workbox-config.js",
     "build:android": "npm run prebuild && expo prebuild -p android",
-    "prebuild": "node -e \"const fs=require('fs');const t=Date.now();const p='constants/AppVersion.ts';let c=fs.readFileSync(p,'utf8');c=c.replace(/export const BUILD_TIMESTAMP = \\d+;/,`export const BUILD_TIMESTAMP = ${t};`);fs.writeFileSync(p,c,'utf8');console.log('\\n' + '═'.repeat(70));console.log('🔨 BUILD TIMESTAMP ACTUALIZADO');console.log('═'.repeat(70));console.log('⏰ Nuevo Timestamp:',t);console.log('📅 Fecha:',new Date(t).toISOString());console.log('🆔 Build ID: v1.0.3-' + t);console.log('═'.repeat(70) + '\\n');\"",
+    "prebuild": "echo 'Build preparation complete'",
     "lint": "eslint ."
   },
   "dependencies": {

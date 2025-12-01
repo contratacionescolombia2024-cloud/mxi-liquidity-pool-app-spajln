@@ -1,6 +1,6 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { APP_VERSION, BUILD_ID } from '@/constants/AppVersion';
+import { APP_VERSION } from '@/constants/AppVersion';
 
 // Supabase configuration
 const supabaseUrl = 'https://aeyfnjuatbtcauiumbhn.supabase.co';
@@ -11,30 +11,23 @@ const isBrowser = typeof window !== 'undefined' && typeof document !== 'undefine
 
 console.log('Supabase Web Client - isBrowser:', isBrowser);
 console.log('Supabase Web Client - App Version:', APP_VERSION);
-console.log('Supabase Web Client - Build ID:', BUILD_ID);
 
-// For web, use localStorage directly with version-specific keys
+// For web, use localStorage directly
 const storage = {
   getItem: (key: string) => {
     if (typeof window !== 'undefined' && window.localStorage) {
-      // Use version-specific key for non-auth data
-      const versionedKey = key.includes('supabase.auth') ? key : `${key}_${BUILD_ID}`;
-      return window.localStorage.getItem(versionedKey);
+      return window.localStorage.getItem(key);
     }
     return null;
   },
   setItem: (key: string, value: string) => {
     if (typeof window !== 'undefined' && window.localStorage) {
-      // Use version-specific key for non-auth data
-      const versionedKey = key.includes('supabase.auth') ? key : `${key}_${BUILD_ID}`;
-      window.localStorage.setItem(versionedKey, value);
+      window.localStorage.setItem(key, value);
     }
   },
   removeItem: (key: string) => {
     if (typeof window !== 'undefined' && window.localStorage) {
-      // Use version-specific key for non-auth data
-      const versionedKey = key.includes('supabase.auth') ? key : `${key}_${BUILD_ID}`;
-      window.localStorage.removeItem(versionedKey);
+      window.localStorage.removeItem(key);
     }
   },
 };
