@@ -2,7 +2,7 @@
 // App version and build information
 // This file is automatically updated on each build to ensure cache busting
 
-export const APP_VERSION = '1.0.1';
+export const APP_VERSION = '1.0.2';
 export const BUILD_TIMESTAMP = Date.now();
 export const BUILD_DATE = new Date().toISOString();
 
@@ -58,7 +58,7 @@ export const forceReload = () => {
 
 // Log version information
 console.log('='.repeat(60));
-console.log('MXI LIQUIDITY POOL APP');
+console.log('MXI LIQUIDITY POOL APP - NUEVA VERSION');
 console.log('='.repeat(60));
 console.log('Version:', APP_VERSION);
 console.log('Build ID:', BUILD_ID);
