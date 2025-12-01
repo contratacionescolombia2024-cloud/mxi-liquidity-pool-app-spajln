@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Modal,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -29,6 +30,7 @@ interface TournamentGame {
   max_players: number;
   winner_percentage: number;
   is_active: boolean;
+  open_tournaments_count: number;
 }
 
 interface WaitingSession {
@@ -53,6 +55,8 @@ const GAME_ICONS = {
   bomb_runner: { ios: 'flame.fill', android: 'whatshot' },
 };
 
+const MAX_OPEN_TOURNAMENTS = 30;
+
 export default function TournamentsScreen() {
   const router = useRouter();
   const { user } = useAuth();
@@ -76,7 +80,7 @@ export default function TournamentsScreen() {
 
   const loadData = async () => {
     try {
-      // Load games
+      // Load games with open tournament counts
       const { data: gamesData, error: gamesError } = await supabase
         .from('tournament_games')
         .select('*')
@@ -333,6 +337,17 @@ export default function TournamentsScreen() {
     
     console.log('[Tournaments] CREATE NEW TOURNAMENT:', game.name, game.id);
     
+    // Check if tournament limit reached
+    if (game.open_tournaments_count >= MAX_OPEN_TOURNAMENTS) {
+      showAlert(
+        t('tournamentLimitReached'),
+        t('maxTournamentsReached'),
+        undefined,
+        'warning'
+      );
+      return;
+    }
+    
     // Check balance
     if (availableMXI < game.entry_fee) {
       showAlert(
@@ -555,7 +570,7 @@ export default function TournamentsScreen() {
 
         {/* Waiting Tournaments Section */}
         {waitingSessions.length > 0 && (
-          <>
+          <React.Fragment>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>{t('waitingTournaments')}</Text>
               <View style={styles.badge}>
@@ -641,7 +656,7 @@ export default function TournamentsScreen() {
                 </TouchableOpacity>
               );
             })}
-          </>
+          </React.Fragment>
         )}
 
         {/* Create New Tournament Section */}
@@ -649,13 +664,14 @@ export default function TournamentsScreen() {
 
         {games.map((game) => {
           const icon = GAME_ICONS[game.game_type as keyof typeof GAME_ICONS];
+          const limitReached = game.open_tournaments_count >= MAX_OPEN_TOURNAMENTS;
           
           return (
             <TouchableOpacity
               key={game.id}
-              style={[commonStyles.card, styles.gameCard]}
-              onPress={() => createNewTournament(game)}
-              disabled={joining}
+              style={[commonStyles.card, styles.gameCard, limitReached && styles.gameCardDisabled]}
+              onPress={() => !limitReached && createNewTournament(game)}
+              disabled={joining || limitReached}
               activeOpacity={0.7}
             >
               <View style={styles.gameIcon}>
@@ -663,11 +679,11 @@ export default function TournamentsScreen() {
                   ios_icon_name={icon.ios} 
                   android_material_icon_name={icon.android} 
                   size={32} 
-                  color={colors.primary} 
+                  color={limitReached ? colors.textSecondary : colors.primary} 
                 />
               </View>
               <View style={styles.gameInfo}>
-                <Text style={styles.gameName}>{game.name}</Text>
+                <Text style={[styles.gameName, limitReached && styles.gameNameDisabled]}>{game.name}</Text>
                 <Text style={styles.gameDescription}>{game.description}</Text>
                 <View style={styles.gameStats}>
                   <Text style={styles.gameStat}>
@@ -676,14 +692,25 @@ export default function TournamentsScreen() {
                   <Text style={[styles.gameStat, styles.gamePrice]}>
                     💰 {game.entry_fee} MXI
                   </Text>
+                  {limitReached && (
+                    <Text style={[styles.gameStat, styles.gameLimitText]}>
+                      🚫 {game.open_tournaments_count}/{MAX_OPEN_TOURNAMENTS}
+                    </Text>
+                  )}
                 </View>
               </View>
-              <IconSymbol 
-                ios_icon_name="plus.circle.fill" 
-                android_material_icon_name="add_circle" 
-                size={32} 
-                color={colors.success} 
-              />
+              {limitReached ? (
+                <View style={styles.limitBadge}>
+                  <Text style={styles.limitBadgeText}>{t('full')}</Text>
+                </View>
+              ) : (
+                <IconSymbol 
+                  ios_icon_name="plus.circle.fill" 
+                  android_material_icon_name="add_circle" 
+                  size={32} 
+                  color={colors.success} 
+                />
+              )}
             </TouchableOpacity>
           );
         })}
@@ -980,6 +1007,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  gameCardDisabled: {
+    opacity: 0.5,
+  },
   gameIcon: {
     width: 56,
     height: 56,
@@ -997,6 +1027,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
+  gameNameDisabled: {
+    color: colors.textSecondary,
+  },
   gameDescription: {
     fontSize: 13,
     color: colors.textSecondary,
@@ -1013,6 +1046,21 @@ const styles = StyleSheet.create({
   gamePrice: {
     color: colors.success,
     fontWeight: '700',
+  },
+  gameLimitText: {
+    color: colors.error,
+    fontWeight: '700',
+  },
+  limitBadge: {
+    backgroundColor: colors.error,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  limitBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.background,
   },
   joiningOverlay: {
     position: 'absolute',

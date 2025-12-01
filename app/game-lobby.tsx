@@ -14,6 +14,8 @@ import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { showConfirm } from '@/utils/confirmDialog';
 
 interface Participant {
   id: string;
@@ -41,6 +43,7 @@ interface GameSession {
 export default function GameLobbyScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const params = useLocalSearchParams();
   const sessionId = params.sessionId as string;
   const gameType = params.gameType as string;
@@ -49,17 +52,19 @@ export default function GameLobbyScreen() {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(true);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [hasActiveGame, setHasActiveGame] = useState(false);
 
   useEffect(() => {
     console.log('[GameLobby] Mounted - Session:', sessionId, 'Game:', gameType);
     
     if (!sessionId || !gameType) {
-      Alert.alert('Error', 'Parámetros inválidos', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)/tournaments') }
+      Alert.alert(t('error'), t('invalidSession'), [
+        { text: t('ok'), onPress: () => router.replace('/(tabs)/tournaments') }
       ]);
       return;
     }
 
+    setHasActiveGame(true);
     loadSession();
     
     // Subscribe to updates
@@ -77,8 +82,23 @@ export default function GameLobbyScreen() {
       )
       .subscribe();
 
+    // Handle page exit - player loses if they leave
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasActiveGame) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', handleBeforeUnload);
+    }
+
     return () => {
       supabase.removeChannel(channel);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+      }
     };
   }, [sessionId, gameType]);
 
@@ -124,12 +144,13 @@ export default function GameLobbyScreen() {
       setParticipants(participantsData || []);
 
       if (sessionData.status === 'ready') {
+        setHasActiveGame(false);
         navigateToGame();
       }
     } catch (error) {
       console.error('[GameLobby] Load error:', error);
-      Alert.alert('Error', 'No se pudo cargar la sesión', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)/tournaments') }
+      Alert.alert(t('error'), t('invalidSession'), [
+        { text: t('ok'), onPress: () => router.replace('/(tabs)/tournaments') }
       ]);
     } finally {
       setLoading(false);
@@ -143,6 +164,7 @@ export default function GameLobbyScreen() {
         .update({ status: 'ready', started_at: new Date().toISOString() })
         .eq('id', sessionId);
 
+      setHasActiveGame(false);
       navigateToGame();
     } catch (error) {
       console.error('[GameLobby] Start error:', error);
@@ -163,32 +185,48 @@ export default function GameLobbyScreen() {
       console.log('[GameLobby] Navigating to:', route);
       router.replace({ pathname: route as any, params: { sessionId } });
     } else {
-      Alert.alert('Error', 'Juego no encontrado', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)/tournaments') }
+      Alert.alert(t('error'), t('invalidSession'), [
+        { text: t('ok'), onPress: () => router.replace('/(tabs)/tournaments') }
       ]);
     }
   };
 
   const handleLeave = () => {
-    Alert.alert(
-      'Abandonar',
-      '¿Salir del juego? Perderás tu entrada.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Salir',
-          style: 'destructive',
-          onPress: async () => {
-            await supabase
-              .from('game_participants')
-              .delete()
-              .eq('session_id', sessionId)
-              .eq('user_id', user?.id);
-            router.replace('/(tabs)/tournaments');
-          }
+    showConfirm({
+      title: t('leavingGameWarning'),
+      message: t('leavingGameWarningMessage'),
+      confirmText: t('yes'),
+      cancelText: t('no'),
+      type: 'warning',
+      icon: {
+        ios: 'exclamationmark.triangle.fill',
+        android: 'warning',
+      },
+      onConfirm: async () => {
+        try {
+          // Mark player as forfeit and cancel session
+          await supabase
+            .from('game_sessions')
+            .update({ status: 'cancelled' })
+            .eq('id', sessionId);
+
+          await supabase
+            .from('game_participants')
+            .delete()
+            .eq('session_id', sessionId)
+            .eq('user_id', user?.id);
+
+          setHasActiveGame(false);
+          router.replace('/(tabs)/tournaments');
+        } catch (error) {
+          console.error('[GameLobby] Leave error:', error);
+          router.replace('/(tabs)/tournaments');
         }
-      ]
-    );
+      },
+      onCancel: () => {
+        console.log('Leave cancelled');
+      },
+    });
   };
 
   if (loading) {
@@ -196,7 +234,7 @@ export default function GameLobbyScreen() {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Cargando sala...</Text>
+          <Text style={styles.loadingText}>{t('loading')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -212,12 +250,12 @@ export default function GameLobbyScreen() {
             size={64} 
             color={colors.error} 
           />
-          <Text style={styles.errorText}>Sesión no encontrada</Text>
+          <Text style={styles.errorText}>{t('invalidSession')}</Text>
           <TouchableOpacity
             style={[buttonStyles.primary, { marginTop: 20 }]}
             onPress={() => router.replace('/(tabs)/tournaments')}
           >
-            <Text style={buttonStyles.primaryText}>Volver</Text>
+            <Text style={buttonStyles.primaryText}>{t('back')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -237,7 +275,7 @@ export default function GameLobbyScreen() {
             color={colors.text} 
           />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Sala de Espera</Text>
+        <Text style={styles.headerTitle}>{t('waitingForPlayers')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -254,18 +292,18 @@ export default function GameLobbyScreen() {
               color={colors.primary} 
             />
             <Text style={styles.playerCountText}>
-              Torneo de {session.num_players} Jugadores
+              {t('createTournamentOf', { count: session.num_players })}
             </Text>
           </View>
           
           <View style={styles.statsRow}>
             <View style={styles.stat}>
-              <Text style={styles.statLabel}>Premio (90%)</Text>
+              <Text style={styles.statLabel}>{t('prize')} (90%)</Text>
               <Text style={styles.statValue}>{session.prize_amount.toFixed(2)} MXI</Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.stat}>
-              <Text style={styles.statLabel}>Pool Total</Text>
+              <Text style={styles.statLabel}>{t('total')}</Text>
               <Text style={styles.statValue}>{session.total_pool.toFixed(2)} MXI</Text>
             </View>
           </View>
@@ -273,14 +311,14 @@ export default function GameLobbyScreen() {
 
         {countdown !== null && countdown > 0 && (
           <View style={[commonStyles.card, styles.countdownCard]}>
-            <Text style={styles.countdownText}>Iniciando en</Text>
+            <Text style={styles.countdownText}>{t('loading')}</Text>
             <Text style={styles.countdownNumber}>{countdown}</Text>
           </View>
         )}
 
         <View style={[commonStyles.card, styles.playersCard]}>
           <View style={styles.playersHeader}>
-            <Text style={styles.playersTitle}>Jugadores</Text>
+            <Text style={styles.playersTitle}>{t('players')}</Text>
             <Text style={styles.playersCount}>
               {participants.length}/{session.num_players}
             </Text>
@@ -317,7 +355,7 @@ export default function GameLobbyScreen() {
                 </Text>
               </View>
               <View style={styles.playerInfo}>
-                <Text style={styles.emptyText}>Esperando...</Text>
+                <Text style={styles.emptyText}>{t('waitingForPlayers')}...</Text>
               </View>
               <IconSymbol 
                 ios_icon_name="clock.fill" 
@@ -333,7 +371,7 @@ export default function GameLobbyScreen() {
           <View style={[commonStyles.card, styles.waitingCard]}>
             <ActivityIndicator size="small" color={colors.primary} />
             <Text style={styles.waitingText}>
-              Esperando {spotsRemaining} jugador{spotsRemaining !== 1 ? 'es' : ''}...
+              {t('waitingForPlayers')} {spotsRemaining} {spotsRemaining !== 1 ? t('players') : t('players').slice(0, -1)}...
             </Text>
           </View>
         )}

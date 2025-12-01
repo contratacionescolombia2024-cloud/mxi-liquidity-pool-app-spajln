@@ -1,4 +1,3 @@
-
 {
   "expo": {
     "name": "MXI Liquidity Pool",
@@ -87,5 +86,6 @@
       "router": {},
       "buildTimestamp": "BUILD_TIMESTAMP_PLACEHOLDER"
     }
-  }
+  },
+  "scheme": "MXI Liquidity Pool"
 }
