@@ -3,8 +3,11 @@
 // This file is automatically updated on each build to ensure cache busting
 
 export const APP_VERSION = '1.0.3';
+
 // BUILD_TIMESTAMP will be replaced during build process
-undefined // This will be replaced at build time
+export const BUILD_TIMESTAMP = Date.now();
+
+// This will be replaced at build time
 export const BUILD_DATE = new Date(BUILD_TIMESTAMP).toISOString();
 
 // Generate a unique build ID based on timestamp
