@@ -55,7 +55,7 @@ const GAME_ICONS = {
   bomb_runner: { ios: 'flame.fill', android: 'whatshot' },
 };
 
-const MAX_OPEN_TOURNAMENTS = 30;
+const MAX_OPEN_TOURNAMENTS = 15;
 
 export default function TournamentsScreen() {
   const router = useRouter();
