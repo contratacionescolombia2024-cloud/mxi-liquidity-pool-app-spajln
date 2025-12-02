@@ -482,7 +482,7 @@ const translations = {
     
     // Ecosystem - Quantum Security Tab
     quantumSecurityTitle: 'Quantum Security 🔐',
-    quantumSecurityIntro: 'MAXCOIN is prepared for the future with quantum-resistant security technology.',
+    quantumSecurityIntro: 'MXI incorporates a quantum-safe architecture 🛡️ designed to protect your assets today and in the future ⏳.\n\nOur system combines classic signatures 🔑 + post-quantum algorithms ⚛️, creating a hybrid security layer 🛡️ capable of resisting attacks even from the next generation of quantum computers 💻.\n\nThis allows us to prevent risks like "harvest now, decrypt later" ⚠️ and ensure that transactions and keys remain protected long-term ✅.\n\nAdditionally, MXI includes a continuous cryptographic update model 🔄, ensuring that security evolves alongside global technology 🌐.\n\nMXI is not just a token: it is an ecosystem prepared for the future 🚀.',
     quantumThreat: '⚠️ The Quantum Threat',
     quantumThreatDesc: 'Quantum computers could break current encryption. We are prepared for this future.',
     ourSolution: '🛡️ Our Solution',
@@ -1496,9 +1496,9 @@ const translations = {
     ecosystemCompetitionFeature8: '🗣️ Enfoque hispanohablante',
     ecosystemCompetitionConclusion: 'MXI prácticamente no tiene competencia directa en su segmento 🥇.',
     
-    // Ecosystem - Quantum Security Tab
+    // Ecosystem - Quantum Security Tab - UPDATED WITH NEW CONTENT
     quantumSecurityTitle: 'Seguridad Cuántica 🔐',
-    quantumSecurityIntro: 'MAXCOIN está preparado para el futuro con tecnología de seguridad resistente a la computación cuántica.',
+    quantumSecurityIntro: 'MXI incorpora una arquitectura quantum-safe 🛡️ diseñada para proteger tus activos hoy y en el futuro ⏳.\n\n🔑 Nuestro sistema combina firmas clásicas + algoritmos post-cuánticos ⚛️, creando una capa de seguridad híbrida 🛡️ capaz de resistir ataques incluso de la próxima generación de computadoras cuánticas 💻.\n\n⚠️ Esto nos permite prevenir riesgos como el "harvest now, decrypt later" y garantizar que las transacciones y claves permanezcan protegidas a largo plazo ✅.\n\n🔄 Además, MXI incluye un modelo de actualización criptográfica continua, asegurando que la seguridad evolucione junto con la tecnología global 🌐.\n\n🚀 MXI no solo es un token: es un ecosistema preparado para el futuro.',
     quantumThreat: '⚠️ La Amenaza Cuántica',
     quantumThreatDesc: 'Las computadoras cuánticas podrían romper la encriptación actual. Estamos preparados para este futuro.',
     ourSolution: '🛡️ Nuestra Solución',
