@@ -1073,7 +1073,7 @@ function VestingDiarioTab() {
   );
 }
 
-// En la Práctica Tab Content - Image 2 (673e86be)
+// En la Práctica Tab Content - Image (9c088d87)
 function EnLaPracticaTab() {
   const { t } = useLanguage();
   
@@ -1085,12 +1085,13 @@ function EnLaPracticaTab() {
 
       <View style={styles.imageContainer}>
         <Image
-          source={require('@/assets/images/673e86be-8ebc-4cc7-bff8-ed7856d38892.png')}
+          source={require('@/assets/images/9c088d87-87e8-4a3f-9920-2242244ecea7.png')}
           style={styles.practicaImage}
           resizeMode="contain"
         />
       </View>
 
+      {/* Introduction */}
       <View style={[commonStyles.card, styles.contentCard]}>
         <LinearGradient
           colors={[colors.primary + '10', colors.accent + '10']}
@@ -1101,69 +1102,99 @@ function EnLaPracticaTab() {
           <Text style={styles.bodyText}>
             {t('inPracticeIntro')}
           </Text>
-
-          <View style={styles.divider} />
-
-          <Text style={styles.sectionSubtitle}>{t('practicalUse1')}</Text>
-          <Text style={styles.bodyText}>
-            {t('practicalUse1Desc')}
-          </Text>
-
-          <View style={styles.divider} />
-
-          <Text style={styles.sectionSubtitle}>{t('practicalUse2')}</Text>
-          <Text style={styles.bodyText}>
-            {t('practicalUse2Desc')}
-          </Text>
-
-          <View style={styles.divider} />
-
-          <Text style={styles.sectionSubtitle}>{t('practicalUse3')}</Text>
-          <Text style={styles.bodyText}>
-            {t('practicalUse3Desc')}
-          </Text>
-
-          <View style={styles.divider} />
-
-          <Text style={styles.sectionSubtitle}>{t('practicalUse4')}</Text>
-          <Text style={styles.bodyText}>
-            {t('practicalUse4Desc')}
-          </Text>
         </LinearGradient>
       </View>
 
-      <View style={styles.featuresSection}>
-        <Text style={styles.sectionTitle}>{t('realWorldApplications')}</Text>
-        
-        <View style={[commonStyles.card, styles.valueCard]}>
-          <Text style={styles.valueEmoji}>🛒</Text>
-          <View style={styles.valueContent}>
-            <Text style={styles.valueTitle}>{t('ecommerce')}</Text>
-            <Text style={styles.valueDescription}>
-              {t('ecommerceDesc')}
-            </Text>
-          </View>
-        </View>
+      {/* Projected Growth */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '15', colors.accent + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionSubtitle}>{t('projectedGrowthTitle')}</Text>
+          <Text style={styles.bodyText}>{t('projectedGrowthIntro')}</Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.emphasisText}>{t('conservativeScenarioTitle')}</Text>
+          <Text style={styles.bodyText}>{t('conservativeScenarioPrice')}</Text>
+          <Text style={styles.bodyText}>{t('conservativeScenarioGrowth')}</Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.emphasisText}>{t('intermediateScenarioTitle')}</Text>
+          <Text style={styles.bodyText}>{t('intermediateScenarioDesc')}</Text>
+          <Text style={styles.bodyText}>{t('intermediateScenarioPrice')}</Text>
+          <Text style={styles.bodyText}>{t('intermediateScenarioGrowth')}</Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.emphasisText}>{t('expansiveScenarioTitle')}</Text>
+          <Text style={styles.bodyText}>{t('expansiveScenarioDesc')}</Text>
+          <Text style={styles.bodyText}>{t('expansiveScenarioPrice')}</Text>
+          <Text style={styles.bodyText}>{t('expansiveScenarioGrowth')}</Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.bodyText}>{t('scenariosDisclaimer')}</Text>
+        </LinearGradient>
+      </View>
 
-        <View style={[commonStyles.card, styles.valueCard]}>
-          <Text style={styles.valueEmoji}>🏦</Text>
-          <View style={styles.valueContent}>
-            <Text style={styles.valueTitle}>{t('defi')}</Text>
-            <Text style={styles.valueDescription}>
-              {t('defiDesc')}
-            </Text>
-          </View>
-        </View>
+      {/* Practical Examples */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.accent + '15', colors.primary + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionSubtitle}>{t('practicalExamplesTitle')}</Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.emphasisText}>{t('smallInvestorTitle')}</Text>
+          <Text style={styles.bodyText}>{t('smallInvestorReceives')}</Text>
+          <Text style={styles.bodyText}>{t('smallInvestorVesting')}</Text>
+          <Text style={styles.bodyText}>{t('smallInvestorProjection')}</Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.emphasisText}>{t('mediumInvestorTitle')}</Text>
+          <Text style={styles.bodyText}>{t('mediumInvestorReceives')}</Text>
+          <Text style={styles.bodyText}>{t('mediumInvestorParticipation')}</Text>
+          <Text style={styles.bodyText}>{t('mediumInvestorProjection')}</Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.emphasisText}>{t('longTermInvestorTitle')}</Text>
+          <Text style={styles.bodyText}>{t('longTermInvestorReceives')}</Text>
+          <Text style={styles.bodyText}>{t('longTermInvestorAccumulation')}</Text>
+          <Text style={styles.bodyText}>{t('longTermInvestorProjection')}</Text>
+        </LinearGradient>
+      </View>
 
-        <View style={[commonStyles.card, styles.valueCard]}>
-          <Text style={styles.valueEmoji}>🎮</Text>
-          <View style={styles.valueContent}>
-            <Text style={styles.valueTitle}>{t('gaming')}</Text>
-            <Text style={styles.valueDescription}>
-              {t('gamingDesc')}
-            </Text>
+      {/* Real Token Use */}
+      <View style={[commonStyles.card, styles.visionCard]}>
+        <LinearGradient
+          colors={[colors.primary, colors.accent]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.visionGradient}
+        >
+          <Text style={styles.visionEmoji}>💳</Text>
+          <Text style={styles.ctaTitle}>{t('realTokenUseTitle')}</Text>
+          <Text style={styles.ctaText}>{t('realTokenUseIntro')}</Text>
+          
+          <View style={styles.bulletListLight}>
+            <Text style={styles.bulletPointLight}>{t('realTokenUsePoint1')}</Text>
+            <Text style={styles.bulletPointLight}>{t('realTokenUsePoint2')}</Text>
+            <Text style={styles.bulletPointLight}>{t('realTokenUsePoint3')}</Text>
           </View>
-        </View>
+
+          <Text style={styles.ctaSubtext}>{t('realTokenUseConclusion')}</Text>
+        </LinearGradient>
       </View>
     </View>
   );

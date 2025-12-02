@@ -538,22 +538,53 @@ const translations = {
     
     // Ecosystem - In Practice Tab
     inPracticeTitle: 'In Practice 🎯',
-    inPracticeIntro: 'See how MAXCOIN is used in real-world situations.',
-    practicalUse1: '🛒 Online Shopping',
-    practicalUse1Desc: 'Use MXI to buy products and services in our partner stores with exclusive discounts.',
-    practicalUse2: '💸 International Transfers',
-    practicalUse2Desc: 'Send money anywhere in the world instantly and with minimal fees.',
-    practicalUse3: '💰 Savings and Investment',
-    practicalUse3Desc: 'Save in MXI and earn passive income through vesting and staking.',
-    practicalUse4: '🎮 Gaming and Entertainment',
-    practicalUse4Desc: 'Participate in tournaments, challenges, and win additional MXI.',
-    realWorldApplications: '🌍 Real-World Applications',
-    ecommerce: 'E-commerce',
-    ecommerceDesc: 'Pay in online stores with MXI',
-    defi: 'DeFi',
-    defiDesc: 'Access decentralized financial services',
-    gaming: 'Gaming',
-    gamingDesc: 'Use MXI in games and tournaments',
+    inPracticeIntro: '💡 The MXI ecosystem is designed so that the token&apos;s value is built through utility, adoption, and technological development. Although MXI does not guarantee returns, it is possible to show projected scenarios based on the expected growth of the ecosystem, phase advancement, and progressive use of the token.',
+    
+    // Projected Token Value Growth
+    projectedGrowthTitle: '📈 Projected Token Value Growth',
+    projectedGrowthIntro: 'During the presale, the price is fixed in stages: 0.40 → 0.70 → 1.00 USDT.\n\nWhen the ecosystem is fully operational and MXI enters the open market, its value will depend on supply, demand, and real use. For illustrative purposes, three common scenarios are presented in projects with growing utility:',
+    
+    conservativeScenarioTitle: '🔵 Conservative Scenario: Moderate Adoption',
+    conservativeScenarioPrice: 'Projected price at 12 months: 1.20 – 1.50 USDT',
+    conservativeScenarioGrowth: 'Estimated growth: 20% – 50% over the final presale price.',
+    
+    intermediateScenarioTitle: '🟢 Intermediate Scenario: Sustained Growth',
+    intermediateScenarioDesc: 'Sustained growth through integration with merchants, linked card, and tournaments',
+    intermediateScenarioPrice: 'Projected price at 12 months: 1.80 – 2.50 USDT',
+    intermediateScenarioGrowth: 'Estimated growth: 80% – 150%.',
+    
+    expansiveScenarioTitle: '🟣 Expansive Scenario: Strong Regional Use',
+    expansiveScenarioDesc: 'Strong regional use, increased liquidity, and future migration to own blockchain',
+    expansiveScenarioPrice: 'Projected price at 12–24 months: 3.00 – 5.00 USDT',
+    expansiveScenarioGrowth: 'Estimated growth: 200% – 400%.',
+    
+    scenariosDisclaimer: 'ℹ️ These figures are for reference and are based on typical processes of ecosystems with real utility, not on promises or guarantees.',
+    
+    // Practical Examples
+    practicalExamplesTitle: '💼 Practical Examples for Different User Profiles',
+    
+    smallInvestorTitle: '👤 Small Investor (100 USD in presale at 0.70 USDT)',
+    smallInvestorReceives: 'Receives 142.8 MXI.',
+    smallInvestorVesting: 'With 3% monthly vesting, receives MXI daily without waiting until the end of the period.',
+    smallInvestorProjection: 'If the token reaches 1.50 USDT, their hypothetical capital would be:\n142.8 × 1.50 = 214 USD.',
+    
+    mediumInvestorTitle: '👤 Medium Investor (500 USD at 1.00 USDT)',
+    mediumInvestorReceives: 'Receives 500 MXI.',
+    mediumInvestorParticipation: 'Participates in tournaments and referrals, potentially adding more MXI.',
+    mediumInvestorProjection: 'If the token reaches 2.50 USDT, their projection would be:\n500 × 2.50 = 1,250 USD.',
+    
+    longTermInvestorTitle: '👤 Long-Term Investor (3,000 USD at average cost 0.70 USD)',
+    longTermInvestorReceives: 'Receives 4,285 MXI.',
+    longTermInvestorAccumulation: 'Accumulates during ecosystem expansion, governance, and use in merchants.',
+    longTermInvestorProjection: 'In a scenario of 5.00 USDT per token:\n4,285 × 5.00 = 21,425 USD.',
+    
+    // Real Token Use
+    realTokenUseTitle: '💳 Real Token Use in Daily Life',
+    realTokenUseIntro: 'With the card linked to the wallet, users will be able to:',
+    realTokenUsePoint1: '✅ Use MXI for physical or online purchases.',
+    realTokenUsePoint2: '✅ Automatically convert their cryptos at the time of payment.',
+    realTokenUsePoint3: '✅ Access allied merchants and stores within the ecosystem.',
+    realTokenUseConclusion: '🎯 This makes MXI a practical tool, not speculative: the user can pay, send, compete, acquire services, and use their balance whenever they want, like any modern payment method.',
     
     // Ecosystem - Tokenomics Tab
     tokenomicsTitle: 'Tokenomics 📊',
@@ -1569,22 +1600,53 @@ const translations = {
     
     // Ecosystem - In Practice Tab
     inPracticeTitle: 'En la Práctica 🎯',
-    inPracticeIntro: 'Mira cómo MAXCOIN se usa en situaciones del mundo real.',
-    practicalUse1: '🛒 Compras en Línea',
-    practicalUse1Desc: 'Usa MXI para comprar productos y servicios en nuestras tiendas asociadas con descuentos exclusivos.',
-    practicalUse2: '💸 Transferencias Internacionales',
-    practicalUse2Desc: 'Envía dinero a cualquier parte del mundo instantáneamente y con comisiones mínimas.',
-    practicalUse3: '💰 Ahorro e Inversión',
-    practicalUse3Desc: 'Ahorra en MXI y gana ingresos pasivos a través de vesting y staking.',
-    practicalUse4: '🎮 Gaming y Entretenimiento',
-    practicalUse4Desc: 'Participa en torneos, desafíos y gana MXI adicionales.',
-    realWorldApplications: '🌍 Aplicaciones del Mundo Real',
-    ecommerce: 'E-commerce',
-    ecommerceDesc: 'Paga en tiendas en línea con MXI',
-    defi: 'DeFi',
-    defiDesc: 'Accede a servicios financieros descentralizados',
-    gaming: 'Gaming',
-    gamingDesc: 'Usa MXI en juegos y torneos',
+    inPracticeIntro: '💡 El ecosistema MXI está diseñado para que el valor del token se construya mediante utilidad, adopción y desarrollo tecnológico. Aunque MXI no garantiza rentabilidades, sí es posible mostrar escenarios proyectados basados en el crecimiento esperado del ecosistema, el avance por fases y el uso progresivo del token.',
+    
+    // Projected Token Value Growth
+    projectedGrowthTitle: '📈 Crecimiento Proyectado del Valor del Token',
+    projectedGrowthIntro: 'Durante la preventa, el precio está fijado en etapas: 0.40 → 0.70 → 1.00 USDT.\n\nCuando el ecosistema esté completamente operativo y MXI ingrese a mercado abierto, su valor dependerá de oferta, demanda y uso real. Para efectos ilustrativos, se plantean tres escenarios comunes en proyectos con utilidad creciente:',
+    
+    conservativeScenarioTitle: '🔵 Escenario Conservador: Adopción Moderada',
+    conservativeScenarioPrice: 'Precio proyectado a 12 meses: 1.20 – 1.50 USDT',
+    conservativeScenarioGrowth: 'Crecimiento estimado: 20% – 50% sobre el precio final de preventa.',
+    
+    intermediateScenarioTitle: '🟢 Escenario Intermedio: Crecimiento Sostenido',
+    intermediateScenarioDesc: 'Crecimiento sostenido por integración con comercios, tarjeta vinculada y torneos',
+    intermediateScenarioPrice: 'Precio proyectado a 12 meses: 1.80 – 2.50 USDT',
+    intermediateScenarioGrowth: 'Crecimiento estimado: 80% – 150%.',
+    
+    expansiveScenarioTitle: '🟣 Escenario Expansivo: Fuerte Uso Regional',
+    expansiveScenarioDesc: 'Fuerte uso regional, aumento de liquidez y migración futura a blockchain propio',
+    expansiveScenarioPrice: 'Precio proyectado a 12–24 meses: 3.00 – 5.00 USDT',
+    expansiveScenarioGrowth: 'Crecimiento estimado: 200% – 400%.',
+    
+    scenariosDisclaimer: 'ℹ️ Estas cifras son referenciales y se basan en procesos típicos de ecosistemas con utilidad real, no en promesas o garantías.',
+    
+    // Practical Examples
+    practicalExamplesTitle: '💼 Ejemplos Prácticos para Distintos Perfiles de Usuario',
+    
+    smallInvestorTitle: '👤 Inversionista Pequeño (100 USD en preventa a 0.70 USDT)',
+    smallInvestorReceives: 'Recibe 142.8 MXI.',
+    smallInvestorVesting: 'Con un vesting del 3% mensual, recibe MXI diariamente sin esperar al final del periodo.',
+    smallInvestorProjection: 'Si el token llega a 1.50 USDT, su capital hipotético sería:\n142.8 × 1.50 = 214 USD.',
+    
+    mediumInvestorTitle: '👤 Inversionista Medio (500 USD a 1.00 USDT)',
+    mediumInvestorReceives: 'Recibe 500 MXI.',
+    mediumInvestorParticipation: 'Participa en torneos y referidos, potencialmente sumando más MXI.',
+    mediumInvestorProjection: 'Si el token alcanza 2.50 USDT, su proyección sería:\n500 × 2.50 = 1.250 USD.',
+    
+    longTermInvestorTitle: '👤 Inversionista de Largo Plazo (3.000 USD a costo promedio 0.70 USD)',
+    longTermInvestorReceives: 'Recibe 4.285 MXI.',
+    longTermInvestorAccumulation: 'Acumula durante la expansión del ecosistema, gobernanza y uso en comercios.',
+    longTermInvestorProjection: 'En un escenario de 5.00 USDT por token:\n4.285 × 5.00 = 21.425 USD.',
+    
+    // Real Token Use
+    realTokenUseTitle: '💳 Uso Real del Token en la Vida Diaria',
+    realTokenUseIntro: 'Con la tarjeta vinculada a la billetera, los usuarios podrán:',
+    realTokenUsePoint1: '✅ Usar MXI para compras físicas o en línea.',
+    realTokenUsePoint2: '✅ Convertir automáticamente sus criptos al momento de pagar.',
+    realTokenUsePoint3: '✅ Acceder a comercios aliados y a tiendas dentro del ecosistema.',
+    realTokenUseConclusion: '🎯 Esto convierte a MXI en una herramienta práctica, no especulativa: el usuario puede pagar, enviar, competir, adquirir servicios y usar su saldo cuando quiera, como cualquier medio de pago moderno.',
     
     // Ecosystem - Tokenomics Tab
     tokenomicsTitle: 'Tokenómica 📊',
