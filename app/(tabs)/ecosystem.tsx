@@ -16,7 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
-type TabType = 'que-es' | 'como-funciona' | 'por-que-comprar' | 'meta' | 'ecosistema' | 'seguridad-cuantica' | 'sostenibilidad' | 'vesting-diario' | 'en-la-practica' | 'tokenomica';
+type TabType = 'que-es' | 'como-funciona' | 'por-que-comprar' | 'meta' | 'ecosistema' | 'seguridad-cuantica' | 'sostenibilidad' | 'vesting-diario' | 'en-la-practica' | 'tokenomica' | 'riesgos';
 
 export default function EcosystemScreen() {
   const { t } = useLanguage();
@@ -126,6 +126,15 @@ export default function EcosystemScreen() {
               {t('tokenomics')}
             </Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'riesgos' && styles.activeTab]}
+            onPress={() => setActiveTab('riesgos')}
+          >
+            <Text style={[styles.tabText, activeTab === 'riesgos' && styles.activeTabText]}>
+              {t('risks')}
+            </Text>
+          </TouchableOpacity>
         </ScrollView>
       </View>
 
@@ -145,6 +154,7 @@ export default function EcosystemScreen() {
         {activeTab === 'vesting-diario' && <VestingDiarioTab />}
         {activeTab === 'en-la-practica' && <EnLaPracticaTab />}
         {activeTab === 'tokenomica' && <TokenomicaTab />}
+        {activeTab === 'riesgos' && <RiesgosTab />}
       </ScrollView>
     </SafeAreaView>
   );
@@ -1251,6 +1261,91 @@ function TokenomicaTab() {
   );
 }
 
+// NEW: Riesgos Tab Content
+function RiesgosTab() {
+  const { t } = useLanguage();
+  
+  return (
+    <View>
+      <View style={styles.titleSection}>
+        <Text style={styles.mainTitle}>{t('risksTitle')}</Text>
+      </View>
+
+      <View style={styles.imageContainer}>
+        <Image
+          source={require('@/assets/images/70145fd4-2c83-40c4-a306-9cb2f11f2f45.png')}
+          style={styles.riesgosImage}
+          resizeMode="contain"
+        />
+      </View>
+
+      {/* Introduction */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '10', colors.accent + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.bodyText}>
+            {t('risksIntro')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Potential Advantages */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '15', colors.accent + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionSubtitle}>{t('risksAdvantagesTitle')}</Text>
+          <Text style={styles.bodyText}>{t('risksAdvantagesIntro')}</Text>
+          
+          <Text style={styles.bodyText}>{t('risksAdvantagesPoint1')}</Text>
+          
+          <Text style={styles.bodyText}>{t('risksAdvantagesPoint2')}</Text>
+        </LinearGradient>
+      </View>
+
+      {/* Risks to Consider */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.accent + '15', colors.primary + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionSubtitle}>{t('risksConsiderTitle')}</Text>
+          <Text style={styles.bodyText}>{t('risksConsiderIntro')}</Text>
+          
+          <Text style={styles.bodyText}>{t('risksConsiderPoint1')}</Text>
+          
+          <Text style={styles.bodyText}>{t('risksConsiderPoint2')}</Text>
+        </LinearGradient>
+      </View>
+
+      {/* Responsibility Declaration */}
+      <View style={[commonStyles.card, styles.visionCard]}>
+        <LinearGradient
+          colors={[colors.primary, colors.accent]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.visionGradient}
+        >
+          <Text style={styles.visionEmoji}>⚠️</Text>
+          <Text style={styles.ctaTitle}>{t('risksResponsibilityTitle')}</Text>
+          <Text style={styles.ctaText}>
+            {t('risksResponsibilityText')}
+          </Text>
+        </LinearGradient>
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1383,6 +1478,11 @@ const styles = StyleSheet.create({
   tokenomicaImage: {
     width: width - 80,
     height: (width - 80) * 0.65,
+    borderRadius: 20,
+  },
+  riesgosImage: {
+    width: width - 80,
+    height: (width - 80) * 0.6,
     borderRadius: 20,
   },
   contentCard: {

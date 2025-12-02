@@ -320,6 +320,7 @@ const translations = {
     dailyVesting: 'Daily Vesting',
     inPractice: 'In Practice',
     tokenomics: 'Tokenomics',
+    risks: 'Risks',
     
     // Ecosystem - What is MXI Tab
     whatIsMXITitle: 'What is MXI? 🚀',
@@ -574,6 +575,20 @@ const translations = {
     incentiveProgramDesc: 'Rewards for active participation',
     liquidityLock: 'Liquidity Lock',
     liquidityLockDesc: 'Locked liquidity for security',
+    
+    // Ecosystem - Risks Tab
+    risksTitle: 'Risks ⚠️',
+    risksIntro: 'Participating in the presale of a digital asset like MAXCOIN (MXI) involves interesting opportunities, but also significant risks that each user must evaluate responsibly. This information has an exclusively educational and informative purpose, and does not constitute financial, investment, legal or tax advice. Each person is responsible for their own decisions and results.',
+    risksAdvantagesTitle: '⭐ Potential Advantages',
+    risksAdvantagesIntro: 'The main advantage of participating in an early stage is accessing a preferential price that, in practice, can allow attractive growth if the ecosystem develops correctly. In the MXI presale, prices advance in phases (0.40 → 0.70 → 1.00 USDT), which generates a mathematical opportunity for those who enter early.',
+    risksAdvantagesPoint1: 'Additionally, the project integrates tools that favor real adoption, such as the card linked to the wallet, which will allow using funds in stores in a practical way. This makes MXI a token with utility, not just speculation, which is a determining factor in the medium and long term for any solid project.',
+    risksAdvantagesPoint2: 'Another benefit is access to a growing ecosystem, where users can participate from early stages, build community, access referral programs and future benefits within the MXI Strategic platform.',
+    risksConsiderTitle: '⭐ Risks You Should Consider',
+    risksConsiderIntro: 'Investing in cryptocurrencies involves significant risks. The price can vary extremely in very short periods. There is a real possibility of partial or total loss of invested capital, especially in emerging projects where external factors such as regulations, technological changes, market volatility or liquidity drop can affect the token value.',
+    risksConsiderPoint1: 'Although MXI works with a formal business structure (Cayman + Panama) and with mechanisms designed to facilitate adoption, no platform can guarantee returns, price stability or future results. Token adoption depends on market acceptance, user behavior and ecosystem success.',
+    risksConsiderPoint2: 'The use of personal wallets, blockchain networks, and payment platforms also carries technical risks such as network delays, variable fees, user errors or technological vulnerabilities.',
+    risksResponsibilityTitle: '⭐ Responsibility Declaration',
+    risksResponsibilityText: 'MXI Strategic Holdings Ltd. and MXI Technologies Inc. do not offer profitability guarantees or financial results. All participation in the presale is under the exclusive responsibility of the user. The information presented is a guide to understand the general functioning of the ecosystem, but should not be interpreted as a promise of profits or investment advice.\n\nEach participant is recommended to analyze their personal situation, risk tolerance level and, if necessary, consult with an independent financial advisor before investing in digital assets.',
     
     // Vesting
     vestingMXI: 'Vesting MXI',
@@ -1336,6 +1351,7 @@ const translations = {
     dailyVesting: 'Vesting Diario',
     inPractice: 'En la Práctica',
     tokenomics: 'Tokenómica',
+    risks: 'Riesgos',
     
     // Ecosystem - What is MXI Tab
     whatIsMXITitle: '¿Qué es MXI? 🚀',
@@ -1590,6 +1606,20 @@ const translations = {
     incentiveProgramDesc: 'Recompensas por participación activa',
     liquidityLock: 'Bloqueo de Liquidez',
     liquidityLockDesc: 'Liquidez bloqueada para seguridad',
+    
+    // Ecosystem - Risks Tab
+    risksTitle: 'Riesgos ⚠️',
+    risksIntro: 'Participar en la preventa de un activo digital como MAXCOIN (MXI) implica oportunidades interesantes, pero también riesgos importantes que cada usuario debe evaluar con responsabilidad. Esta información tiene un propósito exclusivamente educativo e informativo, y no constituye asesoría financiera, inversión, legal o fiscal. Cada persona es responsable de sus propias decisiones y resultados.',
+    risksAdvantagesTitle: '⭐ Ventajas Potenciales',
+    risksAdvantagesIntro: 'La principal ventaja de participar en una etapa temprana es acceder a un precio preferencial que, en la práctica, puede permitir un crecimiento atractivo si el ecosistema se desarrolla correctamente. En la preventa de MXI, los precios avanzan por fases (0.40 → 0.70 → 1.00 USDT), lo que genera una oportunidad matemática para quienes ingresan temprano.',
+    risksAdvantagesPoint1: 'Adicionalmente, el proyecto integra herramientas que favorecen la adopción real, como la tarjeta vinculada a la billetera, que permitirá usar los fondos en comercios de manera práctica. Esto convierte a MXI en un token con utilidad, no solo especulación, lo cual es un factor determinante a mediano y largo plazo para cualquier proyecto sólido.',
+    risksAdvantagesPoint2: 'Otro beneficio es el acceso a un ecosistema en crecimiento, donde los usuarios pueden participar desde etapas tempranas, construir comunidad, acceder a programas de referidos y futuros beneficios dentro de la plataforma MXI Strategic.',
+    risksConsiderTitle: '⭐ Riesgos que Debes Considerar',
+    risksConsiderIntro: 'Invertir en criptomonedas implica riesgos significativos. El precio puede variar de manera extrema en periodos muy cortos. Existe la posibilidad real de pérdida parcial o total del capital invertido, especialmente en proyectos emergentes donde factores externos como regulaciones, cambios tecnológicos, volatilidad del mercado o caída de liquidez pueden afectar el valor del token.',
+    risksConsiderPoint1: 'Aunque MXI trabaja con una estructura empresarial formal (Cayman + Panamá) y con mecanismos diseñados para facilitar adopción, ninguna plataforma puede garantizar retornos, estabilidad de precios ni resultados futuros. La adopción del token depende de la aceptación del mercado, comportamiento de los usuarios y éxito del ecosistema.',
+    risksConsiderPoint2: 'El uso de wallets personales, redes blockchain, y plataformas de pago también conlleva riesgos técnicos como retrasos en redes, tarifas variables, errores de usuario o vulnerabilidades tecnológicas.',
+    risksResponsibilityTitle: '⭐ Declaración de Responsabilidad',
+    risksResponsibilityText: 'MXI Strategic Holdings Ltd. y MXI Technologies Inc. no ofrecen garantías de rentabilidad ni resultados financieros. Toda participación en la preventa es bajo responsabilidad exclusiva del usuario. La información presentada es una guía para entender el funcionamiento general del ecosistema, pero no debe interpretarse como promesa de ganancias ni asesoría de inversión.\n\nSe recomienda a cada participante analizar su situación personal, nivel de tolerancia al riesgo y, si es necesario, consultar con un asesor financiero independiente antes de invertir en activos digitales.',
     
     // Vesting
     vestingMXI: 'Vesting MXI',
