@@ -598,7 +598,7 @@ function MetaTab() {
   );
 }
 
-// Ecosistema Tab Content
+// Ecosistema Tab Content - UPDATED WITH NEW CONTENT
 function EcosistemaTab() {
   const { t } = useLanguage();
   
@@ -616,6 +616,7 @@ function EcosistemaTab() {
         />
       </View>
 
+      {/* Introduction */}
       <View style={[commonStyles.card, styles.contentCard]}>
         <LinearGradient
           colors={[colors.primary + '10', colors.accent + '10']}
@@ -626,69 +627,178 @@ function EcosistemaTab() {
           <Text style={styles.bodyText}>
             {t('ecosystemIntro')}
           </Text>
-
-          <View style={styles.divider} />
-
-          <Text style={styles.sectionSubtitle}>{t('ecosystemComponent1')}</Text>
-          <Text style={styles.bodyText}>
-            {t('ecosystemComponent1Desc')}
-          </Text>
-
-          <View style={styles.divider} />
-
-          <Text style={styles.sectionSubtitle}>{t('ecosystemComponent2')}</Text>
-          <Text style={styles.bodyText}>
-            {t('ecosystemComponent2Desc')}
-          </Text>
-
-          <View style={styles.divider} />
-
-          <Text style={styles.sectionSubtitle}>{t('ecosystemComponent3')}</Text>
-          <Text style={styles.bodyText}>
-            {t('ecosystemComponent3Desc')}
-          </Text>
-
-          <View style={styles.divider} />
-
-          <Text style={styles.sectionSubtitle}>{t('ecosystemComponent4')}</Text>
-          <Text style={styles.bodyText}>
-            {t('ecosystemComponent4Desc')}
-          </Text>
         </LinearGradient>
       </View>
 
-      <View style={styles.featuresSection}>
-        <Text style={styles.sectionTitle}>{t('ecosystemBenefits')}</Text>
-        
-        <View style={[commonStyles.card, styles.valueCard]}>
-          <Text style={styles.valueEmoji}>🔄</Text>
-          <View style={styles.valueContent}>
-            <Text style={styles.valueTitle}>{t('interconnection')}</Text>
-            <Text style={styles.valueDescription}>
-              {t('interconnectionDesc')}
-            </Text>
+      {/* Phase 1: Presale */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '15', colors.accent + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionSubtitle}>{t('ecosystemPhase1Title')}</Text>
+          <Text style={styles.bodyText}>{t('ecosystemPhase1Intro')}</Text>
+          
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>{t('ecosystemPhase1Point1')}</Text>
+            <Text style={styles.bulletPoint}>{t('ecosystemPhase1Point2')}</Text>
+            <Text style={styles.bulletPoint}>{t('ecosystemPhase1Point3')}</Text>
+            <Text style={styles.bulletPoint}>{t('ecosystemPhase1Point4')}</Text>
           </View>
-        </View>
 
-        <View style={[commonStyles.card, styles.valueCard]}>
-          <Text style={styles.valueEmoji}>💪</Text>
-          <View style={styles.valueContent}>
-            <Text style={styles.valueTitle}>{t('synergy')}</Text>
-            <Text style={styles.valueDescription}>
-              {t('synergyDesc')}
-            </Text>
-          </View>
-        </View>
+          <Text style={styles.emphasisText}>{t('ecosystemPhase1Conclusion')}</Text>
+        </LinearGradient>
+      </View>
 
-        <View style={[commonStyles.card, styles.valueCard]}>
-          <Text style={styles.valueEmoji}>🚀</Text>
-          <View style={styles.valueContent}>
-            <Text style={styles.valueTitle}>{t('continuousGrowth')}</Text>
-            <Text style={styles.valueDescription}>
-              {t('continuousGrowthDesc')}
-            </Text>
+      {/* Phase 2: Token Launch */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.accent + '15', colors.primary + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionSubtitle}>{t('ecosystemPhase2Title')}</Text>
+          <Text style={styles.bodyText}>{t('ecosystemPhase2Intro')}</Text>
+          
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>{t('ecosystemPhase2Point1')}</Text>
+            <Text style={styles.bulletPoint}>{t('ecosystemPhase2Point2')}</Text>
+            <Text style={styles.bulletPoint}>{t('ecosystemPhase2Point3')}</Text>
+            <Text style={styles.bulletPoint}>{t('ecosystemPhase2Point4')}</Text>
           </View>
-        </View>
+
+          <Text style={styles.emphasisText}>{t('ecosystemPhase2Conclusion')}</Text>
+        </LinearGradient>
+      </View>
+
+      {/* Phase 3: Global Expansion */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '15', colors.accent + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionSubtitle}>{t('ecosystemPhase3Title')}</Text>
+          <Text style={styles.bodyText}>{t('ecosystemPhase3Intro')}</Text>
+          
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>{t('ecosystemPhase3Point1')}</Text>
+            <Text style={styles.bulletPoint}>{t('ecosystemPhase3Point2')}</Text>
+            <Text style={styles.bulletPoint}>{t('ecosystemPhase3Point3')}</Text>
+            <Text style={styles.bulletPoint}>{t('ecosystemPhase3Point4')}</Text>
+          </View>
+
+          <Text style={styles.emphasisText}>{t('ecosystemPhase3Conclusion')}</Text>
+        </LinearGradient>
+      </View>
+
+      {/* MXI Stores */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.accent + '15', colors.primary + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionSubtitle}>{t('ecosystemStoresTitle')}</Text>
+          <Text style={styles.bodyText}>{t('ecosystemStoresIntro')}</Text>
+          
+          <Text style={styles.bodyText}>{t('ecosystemStoresIncludes')}</Text>
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>{t('ecosystemStoresType1')}</Text>
+            <Text style={styles.bulletPoint}>{t('ecosystemStoresType2')}</Text>
+            <Text style={styles.bulletPoint}>{t('ecosystemStoresType3')}</Text>
+            <Text style={styles.bulletPoint}>{t('ecosystemStoresType4')}</Text>
+            <Text style={styles.bulletPoint}>{t('ecosystemStoresType5')}</Text>
+          </View>
+
+          <Text style={styles.bodyText}>{t('ecosystemStoresBenefitsTitle')}</Text>
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>{t('ecosystemStoresBenefit1')}</Text>
+            <Text style={styles.bulletPoint}>{t('ecosystemStoresBenefit2')}</Text>
+            <Text style={styles.bulletPoint}>{t('ecosystemStoresBenefit3')}</Text>
+            <Text style={styles.bulletPoint}>{t('ecosystemStoresBenefit4')}</Text>
+          </View>
+
+          <Text style={styles.emphasisText}>{t('ecosystemStoresConclusion')}</Text>
+        </LinearGradient>
+      </View>
+
+      {/* MXI Loan */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '15', colors.accent + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionSubtitle}>{t('ecosystemLoanTitle')}</Text>
+          <Text style={styles.bodyText}>{t('ecosystemLoanIntro')}</Text>
+          
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>{t('ecosystemLoanFeature1')}</Text>
+            <Text style={styles.bulletPoint}>{t('ecosystemLoanFeature2')}</Text>
+            <Text style={styles.bulletPoint}>{t('ecosystemLoanFeature3')}</Text>
+            <Text style={styles.bulletPoint}>{t('ecosystemLoanFeature4')}</Text>
+          </View>
+
+          <Text style={styles.bodyText}>{t('ecosystemLoanBenefit')}</Text>
+          <Text style={styles.emphasisText}>{t('ecosystemLoanConclusion')}</Text>
+        </LinearGradient>
+      </View>
+
+      {/* Importance for Latin America */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.accent + '15', colors.primary + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionSubtitle}>{t('ecosystemLatamTitle')}</Text>
+          <Text style={styles.bodyText}>{t('ecosystemLatamIntro')}</Text>
+          
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>{t('ecosystemLatamNeed1')}</Text>
+            <Text style={styles.bulletPoint}>{t('ecosystemLatamNeed2')}</Text>
+            <Text style={styles.bulletPoint}>{t('ecosystemLatamNeed3')}</Text>
+            <Text style={styles.bulletPoint}>{t('ecosystemLatamNeed4')}</Text>
+            <Text style={styles.bulletPoint}>{t('ecosystemLatamNeed5')}</Text>
+          </View>
+
+          <Text style={styles.emphasisText}>{t('ecosystemLatamConclusion')}</Text>
+        </LinearGradient>
+      </View>
+
+      {/* Competition */}
+      <View style={[commonStyles.card, styles.visionCard]}>
+        <LinearGradient
+          colors={[colors.primary, colors.accent]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.visionGradient}
+        >
+          <Text style={styles.visionEmoji}>🥇</Text>
+          <Text style={styles.ctaTitle}>{t('ecosystemCompetitionTitle')}</Text>
+          <Text style={styles.ctaText}>{t('ecosystemCompetitionIntro')}</Text>
+          
+          <View style={styles.bulletListLight}>
+            <Text style={styles.bulletPointLight}>{t('ecosystemCompetitionFeature1')}</Text>
+            <Text style={styles.bulletPointLight}>{t('ecosystemCompetitionFeature2')}</Text>
+            <Text style={styles.bulletPointLight}>{t('ecosystemCompetitionFeature3')}</Text>
+            <Text style={styles.bulletPointLight}>{t('ecosystemCompetitionFeature4')}</Text>
+            <Text style={styles.bulletPointLight}>{t('ecosystemCompetitionFeature5')}</Text>
+            <Text style={styles.bulletPointLight}>{t('ecosystemCompetitionFeature6')}</Text>
+            <Text style={styles.bulletPointLight}>{t('ecosystemCompetitionFeature7')}</Text>
+            <Text style={styles.bulletPointLight}>{t('ecosystemCompetitionFeature8')}</Text>
+          </View>
+
+          <Text style={styles.ctaSubtext}>{t('ecosystemCompetitionConclusion')}</Text>
+        </LinearGradient>
       </View>
     </View>
   );
@@ -1321,6 +1431,27 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     marginVertical: 16,
     opacity: 0.3,
+  },
+  bulletList: {
+    marginVertical: 12,
+    paddingLeft: 8,
+  },
+  bulletPoint: {
+    fontSize: 15,
+    color: colors.text,
+    lineHeight: 24,
+    marginBottom: 8,
+  },
+  bulletListLight: {
+    marginVertical: 12,
+    paddingLeft: 8,
+  },
+  bulletPointLight: {
+    fontSize: 15,
+    color: '#000',
+    lineHeight: 24,
+    marginBottom: 8,
+    fontWeight: '500',
   },
   featuresSection: {
     marginBottom: 24,
