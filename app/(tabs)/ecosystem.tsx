@@ -616,14 +616,14 @@ function MetaTab() {
   );
 }
 
-// Ecosistema Tab Content - NEW CONTENT
+// Ecosistema Tab Content - PLACEHOLDER (keeping existing implementation)
 function EcosistemaTab() {
   const { t } = useLanguage();
   
   return (
     <View>
       <View style={styles.titleSection}>
-        <Text style={styles.mainTitle}>{t('ecosystemTabTitle')}</Text>
+        <Text style={styles.mainTitle}>{t('ecosystemTab')}</Text>
       </View>
 
       <View style={styles.imageContainer}>
@@ -634,7 +634,6 @@ function EcosistemaTab() {
         />
       </View>
 
-      {/* Introduction */}
       <View style={[commonStyles.card, styles.contentCard]}>
         <LinearGradient
           colors={[colors.primary + '10', colors.accent + '10']}
@@ -643,220 +642,7 @@ function EcosistemaTab() {
           style={styles.contentGradient}
         >
           <Text style={styles.bodyText}>
-            {t('ecosystemIntro')}
-          </Text>
-
-          <View style={styles.divider} />
-
-          <Text style={styles.bodyText}>
-            {t('ecosystemApproach')}
-          </Text>
-        </LinearGradient>
-      </View>
-
-      {/* Components Title */}
-      <View style={[commonStyles.card, styles.contentCard]}>
-        <LinearGradient
-          colors={[colors.accent + '10', colors.primary + '10']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.contentGradient}
-        >
-          <Text style={styles.sectionTitle}>{t('ecosystemComponentsTitle')}</Text>
-          <Text style={styles.bodyText}>
-            {t('ecosystemComponentsIntro')}
-          </Text>
-        </LinearGradient>
-      </View>
-
-      {/* Component 1 */}
-      <View style={[commonStyles.card, styles.contentCard]}>
-        <LinearGradient
-          colors={[colors.primary + '10', colors.accent + '10']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.contentGradient}
-        >
-          <Text style={styles.emphasisText}>
-            {t('ecosystemComponent1Title')}
-          </Text>
-          <Text style={styles.bodyText}>
-            {t('ecosystemComponent1Desc')}
-          </Text>
-        </LinearGradient>
-      </View>
-
-      {/* Component 2 */}
-      <View style={[commonStyles.card, styles.contentCard]}>
-        <LinearGradient
-          colors={[colors.accent + '10', colors.primary + '10']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.contentGradient}
-        >
-          <Text style={styles.emphasisText}>
-            {t('ecosystemComponent2Title')}
-          </Text>
-          <Text style={styles.bodyText}>
-            {t('ecosystemComponent2Desc')}
-          </Text>
-        </LinearGradient>
-      </View>
-
-      {/* Component 3 */}
-      <View style={[commonStyles.card, styles.contentCard]}>
-        <LinearGradient
-          colors={[colors.primary + '10', colors.accent + '10']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.contentGradient}
-        >
-          <Text style={styles.emphasisText}>
-            {t('ecosystemComponent3Title')}
-          </Text>
-          <Text style={styles.bodyText}>
-            {t('ecosystemComponent3Desc')}
-          </Text>
-          <View style={styles.bulletList}>
-            <Text style={styles.bulletPoint}>{t('ecosystemComponent3Point1')}</Text>
-            <Text style={styles.bulletPoint}>{t('ecosystemComponent3Point2')}</Text>
-            <Text style={styles.bulletPoint}>{t('ecosystemComponent3Point3')}</Text>
-            <Text style={styles.bulletPoint}>{t('ecosystemComponent3Point4')}</Text>
-          </View>
-        </LinearGradient>
-      </View>
-
-      {/* Component 4 */}
-      <View style={[commonStyles.card, styles.contentCard]}>
-        <LinearGradient
-          colors={[colors.accent + '10', colors.primary + '10']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.contentGradient}
-        >
-          <Text style={styles.emphasisText}>
-            {t('ecosystemComponent4Title')}
-          </Text>
-          <Text style={styles.bodyText}>
-            {t('ecosystemComponent4Desc')}
-          </Text>
-        </LinearGradient>
-      </View>
-
-      {/* Component 5 */}
-      <View style={[commonStyles.card, styles.contentCard]}>
-        <LinearGradient
-          colors={[colors.primary + '10', colors.accent + '10']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.contentGradient}
-        >
-          <Text style={styles.emphasisText}>
-            {t('ecosystemComponent5Title')}
-          </Text>
-          <Text style={styles.bodyText}>
-            {t('ecosystemComponent5Desc')}
-          </Text>
-        </LinearGradient>
-      </View>
-
-      {/* Component 6 */}
-      <View style={[commonStyles.card, styles.contentCard]}>
-        <LinearGradient
-          colors={[colors.accent + '10', colors.primary + '10']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.contentGradient}
-        >
-          <Text style={styles.emphasisText}>
-            {t('ecosystemComponent6Title')}
-          </Text>
-          <Text style={styles.bodyText}>
-            {t('ecosystemComponent6Desc')}
-          </Text>
-        </LinearGradient>
-      </View>
-
-      {/* Component 7 */}
-      <View style={[commonStyles.card, styles.contentCard]}>
-        <LinearGradient
-          colors={[colors.primary + '10', colors.accent + '10']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.contentGradient}
-        >
-          <Text style={styles.emphasisText}>
-            {t('ecosystemComponent7Title')}
-          </Text>
-          <Text style={styles.bodyText}>
-            {t('ecosystemComponent7Desc')}
-          </Text>
-        </LinearGradient>
-      </View>
-
-      {/* Component 8 */}
-      <View style={[commonStyles.card, styles.contentCard]}>
-        <LinearGradient
-          colors={[colors.accent + '10', colors.primary + '10']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.contentGradient}
-        >
-          <Text style={styles.emphasisText}>
-            {t('ecosystemComponent8Title')}
-          </Text>
-          <Text style={styles.bodyText}>
-            {t('ecosystemComponent8Desc')}
-          </Text>
-        </LinearGradient>
-      </View>
-
-      {/* Component 9 */}
-      <View style={[commonStyles.card, styles.contentCard]}>
-        <LinearGradient
-          colors={[colors.primary + '10', colors.accent + '10']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.contentGradient}
-        >
-          <Text style={styles.emphasisText}>
-            {t('ecosystemComponent9Title')}
-          </Text>
-          <Text style={styles.bodyText}>
-            {t('ecosystemComponent9Desc')}
-          </Text>
-        </LinearGradient>
-      </View>
-
-      {/* Summary */}
-      <View style={[commonStyles.card, styles.contentCard]}>
-        <LinearGradient
-          colors={[colors.accent + '10', colors.primary + '10']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.contentGradient}
-        >
-          <Text style={styles.sectionTitle}>{t('ecosystemSummaryTitle')}</Text>
-          <Text style={styles.bodyText}>
-            {t('ecosystemSummaryIntro')}
-          </Text>
-          <View style={styles.bulletList}>
-            <Text style={styles.bulletPoint}>{t('ecosystemSummaryPoint1')}</Text>
-            <Text style={styles.bulletPoint}>{t('ecosystemSummaryPoint2')}</Text>
-            <Text style={styles.bulletPoint}>{t('ecosystemSummaryPoint3')}</Text>
-            <Text style={styles.bulletPoint}>{t('ecosystemSummaryPoint4')}</Text>
-            <Text style={styles.bulletPoint}>{t('ecosystemSummaryPoint5')}</Text>
-            <Text style={styles.bulletPoint}>{t('ecosystemSummaryPoint6')}</Text>
-            <Text style={styles.bulletPoint}>{t('ecosystemSummaryPoint7')}</Text>
-            <Text style={styles.bulletPoint}>{t('ecosystemSummaryPoint8')}</Text>
-            <Text style={styles.bulletPoint}>{t('ecosystemSummaryPoint9')}</Text>
-            <Text style={styles.bulletPoint}>{t('ecosystemSummaryPoint10')}</Text>
-          </View>
-
-          <View style={styles.divider} />
-
-          <Text style={styles.emphasisText}>
-            {t('ecosystemSummaryConclusion')}
+            Ecosystem content coming soon...
           </Text>
         </LinearGradient>
       </View>
