@@ -520,7 +520,7 @@ function PorQueComprarTab() {
   );
 }
 
-// Meta Tab Content - Image 1 (b359a5d1)
+// Meta Tab Content - UPDATED WITH NEW CONTENT
 function MetaTab() {
   const { t } = useLanguage();
   
@@ -538,9 +538,10 @@ function MetaTab() {
         />
       </View>
 
+      {/* Introduction */}
       <View style={[commonStyles.card, styles.contentCard]}>
         <LinearGradient
-          colors={[colors.primary + '20', colors.accent + '20']}
+          colors={[colors.primary + '15', colors.accent + '15']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.contentGradient}
@@ -551,27 +552,97 @@ function MetaTab() {
 
           <View style={styles.divider} />
 
-          <Text style={styles.sectionSubtitle}>{t('metaGoal1')}</Text>
           <Text style={styles.bodyText}>
-            {t('metaGoal1Desc')}
-          </Text>
-
-          <View style={styles.divider} />
-
-          <Text style={styles.sectionSubtitle}>{t('metaGoal2')}</Text>
-          <Text style={styles.bodyText}>
-            {t('metaGoal2Desc')}
-          </Text>
-
-          <View style={styles.divider} />
-
-          <Text style={styles.sectionSubtitle}>{t('metaGoal3')}</Text>
-          <Text style={styles.bodyText}>
-            {t('metaGoal3Desc')}
+            {t('metaPurpose')}
           </Text>
         </LinearGradient>
       </View>
 
+      {/* Vision and Solutions */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.accent + '15', colors.primary + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.emphasisText}>
+            {t('metaVision')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.bodyText}>
+            {t('metaSolutions')}
+          </Text>
+          <Text style={styles.bodyText}>
+            {t('metaSolution1')}
+          </Text>
+          <Text style={styles.bodyText}>
+            {t('metaSolution2')}
+          </Text>
+          <Text style={styles.bodyText}>
+            {t('metaSolution3')}
+          </Text>
+          <Text style={styles.bodyText}>
+            {t('metaSolution4')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.emphasisText}>
+            {t('metaGrowth')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Economic Model and Technology */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '15', colors.accent + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.bodyText}>
+            {t('metaEconomicModel')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.bodyText}>
+            {t('metaTechnology')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Final Goals */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.accent + '15', colors.primary + '15']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.emphasisText}>
+            {t('metaFinalGoal')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.bodyText}>
+            {t('metaGoal1')}
+          </Text>
+          <Text style={styles.bodyText}>
+            {t('metaGoal2')}
+          </Text>
+          <Text style={styles.bodyText}>
+            {t('metaGoal3')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Conclusion */}
       <View style={[commonStyles.card, styles.visionCard]}>
         <LinearGradient
           colors={[colors.primary, colors.accent]}
@@ -579,10 +650,10 @@ function MetaTab() {
           end={{ x: 1, y: 1 }}
           style={styles.visionGradient}
         >
-          <Text style={styles.visionEmoji}>🎯</Text>
-          <Text style={styles.ctaTitle}>{t('ourMission')}</Text>
+          <Text style={styles.visionEmoji}>✨</Text>
+          <Text style={styles.ctaTitle}>{t('metaConclusion')}</Text>
           <Text style={styles.ctaText}>
-            {t('ourMissionDesc')}
+            {t('metaTransformation')}
           </Text>
         </LinearGradient>
       </View>
