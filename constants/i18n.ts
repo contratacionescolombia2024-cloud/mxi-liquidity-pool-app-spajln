@@ -235,6 +235,17 @@ const translations = {
     tokenomics: 'Tokenomics',
     risks: 'Risks',
     
+    // Meta Tab Content - NEW CONTENT
+    metaTitle: 'Our Goal',
+    metaIntro: '🎯 Our goal is to build a real, decentralized, and sustainable economy, designed to free people and businesses from dependence on the traditional financial system. Our purpose is simple but powerful: to create an ecosystem where growth is driven by the community, not by central institutions, focused primarily on the Latin American public, their needs and strengths.',
+    metaVision: '💎 MXI is born with a clear vision: to democratize economic opportunities. That is why our ecosystem will integrate real solutions such as peer-to-peer lending systems, direct support for entrepreneurs, tools for investors, and liquidity mechanisms that favor community development. When the community grows, MXI grows; and when MXI advances, everyone wins.',
+    metaModel: '🔗 We seek to build an economic model in which value is not controlled by a few, but distributed among those who actively participate. Our approach combines advanced blockchain technology, next-generation quantum security, and an infrastructure designed to scale globally, creating a secure, transparent environment prepared for the challenges of the future.',
+    metaObjective: '🚀 The ultimate goal is to consolidate MXI as a development engine:',
+    metaObjectivePoint1: '• A real bridge for entrepreneurs who need financing',
+    metaObjectivePoint2: '• A solid alternative for investors seeking decentralized growth',
+    metaObjectivePoint3: '• A self-sustaining ecosystem in which each contribution strengthens the entire system',
+    metaConclusion: '✨ MXI is not just a token: it is a shared vision. And if the community supports it, MXI becomes an economic force capable of transforming realities.',
+    
     // Why Buy Tab Content - NEW CONTENT
     whyBuyTitle: 'Why Buy MXI?',
     whyBuyIntro: '💎 Buying MXI in presale is a strategic opportunity because it allows you to enter before the ecosystem is fully operational, accessing prices that will not be repeated.',
@@ -1159,6 +1170,17 @@ const translations = {
     inPractice: 'En la Práctica',
     tokenomics: 'Tokenómica',
     risks: 'Riesgos',
+    
+    // Meta Tab Content - NEW CONTENT
+    metaTitle: 'Nuestra Meta',
+    metaIntro: '🎯 Nuestra meta es construir una economía real, descentralizada y sostenible, diseñada para liberar a las personas y a los negocios de la dependencia del sistema financiero tradicional. Nuestro propósito es simple pero poderoso: crear un ecosistema donde el crecimiento sea impulsado por la comunidad, no por las instituciones centrales, enfocados como primera medida, al público latinoamericano, sus necesidades y fortalezas.',
+    metaVision: '💎 MXI nace con una visión clara: democratizar las oportunidades económicas. Por eso, nuestro ecosistema integrará soluciones reales como sistemas de préstamos peer-to-peer, apoyo directo a emprendedores, herramientas para inversores y mecanismos de liquidez que favorecen el desarrollo de la comunidad. Cuando la comunidad crece, MXI crece; y cuando MXI avanza, todos ganan.',
+    metaModel: '🔗 Buscamos construir un modelo económico en el que el valor no esté controlado por unos pocos, sino distribuido entre quienes participan activamente. Nuestro enfoque combina tecnología blockchain avanzada, seguridad cuántica de nueva generación y una infraestructura diseñada para escalar globalmente, creando un entorno seguro, transparente y preparado para los desafíos del futuro.',
+    metaObjective: '🚀 El objetivo final es consolidar a MXI como un motor de desarrollo:',
+    metaObjectivePoint1: '• Un puente real para emprendedores que necesitan financiación',
+    metaObjectivePoint2: '• Una alternativa sólida para inversores que buscan crecimiento descentralizado',
+    metaObjectivePoint3: '• Un ecosistema autosostenible en el que cada contribución fortalece el sistema completo',
+    metaConclusion: '✨ MXI no es solo un token: es una visión compartida. Y si la comunidad lo apoya, MXI se convierte en una fuerza económica capaz de transformar realidades.',
     
     // Why Buy Tab Content - NEW CONTENT
     whyBuyTitle: '¿Por Qué Comprar MXI?',
@@ -2091,6 +2113,17 @@ const translations = {
     inPractice: 'Na Prática',
     tokenomics: 'Tokenômica',
     risks: 'Riscos',
+    
+    // Meta Tab Content - NEW CONTENT (Portuguese translation)
+    metaTitle: 'Nossa Meta',
+    metaIntro: '🎯 Nossa meta é construir uma economia real, descentralizada e sustentável, projetada para libertar as pessoas e os negócios da dependência do sistema financeiro tradicional. Nosso propósito é simples, mas poderoso: criar um ecossistema onde o crescimento seja impulsionado pela comunidade, não pelas instituições centrais, focado como primeira medida no público latino-americano, suas necessidades e fortalezas.',
+    metaVision: '💎 MXI nasce com uma visão clara: democratizar as oportunidades econômicas. Por isso, nosso ecossistema integrará soluções reais como sistemas de empréstimos peer-to-peer, apoio direto a empreendedores, ferramentas para investidores e mecanismos de liquidez que favorecem o desenvolvimento da comunidade. Quando a comunidade cresce, MXI cresce; e quando MXI avança, todos ganham.',
+    metaModel: '🔗 Buscamos construir um modelo econômico no qual o valor não seja controlado por poucos, mas distribuído entre aqueles que participam ativamente. Nossa abordagem combina tecnologia blockchain avançada, segurança quântica de nova geração e uma infraestrutura projetada para escalar globalmente, criando um ambiente seguro, transparente e preparado para os desafios do futuro.',
+    metaObjective: '🚀 O objetivo final é consolidar MXI como um motor de desenvolvimento:',
+    metaObjectivePoint1: '• Uma ponte real para empreendedores que precisam de financiamento',
+    metaObjectivePoint2: '• Uma alternativa sólida para investidores que buscam crescimento descentralizado',
+    metaObjectivePoint3: '• Um ecossistema autossustentável no qual cada contribuição fortalece o sistema completo',
+    metaConclusion: '✨ MXI não é apenas um token: é uma visão compartilhada. E se a comunidade o apoia, MXI se torna uma força econômica capaz de transformar realidades.',
     
     // How It Works Tab - UPDATED CONTENT
     howItWorksTitle: 'Como o MXI Funciona',
