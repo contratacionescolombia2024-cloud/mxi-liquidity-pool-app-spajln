@@ -235,6 +235,34 @@ const translations = {
     tokenomics: 'Tokenomics',
     risks: 'Risks',
     
+    // What is MXI? Tab - NEW CONTENT
+    whatIsMXITitle: 'What is MXI?',
+    whatIsMXIIntro: 'MXI is a crypto-technological project under construction, currently in its strategic pre-launch phase, allowing early participants to access an ecosystem designed to expand rapidly in the coming months. Its native token, MAXCoin (MXI), has a limited issuance of 50 million and an economic model based on real utility, daily vesting, and programmed liquidity.',
+    whatIsMXIEarlyStage: 'During this early stage, MXI is being structured to become a comprehensive network of payments, rewards, skill tournaments, merchant integration, and a card linked to the MXI wallet, which will allow balances to be used at any time. The project also incorporates a quantum security system aimed at protecting transactions and keys against emerging technologies, ensuring an ecosystem prepared for the future.',
+    whatIsMXIPresale: 'In presale, MXI offers access to initial prices lower than the projected value of the token once the main functions of the ecosystem are activated. This is the phase where the foundation is built: community, initial liquidity, internal mechanisms, and progressive connection with the project tools.',
+    whatIsMXINotJustToken: 'MXI is not just a token: it is a model designed to grow fast, integrate real services, and position itself as a digital infrastructure ready to scale in the short term.',
+    
+    // How MXI Works - NEW CONTENT
+    howMXIWorksTitle: 'How MXI Works (Technical-Persuasive Version)',
+    howMXIWorksIntro: 'MXI operates through a modular system of components that are activated progressively:',
+    howMXIWorksStep1Title: '1. Presale with Early Access',
+    howMXIWorksStep1Desc: 'Users acquire MXI at preferential prices before the official launch. From day one, the system generates a simulated version of the balance that then enters vesting.',
+    howMXIWorksStep2Title: '2. Daily Vesting of 3% Monthly',
+    howMXIWorksStep2Desc: 'Tokens are released fractionally minute by minute, avoiding concentrations and maintaining controlled circulation.',
+    howMXIWorksStep3Title: '3. Expanding Internal Ecosystem',
+    howMXIWorksStep3Desc: 'Includes:',
+    howMXIWorksStep3Point1: '- Payments between users',
+    howMXIWorksStep3Point2: '- Skill tournaments',
+    howMXIWorksStep3Point3: '- Participation rewards',
+    howMXIWorksStep3Point4: '- Tools for growth and community',
+    howMXIWorksStep4Title: '4. Linked Card',
+    howMXIWorksStep4Desc: 'Will allow using MXI or USDT directly in physical and digital merchants, turning token utility into something immediate and practical.',
+    howMXIWorksStep5Title: '5. Quantum Security',
+    howMXIWorksStep5Desc: 'Encryption resistant to emerging technologies to protect transactions, assets, and private keys.',
+    howMXIWorksStep6Title: '6. Progressive Expansion',
+    howMXIWorksStep6Desc: 'The project will migrate to its own blockchain when the community and infrastructure justify it, increasing speed, scalability, and efficiency.',
+    howMXIWorksConclusion: 'MXI functions as a living ecosystem that activates in stages, designed to increase utility, adoption, and value as it evolves.',
+    
     // Profile Screen
     profile: 'Profile',
     totalBalance: 'Total Balance',
@@ -1085,6 +1113,34 @@ const translations = {
     tokenomics: 'Tokenómica',
     risks: 'Riesgos',
     
+    // What is MXI? Tab - NEW CONTENT
+    whatIsMXITitle: '¿Qué es MXI?',
+    whatIsMXIIntro: '🚀 MXI es un proyecto cripto–tecnológico en construcción que hoy se encuentra en fase de prelanzamiento estratégico, permitiendo a los primeros participantes acceder de forma anticipada a un ecosistema diseñado para expandirse rápidamente en los próximos meses. Su token nativo, MAXCoin (MXI), posee una emisión limitada de 50 millones y un modelo económico basado en utilidad real, vesting diario y liquidez programada.',
+    whatIsMXIEarlyStage: '⚡ Durante esta etapa temprana, MXI se está estructurando para convertirse en una red integral de pagos, recompensas, torneos de habilidad, integración con comercios y una tarjeta vinculada a la billetera MXI, que permitirá usar los saldos en cualquier momento. El proyecto incorpora además un sistema de seguridad cuántica orientado a proteger transacciones y claves frente a tecnologías emergentes, garantizando un ecosistema preparado para el futuro.',
+    whatIsMXIPresale: '💎 En preventa, MXI ofrece acceso a precios iniciales inferiores al valor proyectado del token una vez se activen las funciones principales del ecosistema. Es la fase donde se construye la base: comunidad, liquidez inicial, mecanismos internos y conexión progresiva con las herramientas del proyecto.',
+    whatIsMXINotJustToken: '🎯 MXI no es solo un token: es un modelo diseñado para crecer rápido, integrar servicios reales y posicionarse como una infraestructura digital lista para escalar en el corto plazo.',
+    
+    // How MXI Works - NEW CONTENT
+    howMXIWorksTitle: '¿Cómo funciona MXI? (versión técnica–persuasiva)',
+    howMXIWorksIntro: 'MXI funciona mediante un sistema modular de componentes que se activan progresivamente:',
+    howMXIWorksStep1Title: '1️⃣ Preventa con acceso anticipado',
+    howMXIWorksStep1Desc: 'Los usuarios adquieren MXI a precios preferenciales antes del lanzamiento oficial. Desde el primer día, el sistema genera una versión simulada del saldo que luego entra en vesting.',
+    howMXIWorksStep2Title: '2️⃣ Vesting Diario del 3% mensual',
+    howMXIWorksStep2Desc: 'Los tokens se liberan de manera fraccionada minuto a minuto, evitando concentraciones y manteniendo la circulación controlada.',
+    howMXIWorksStep3Title: '3️⃣ Ecosistema interno en expansión',
+    howMXIWorksStep3Desc: 'Incluye:',
+    howMXIWorksStep3Point1: '• Pagos entre usuarios',
+    howMXIWorksStep3Point2: '• Torneos de habilidad',
+    howMXIWorksStep3Point3: '• Recompensas por participación',
+    howMXIWorksStep3Point4: '• Herramientas para crecimiento y comunidad',
+    howMXIWorksStep4Title: '4️⃣ Tarjeta vinculada',
+    howMXIWorksStep4Desc: 'Permitirá usar MXI o USDT directamente en comercios físicos y digitales, convirtiendo la utilidad del token en algo inmediato y práctico.',
+    howMXIWorksStep5Title: '5️⃣ Seguridad cuántica',
+    howMXIWorksStep5Desc: 'Encriptación resistente a tecnologías emergentes para proteger transacciones, activos y claves privadas.',
+    howMXIWorksStep6Title: '6️⃣ Expansión progresiva',
+    howMXIWorksStep6Desc: 'El proyecto migrará a un blockchain propio cuando la comunidad y la infraestructura lo justifiquen, aumentando velocidad, escalabilidad y eficiencia.',
+    howMXIWorksConclusion: '✨ MXI funciona como un ecosistema vivo que se activa por etapas, diseñado para aumentar utilidad, adopción y valor conforme evoluciona.',
+    
     // Profile Screen
     profile: 'Perfil',
     totalBalance: 'Saldo Total',
@@ -1927,6 +1983,48 @@ const translations = {
     rewards: 'Recompensas',
     ecosystem: 'Ecossistema',
     support: 'Suporte',
+    
+    // Ecosystem Screen
+    liquidityPool: 'Pool de Liquidez',
+    whatIsMXI: 'O que é MXI?',
+    howItWorksTab: 'Como Funciona',
+    whyBuy: 'Por Que Comprar',
+    meta: 'Meta',
+    ecosystemTab: 'Ecossistema',
+    quantumSecurity: 'Segurança Quântica',
+    sustainability: 'Sustentabilidade',
+    dailyVesting: 'Vesting Diário',
+    inPractice: 'Na Prática',
+    tokenomics: 'Tokenômica',
+    risks: 'Riscos',
+    
+    // What is MXI? Tab - NEW CONTENT (Portuguese translation)
+    whatIsMXITitle: 'O que é MXI?',
+    whatIsMXIIntro: '🚀 MXI é um projeto cripto-tecnológico em construção que hoje se encontra em fase de pré-lançamento estratégico, permitindo aos primeiros participantes acessar antecipadamente um ecossistema projetado para se expandir rapidamente nos próximos meses. Seu token nativo, MAXCoin (MXI), possui uma emissão limitada de 50 milhões e um modelo econômico baseado em utilidade real, vesting diário e liquidez programada.',
+    whatIsMXIEarlyStage: '⚡ Durante esta fase inicial, o MXI está sendo estruturado para se tornar uma rede integral de pagamentos, recompensas, torneios de habilidade, integração com comerciantes e um cartão vinculado à carteira MXI, que permitirá usar os saldos a qualquer momento. O projeto também incorpora um sistema de segurança quântica voltado para proteger transações e chaves contra tecnologias emergentes, garantindo um ecossistema preparado para o futuro.',
+    whatIsMXIPresale: '💎 Na pré-venda, o MXI oferece acesso a preços iniciais inferiores ao valor projetado do token uma vez que as funções principais do ecossistema sejam ativadas. É a fase onde a base é construída: comunidade, liquidez inicial, mecanismos internos e conexão progressiva com as ferramentas do projeto.',
+    whatIsMXINotJustToken: '🎯 MXI não é apenas um token: é um modelo projetado para crescer rápido, integrar serviços reais e se posicionar como uma infraestrutura digital pronta para escalar no curto prazo.',
+    
+    // How MXI Works - NEW CONTENT (Portuguese translation)
+    howMXIWorksTitle: 'Como o MXI funciona? (versão técnica-persuasiva)',
+    howMXIWorksIntro: 'O MXI funciona através de um sistema modular de componentes que são ativados progressivamente:',
+    howMXIWorksStep1Title: '1️⃣ Pré-venda com acesso antecipado',
+    howMXIWorksStep1Desc: 'Os usuários adquirem MXI a preços preferenciais antes do lançamento oficial. Desde o primeiro dia, o sistema gera uma versão simulada do saldo que depois entra em vesting.',
+    howMXIWorksStep2Title: '2️⃣ Vesting Diário de 3% mensal',
+    howMXIWorksStep2Desc: 'Os tokens são liberados de forma fracionada minuto a minuto, evitando concentrações e mantendo a circulação controlada.',
+    howMXIWorksStep3Title: '3️⃣ Ecossistema interno em expansão',
+    howMXIWorksStep3Desc: 'Inclui:',
+    howMXIWorksStep3Point1: '• Pagamentos entre usuários',
+    howMXIWorksStep3Point2: '• Torneios de habilidade',
+    howMXIWorksStep3Point3: '• Recompensas por participação',
+    howMXIWorksStep3Point4: '• Ferramentas para crescimento e comunidade',
+    howMXIWorksStep4Title: '4️⃣ Cartão vinculado',
+    howMXIWorksStep4Desc: 'Permitirá usar MXI ou USDT diretamente em comerciantes físicos e digitais, tornando a utilidade do token algo imediato e prático.',
+    howMXIWorksStep5Title: '5️⃣ Segurança quântica',
+    howMXIWorksStep5Desc: 'Criptografia resistente a tecnologias emergentes para proteger transações, ativos e chaves privadas.',
+    howMXIWorksStep6Title: '6️⃣ Expansão progressiva',
+    howMXIWorksStep6Desc: 'O projeto migrará para um blockchain próprio quando a comunidade e a infraestrutura justificarem, aumentando velocidade, escalabilidade e eficiência.',
+    howMXIWorksConclusion: '✨ O MXI funciona como um ecossistema vivo que se ativa por etapas, projetado para aumentar utilidade, adoção e valor conforme evolui.',
     
     // Deposit Page
     buyMXIWithMultipleOptions: 'Compre MXI com múltiplas opções',
