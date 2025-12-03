@@ -387,7 +387,7 @@ function ComoFuncionaTab() {
   );
 }
 
-// Por Qué Comprar Tab Content - Image 0 (cd6409f5)
+// Por Qué Comprar Tab Content - Image 0 (cd6409f5) - UPDATED CONTENT
 function PorQueComprarTab() {
   const { t } = useLanguage();
   
@@ -421,7 +421,6 @@ function PorQueComprarTab() {
           <Text style={styles.emphasisText}>
             {t('whyBuyReason1')}
           </Text>
-
           <Text style={styles.bodyText}>
             {t('whyBuyReason1Desc')}
           </Text>
@@ -431,7 +430,6 @@ function PorQueComprarTab() {
           <Text style={styles.emphasisText}>
             {t('whyBuyReason2')}
           </Text>
-
           <Text style={styles.bodyText}>
             {t('whyBuyReason2Desc')}
           </Text>
@@ -441,9 +439,50 @@ function PorQueComprarTab() {
           <Text style={styles.emphasisText}>
             {t('whyBuyReason3')}
           </Text>
-
           <Text style={styles.bodyText}>
             {t('whyBuyReason3Desc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.emphasisText}>
+            {t('whyBuyReason4')}
+          </Text>
+          <Text style={styles.bodyText}>
+            {t('whyBuyReason4Desc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.emphasisText}>
+            {t('whyBuyReason5')}
+          </Text>
+          <Text style={styles.bodyText}>
+            {t('whyBuyReason5Desc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.emphasisText}>
+            {t('whyBuyReason6')}
+          </Text>
+          <Text style={styles.bodyText}>
+            {t('whyBuyReason6Desc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.emphasisText}>
+            {t('whyBuyReason7')}
+          </Text>
+          <Text style={styles.bodyText}>
+            {t('whyBuyReason7Desc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.emphasisText}>
+            {t('whyBuyConclusion')}
           </Text>
         </LinearGradient>
       </View>
