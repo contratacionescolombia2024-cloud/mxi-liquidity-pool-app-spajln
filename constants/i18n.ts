@@ -235,6 +235,19 @@ const translations = {
     tokenomics: 'Tokenomics',
     risks: 'Risks',
     
+    // Daily Vesting Tab Content - NEW CONTENT
+    vestingDiarioIntro: 'It is a mechanism designed to protect the stability of the project during the presale and, at the same time, provide investors with a fair, predictable, and sustainable way to receive their tokens. Instead of releasing all tokens immediately—which usually generates drastic drops due to massive sales—MXI distributes allocations progressively, in a balanced and transparent manner.',
+    vestingDiarioHowItWorks: 'From the moment a user acquires MXI in presale, their total balance is recorded in a smart contract that manages daily release. Every 24 hours, a predefined percentage of the total purchased is released automatically, allowing the user to withdraw it, transfer it, or use it within the ecosystem.',
+    vestingDiarioBenefits: 'This process ensures that all participants have gradual access to their tokens without saturating the market, while the project advances in development, user growth, integration of financial services, and ecosystem expansion. The goal is to create a natural balance between supply and demand, which strengthens the token valuation and benefits early investors with a sustainable model.',
+    vestingDiarioTransparency: 'Additionally, daily vesting is part of MXI\'s commitment to transparency: each release can be audited on the blockchain, and users maintain total control over their token flow without depending on intermediaries.',
+    vestingDiarioSummaryTitle: 'In summary, daily vesting is a tool designed to:',
+    vestingDiarioPoint1: 'Protect the token value and avoid abrupt drops.',
+    vestingDiarioPoint2: 'Accompany the real growth of the ecosystem.',
+    vestingDiarioPoint3: 'Create equality among investors in the initial stage.',
+    vestingDiarioPoint4: 'Guarantee traceability and security in each release.',
+    vestingDiarioPoint5: 'Offer progressive liquidity without compromising sustainability.',
+    vestingDiarioConclusion: 'With this model, MXI builds a responsible and future-oriented scenario, where each member of the community receives their share in a balanced way, while the project develops the foundations of a real decentralized economy.',
+    
     // Ecosystem Tab Content - NEW CONTENT
     ecosystemTabTitle: 'MXI Ecosystem',
     ecosystemIntro: '🌐 MXI is an ecosystem, not just a token: it is a complete infrastructure designed to operate as a self-sustaining digital economy, capable of integrating products, services, technology, and community within the same interconnected environment. Each element is designed to feed the others, generating flow, utility, and real growth for users, entrepreneurs, and investors alike.',
@@ -1216,6 +1229,19 @@ const translations = {
     inPractice: 'En la Práctica',
     tokenomics: 'Tokenómica',
     risks: 'Riesgos',
+    
+    // Daily Vesting Tab Content - NEW CONTENT
+    vestingDiarioIntro: 'Es un mecanismo diseñado para proteger la estabilidad del proyecto durante la preventa y, al mismo tiempo, brindar a los inversionistas una forma justa, predecible y sostenible de recibir sus tokens. En lugar de liberar todos los tokens de inmediato —lo que suele generar caídas drásticas por ventas masivas— MXI distribuye las asignaciones de forma progresiva, equilibrada y transparente.',
+    vestingDiarioHowItWorks: 'Desde el momento en que un usuario adquiere MXI en preventa, su saldo total queda registrado en un contrato inteligente que administra la liberación diaria. Cada 24 horas, un porcentaje predefinido del total comprado se libera de forma automática, permitiendo al usuario retirarlo, transferirlo o usarlo dentro del ecosistema.',
+    vestingDiarioBenefits: 'Este proceso garantiza que todos los participantes tengan acceso gradual a sus tokens sin saturar el mercado, mientras el proyecto avanza en desarrollo, crecimiento de usuarios, integración de servicios financieros y expansión del ecosistema. El objetivo es crear un equilibrio natural entre oferta y demanda, lo que fortalece la valuación del token y beneficia a los primeros inversionistas con un modelo sostenible.',
+    vestingDiarioTransparency: 'Además, el vesting diario es parte del compromiso de MXI con la transparencia: cada liberación puede auditarse en la blockchain, y los usuarios mantienen control total sobre su flujo de tokens sin depender de intermediarios.',
+    vestingDiarioSummaryTitle: 'En resumen, el vesting diario es una herramienta diseñada para:',
+    vestingDiarioPoint1: 'Proteger el valor del token y evitar caídas abruptas.',
+    vestingDiarioPoint2: 'Acompañar el crecimiento real del ecosistema.',
+    vestingDiarioPoint3: 'Crear igualdad entre los inversionistas en la etapa inicial.',
+    vestingDiarioPoint4: 'Garantizar trazabilidad y seguridad en cada liberación.',
+    vestingDiarioPoint5: 'Ofrecer liquidez progresiva sin comprometer la sostenibilidad.',
+    vestingDiarioConclusion: 'Con este modelo, MXI construye un escenario responsable y de proyección a futuro, donde cada miembro de la comunidad recibe su parte de forma equilibrada, mientras el proyecto desarrolla las bases de una economía descentralizada real.',
     
     // Ecosystem Tab Content - NEW CONTENT
     ecosystemTabTitle: 'Ecosistema MXI',
@@ -2337,6 +2363,19 @@ const translations = {
     realUtilityDesc: 'Pagamentos, torneios e cartão',
     globalCommunity: 'Comunidade Global',
     globalCommunityDesc: 'Rede internacional em crescimento',
+    
+    // Daily Vesting Tab Content - NEW CONTENT
+    vestingDiarioIntro: 'É um mecanismo projetado para proteger a estabilidade do projeto durante a pré-venda e, ao mesmo tempo, fornecer aos investidores uma forma justa, previsível e sustentável de receber seus tokens. Em vez de liberar todos os tokens imediatamente—o que geralmente gera quedas drásticas devido a vendas massivas—MXI distribui as alocações de forma progressiva, equilibrada e transparente.',
+    vestingDiarioHowItWorks: 'Desde o momento em que um usuário adquire MXI na pré-venda, seu saldo total é registrado em um contrato inteligente que gerencia a liberação diária. A cada 24 horas, uma porcentagem predefinida do total comprado é liberada automaticamente, permitindo que o usuário retire, transfira ou use dentro do ecossistema.',
+    vestingDiarioBenefits: 'Este processo garante que todos os participantes tenham acesso gradual aos seus tokens sem saturar o mercado, enquanto o projeto avança em desenvolvimento, crescimento de usuários, integração de serviços financeiros e expansão do ecossistema. O objetivo é criar um equilíbrio natural entre oferta e demanda, o que fortalece a valorização do token e beneficia os primeiros investidores com um modelo sustentável.',
+    vestingDiarioTransparency: 'Além disso, o vesting diário faz parte do compromisso da MXI com a transparência: cada liberação pode ser auditada na blockchain, e os usuários mantêm controle total sobre seu fluxo de tokens sem depender de intermediários.',
+    vestingDiarioSummaryTitle: 'Em resumo, o vesting diário é uma ferramenta projetada para:',
+    vestingDiarioPoint1: 'Proteger o valor do token e evitar quedas abruptas.',
+    vestingDiarioPoint2: 'Acompanhar o crescimento real do ecossistema.',
+    vestingDiarioPoint3: 'Criar igualdade entre os investidores na fase inicial.',
+    vestingDiarioPoint4: 'Garantir rastreabilidade e segurança em cada liberação.',
+    vestingDiarioPoint5: 'Oferecer liquidez progressiva sem comprometer a sustentabilidade.',
+    vestingDiarioConclusion: 'Com este modelo, MXI constrói um cenário responsável e orientado para o futuro, onde cada membro da comunidade recebe sua parte de forma equilibrada, enquanto o projeto desenvolve as bases de uma economia descentralizada real.',
     
     // Deposit Page
     buyMXIWithMultipleOptions: 'Compre MXI com múltiplas opções',
