@@ -127,11 +127,11 @@ const translations = {
     phase: 'Phase',
     sold: 'Sold',
     remaining: 'Remaining',
-    generalProgress: 'General Progress',
+    generalProgress: 'Overall Progress',
     of: 'of',
     totalMXIDelivered: 'Total MXI Delivered',
     mxiDeliveredToAllUsers: 'MXI delivered to all users (all sources)',
-    poolClose: 'Pool closes',
+    poolClose: 'Pool closes on',
     perMXIText: 'per MXI',
     
     // Ecosystem Screen
@@ -731,7 +731,7 @@ const translations = {
     of: 'de',
     totalMXIDelivered: 'Total MXI Entregado',
     mxiDeliveredToAllUsers: 'MXI entregado a todos los usuarios (todas las fuentes)',
-    poolClose: 'El pool cierra',
+    poolClose: 'El pool cierra el',
     perMXIText: 'por MXI',
     
     // Ecosystem Screen
@@ -1331,7 +1331,7 @@ const translations = {
     of: 'de',
     totalMXIDelivered: 'Total MXI Entregue',
     mxiDeliveredToAllUsers: 'MXI entregue a todos os usuários (todas as fontes)',
-    poolClose: 'O pool fecha',
+    poolClose: 'O pool fecha em',
     perMXIText: 'por MXI',
     
     // Ecosystem Screen
