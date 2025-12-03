@@ -160,7 +160,7 @@ export default function EcosystemScreen() {
   );
 }
 
-// ¿Qué es MXI? Tab Content
+// ¿Qué es MXI? Tab Content - UPDATED TO USE CORRECT TRANSLATION KEYS
 function QueEsMXITab() {
   const { t } = useLanguage();
   
@@ -180,7 +180,7 @@ function QueEsMXITab() {
         />
       </View>
 
-      {/* Main Content Card */}
+      {/* Main Content Card - NEW CONTENT */}
       <View style={[commonStyles.card, styles.contentCard]}>
         <LinearGradient
           colors={[colors.primary + '10', colors.accent + '10']}
@@ -188,159 +188,102 @@ function QueEsMXITab() {
           end={{ x: 1, y: 1 }}
           style={styles.contentGradient}
         >
-          <Text style={styles.introText}>
-            💎 <Text style={styles.boldText}>{t('maxcoinIsMoreThanCrypto')}</Text>
+          <Text style={styles.bodyText}>
+            {t('whatIsMXIIntro')}
           </Text>
 
           <View style={styles.divider} />
 
           <Text style={styles.bodyText}>
-            🌍 {t('globalFinancialEcosystem')}
+            {t('whatIsMXIEarlyStage')}
           </Text>
 
           <View style={styles.divider} />
 
           <Text style={styles.bodyText}>
-            ⚡ {t('transformBlockchain')}
-          </Text>
-
-          <Text style={styles.bodyText}>
-            🪙 {t('digitalEconomyFragment')}
+            {t('whatIsMXIPresale')}
           </Text>
 
           <View style={styles.divider} />
 
           <Text style={styles.emphasisText}>
-            🎯 {t('maxcoinNoSpeculation')}
+            {t('whatIsMXINotJustToken')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* How MXI Works Section - NEW CONTENT */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.accent + '10', colors.primary + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionTitle}>{t('howMXIWorksTitle')}</Text>
+          
+          <Text style={styles.bodyText}>
+            {t('howMXIWorksIntro')}
           </Text>
 
           <View style={styles.divider} />
 
+          <Text style={styles.sectionSubtitle}>{t('howMXIWorksStep1Title')}</Text>
           <Text style={styles.bodyText}>
-            💼 {t('paymentsLoansStaking')}
+            {t('howMXIWorksStep1Desc')}
           </Text>
-        </LinearGradient>
-      </View>
 
-      {/* Features Grid */}
-      <View style={styles.featuresSection}>
-        <Text style={styles.sectionTitle}>{t('mainFeatures')}</Text>
-        
-        <View style={styles.featuresGrid}>
-          <View style={[commonStyles.card, styles.featureCard]}>
-            <Text style={styles.featureEmoji}>💳</Text>
-            <Text style={styles.featureTitle}>{t('payments')}</Text>
-            <Text style={styles.featureDescription}>{t('globalSecurePaymentSystem')}</Text>
-          </View>
+          <View style={styles.divider} />
 
-          <View style={[commonStyles.card, styles.featureCard]}>
-            <Text style={styles.featureEmoji}>💰</Text>
-            <Text style={styles.featureTitle}>{t('loans')}</Text>
-            <Text style={styles.featureDescription}>{t('accessToDecentralizedCredit')}</Text>
-          </View>
-
-          <View style={[commonStyles.card, styles.featureCard]}>
-            <Text style={styles.featureEmoji}>🔒</Text>
-            <Text style={styles.featureTitle}>{t('staking')}</Text>
-            <Text style={styles.featureDescription}>{t('generatePassiveIncomeStaking')}</Text>
-          </View>
-
-          <View style={[commonStyles.card, styles.featureCard]}>
-            <Text style={styles.featureEmoji}>⛏️</Text>
-            <Text style={styles.featureTitle}>{t('mining')}</Text>
-            <Text style={styles.featureDescription}>{t('participateInNetwork')}</Text>
-          </View>
-
-          <View style={[commonStyles.card, styles.featureCard]}>
-            <Text style={styles.featureEmoji}>🎁</Text>
-            <Text style={styles.featureTitle}>{t('rewardsFeature')}</Text>
-            <Text style={styles.featureDescription}>{t('benefitsForParticipation')}</Text>
-          </View>
-
-          <View style={[commonStyles.card, styles.featureCard]}>
-            <Text style={styles.featureEmoji}>🛡️</Text>
-            <Text style={styles.featureTitle}>{t('security')}</Text>
-            <Text style={styles.featureDescription}>{t('auditableEnvironment')}</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Vision Card */}
-      <View style={[commonStyles.card, styles.visionCard]}>
-        <LinearGradient
-          colors={[colors.primary + '20', colors.accent + '20']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.visionGradient}
-        >
-          <Text style={styles.visionEmoji}>🌟</Text>
-          <Text style={styles.visionTitle}>{t('ourVision')}</Text>
-          <Text style={styles.visionText}>
-            {t('visionText')}
+          <Text style={styles.sectionSubtitle}>{t('howMXIWorksStep2Title')}</Text>
+          <Text style={styles.bodyText}>
+            {t('howMXIWorksStep2Desc')}
           </Text>
-        </LinearGradient>
-      </View>
 
-      {/* Values Section */}
-      <View style={styles.valuesSection}>
-        <Text style={styles.sectionTitle}>{t('ourValues')}</Text>
-        
-        <View style={[commonStyles.card, styles.valueCard]}>
-          <Text style={styles.valueEmoji}>🤝</Text>
-          <View style={styles.valueContent}>
-            <Text style={styles.valueTitle}>{t('community')}</Text>
-            <Text style={styles.valueDescription}>
-              {t('communityText')}
-            </Text>
-          </View>
-        </View>
+          <View style={styles.divider} />
 
-        <View style={[commonStyles.card, styles.valueCard]}>
-          <Text style={styles.valueEmoji}>🔬</Text>
-          <View style={styles.valueContent}>
-            <Text style={styles.valueTitle}>{t('technology')}</Text>
-            <Text style={styles.valueDescription}>
-              {t('technologyText')}
-            </Text>
-          </View>
-        </View>
-
-        <View style={[commonStyles.card, styles.valueCard]}>
-          <Text style={styles.valueEmoji}>📈</Text>
-          <View style={styles.valueContent}>
-            <Text style={styles.valueTitle}>{t('performance')}</Text>
-            <Text style={styles.valueDescription}>
-              {t('performanceText')}
-            </Text>
-          </View>
-        </View>
-
-        <View style={[commonStyles.card, styles.valueCard]}>
-          <Text style={styles.valueEmoji}>🔐</Text>
-          <View style={styles.valueContent}>
-            <Text style={styles.valueTitle}>{t('transparency')}</Text>
-            <Text style={styles.valueDescription}>
-              {t('transparencyText')}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Call to Action */}
-      <View style={[commonStyles.card, styles.ctaCard]}>
-        <LinearGradient
-          colors={[colors.primary, colors.accent]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.ctaGradient}
-        >
-          <Text style={styles.ctaEmoji}>🚀</Text>
-          <Text style={styles.ctaTitle}>{t('joinTheFuture')}</Text>
-          <Text style={styles.ctaText}>
-            {t('joinTheFutureText')}
+          <Text style={styles.sectionSubtitle}>{t('howMXIWorksStep3Title')}</Text>
+          <Text style={styles.bodyText}>
+            {t('howMXIWorksStep3Desc')}
           </Text>
-          <Text style={styles.ctaSubtext}>
-            {t('minimumInvestment')}
+          <Text style={styles.bodyText}>
+            {t('howMXIWorksStep3Point1')}
+          </Text>
+          <Text style={styles.bodyText}>
+            {t('howMXIWorksStep3Point2')}
+          </Text>
+          <Text style={styles.bodyText}>
+            {t('howMXIWorksStep3Point3')}
+          </Text>
+          <Text style={styles.bodyText}>
+            {t('howMXIWorksStep3Point4')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('howMXIWorksStep4Title')}</Text>
+          <Text style={styles.bodyText}>
+            {t('howMXIWorksStep4Desc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('howMXIWorksStep5Title')}</Text>
+          <Text style={styles.bodyText}>
+            {t('howMXIWorksStep5Desc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('howMXIWorksStep6Title')}</Text>
+          <Text style={styles.bodyText}>
+            {t('howMXIWorksStep6Desc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.emphasisText}>
+            {t('howMXIWorksConclusion')}
           </Text>
         </LinearGradient>
       </View>
@@ -1551,6 +1494,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontWeight: '600',
   },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 16,
+  },
   sectionSubtitle: {
     fontSize: 18,
     fontWeight: '700',
@@ -1586,12 +1535,6 @@ const styles = StyleSheet.create({
   },
   featuresSection: {
     marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 16,
   },
   featuresGrid: {
     flexDirection: 'row',
