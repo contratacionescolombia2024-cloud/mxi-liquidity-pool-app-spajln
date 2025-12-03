@@ -899,7 +899,7 @@ function SeguridadCuanticaTab() {
   );
 }
 
-// Sostenibilidad Tab Content - PLACEHOLDER
+// Sostenibilidad Tab Content - UPDATED WITH NEW CONTENT
 function SostenibilidadTab() {
   const { t } = useLanguage();
   
@@ -917,6 +917,7 @@ function SostenibilidadTab() {
         />
       </View>
 
+      {/* Economic Model Section */}
       <View style={[commonStyles.card, styles.contentCard]}>
         <LinearGradient
           colors={[colors.primary + '10', colors.accent + '10']}
@@ -925,7 +926,21 @@ function SostenibilidadTab() {
           style={styles.contentGradient}
         >
           <Text style={styles.bodyText}>
-            Sustainability content coming soon...
+            {t('sustainabilityIntro')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Decentralized Approach Section */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.accent + '10', colors.primary + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.bodyText}>
+            {t('sustainabilityDecentralized')}
           </Text>
         </LinearGradient>
       </View>

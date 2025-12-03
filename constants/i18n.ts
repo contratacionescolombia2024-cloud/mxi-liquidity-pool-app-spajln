@@ -277,6 +277,10 @@ const translations = {
     ecosystemSummaryPoint10: 'Community',
     ecosystemSummaryConclusion: '✨ All connected to create a real decentralized economy, where cooperation multiplies value.',
     
+    // Sustainability Tab Content - NEW CONTENT
+    sustainabilityIntro: '💎 MXI is sustainable in the long term because its economic model is based on real utility, organic growth, and community participation. Unlike speculative projects, MXI incorporates services that generate constant token movement: payments, marketplace, loans, staking, card, tools for entrepreneurs, and shared value programs. Each service feeds the ecosystem, avoiding dependence on new buyers to sustain the economy.',
+    sustainabilityDecentralized: '🌍 Additionally, the decentralized approach allows the community to drive key decisions, creating an adaptable, self-sufficient system resistant to external crises. The adoption of advanced technologies such as quantum security, the modularity of its architecture, and the focus on real economy ensure that MXI evolves, expands, and remains relevant for the coming decades.',
+    
     // Meta Tab Content - NEW CONTENT
     metaTitle: 'Our Goal',
     metaIntro: '🎯 Our goal is to build a real, decentralized, and sustainable economy, designed to free people and businesses from dependence on the traditional financial system. Our purpose is simple but powerful: to create an ecosystem where growth is driven by the community, not by central institutions, focused primarily on the Latin American public, their needs and strengths.',
@@ -1254,6 +1258,10 @@ const translations = {
     ecosystemSummaryPoint9: 'Formación',
     ecosystemSummaryPoint10: 'Comunidad',
     ecosystemSummaryConclusion: '✨ Todo conectado para crear una economía descentralizada real, donde la cooperación multiplica el valor.',
+    
+    // Sustainability Tab Content - NEW CONTENT
+    sustainabilityIntro: '💎 MXI es sostenible a largo plazo porque su modelo económico se basa en utilidad real, crecimiento orgánico y participación comunitaria. A diferencia de proyectos especulativos, MXI incorpora servicios que generan movimiento constante del token: pagos, marketplace, préstamos, staking, tarjeta, herramientas para emprendedores y programas de valor compartido. Cada servicio alimenta al ecosistema, evitando la dependencia de nuevos compradores para sostener la economía.',
+    sustainabilityDecentralized: '🌍 Además, el enfoque descentralizado permite que la comunidad impulse decisiones clave, creando un sistema adaptable, autosuficiente y resistente a crisis externas. La adopción de tecnologías avanzadas como la seguridad cuántica, la modularidad de su arquitectura y el enfoque en economía real garantizan que MXI evolucione, se expanda y permanezca relevante durante las próximas décadas.',
     
     // Meta Tab Content - NEW CONTENT
     metaTitle: 'Nuestra Meta',
@@ -2239,6 +2247,10 @@ const translations = {
     ecosystemSummaryPoint9: 'Formação',
     ecosystemSummaryPoint10: 'Comunidade',
     ecosystemSummaryConclusion: '✨ Tudo conectado para criar uma economia descentralizada real, onde a cooperação multiplica o valor.',
+    
+    // Sustainability Tab Content - NEW CONTENT
+    sustainabilityIntro: '💎 MXI é sustentável a longo prazo porque seu modelo econômico é baseado em utilidade real, crescimento orgânico e participação comunitária. Ao contrário de projetos especulativos, MXI incorpora serviços que geram movimento constante do token: pagamentos, marketplace, empréstimos, staking, cartão, ferramentas para empreendedores e programas de valor compartilhado. Cada serviço alimenta o ecossistema, evitando a dependência de novos compradores para sustentar a economia.',
+    sustainabilityDecentralized: '🌍 Além disso, a abordagem descentralizada permite que a comunidade impulsione decisões-chave, criando um sistema adaptável, autossuficiente e resistente a crises externas. A adoção de tecnologias avançadas como a segurança quântica, a modularidade de sua arquitetura e o foco na economia real garantem que MXI evolua, se expanda e permaneça relevante durante as próximas décadas.',
     
     // Meta Tab Content - NEW CONTENT (Portuguese translation)
     metaTitle: 'Nossa Meta',
