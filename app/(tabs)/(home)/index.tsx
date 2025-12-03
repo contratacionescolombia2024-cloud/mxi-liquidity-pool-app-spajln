@@ -287,7 +287,7 @@ const getShortName = (fullName: string): string => {
 
 export default function HomeScreen() {
   const { user, loading, checkWithdrawalEligibility, getPhaseInfo } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [refreshing, setRefreshing] = useState(false);
   const [phaseInfo, setPhaseInfo] = useState<any>({
     currentPhase: 1,
@@ -324,6 +324,11 @@ export default function HomeScreen() {
       loadData();
     }
   }, [user]);
+
+  // Force re-render when language changes
+  useEffect(() => {
+    console.log('Language changed to:', language);
+  }, [language]);
 
   const loadData = async () => {
     try {
@@ -524,9 +529,11 @@ export default function HomeScreen() {
             <Text style={styles.cardTitle}>{t('phasesAndProgress')}</Text>
             
             <View style={styles.currentPhaseInfo}>
-              <Text style={styles.currentPhaseLabel}>{t('currentPhase')}: {phaseInfo.currentPhase || 1}</Text>
+              <Text style={styles.currentPhaseLabel}>
+                {t('currentPhase')}: {phaseInfo.currentPhase || 1}
+              </Text>
               <Text style={styles.currentPhasePrice}>
-                ${(phaseInfo.currentPriceUsdt || 0.40).toFixed(2)} {t('usdtPerMXI')}
+                ${(phaseInfo.currentPriceUsdt || 0.40).toFixed(2)} {t('perMXIText')}
               </Text>
             </View>
 
