@@ -240,40 +240,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('Platform:', Platform.OS);
     console.log('Supabase client available:', !!supabase);
     
-    // Add a timeout to prevent infinite loading
+    // Add a timeout to prevent infinite loading - reduced to 6 seconds to match error
     const loadingTimeout = setTimeout(() => {
-      console.warn('Auth initialization timeout - forcing loading to false');
+      console.warn('⚠️ Auth initialization timeout (6s) - forcing loading to false');
       if (loading) {
         setLoading(false);
+        setIsAuthenticated(false);
+        setUser(null);
+        setSession(null);
       }
-    }, 10000); // 10 second timeout
+    }, 6000); // 6 second timeout to match the error message
 
-    supabase.auth.getSession()
-      .then(({ data: { session }, error }) => {
+    // Wrap the initialization in a try-catch with timeout
+    const initializeAuth = async () => {
+      try {
+        console.log('🔄 Starting auth session check...');
+        
+        // Create a promise that rejects after 5 seconds
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Session check timeout')), 5000);
+        });
+
+        // Race between getting session and timeout
+        const sessionResult = await Promise.race([
+          supabase.auth.getSession(),
+          timeoutPromise
+        ]) as { data: { session: Session | null }, error: any };
+
         clearTimeout(loadingTimeout);
         
-        if (error) {
-          console.error('Error getting initial session:', error);
+        if (sessionResult.error) {
+          console.error('❌ Error getting initial session:', sessionResult.error);
           setLoading(false);
           return;
         }
         
-        console.log('Initial session:', session ? 'Found' : 'Not found');
-        setSession(session);
+        console.log('✅ Initial session:', sessionResult.data.session ? 'Found' : 'Not found');
+        setSession(sessionResult.data.session);
         
-        if (session) {
-          console.log('Loading user data for session user:', session.user.id);
-          loadUserData(session.user.id);
+        if (sessionResult.data.session) {
+          console.log('📥 Loading user data for session user:', sessionResult.data.session.user.id);
+          await loadUserData(sessionResult.data.session.user.id);
         } else {
-          console.log('No session found, setting loading to false');
+          console.log('ℹ️ No session found, setting loading to false');
           setLoading(false);
         }
-      })
-      .catch((error) => {
+      } catch (error) {
         clearTimeout(loadingTimeout);
-        console.error('Exception getting initial session:', error);
+        console.error('❌ Exception during auth initialization:', error);
         setLoading(false);
-      });
+        setIsAuthenticated(false);
+        setUser(null);
+        setSession(null);
+      }
+    };
+
+    initializeAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       console.log('=== AUTH STATE CHANGE ===');
