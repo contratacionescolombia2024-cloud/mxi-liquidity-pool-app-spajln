@@ -52,6 +52,7 @@ export default function EmbajadoresMXIScreen() {
   const [usdtAddress, setUsdtAddress] = useState('');
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
+  const [lastDataUpdate, setLastDataUpdate] = useState<Date | null>(null);
   const lastUpdateRef = useRef<Date | null>(null);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -67,7 +68,7 @@ export default function EmbajadoresMXIScreen() {
   useEffect(() => {
     console.log('[Embajadores MXI] Component mounted, user:', user?.id);
     
-    // Set a timeout to prevent infinite loading
+    // Set a timeout to prevent infinite loading (increased to 15 seconds)
     loadingTimeoutRef.current = setTimeout(() => {
       console.warn('[Embajadores MXI] Loading timeout reached, forcing loading to false');
       if (loading) {
@@ -88,7 +89,7 @@ export default function EmbajadoresMXIScreen() {
           ]
         );
       }
-    }, 10000); // 10 second timeout
+    }, 15000); // 15 second timeout (increased from 10)
 
     loadAmbassadorData();
 
@@ -99,7 +100,7 @@ export default function EmbajadoresMXIScreen() {
     };
   }, [user]);
 
-  const loadAmbassadorData = async () => {
+  const loadAmbassadorData = async (retryCount = 0) => {
     if (!user) {
       console.log('[Embajadores MXI] No user found, skipping load');
       setLoading(false);
@@ -107,18 +108,35 @@ export default function EmbajadoresMXIScreen() {
     }
 
     try {
-      console.log('[Embajadores MXI] Starting to load ambassador data for user:', user.id);
+      console.log('[Embajadores MXI] Starting to load ambassador data for user:', user.id, 'retry:', retryCount);
       setLoading(true);
 
-      // Call the function to update and get ambassador level
-      const { data, error } = await supabase.rpc('update_ambassador_level', {
+      // Call the function to update and get ambassador level with a timeout
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request timeout')), 12000)
+      );
+      
+      const rpcPromise = supabase.rpc('update_ambassador_level', {
         p_user_id: user.id
       });
+
+      const { data, error } = await Promise.race([
+        rpcPromise,
+        timeoutPromise
+      ]) as any;
 
       console.log('[Embajadores MXI] RPC response:', { data, error });
 
       if (error) {
         console.error('[Embajadores MXI] Error loading ambassador data:', error);
+        
+        // Retry once if it's a timeout or network error
+        if (retryCount < 1 && (error.message?.includes('timeout') || error.message?.includes('network'))) {
+          console.log('[Embajadores MXI] Retrying due to timeout/network error...');
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+          return loadAmbassadorData(retryCount + 1);
+        }
+        
         Alert.alert('Error', 'No se pudo cargar la información de embajador: ' + error.message);
         setLoading(false);
         return;
@@ -127,6 +145,7 @@ export default function EmbajadoresMXIScreen() {
       if (data) {
         console.log('[Embajadores MXI] Ambassador data loaded successfully:', data);
         setAmbassadorData(data as AmbassadorData);
+        setLastDataUpdate(new Date());
       } else {
         console.warn('[Embajadores MXI] No data returned from RPC');
         Alert.alert('Error', 'No se recibieron datos del servidor');
@@ -139,6 +158,14 @@ export default function EmbajadoresMXIScreen() {
       }
     } catch (error: any) {
       console.error('[Embajadores MXI] Exception loading ambassador data:', error);
+      
+      // Retry once on exception
+      if (retryCount < 1) {
+        console.log('[Embajadores MXI] Retrying due to exception...');
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+        return loadAmbassadorData(retryCount + 1);
+      }
+      
       Alert.alert('Error', error.message || 'Ocurrió un error inesperado');
     } finally {
       console.log('[Embajadores MXI] Finished loading, setting loading to false');
@@ -365,7 +392,14 @@ export default function EmbajadoresMXIScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Embajadores MXI</Text>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>Embajadores MXI</Text>
+          {lastDataUpdate && (
+            <Text style={styles.lastUpdateText}>
+              Actualizado: {lastDataUpdate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+            </Text>
+          )}
+        </View>
         <TouchableOpacity onPress={handleManualRefresh} style={styles.refreshButton} disabled={refreshing}>
           {refreshing ? (
             <ActivityIndicator size="small" color={colors.primary} />
@@ -669,6 +703,9 @@ export default function EmbajadoresMXIScreen() {
             <Text style={styles.infoItem}>
               • Solo compras en preventa pagadas en USDT
             </Text>
+            <Text style={[styles.infoItem, { fontWeight: '700', color: colors.primary }]}>
+              • Se incluyen: pagos automáticos, validaciones manuales aprobadas por el administrador, y pagos asignados por el administrador con comisión
+            </Text>
             <Text style={styles.infoItem}>
               • El administrador procesará tu retiro en 24-48 horas
             </Text>
@@ -708,10 +745,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: colors.text,
+  },
+  lastUpdateText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   scrollContent: {
     padding: 20,
