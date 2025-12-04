@@ -865,14 +865,14 @@ function EcosistemaTab() {
   );
 }
 
-// Seguridad Cuántica Tab Content - PLACEHOLDER
+// Seguridad Cuántica Tab Content - UPDATED WITH NEW CONTENT
 function SeguridadCuanticaTab() {
   const { t } = useLanguage();
   
   return (
     <View>
       <View style={styles.titleSection}>
-        <Text style={styles.mainTitle}>{t('quantumSecurity')}</Text>
+        <Text style={styles.mainTitle}>{t('quantumSecurityTitle')}</Text>
       </View>
 
       <View style={styles.imageContainer}>
@@ -883,6 +883,7 @@ function SeguridadCuanticaTab() {
         />
       </View>
 
+      {/* Main Content */}
       <View style={[commonStyles.card, styles.contentCard]}>
         <LinearGradient
           colors={[colors.primary + '10', colors.accent + '10']}
@@ -891,7 +892,49 @@ function SeguridadCuanticaTab() {
           style={styles.contentGradient}
         >
           <Text style={styles.bodyText}>
-            Quantum Security content coming soon...
+            {t('quantumSecurityIntro')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Technical Details */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.accent + '10', colors.primary + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.bodyText}>
+            {t('quantumSecurityTechnical')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Why It's Necessary */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '10', colors.accent + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.bodyText}>
+            {t('quantumSecurityNecessity')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Presale Implementation */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.accent + '10', colors.primary + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.emphasisText}>
+            {t('quantumSecurityPresale')}
           </Text>
         </LinearGradient>
       </View>

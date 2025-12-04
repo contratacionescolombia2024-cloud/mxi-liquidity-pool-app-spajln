@@ -281,6 +281,13 @@ const translations = {
     sustainabilityIntro: '💎 MXI is sustainable in the long term because its economic model is based on real utility, organic growth, and community participation. Unlike speculative projects, MXI incorporates services that generate constant token movement: payments, marketplace, loans, staking, card, tools for entrepreneurs, and shared value programs. Each service feeds the ecosystem, avoiding dependence on new buyers to sustain the economy.',
     sustainabilityDecentralized: '🌍 Additionally, the decentralized approach allows the community to drive key decisions, creating an adaptable, self-sufficient system resistant to external crises. The adoption of advanced technologies such as quantum security, the modularity of its architecture, and the focus on real economy ensure that MXI evolves, expands, and remains relevant for the coming decades.',
     
+    // Quantum Security Tab Content - NEW CONTENT
+    quantumSecurityTitle: 'Quantum Security',
+    quantumSecurityIntro: '🔐 MXI will integrate quantum security through certified post-quantum algorithms, encryption techniques resistant to quantum computing, and digital identity structures impossible to breach even against advanced attacks.',
+    quantumSecurityTechnical: '⚛️ This includes algorithms based on lattice networks, resistant cryptographic signatures, and key exchange protocols capable of facing superior computing forces.',
+    quantumSecurityNecessity: '⚠️ This security is necessary because the advancement of quantum computing represents a real risk for cryptocurrencies, banking systems, and all current digital infrastructure.',
+    quantumSecurityPresale: '✨ MXI adopts this technology from the presale phase to ensure that its ecosystem remains secure, reliable, and prepared for the technological demands of the future, protecting both investors and projects and entrepreneurs.',
+    
     // Meta Tab Content - NEW CONTENT
     metaTitle: 'Our Goal',
     metaIntro: '🎯 Our goal is to build a real, decentralized, and sustainable economy, designed to free people and businesses from dependence on the traditional financial system. Our purpose is simple but powerful: to create an ecosystem where growth is driven by the community, not by central institutions, focused primarily on the Latin American public, their needs and strengths.',
@@ -1262,6 +1269,13 @@ const translations = {
     // Sustainability Tab Content - NEW CONTENT
     sustainabilityIntro: '💎 MXI es sostenible a largo plazo porque su modelo económico se basa en utilidad real, crecimiento orgánico y participación comunitaria. A diferencia de proyectos especulativos, MXI incorpora servicios que generan movimiento constante del token: pagos, marketplace, préstamos, staking, tarjeta, herramientas para emprendedores y programas de valor compartido. Cada servicio alimenta al ecosistema, evitando la dependencia de nuevos compradores para sostener la economía.',
     sustainabilityDecentralized: '🌍 Además, el enfoque descentralizado permite que la comunidad impulse decisiones clave, creando un sistema adaptable, autosuficiente y resistente a crisis externas. La adopción de tecnologías avanzadas como la seguridad cuántica, la modularidad de su arquitectura y el enfoque en economía real garantizan que MXI evolucione, se expanda y permanezca relevante durante las próximas décadas.',
+    
+    // Quantum Security Tab Content - NEW CONTENT
+    quantumSecurityTitle: 'Seguridad Cuántica',
+    quantumSecurityIntro: '🔐 MXI integrará seguridad cuántica mediante algoritmos post-cuánticos certificados, técnicas de encriptación resistentes a computación cuántica y estructuras de identidad digital imposibles de vulnerar incluso ante ataques avanzados.',
+    quantumSecurityTechnical: '⚛️ Esto incluye algoritmos basados en redes lattices, firmas criptográficas resistentes y protocolos de intercambio de claves capaces de enfrentar fuerzas de cálculo superiores.',
+    quantumSecurityNecessity: '⚠️ Esta seguridad es necesaria porque el avance de la computación cuántica representa un riesgo real para las criptomonedas, los sistemas bancarios y toda la infraestructura digital actual.',
+    quantumSecurityPresale: '✨ MXI adopta esta tecnología desde la fase de preventa para garantizar que su ecosistema permanezca seguro, confiable y preparado para las exigencias tecnológicas del futuro, protegiendo tanto a inversores como a proyectos y emprendedores.',
     
     // Meta Tab Content - NEW CONTENT
     metaTitle: 'Nuestra Meta',
@@ -2251,6 +2265,13 @@ const translations = {
     // Sustainability Tab Content - NEW CONTENT
     sustainabilityIntro: '💎 MXI é sustentável a longo prazo porque seu modelo econômico é baseado em utilidade real, crescimento orgânico e participação comunitária. Ao contrário de projetos especulativos, MXI incorpora serviços que geram movimento constante do token: pagamentos, marketplace, empréstimos, staking, cartão, ferramentas para empreendedores e programas de valor compartilhado. Cada serviço alimenta o ecossistema, evitando a dependência de novos compradores para sustentar a economia.',
     sustainabilityDecentralized: '🌍 Além disso, a abordagem descentralizada permite que a comunidade impulsione decisões-chave, criando um sistema adaptável, autossuficiente e resistente a crises externas. A adoção de tecnologias avançadas como a segurança quântica, a modularidade de sua arquitetura e o foco na economia real garantem que MXI evolua, se expanda e permaneça relevante durante as próximas décadas.',
+    
+    // Quantum Security Tab Content - NEW CONTENT
+    quantumSecurityTitle: 'Segurança Quântica',
+    quantumSecurityIntro: '🔐 MXI integrará segurança quântica através de algoritmos pós-quânticos certificados, técnicas de criptografia resistentes à computação quântica e estruturas de identidade digital impossíveis de violar mesmo contra ataques avançados.',
+    quantumSecurityTechnical: '⚛️ Isso inclui algoritmos baseados em redes lattices, assinaturas criptográficas resistentes e protocolos de troca de chaves capazes de enfrentar forças de computação superiores.',
+    quantumSecurityNecessity: '⚠️ Esta segurança é necessária porque o avanço da computação quântica representa um risco real para as criptomoedas, os sistemas bancários e toda a infraestrutura digital atual.',
+    quantumSecurityPresale: '✨ MXI adota esta tecnologia desde a fase de pré-venda para garantir que seu ecossistema permaneça seguro, confiável e preparado para as demandas tecnológicas do futuro, protegendo tanto investidores quanto projetos e empreendedores.',
     
     // Meta Tab Content - NEW CONTENT (Portuguese translation)
     metaTitle: 'Nossa Meta',
