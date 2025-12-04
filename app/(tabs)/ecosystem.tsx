@@ -865,14 +865,14 @@ function EcosistemaTab() {
   );
 }
 
-// Seguridad Cuántica Tab Content - UPDATED WITH NEW CONTENT
+// Seguridad Cuántica Tab Content - NOW PLACEHOLDER (content moved to En la Práctica)
 function SeguridadCuanticaTab() {
   const { t } = useLanguage();
   
   return (
     <View>
       <View style={styles.titleSection}>
-        <Text style={styles.mainTitle}>{t('quantumSecurityTitle')}</Text>
+        <Text style={styles.mainTitle}>{t('quantumSecurity')}</Text>
       </View>
 
       <View style={styles.imageContainer}>
@@ -883,7 +883,6 @@ function SeguridadCuanticaTab() {
         />
       </View>
 
-      {/* Main Content */}
       <View style={[commonStyles.card, styles.contentCard]}>
         <LinearGradient
           colors={[colors.primary + '10', colors.accent + '10']}
@@ -892,49 +891,7 @@ function SeguridadCuanticaTab() {
           style={styles.contentGradient}
         >
           <Text style={styles.bodyText}>
-            {t('quantumSecurityIntro')}
-          </Text>
-        </LinearGradient>
-      </View>
-
-      {/* Technical Details */}
-      <View style={[commonStyles.card, styles.contentCard]}>
-        <LinearGradient
-          colors={[colors.accent + '10', colors.primary + '10']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.contentGradient}
-        >
-          <Text style={styles.bodyText}>
-            {t('quantumSecurityTechnical')}
-          </Text>
-        </LinearGradient>
-      </View>
-
-      {/* Why It's Necessary */}
-      <View style={[commonStyles.card, styles.contentCard]}>
-        <LinearGradient
-          colors={[colors.primary + '10', colors.accent + '10']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.contentGradient}
-        >
-          <Text style={styles.bodyText}>
-            {t('quantumSecurityNecessity')}
-          </Text>
-        </LinearGradient>
-      </View>
-
-      {/* Presale Implementation */}
-      <View style={[commonStyles.card, styles.contentCard]}>
-        <LinearGradient
-          colors={[colors.accent + '10', colors.primary + '10']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.contentGradient}
-        >
-          <Text style={styles.emphasisText}>
-            {t('quantumSecurityPresale')}
+            Quantum Security content coming soon...
           </Text>
         </LinearGradient>
       </View>
@@ -1025,7 +982,7 @@ function VestingDiarioTab() {
   );
 }
 
-// En la Práctica Tab Content - PLACEHOLDER
+// En la Práctica Tab Content - NOW WITH QUANTUM SECURITY CONTENT
 function EnLaPracticaTab() {
   const { t } = useLanguage();
   
@@ -1043,6 +1000,7 @@ function EnLaPracticaTab() {
         />
       </View>
 
+      {/* Main Content */}
       <View style={[commonStyles.card, styles.contentCard]}>
         <LinearGradient
           colors={[colors.primary + '10', colors.accent + '10']}
@@ -1051,7 +1009,49 @@ function EnLaPracticaTab() {
           style={styles.contentGradient}
         >
           <Text style={styles.bodyText}>
-            In Practice content coming soon...
+            {t('inPracticeIntro')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Technical Details */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.accent + '10', colors.primary + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.bodyText}>
+            {t('inPracticeTechnical')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Why It's Necessary */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '10', colors.accent + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.bodyText}>
+            {t('inPracticeNecessity')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Presale Implementation */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.accent + '10', colors.primary + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.emphasisText}>
+            {t('inPracticePresale')}
           </Text>
         </LinearGradient>
       </View>
