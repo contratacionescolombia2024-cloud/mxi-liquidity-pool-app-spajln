@@ -1025,7 +1025,7 @@ function VestingDiarioTab() {
   );
 }
 
-// En la Práctica Tab Content - NOW PLACEHOLDER (content moved to Seguridad Cuántica)
+// En la Práctica Tab Content - NOW WITH INVESTOR PROFILES CONTENT
 function EnLaPracticaTab() {
   const { t } = useLanguage();
   
@@ -1043,6 +1043,7 @@ function EnLaPracticaTab() {
         />
       </View>
 
+      {/* Introduction */}
       <View style={[commonStyles.card, styles.contentCard]}>
         <LinearGradient
           colors={[colors.primary + '10', colors.accent + '10']}
@@ -1051,8 +1052,192 @@ function EnLaPracticaTab() {
           style={styles.contentGradient}
         >
           <Text style={styles.bodyText}>
-            In Practice content coming soon...
+            {t('practiceIntro')}
           </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Investor Profile 1: Basic */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.accent + '10', colors.primary + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionTitle}>🟦 {t('practiceProfile1Title')}</Text>
+          
+          <Text style={styles.sectionSubtitle}>{t('practiceProfile1ShortTerm')}</Text>
+          <Text style={styles.bodyText}>
+            {t('practiceProfile1ShortTermDesc')}
+          </Text>
+
+          <View style={styles.tableContainer}>
+            <View style={styles.tableRow}>
+              <Text style={styles.tableHeader}>{t('practiceTablePurchasePrice')}</Text>
+              <Text style={styles.tableHeader}>{t('practiceTablePotentialGain')}</Text>
+              <Text style={styles.tableHeader}>{t('practiceTablePercentage')}</Text>
+            </View>
+            <View style={styles.tableRow}>
+              <Text style={styles.tableCell}>0.40</Text>
+              <Text style={styles.tableCell}>650%</Text>
+              <Text style={styles.tableCell}>+650%</Text>
+            </View>
+            <View style={styles.tableRow}>
+              <Text style={styles.tableCell}>0.70</Text>
+              <Text style={styles.tableCell}>328%</Text>
+              <Text style={styles.tableCell}>+328%</Text>
+            </View>
+            <View style={styles.tableRow}>
+              <Text style={styles.tableCell}>1.00</Text>
+              <Text style={styles.tableCell}>200%</Text>
+              <Text style={styles.tableCell}>+200%</Text>
+            </View>
+          </View>
+
+          <Text style={styles.emphasisText}>
+            {t('practiceProfile1Example')}
+          </Text>
+          <Text style={styles.bodyText}>
+            {t('practiceProfile1ExampleDesc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('practiceProfile1MediumTerm')}</Text>
+          <Text style={styles.bodyText}>
+            {t('practiceProfile1MediumTermDesc')}
+          </Text>
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>✔ {t('practiceProfile1MediumPoint1')}</Text>
+            <Text style={styles.bulletPoint}>✔ {t('practiceProfile1MediumPoint2')}</Text>
+            <Text style={styles.bulletPoint}>✔ {t('practiceProfile1MediumPoint3')}</Text>
+          </View>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('practiceProfile1LongTerm')}</Text>
+          <Text style={styles.bodyText}>
+            {t('practiceProfile1LongTermDesc')}
+          </Text>
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>✔ {t('practiceProfile1LongPoint1')}</Text>
+            <Text style={styles.bulletPoint}>✔ {t('practiceProfile1LongPoint2')}</Text>
+            <Text style={styles.bulletPoint}>✔ {t('practiceProfile1LongPoint3')}</Text>
+          </View>
+        </LinearGradient>
+      </View>
+
+      {/* Investor Profile 2: Participative */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '10', colors.accent + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionTitle}>🟩 {t('practiceProfile2Title')}</Text>
+          
+          <Text style={styles.sectionSubtitle}>{t('practiceProfile2ShortTerm')}</Text>
+          <Text style={styles.bodyText}>
+            {t('practiceProfile2ShortTermDesc')}
+          </Text>
+
+          <Text style={styles.emphasisText}>
+            {t('practiceProfile2ReferralBonus')}
+          </Text>
+          <Text style={styles.bodyText}>
+            {t('practiceProfile2ReferralBonusDesc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('practiceProfile2MediumTerm')}</Text>
+          <Text style={styles.bodyText}>
+            {t('practiceProfile2MediumTermDesc')}
+          </Text>
+          <Text style={styles.emphasisText}>
+            {t('practiceProfile2Example')}
+          </Text>
+          <Text style={styles.bodyText}>
+            {t('practiceProfile2ExampleDesc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('practiceProfile2LongTerm')}</Text>
+          <Text style={styles.bodyText}>
+            {t('practiceProfile2LongTermDesc')}
+          </Text>
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>• {t('practiceProfile2LongPoint1')}</Text>
+            <Text style={styles.bulletPoint}>• {t('practiceProfile2LongPoint2')}</Text>
+            <Text style={styles.bulletPoint}>• {t('practiceProfile2LongPoint3')}</Text>
+          </View>
+          <Text style={styles.emphasisText}>
+            {t('practiceProfile2Conclusion')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Investor Profile 3: Strategic */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.accent + '10', colors.primary + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionTitle}>🟧 {t('practiceProfile3Title')}</Text>
+          <Text style={styles.bodyText}>
+            {t('practiceProfile3Intro')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('practiceProfile3ShortTerm')}</Text>
+          <Text style={styles.bodyText}>
+            {t('practiceProfile3ShortTermDesc')}
+          </Text>
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>• {t('practiceProfile3ShortPoint1')}</Text>
+            <Text style={styles.bulletPoint}>• {t('practiceProfile3ShortPoint2')}</Text>
+            <Text style={styles.bulletPoint}>• {t('practiceProfile3ShortPoint3')}</Text>
+          </View>
+
+          <Text style={styles.emphasisText}>
+            {t('practiceProfile3Example')}
+          </Text>
+          <Text style={styles.bodyText}>
+            {t('practiceProfile3ExampleDesc')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('practiceProfile3MediumTerm')}</Text>
+          <Text style={styles.bodyText}>
+            {t('practiceProfile3MediumTermDesc')}
+          </Text>
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>✔ {t('practiceProfile3MediumPoint1')}</Text>
+            <Text style={styles.bulletPoint}>✔ {t('practiceProfile3MediumPoint2')}</Text>
+            <Text style={styles.bulletPoint}>✔ {t('practiceProfile3MediumPoint3')}</Text>
+          </View>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('practiceProfile3LongTerm')}</Text>
+          <Text style={styles.bodyText}>
+            {t('practiceProfile3LongTermDesc')}
+          </Text>
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>✔ {t('practiceProfile3LongPoint1')}</Text>
+            <Text style={styles.bulletPoint}>✔ {t('practiceProfile3LongPoint2')}</Text>
+            <Text style={styles.bulletPoint}>✔ {t('practiceProfile3LongPoint3')}</Text>
+            <Text style={styles.bulletPoint}>✔ {t('practiceProfile3LongPoint4')}</Text>
+            <Text style={styles.bulletPoint}>✔ {t('practiceProfile3LongPoint5')}</Text>
+            <Text style={styles.bulletPoint}>✔ {t('practiceProfile3LongPoint6')}</Text>
+          </View>
         </LinearGradient>
       </View>
     </View>
@@ -1456,5 +1641,33 @@ const styles = StyleSheet.create({
     color: '#000',
     textAlign: 'center',
     fontWeight: '600',
+  },
+  tableContainer: {
+    marginVertical: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  tableHeader: {
+    flex: 1,
+    padding: 12,
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+    backgroundColor: colors.primary + '20',
+    textAlign: 'center',
+  },
+  tableCell: {
+    flex: 1,
+    padding: 12,
+    fontSize: 14,
+    color: colors.text,
+    textAlign: 'center',
   },
 });
