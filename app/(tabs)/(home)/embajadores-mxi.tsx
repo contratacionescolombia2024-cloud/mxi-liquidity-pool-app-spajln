@@ -333,6 +333,20 @@ export default function EmbajadoresMXIScreen() {
             Bonos acumulativos disponibles
           </Text>
 
+          {!canWithdraw() && withdrawableBonus > 0 && (
+            <View style={styles.warningBox}>
+              <IconSymbol 
+                ios_icon_name="exclamationmark.triangle.fill" 
+                android_material_icon_name="warning" 
+                size={20} 
+                color={colors.warning} 
+              />
+              <Text style={styles.warningText}>
+                Debes cumplir todos los requisitos para retirar
+              </Text>
+            </View>
+          )}
+
           {withdrawableBonus > 0 && canWithdraw() && !showWithdrawModal && (
             <TouchableOpacity
               style={[buttonStyles.primary, styles.withdrawButton]}
@@ -405,7 +419,7 @@ export default function EmbajadoresMXIScreen() {
                 <View style={styles.levelItemHeader}>
                   <View style={styles.levelItemLeft}>
                     <Text style={styles.levelItemEmoji}>{level.emoji}</Text>
-                    <View>
+                    <View style={styles.levelItemInfo}>
                       <Text style={[styles.levelItemName, !isAchieved && styles.levelItemNameInactive]}>
                         {level.name}
                       </Text>
@@ -414,19 +428,26 @@ export default function EmbajadoresMXIScreen() {
                       </Text>
                     </View>
                   </View>
-                  <View style={styles.levelItemRight}>
-                    <Text style={[styles.levelItemBonus, !isAchieved && styles.levelItemBonusInactive]}>
-                      +{level.bonus} USDT
-                    </Text>
-                    {isAchieved && (
+                </View>
+                
+                {/* Bonus and Status Row - Separate from header for better spacing */}
+                <View style={styles.levelItemFooter}>
+                  <Text style={[styles.levelItemBonus, !isAchieved && styles.levelItemBonusInactive]}>
+                    +{level.bonus.toLocaleString('es-ES')} USDT
+                  </Text>
+                  {isAchieved && (
+                    <View style={styles.levelItemStatus}>
                       <IconSymbol 
                         ios_icon_name={isWithdrawn ? "checkmark.circle.fill" : "circle"} 
                         android_material_icon_name={isWithdrawn ? "check_circle" : "radio_button_unchecked"} 
                         size={20} 
                         color={isWithdrawn ? colors.success : colors.primary} 
                       />
-                    )}
-                  </View>
+                      <Text style={[styles.levelItemStatusText, { color: isWithdrawn ? colors.success : colors.primary }]}>
+                        {isWithdrawn ? 'Retirado' : 'Disponible'}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </View>
             );
@@ -510,6 +531,9 @@ export default function EmbajadoresMXIScreen() {
             </Text>
             <Text style={styles.infoItem}>
               • Solo compras en preventa pagadas en USDT
+            </Text>
+            <Text style={styles.infoItem}>
+              • El administrador procesará tu retiro en 24-48 horas
             </Text>
           </View>
         </View>
@@ -697,6 +721,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
   },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.warning + '20',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  warningText: {
+    fontSize: 13,
+    color: colors.warning,
+    flex: 1,
+  },
   withdrawButton: {
     width: '100%',
     marginTop: 12,
@@ -748,6 +786,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 12,
   },
   levelItemLeft: {
     flexDirection: 'row',
@@ -758,29 +797,46 @@ const styles = StyleSheet.create({
   levelItemEmoji: {
     fontSize: 32,
   },
+  levelItemInfo: {
+    flex: 1,
+  },
   levelItemName: {
     fontSize: 16,
     fontWeight: '700',
     color: colors.text,
+    marginBottom: 4,
   },
   levelItemNameInactive: {
     color: colors.textSecondary,
   },
   levelItemRequirement: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.textSecondary,
   },
-  levelItemRight: {
-    alignItems: 'flex-end',
-    gap: 4,
+  levelItemFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   levelItemBonus: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: colors.success,
   },
   levelItemBonusInactive: {
     color: colors.textSecondary,
+  },
+  levelItemStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  levelItemStatusText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   requirementsCard: {
     backgroundColor: colors.primary + '10',
