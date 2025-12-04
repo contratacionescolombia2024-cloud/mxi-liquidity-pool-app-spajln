@@ -1025,7 +1025,7 @@ function VestingDiarioTab() {
   );
 }
 
-// En la Práctica Tab Content - NOW PLACEHOLDER (content moved to Seguridad Cuántica)
+// En la Práctica Tab Content - NOW WITH INVESTOR PROFILES CONTENT
 function EnLaPracticaTab() {
   const { t } = useLanguage();
   
@@ -1043,6 +1043,7 @@ function EnLaPracticaTab() {
         />
       </View>
 
+      {/* Introduction */}
       <View style={[commonStyles.card, styles.contentCard]}>
         <LinearGradient
           colors={[colors.primary + '10', colors.accent + '10']}
@@ -1051,8 +1052,150 @@ function EnLaPracticaTab() {
           style={styles.contentGradient}
         >
           <Text style={styles.bodyText}>
-            In Practice content coming soon...
+            {t('investorProfilesIntro')}
           </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Investor Profile 1: Basic Investor */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={['#4A90E2' + '20', '#4A90E2' + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.investorTitle}>
+            {t('basicInvestorTitle')}
+          </Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.sectionSubtitle}>{t('shortTermLabel')}</Text>
+          <Text style={styles.bodyText}>{t('basicInvestorShortTerm')}</Text>
+          
+          <Text style={styles.bodyText}>{t('basicInvestorTable')}</Text>
+          
+          <Text style={styles.bodyText}>{t('basicInvestorExample')}</Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.sectionSubtitle}>{t('mediumTermLabel')}</Text>
+          <Text style={styles.bodyText}>{t('basicInvestorMediumTerm')}</Text>
+          
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>{t('basicInvestorMediumPoint1')}</Text>
+            <Text style={styles.bulletPoint}>{t('basicInvestorMediumPoint2')}</Text>
+            <Text style={styles.bulletPoint}>{t('basicInvestorMediumPoint3')}</Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.sectionSubtitle}>{t('longTermLabel')}</Text>
+          <Text style={styles.bodyText}>{t('basicInvestorLongTerm')}</Text>
+          
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>{t('basicInvestorLongPoint1')}</Text>
+            <Text style={styles.bulletPoint}>{t('basicInvestorLongPoint2')}</Text>
+            <Text style={styles.bulletPoint}>{t('basicInvestorLongPoint3')}</Text>
+          </View>
+        </LinearGradient>
+      </View>
+
+      {/* Investor Profile 2: Participative Investor */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={['#50C878' + '20', '#50C878' + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.investorTitle}>
+            {t('participativeInvestorTitle')}
+          </Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.sectionSubtitle}>{t('shortTermLabel')}</Text>
+          <Text style={styles.bodyText}>{t('participativeInvestorShortTerm')}</Text>
+          
+          <Text style={styles.emphasisText}>{t('referralBonusLabel')}</Text>
+          <Text style={styles.bodyText}>{t('participativeInvestorBonus')}</Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.sectionSubtitle}>{t('mediumTermLabel')}</Text>
+          <Text style={styles.bodyText}>{t('participativeInvestorMediumTerm')}</Text>
+          
+          <Text style={styles.bodyText}>{t('participativeInvestorExample')}</Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.sectionSubtitle}>{t('longTermLabel')}</Text>
+          <Text style={styles.bodyText}>{t('participativeInvestorLongTerm')}</Text>
+          
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>{t('participativeInvestorLongPoint1')}</Text>
+            <Text style={styles.bulletPoint}>{t('participativeInvestorLongPoint2')}</Text>
+            <Text style={styles.bulletPoint}>{t('participativeInvestorLongPoint3')}</Text>
+          </View>
+          
+          <Text style={styles.emphasisText}>{t('participativeInvestorConclusion')}</Text>
+        </LinearGradient>
+      </View>
+
+      {/* Investor Profile 3: Strategic Investor */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={['#FF8C42' + '20', '#FF8C42' + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.investorTitle}>
+            {t('strategicInvestorTitle')}
+          </Text>
+          
+          <Text style={styles.bodyText}>{t('strategicInvestorIntro')}</Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.sectionSubtitle}>{t('shortTermLabel')}</Text>
+          <Text style={styles.bodyText}>{t('strategicInvestorShortTerm')}</Text>
+          
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>{t('strategicInvestorChallengePoint1')}</Text>
+            <Text style={styles.bulletPoint}>{t('strategicInvestorChallengePoint2')}</Text>
+            <Text style={styles.bulletPoint}>{t('strategicInvestorChallengePoint3')}</Text>
+          </View>
+          
+          <Text style={styles.bodyText}>{t('strategicInvestorExample')}</Text>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.sectionSubtitle}>{t('mediumTermLabel')}</Text>
+          <Text style={styles.bodyText}>{t('strategicInvestorMediumTerm')}</Text>
+          
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>{t('strategicInvestorMediumPoint1')}</Text>
+            <Text style={styles.bulletPoint}>{t('strategicInvestorMediumPoint2')}</Text>
+            <Text style={styles.bulletPoint}>{t('strategicInvestorMediumPoint3')}</Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <Text style={styles.sectionSubtitle}>{t('longTermLabel')}</Text>
+          <Text style={styles.bodyText}>{t('strategicInvestorLongTerm')}</Text>
+          
+          <Text style={styles.emphasisText}>{t('strategicInvestorBenefits')}</Text>
+          
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>{t('strategicInvestorBenefitPoint1')}</Text>
+            <Text style={styles.bulletPoint}>{t('strategicInvestorBenefitPoint2')}</Text>
+            <Text style={styles.bulletPoint}>{t('strategicInvestorBenefitPoint3')}</Text>
+            <Text style={styles.bulletPoint}>{t('strategicInvestorBenefitPoint4')}</Text>
+            <Text style={styles.bulletPoint}>{t('strategicInvestorBenefitPoint5')}</Text>
+          </View>
         </LinearGradient>
       </View>
     </View>
@@ -1312,6 +1455,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.primary,
     marginBottom: 8,
+  },
+  investorTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 12,
   },
   divider: {
     height: 1,
