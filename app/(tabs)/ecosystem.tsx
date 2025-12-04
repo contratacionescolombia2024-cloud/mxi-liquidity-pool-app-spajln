@@ -1522,7 +1522,7 @@ function TokenomicaTab() {
   );
 }
 
-// Riesgos Tab Content - PLACEHOLDER
+// Riesgos Tab Content - UPDATED WITH NEW CONTENT
 function RiesgosTab() {
   const { t } = useLanguage();
   
@@ -1540,6 +1540,7 @@ function RiesgosTab() {
         />
       </View>
 
+      {/* Introduction */}
       <View style={[commonStyles.card, styles.contentCard]}>
         <LinearGradient
           colors={[colors.primary + '10', colors.accent + '10']}
@@ -1548,7 +1549,142 @@ function RiesgosTab() {
           style={styles.contentGradient}
         >
           <Text style={styles.bodyText}>
-            Risks content coming soon...
+            {t('risksIntro')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Risk 1: Market Volatility */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.accent + '10', colors.primary + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionSubtitle}>⚠️ {t('risk1Title')}</Text>
+          <Text style={styles.bodyText}>
+            {t('risk1Description')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Risk 2: Technological Risk */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '10', colors.accent + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionSubtitle}>🔧 {t('risk2Title')}</Text>
+          <Text style={styles.bodyText}>
+            {t('risk2Description')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Risk 3: Project Execution Risk */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.accent + '10', colors.primary + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionSubtitle}>🚧 {t('risk3Title')}</Text>
+          <Text style={styles.bodyText}>
+            {t('risk3Description')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Risk 4: Regulatory Risk */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '10', colors.accent + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionSubtitle}>⚖️ {t('risk4Title')}</Text>
+          <Text style={styles.bodyText}>
+            {t('risk4Description')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Risk 5: Liquidity Risk */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.accent + '10', colors.primary + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionSubtitle}>💧 {t('risk5Title')}</Text>
+          <Text style={styles.bodyText}>
+            {t('risk5Description')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Risk 6: Ecosystem Adoption Risk */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '10', colors.accent + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionSubtitle}>📊 {t('risk6Title')}</Text>
+          <Text style={styles.bodyText}>
+            {t('risk6Description')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Risk 7: Competitive Risk */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.accent + '10', colors.primary + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionSubtitle}>🏆 {t('risk7Title')}</Text>
+          <Text style={styles.bodyText}>
+            {t('risk7Description')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Risk 8: Community Dependence Risk */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '10', colors.accent + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionSubtitle}>👥 {t('risk8Title')}</Text>
+          <Text style={styles.bodyText}>
+            {t('risk8Description')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Risk 9: Early Investment Risk */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.accent + '10', colors.primary + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionSubtitle}>⏰ {t('risk9Title')}</Text>
+          <Text style={styles.bodyText}>
+            {t('risk9Description')}
           </Text>
         </LinearGradient>
       </View>
