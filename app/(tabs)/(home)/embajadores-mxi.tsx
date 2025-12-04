@@ -53,24 +53,61 @@ export default function EmbajadoresMXIScreen() {
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const lastUpdateRef = useRef<Date | null>(null);
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Reload data when real-time update occurs
   useEffect(() => {
     if (lastUpdate && lastUpdate !== lastUpdateRef.current) {
-      console.log('Real-time update detected, reloading ambassador data');
+      console.log('[Embajadores MXI] Real-time update detected, reloading ambassador data');
       lastUpdateRef.current = lastUpdate;
       loadAmbassadorData();
     }
   }, [lastUpdate]);
 
   useEffect(() => {
+    console.log('[Embajadores MXI] Component mounted, user:', user?.id);
+    
+    // Set a timeout to prevent infinite loading
+    loadingTimeoutRef.current = setTimeout(() => {
+      console.warn('[Embajadores MXI] Loading timeout reached, forcing loading to false');
+      if (loading) {
+        setLoading(false);
+        Alert.alert(
+          'Error de Carga',
+          'La página tardó demasiado en cargar. Por favor, intenta de nuevo.',
+          [
+            {
+              text: 'Reintentar',
+              onPress: () => loadAmbassadorData(),
+            },
+            {
+              text: 'Volver',
+              onPress: () => router.back(),
+              style: 'cancel',
+            },
+          ]
+        );
+      }
+    }, 10000); // 10 second timeout
+
     loadAmbassadorData();
+
+    return () => {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+    };
   }, [user]);
 
   const loadAmbassadorData = async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('[Embajadores MXI] No user found, skipping load');
+      setLoading(false);
+      return;
+    }
 
     try {
+      console.log('[Embajadores MXI] Starting to load ambassador data for user:', user.id);
       setLoading(true);
 
       // Call the function to update and get ambassador level
@@ -78,35 +115,48 @@ export default function EmbajadoresMXIScreen() {
         p_user_id: user.id
       });
 
+      console.log('[Embajadores MXI] RPC response:', { data, error });
+
       if (error) {
-        console.error('Error loading ambassador data:', error);
-        Alert.alert('Error', 'No se pudo cargar la información de embajador');
+        console.error('[Embajadores MXI] Error loading ambassador data:', error);
+        Alert.alert('Error', 'No se pudo cargar la información de embajador: ' + error.message);
+        setLoading(false);
         return;
       }
 
       if (data) {
+        console.log('[Embajadores MXI] Ambassador data loaded successfully:', data);
         setAmbassadorData(data as AmbassadorData);
+      } else {
+        console.warn('[Embajadores MXI] No data returned from RPC');
+        Alert.alert('Error', 'No se recibieron datos del servidor');
       }
       
       // Also refresh user data to get updated active_referrals
       if (refreshUser) {
+        console.log('[Embajadores MXI] Refreshing user data');
         await refreshUser();
       }
     } catch (error: any) {
-      console.error('Exception loading ambassador data:', error);
+      console.error('[Embajadores MXI] Exception loading ambassador data:', error);
       Alert.alert('Error', error.message || 'Ocurrió un error inesperado');
     } finally {
+      console.log('[Embajadores MXI] Finished loading, setting loading to false');
       setLoading(false);
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
     }
   };
 
   const handleManualRefresh = async () => {
+    console.log('[Embajadores MXI] Manual refresh triggered');
     setRefreshing(true);
     try {
       await loadAmbassadorData();
       Alert.alert('Actualizado', 'Los datos se han actualizado correctamente');
     } catch (error) {
-      console.error('Error refreshing:', error);
+      console.error('[Embajadores MXI] Error refreshing:', error);
     } finally {
       setRefreshing(false);
     }
@@ -179,7 +229,7 @@ export default function EmbajadoresMXIScreen() {
               });
 
               if (error) {
-                console.error('Withdrawal error:', error);
+                console.error('[Embajadores MXI] Withdrawal error:', error);
                 Alert.alert('Error', error.message || 'No se pudo procesar el retiro');
                 return;
               }
@@ -198,7 +248,7 @@ export default function EmbajadoresMXIScreen() {
               setUsdtAddress('');
               await loadAmbassadorData();
             } catch (error: any) {
-              console.error('Exception during withdrawal:', error);
+              console.error('[Embajadores MXI] Exception during withdrawal:', error);
               Alert.alert('Error', error.message || 'Ocurrió un error inesperado');
             } finally {
               setWithdrawing(false);
@@ -254,6 +304,7 @@ export default function EmbajadoresMXIScreen() {
     return null;
   };
 
+  // Show loading state
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -272,6 +323,7 @@ export default function EmbajadoresMXIScreen() {
     );
   }
 
+  // Show error state if no data
   if (!ambassadorData) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -283,7 +335,14 @@ export default function EmbajadoresMXIScreen() {
           <View style={{ width: 40 }} />
         </View>
         <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+          <IconSymbol 
+            ios_icon_name="exclamationmark.triangle.fill" 
+            android_material_icon_name="warning" 
+            size={64} 
+            color={colors.error} 
+          />
           <Text style={styles.errorText}>No se pudo cargar la información</Text>
+          <Text style={styles.errorSubtext}>Por favor, intenta de nuevo</Text>
           <TouchableOpacity style={[buttonStyles.primary, { marginTop: 20 }]} onPress={loadAmbassadorData}>
             <Text style={buttonStyles.primaryText}>Reintentar</Text>
           </TouchableOpacity>
@@ -664,9 +723,17 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   errorText: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: '600',
     color: colors.error,
     textAlign: 'center',
+    marginTop: 16,
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 8,
   },
   cardTitle: {
     fontSize: 16,
