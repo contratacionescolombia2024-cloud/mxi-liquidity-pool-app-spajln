@@ -991,7 +991,7 @@ function SostenibilidadTab() {
   );
 }
 
-// Vesting Diario Tab Content - PLACEHOLDER
+// Vesting Diario Tab Content - UPDATED WITH NEW CONTENT
 function VestingDiarioTab() {
   const { t } = useLanguage();
   
@@ -1009,6 +1009,7 @@ function VestingDiarioTab() {
         />
       </View>
 
+      {/* Introduction */}
       <View style={[commonStyles.card, styles.contentCard]}>
         <LinearGradient
           colors={[colors.primary + '10', colors.accent + '10']}
@@ -1017,7 +1018,83 @@ function VestingDiarioTab() {
           style={styles.contentGradient}
         >
           <Text style={styles.bodyText}>
-            Daily Vesting content coming soon...
+            {t('vestingDiarioIntro')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* How It Works */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.accent + '10', colors.primary + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.bodyText}>
+            {t('vestingDiarioProcess')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Guarantees */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '10', colors.accent + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.bodyText}>
+            {t('vestingDiarioGuarantees')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Transparency */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.accent + '10', colors.primary + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.bodyText}>
+            {t('vestingDiarioTransparency')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Summary - Tool Designed For */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '10', colors.accent + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionTitle}>{t('vestingDiarioSummaryTitle')}</Text>
+          
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>🛡️ {t('vestingDiarioPoint1')}</Text>
+            <Text style={styles.bulletPoint}>📈 {t('vestingDiarioPoint2')}</Text>
+            <Text style={styles.bulletPoint}>🤝 {t('vestingDiarioPoint3')}</Text>
+            <Text style={styles.bulletPoint}>🔍 {t('vestingDiarioPoint4')}</Text>
+            <Text style={styles.bulletPoint}>🔄 {t('vestingDiarioPoint5')}</Text>
+          </View>
+        </LinearGradient>
+      </View>
+
+      {/* Conclusion */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.accent + '10', colors.primary + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.emphasisText}>
+            {t('vestingDiarioConclusion')}
           </Text>
         </LinearGradient>
       </View>
