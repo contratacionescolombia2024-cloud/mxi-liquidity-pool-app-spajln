@@ -281,6 +281,19 @@ const translations = {
     sustainabilityIntro: '💎 MXI is sustainable in the long term because its economic model is based on real utility, organic growth, and community participation. Unlike speculative projects, MXI incorporates services that generate constant token movement: payments, marketplace, loans, staking, card, tools for entrepreneurs, and shared value programs. Each service feeds the ecosystem, avoiding dependence on new buyers to sustain the economy.',
     sustainabilityDecentralized: '🌍 Additionally, the decentralized approach allows the community to drive key decisions, creating an adaptable, self-sufficient system resistant to external crises. The adoption of advanced technologies such as quantum security, the modularity of its architecture, and the focus on real economy ensure that MXI evolves, expands, and remains relevant for the coming decades.',
     
+    // Vesting Diario Tab Content - NEW CONTENT
+    vestingDiarioIntro: 'Daily Vesting is a mechanism designed to protect the stability of the project during the presale and, at the same time, provide investors with a fair, predictable, and sustainable way to receive their tokens. Instead of releasing all tokens immediately—which usually generates drastic drops due to massive sales—MXI distributes allocations progressively, balanced, and transparently.',
+    vestingDiarioHowItWorks: 'From the moment a user acquires MXI in presale, their total balance is recorded in a smart contract that manages daily release. Every 24 hours, a predefined percentage of the total purchased is released automatically, allowing the user to withdraw it, transfer it, or use it within the ecosystem. This process ensures that all participants have gradual access to their tokens without saturating the market, while the project advances in development, user growth, financial services integration, and ecosystem expansion.',
+    vestingDiarioBenefits: 'The goal is to create a natural balance between supply and demand, which strengthens the token valuation and benefits early investors with a sustainable model.',
+    vestingDiarioTransparency: 'Additionally, daily vesting is part of MXI\'s commitment to transparency: each release can be audited on the blockchain, and users maintain total control over their token flow without depending on intermediaries.',
+    vestingDiarioSummaryTitle: 'In summary, daily vesting is a tool designed to:',
+    vestingDiarioBenefit1: '🛡️ Protect the token value and avoid abrupt drops.',
+    vestingDiarioBenefit2: '📈 Accompany the real growth of the ecosystem.',
+    vestingDiarioBenefit3: '🤝 Create equality among investors in the initial stage.',
+    vestingDiarioBenefit4: '🔍 Guarantee traceability and security in each release.',
+    vestingDiarioBenefit5: '🔄 Offer progressive liquidity without compromising sustainability.',
+    vestingDiarioConclusion: 'With this model, MXI builds a responsible and future-oriented scenario, where each member of the community receives their share in a balanced way, while the project develops the foundations of a real decentralized economy.',
+    
     // Quantum Security Tab Content - UPDATED CONTENT
     quantumSecurityTitle: 'Quantum Security',
     quantumSecurityIntro: '🔐 MXI will integrate quantum security through certified post-quantum algorithms, encryption techniques resistant to quantum computing, and digital identity structures impossible to breach even against advanced attacks.',
@@ -1328,6 +1341,19 @@ const translations = {
     // Sustainability Tab Content - NEW CONTENT
     sustainabilityIntro: '💎 MXI es sostenible a largo plazo porque su modelo económico se basa en utilidad real, crecimiento orgánico y participación comunitaria. A diferencia de proyectos especulativos, MXI incorpora servicios que generan movimiento constante del token: pagos, marketplace, préstamos, staking, tarjeta, herramientas para emprendedores y programas de valor compartido. Cada servicio alimenta al ecosistema, evitando la dependencia de nuevos compradores para sostener la economía.',
     sustainabilityDecentralized: '🌍 Además, el enfoque descentralizado permite que la comunidad impulse decisiones clave, creando un sistema adaptable, autosuficiente y resistente a crisis externas. La adopción de tecnologías avanzadas como la seguridad cuántica, la modularidad de su arquitectura y el enfoque en economía real garantizan que MXI evolucione, se expanda y permanezca relevante durante las próximas décadas.',
+    
+    // Vesting Diario Tab Content - NEW CONTENT
+    vestingDiarioIntro: 'El Vesting Diario es un mecanismo diseñado para proteger la estabilidad del proyecto durante la preventa y, al mismo tiempo, brindar a los inversionistas una forma justa, predecible y sostenible de recibir sus tokens. En lugar de liberar todos los tokens de inmediato —lo que suele generar caídas drásticas por ventas masivas— MXI distribuye las asignaciones de forma progresiva, equilibrada y transparente.',
+    vestingDiarioHowItWorks: 'Desde el momento en que un usuario adquiere MXI en preventa, su saldo total queda registrado en un contrato inteligente que administra la liberación diaria. Cada 24 horas, un porcentaje predefinido del total comprado se libera de forma automática, permitiendo al usuario retirarlo, transferirlo o usarlo dentro del ecosistema. Este proceso garantiza que todos los participantes tengan acceso gradual a sus tokens sin saturar el mercado, mientras el proyecto avanza en desarrollo, crecimiento de usuarios, integración de servicios financieros y expansión del ecosistema.',
+    vestingDiarioBenefits: 'El objetivo es crear un equilibrio natural entre oferta y demanda, lo que fortalece la valoración del token y beneficia a los primeros inversores con un modelo sostenible.',
+    vestingDiarioTransparency: 'Además, el vesting diario es parte del compromiso de MXI con la transparencia: cada liberación puede auditarse en la blockchain, y los usuarios mantienen el control total sobre su flujo de tokens sin depender de intermediarios.',
+    vestingDiarioSummaryTitle: 'En resumen, el vesting diario es una herramienta diseñada para:',
+    vestingDiarioBenefit1: '🛡️ Proteger el valor del token y evitar caídas abruptas.',
+    vestingDiarioBenefit2: '📈 Acompañar el crecimiento real del ecosistema.',
+    vestingDiarioBenefit3: '🤝 Crear igualdad entre los inversionistas en la etapa inicial.',
+    vestingDiarioBenefit4: '🔍 Garantizar trazabilidad y seguridad en cada liberación.',
+    vestingDiarioBenefit5: '🔄 Ofrecer liquidez progresiva sin comprometer la sostenibilidad.',
+    vestingDiarioConclusion: 'Con este modelo, MXI construye un escenario responsable y de proyección a futuro, donde cada miembro de la comunidad recibe su parte de forma equilibrada, mientras el proyecto desarrolla las bases de una economía real descentralizada.',
     
     // Quantum Security Tab Content - UPDATED CONTENT
     quantumSecurityTitle: 'Seguridad Cuántica',
@@ -2382,6 +2408,19 @@ const translations = {
     // Sustainability Tab Content - NEW CONTENT
     sustainabilityIntro: '💎 MXI é sustentável a longo prazo porque seu modelo econômico é baseado em utilidade real, crescimento orgânico e participação comunitária. Ao contrário de projetos especulativos, MXI incorpora serviços que geram movimento constante do token: pagamentos, marketplace, empréstimos, staking, cartão, ferramentas para empreendedores e programas de valor compartilhado. Cada serviço alimenta o ecossistema, evitando a dependência de novos compradores para sustentar a economia.',
     sustainabilityDecentralized: '🌍 Além disso, a abordagem descentralizada permite que a comunidade impulsione decisões-chave, criando um sistema adaptável, autossuficiente e resistente a crises externas. A adoção de tecnologias avançadas como a segurança quântica, a modularidade de sua arquitetura e o foco na economia real garantem que MXI evolua, se expanda e permaneça relevante durante as próximas décadas.',
+    
+    // Vesting Diario Tab Content - NEW CONTENT
+    vestingDiarioIntro: 'O Vesting Diário é um mecanismo projetado para proteger a estabilidade do projeto durante a pré-venda e, ao mesmo tempo, fornecer aos investidores uma forma justa, previsível e sustentável de receber seus tokens. Em vez de liberar todos os tokens imediatamente—o que geralmente gera quedas drásticas devido a vendas massivas—MXI distribui as alocações de forma progressiva, equilibrada e transparente.',
+    vestingDiarioHowItWorks: 'Desde o momento em que um usuário adquire MXI na pré-venda, seu saldo total é registrado em um contrato inteligente que gerencia a liberação diária. A cada 24 horas, uma porcentagem predefinida do total comprado é liberada automaticamente, permitindo ao usuário retirá-la, transferi-la ou usá-la dentro do ecossistema. Este processo garante que todos os participantes tenham acesso gradual aos seus tokens sem saturar o mercado, enquanto o projeto avança em desenvolvimento, crescimento de usuários, integração de serviços financeiros e expansão do ecossistema.',
+    vestingDiarioBenefits: 'O objetivo é criar um equilíbrio natural entre oferta e demanda, o que fortalece a valorização do token e beneficia os primeiros investidores com um modelo sustentável.',
+    vestingDiarioTransparency: 'Além disso, o vesting diário é parte do compromisso da MXI com a transparência: cada liberação pode ser auditada na blockchain, e os usuários mantêm o controle total sobre seu fluxo de tokens sem depender de intermediários.',
+    vestingDiarioSummaryTitle: 'Em resumo, o vesting diário é uma ferramenta projetada para:',
+    vestingDiarioBenefit1: '🛡️ Proteger o valor do token e evitar quedas abruptas.',
+    vestingDiarioBenefit2: '📈 Acompanhar o crescimento real do ecossistema.',
+    vestingDiarioBenefit3: '🤝 Criar igualdade entre os investidores na fase inicial.',
+    vestingDiarioBenefit4: '🔍 Garantir rastreabilidade e segurança em cada liberação.',
+    vestingDiarioBenefit5: '🔄 Oferecer liquidez progressiva sem comprometer a sustentabilidade.',
+    vestingDiarioConclusion: 'Com este modelo, MXI constrói um cenário responsável e de projeção futura, onde cada membro da comunidade recebe sua parte de forma equilibrada, enquanto o projeto desenvolve as bases de uma economia real descentralizada.',
     
     // Quantum Security Tab Content - UPDATED CONTENT
     quantumSecurityTitle: 'Segurança Quântica',
