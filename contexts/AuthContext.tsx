@@ -76,6 +76,7 @@ interface AuthContextType {
   register: (userData: RegisterData) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => Promise<void>;
+  refreshUser: () => Promise<void>;
   addContribution: (usdtAmount: number, transactionType: 'initial' | 'increase' | 'reinvestment') => Promise<{ success: boolean; error?: string }>;
   withdrawCommission: (amount: number, walletAddress: string) => Promise<{ success: boolean; error?: string }>;
   withdrawMXI: (amount: number, walletAddress: string) => Promise<{ success: boolean; error?: string }>;
@@ -1331,6 +1332,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const refreshUser = async () => {
+    if (user?.id) {
+      await loadUserData(user.id);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -1342,6 +1349,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
         logout,
         updateUser,
+        refreshUser,
         addContribution,
         withdrawCommission,
         withdrawMXI,

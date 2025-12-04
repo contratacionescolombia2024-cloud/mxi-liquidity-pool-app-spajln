@@ -156,7 +156,9 @@ export default function ReferralsScreen() {
           <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Referrals</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity onPress={() => refreshUser()} style={styles.refreshButton}>
+          <IconSymbol ios_icon_name="arrow.clockwise" android_material_icon_name="refresh" size={24} color={colors.primary} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -415,6 +417,12 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  refreshButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',

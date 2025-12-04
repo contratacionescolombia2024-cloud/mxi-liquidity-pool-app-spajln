@@ -42,11 +42,12 @@ interface AmbassadorData {
 }
 
 export default function EmbajadoresMXIScreen() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { lastUpdate } = useRealtime();
   const { t } = useLanguage();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [ambassadorData, setAmbassadorData] = useState<AmbassadorData | null>(null);
   const [usdtAddress, setUsdtAddress] = useState('');
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
@@ -86,11 +87,28 @@ export default function EmbajadoresMXIScreen() {
       if (data) {
         setAmbassadorData(data as AmbassadorData);
       }
+      
+      // Also refresh user data to get updated active_referrals
+      if (refreshUser) {
+        await refreshUser();
+      }
     } catch (error: any) {
       console.error('Exception loading ambassador data:', error);
       Alert.alert('Error', error.message || 'Ocurrió un error inesperado');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleManualRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await loadAmbassadorData();
+      Alert.alert('Actualizado', 'Los datos se han actualizado correctamente');
+    } catch (error) {
+      console.error('Error refreshing:', error);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -289,7 +307,13 @@ export default function EmbajadoresMXIScreen() {
           <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Embajadores MXI</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity onPress={handleManualRefresh} style={styles.refreshButton} disabled={refreshing}>
+          {refreshing ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <IconSymbol ios_icon_name="arrow.clockwise" android_material_icon_name="refresh" size={24} color={colors.primary} />
+          )}
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -614,6 +638,12 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  refreshButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
