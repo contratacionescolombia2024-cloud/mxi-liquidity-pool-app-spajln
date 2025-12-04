@@ -8,6 +8,7 @@ import {
   RefreshControl,
   Image,
   Animated,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,6 +22,7 @@ import { LanguageSelector } from '@/components/LanguageSelector';
 import VersionDisplay from '@/components/VersionDisplay';
 import Footer from '@/components/Footer';
 import { supabase } from '@/lib/supabase';
+import { useRouter } from 'expo-router';
 
 const HEADER_MAX_HEIGHT = 120;
 const HEADER_MIN_HEIGHT = 0;
@@ -261,6 +263,39 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     flex: 1,
   },
+  ambassadorButton: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    marginHorizontal: 8,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  ambassadorButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  ambassadorButtonLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  ambassadorButtonEmoji: {
+    fontSize: 32,
+  },
+  ambassadorButtonTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  ambassadorButtonSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
 });
 
 // Helper function to extract first name and first last name
@@ -288,6 +323,7 @@ const getShortName = (fullName: string): string => {
 export default function HomeScreen() {
   const { user, loading, checkWithdrawalEligibility, getPhaseInfo } = useAuth();
   const { t, language } = useLanguage();
+  const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [phaseInfo, setPhaseInfo] = useState<any>({
     currentPhase: 1,
@@ -690,6 +726,30 @@ export default function HomeScreen() {
 
         {/* Yield Display */}
         <YieldDisplay />
+
+        {/* Embajadores MXI Button */}
+        <TouchableOpacity
+          style={styles.ambassadorButton}
+          onPress={() => router.push('/(tabs)/(home)/embajadores-mxi')}
+        >
+          <View style={styles.ambassadorButtonContent}>
+            <View style={styles.ambassadorButtonLeft}>
+              <Text style={styles.ambassadorButtonEmoji}>🏆</Text>
+              <View>
+                <Text style={styles.ambassadorButtonTitle}>Embajadores MXI</Text>
+                <Text style={styles.ambassadorButtonSubtitle}>
+                  Gana bonos por tus referidos
+                </Text>
+              </View>
+            </View>
+            <IconSymbol 
+              ios_icon_name="chevron.right" 
+              android_material_icon_name="chevron_right" 
+              size={24} 
+              color={colors.primary} 
+            />
+          </View>
+        </TouchableOpacity>
 
         {/* Footer */}
         <Footer />

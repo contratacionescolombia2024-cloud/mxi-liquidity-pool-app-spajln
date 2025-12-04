@@ -145,6 +145,30 @@ export default function ReferralsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Embajadores MXI Button */}
+        <TouchableOpacity
+          style={styles.ambassadorButton}
+          onPress={() => router.push('/(tabs)/(home)/embajadores-mxi')}
+        >
+          <View style={styles.ambassadorButtonContent}>
+            <View style={styles.ambassadorButtonLeft}>
+              <Text style={styles.ambassadorButtonEmoji}>🏆</Text>
+              <View>
+                <Text style={styles.ambassadorButtonTitle}>Embajadores MXI</Text>
+                <Text style={styles.ambassadorButtonSubtitle}>
+                  Gana bonos adicionales por tus referidos
+                </Text>
+              </View>
+            </View>
+            <IconSymbol 
+              ios_icon_name="chevron.right" 
+              android_material_icon_name="chevron_right" 
+              size={24} 
+              color={colors.primary} 
+            />
+          </View>
+        </TouchableOpacity>
+
         {/* Referral Code Card */}
         <View style={[commonStyles.card, styles.codeCard]}>
           <View style={styles.codeHeader}>
@@ -623,5 +647,37 @@ const styles = StyleSheet.create({
   requirementText: {
     fontSize: 12,
     color: colors.textSecondary,
+  },
+  ambassadorButton: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  ambassadorButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  ambassadorButtonLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  ambassadorButtonEmoji: {
+    fontSize: 32,
+  },
+  ambassadorButtonTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  ambassadorButtonSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
 });

@@ -876,6 +876,16 @@ export default function AdminDashboard() {
               </View>
               <Text style={styles.actionLabel}>Configuración</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => router.push('/(tabs)/(admin)/ambassador-withdrawals')}
+            >
+              <View style={[styles.actionIcon, { backgroundColor: colors.primary + '20' }]}>
+                <IconSymbol ios_icon_name="trophy.fill" android_material_icon_name="emoji_events" size={24} color={colors.primary} />
+              </View>
+              <Text style={styles.actionLabel}>Bonos Embajadores</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
