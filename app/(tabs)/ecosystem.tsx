@@ -1279,7 +1279,7 @@ function EnLaPracticaTab() {
   );
 }
 
-// Tokenómica Tab Content - PLACEHOLDER
+// Tokenómica Tab Content - UPDATED WITH NEW CONTENT
 function TokenomicaTab() {
   const { t } = useLanguage();
   
@@ -1297,6 +1297,7 @@ function TokenomicaTab() {
         />
       </View>
 
+      {/* Introduction */}
       <View style={[commonStyles.card, styles.contentCard]}>
         <LinearGradient
           colors={[colors.primary + '10', colors.accent + '10']}
@@ -1305,7 +1306,215 @@ function TokenomicaTab() {
           style={styles.contentGradient}
         >
           <Text style={styles.bodyText}>
-            Tokenomics content coming soon...
+            {t('tokenomicsIntro')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Section 1: Hybrid Model Structure */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.accent + '10', colors.primary + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionTitle}>{t('tokenomicsSection1Title')}</Text>
+          <Text style={styles.bodyText}>
+            {t('tokenomicsSection1Intro')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('tokenomicsSection1ATitle')}</Text>
+          <Text style={styles.bodyText}>
+            {t('tokenomicsSection1ADesc')}
+          </Text>
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>• {t('tokenomicsSection1APoint1')}</Text>
+            <Text style={styles.bulletPoint}>• {t('tokenomicsSection1APoint2')}</Text>
+            <Text style={styles.bulletPoint}>• {t('tokenomicsSection1APoint3')}</Text>
+          </View>
+          <Text style={styles.emphasisText}>
+            {t('tokenomicsSection1ABenefit')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('tokenomicsSection1BTitle')}</Text>
+          <Text style={styles.bodyText}>
+            {t('tokenomicsSection1BDesc')}
+          </Text>
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>• {t('tokenomicsSection1BPoint1')}</Text>
+            <Text style={styles.bulletPoint}>• {t('tokenomicsSection1BPoint2')}</Text>
+          </View>
+          <Text style={styles.emphasisText}>
+            {t('tokenomicsSection1BModel')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('tokenomicsSection1CTitle')}</Text>
+          <Text style={styles.bodyText}>
+            {t('tokenomicsSection1CDesc')}
+          </Text>
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>• {t('tokenomicsSection1CPoint1')}</Text>
+            <Text style={styles.bulletPoint}>• {t('tokenomicsSection1CPoint2')}</Text>
+            <Text style={styles.bulletPoint}>• {t('tokenomicsSection1CPoint3')}</Text>
+            <Text style={styles.bulletPoint}>• {t('tokenomicsSection1CPoint4')}</Text>
+            <Text style={styles.bulletPoint}>• {t('tokenomicsSection1CPoint5')}</Text>
+          </View>
+          <Text style={styles.emphasisText}>
+            {t('tokenomicsSection1CUtility')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Section 2: Model Advantages with Projected Figures */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '10', colors.accent + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionTitle}>{t('tokenomicsSection2Title')}</Text>
+          <Text style={styles.bodyText}>
+            {t('tokenomicsSection2Intro')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('tokenomicsSection2TableTitle')}</Text>
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>• {t('tokenomicsSection2Phase1')}</Text>
+            <Text style={styles.bulletPoint}>• {t('tokenomicsSection2Phase2')}</Text>
+            <Text style={styles.bulletPoint}>• {t('tokenomicsSection2Phase3')}</Text>
+            <Text style={styles.bulletPoint}>• {t('tokenomicsSection2Listing')}</Text>
+          </View>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('tokenomicsSection2ProjectionTitle')}</Text>
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>• {t('tokenomicsSection2Projection1')}</Text>
+            <Text style={styles.bulletPoint}>• {t('tokenomicsSection2Projection2')}</Text>
+            <Text style={styles.bulletPoint}>• {t('tokenomicsSection2Projection3')}</Text>
+          </View>
+
+          <Text style={styles.emphasisText}>
+            {t('tokenomicsSection2Conclusion')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Section 3: Why Superior to Other Cryptocurrencies */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.accent + '10', colors.primary + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionTitle}>{t('tokenomicsSection3Title')}</Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>🟠 {t('tokenomicsSection3BTCTitle')}</Text>
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>✔ {t('tokenomicsSection3BTCPro1')}</Text>
+            <Text style={styles.bulletPoint}>✖ {t('tokenomicsSection3BTCCon1')}</Text>
+            <Text style={styles.bulletPoint}>✖ {t('tokenomicsSection3BTCCon2')}</Text>
+          </View>
+          <Text style={styles.emphasisText}>
+            → {t('tokenomicsSection3BTCConclusion')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>🔵 {t('tokenomicsSection3ETHTitle')}</Text>
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>✔ {t('tokenomicsSection3ETHPro1')}</Text>
+            <Text style={styles.bulletPoint}>✖ {t('tokenomicsSection3ETHCon1')}</Text>
+          </View>
+          <Text style={styles.emphasisText}>
+            → {t('tokenomicsSection3ETHConclusion')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>🟣 {t('tokenomicsSection3ADATitle')}</Text>
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>✔ {t('tokenomicsSection3ADAPro1')}</Text>
+            <Text style={styles.bulletPoint}>✖ {t('tokenomicsSection3ADACon1')}</Text>
+          </View>
+          <Text style={styles.emphasisText}>
+            → {t('tokenomicsSection3ADAConclusion')}
+          </Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>🟡 {t('tokenomicsSection3SOLTitle')}</Text>
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>✔ {t('tokenomicsSection3SOLPro1')}</Text>
+            <Text style={styles.bulletPoint}>✖ {t('tokenomicsSection3SOLCon1')}</Text>
+          </View>
+          <Text style={styles.emphasisText}>
+            → {t('tokenomicsSection3SOLConclusion')}
+          </Text>
+        </LinearGradient>
+      </View>
+
+      {/* Section 4: Direct Benefits for Investors */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.primary + '10', colors.accent + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionTitle}>{t('tokenomicsSection4Title')}</Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('tokenomicsSection4ShortTerm')}</Text>
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>• {t('tokenomicsSection4ShortPoint1')}</Text>
+            <Text style={styles.bulletPoint}>• {t('tokenomicsSection4ShortPoint2')}</Text>
+          </View>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('tokenomicsSection4MediumTerm')}</Text>
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>• {t('tokenomicsSection4MediumPoint1')}</Text>
+            <Text style={styles.bulletPoint}>• {t('tokenomicsSection4MediumPoint2')}</Text>
+          </View>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionSubtitle}>{t('tokenomicsSection4LongTerm')}</Text>
+          <View style={styles.bulletList}>
+            <Text style={styles.bulletPoint}>• {t('tokenomicsSection4LongPoint1')}</Text>
+            <Text style={styles.bulletPoint}>• {t('tokenomicsSection4LongPoint2')}</Text>
+            <Text style={styles.bulletPoint}>• {t('tokenomicsSection4LongPoint3')}</Text>
+          </View>
+        </LinearGradient>
+      </View>
+
+      {/* Conclusion */}
+      <View style={[commonStyles.card, styles.contentCard]}>
+        <LinearGradient
+          colors={[colors.accent + '10', colors.primary + '10']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.contentGradient}
+        >
+          <Text style={styles.sectionTitle}>🔵 {t('tokenomicsConclusionTitle')}</Text>
+          <Text style={styles.emphasisText}>
+            {t('tokenomicsConclusionText')}
           </Text>
         </LinearGradient>
       </View>
