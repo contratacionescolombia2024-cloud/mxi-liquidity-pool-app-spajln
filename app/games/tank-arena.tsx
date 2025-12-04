@@ -14,6 +14,7 @@ import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const ARENA_SIZE = Math.min(SCREEN_WIDTH, SCREEN_HEIGHT * 0.6) - 40;
@@ -58,7 +59,10 @@ export default function TankArenaGame() {
   const [myTankId, setMyTankId] = useState<string>('');
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
   const [gameOver, setGameOver] = useState(false);
+  const [gameStarted, setGameStarted] = useState(false);
+  const [playersReady, setPlayersReady] = useState<Set<string>>(new Set());
   const gameLoopRef = useRef<NodeJS.Timeout | null>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
     console.log('[TankArena] Game started with sessionId:', sessionId);
@@ -67,15 +71,19 @@ export default function TankArenaGame() {
       if (gameLoopRef.current) {
         clearInterval(gameLoopRef.current);
       }
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
   }, []);
 
   useEffect(() => {
-    if (timeLeft <= 0 && !gameOver) {
+    if (timeLeft <= 0 && !gameOver && gameStarted) {
       console.log('[TankArena] Game time expired');
       endGame();
     }
-  }, [timeLeft]);
+  }, [timeLeft, gameStarted]);
 
   const initializeGame = async () => {
     try {
@@ -110,22 +118,29 @@ export default function TankArenaGame() {
       setTanks(initialTanks);
       setMyTankId(user?.id || '');
 
-      // Initialize walls
+      // Initialize walls (same seed for all players)
       const initialWalls: Wall[] = [];
+      const seed = parseInt(sessionId?.toString().slice(0, 8) || '0', 16);
+      let random = seed;
+      const seededRandom = () => {
+        random = (random * 9301 + 49297) % 233280;
+        return random / 233280;
+      };
+
       for (let i = 0; i < 15; i++) {
         initialWalls.push({
-          x: Math.random() * (ARENA_SIZE - WALL_SIZE),
-          y: Math.random() * (ARENA_SIZE - WALL_SIZE),
+          x: seededRandom() * (ARENA_SIZE - WALL_SIZE),
+          y: seededRandom() * (ARENA_SIZE - WALL_SIZE),
           health: 3,
         });
       }
       setWalls(initialWalls);
 
-      // Start game loop
-      gameLoopRef.current = setInterval(() => {
-        updateGame();
-        setTimeLeft(prev => Math.max(0, prev - 1));
-      }, 1000);
+      // Set up real-time channel
+      await setupRealtimeChannel();
+
+      // Mark player as ready
+      await broadcastPlayerReady();
 
       console.log('[TankArena] Game initialized successfully');
     } catch (error) {
@@ -134,6 +149,108 @@ export default function TankArenaGame() {
       router.back();
     }
   };
+
+  const setupRealtimeChannel = async () => {
+    if (channelRef.current?.state === 'subscribed') {
+      console.log('Already subscribed to game channel');
+      return;
+    }
+
+    const channel = supabase.channel(`game:${sessionId}:state`, {
+      config: {
+        broadcast: { self: false, ack: true },
+        presence: { key: user?.id },
+        private: false,
+      },
+    });
+
+    channelRef.current = channel;
+
+    channel
+      .on('broadcast', { event: 'player_ready' }, (payload: any) => {
+        console.log('Player ready:', payload);
+        setPlayersReady(prev => new Set([...prev, payload.playerId]));
+      })
+      .on('broadcast', { event: 'game_start' }, (payload: any) => {
+        console.log('Game starting!');
+        setGameStarted(true);
+        startGameLoop();
+      })
+      .on('broadcast', { event: 'tank_moved' }, (payload: any) => {
+        if (payload.tankId !== myTankId) {
+          setTanks(prevTanks =>
+            prevTanks.map(t =>
+              t.id === payload.tankId
+                ? { ...t, x: payload.x, y: payload.y, angle: payload.angle }
+                : t
+            )
+          );
+        }
+      })
+      .on('broadcast', { event: 'bullet_fired' }, (payload: any) => {
+        setBullets(prev => [...prev, payload.bullet]);
+      })
+      .on('broadcast', { event: 'tank_hit' }, (payload: any) => {
+        setTanks(prevTanks =>
+          prevTanks.map(t =>
+            t.id === payload.tankId
+              ? { ...t, health: payload.newHealth, damageTaken: payload.damageTaken }
+              : t.id === payload.shooterId
+              ? { ...t, eliminations: t.eliminations + (payload.newHealth <= 0 ? 1 : 0) }
+              : t
+          )
+        );
+      })
+      .subscribe(async (status, err) => {
+        console.log('Game channel subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Connected to game channel');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Game channel error:', err);
+        }
+      });
+  };
+
+  const broadcastPlayerReady = async () => {
+    if (!channelRef.current) return;
+
+    await channelRef.current.send({
+      type: 'broadcast',
+      event: 'player_ready',
+      payload: { playerId: myTankId },
+    });
+  };
+
+  const startGameLoop = () => {
+    if (gameLoopRef.current) return;
+
+    gameLoopRef.current = setInterval(() => {
+      updateGame();
+      setTimeLeft(prev => Math.max(0, prev - 1));
+    }, 1000);
+  };
+
+  // Check if all players are ready and start game
+  useEffect(() => {
+    const checkAllPlayersReady = async () => {
+      if (playersReady.size === tanks.length && tanks.length > 0 && !gameStarted) {
+        // Only the first player starts the game
+        const sortedTanks = [...tanks].sort((a, b) => a.id.localeCompare(b.id));
+        if (sortedTanks[0].id === myTankId) {
+          console.log('All players ready! Starting game...');
+          await channelRef.current?.send({
+            type: 'broadcast',
+            event: 'game_start',
+            payload: { timestamp: Date.now() },
+          });
+          setGameStarted(true);
+          startGameLoop();
+        }
+      }
+    };
+
+    checkAllPlayersReady();
+  }, [playersReady, tanks, gameStarted, myTankId]);
 
   const updateGame = () => {
     // Update bullets
@@ -152,99 +269,97 @@ export default function TankArenaGame() {
         );
     });
 
-    // Check collisions
+    // Check collisions (simplified for demo)
     checkCollisions();
   };
 
-  const checkCollisions = () => {
-    setBullets(prevBullets => {
-      let remainingBullets = [...prevBullets];
-      
-      setTanks(prevTanks => {
-        let updatedTanks = [...prevTanks];
-        
-        remainingBullets = remainingBullets.filter(bullet => {
-          let bulletHit = false;
+  const checkCollisions = async () => {
+    // Simplified collision detection
+    bullets.forEach(async bullet => {
+      tanks.forEach(async tank => {
+        if (tank.id !== bullet.ownerId && tank.health > 0) {
+          const dx = bullet.x - tank.x;
+          const dy = bullet.y - tank.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
           
-          updatedTanks = updatedTanks.map(tank => {
-            if (tank.id !== bullet.ownerId && tank.health > 0) {
-              const dx = bullet.x - tank.x;
-              const dy = bullet.y - tank.y;
-              const distance = Math.sqrt(dx * dx + dy * dy);
-              
-              if (distance < TANK_SIZE / 2) {
-                bulletHit = true;
-                const newHealth = Math.max(0, tank.health - 25);
-                
-                if (newHealth === 0) {
-                  // Tank eliminated
-                  const shooterTank = updatedTanks.find(t => t.id === bullet.ownerId);
-                  if (shooterTank) {
-                    return updatedTanks.map(t => 
-                      t.id === bullet.ownerId 
-                        ? { ...t, eliminations: t.eliminations + 1 }
-                        : t
-                    );
-                  }
-                }
-                
-                return {
-                  ...tank,
-                  health: newHealth,
-                  damageTaken: tank.damageTaken + 25,
-                };
-              }
-            }
-            return tank;
-          });
-          
-          return !bulletHit;
-        });
-        
-        return updatedTanks;
+          if (distance < TANK_SIZE / 2) {
+            const newHealth = Math.max(0, tank.health - 25);
+            const newDamageTaken = tank.damageTaken + 25;
+            
+            // Broadcast hit
+            await channelRef.current?.send({
+              type: 'broadcast',
+              event: 'tank_hit',
+              payload: {
+                tankId: tank.id,
+                shooterId: bullet.ownerId,
+                newHealth,
+                damageTaken: newDamageTaken,
+              },
+            });
+            
+            // Remove bullet
+            setBullets(prev => prev.filter(b => b.id !== bullet.id));
+          }
+        }
       });
-      
-      return remainingBullets;
     });
   };
 
-  const moveTank = (direction: 'up' | 'down' | 'left' | 'right') => {
-    setTanks(prevTanks => 
-      prevTanks.map(tank => {
-        if (tank.id === myTankId && tank.health > 0) {
-          let newX = tank.x;
-          let newY = tank.y;
-          let newAngle = tank.angle;
-          
-          const speed = 10;
-          
-          switch (direction) {
-            case 'up':
-              newY = Math.max(0, tank.y - speed);
-              newAngle = 270;
-              break;
-            case 'down':
-              newY = Math.min(ARENA_SIZE - TANK_SIZE, tank.y + speed);
-              newAngle = 90;
-              break;
-            case 'left':
-              newX = Math.max(0, tank.x - speed);
-              newAngle = 180;
-              break;
-            case 'right':
-              newX = Math.min(ARENA_SIZE - TANK_SIZE, tank.x + speed);
-              newAngle = 0;
-              break;
-          }
-          
-          return { ...tank, x: newX, y: newY, angle: newAngle };
-        }
-        return tank;
-      })
+  const moveTank = async (direction: 'up' | 'down' | 'left' | 'right') => {
+    if (!gameStarted) return;
+
+    const myTank = tanks.find(t => t.id === myTankId);
+    if (!myTank || myTank.health <= 0) return;
+
+    let newX = myTank.x;
+    let newY = myTank.y;
+    let newAngle = myTank.angle;
+    
+    const speed = 10;
+    
+    switch (direction) {
+      case 'up':
+        newY = Math.max(0, myTank.y - speed);
+        newAngle = 270;
+        break;
+      case 'down':
+        newY = Math.min(ARENA_SIZE - TANK_SIZE, myTank.y + speed);
+        newAngle = 90;
+        break;
+      case 'left':
+        newX = Math.max(0, myTank.x - speed);
+        newAngle = 180;
+        break;
+      case 'right':
+        newX = Math.min(ARENA_SIZE - TANK_SIZE, myTank.x + speed);
+        newAngle = 0;
+        break;
+    }
+    
+    // Update local state
+    setTanks(prevTanks =>
+      prevTanks.map(tank =>
+        tank.id === myTankId ? { ...tank, x: newX, y: newY, angle: newAngle } : tank
+      )
     );
+
+    // Broadcast movement
+    await channelRef.current?.send({
+      type: 'broadcast',
+      event: 'tank_moved',
+      payload: {
+        tankId: myTankId,
+        x: newX,
+        y: newY,
+        angle: newAngle,
+      },
+    });
   };
 
-  const shoot = () => {
+  const shoot = async () => {
+    if (!gameStarted) return;
+
     const myTank = tanks.find(t => t.id === myTankId);
     if (!myTank || myTank.health <= 0) return;
     
@@ -260,7 +375,15 @@ export default function TankArenaGame() {
       ownerId: myTankId,
     };
     
+    // Update local state
     setBullets(prev => [...prev, newBullet]);
+
+    // Broadcast bullet
+    await channelRef.current?.send({
+      type: 'broadcast',
+      event: 'bullet_fired',
+      payload: { bullet: newBullet },
+    });
   };
 
   const endGame = async () => {
@@ -337,7 +460,7 @@ export default function TankArenaGame() {
           .eq('user_id', tank.id);
       }
 
-      // Award prize to winner (100% of pool)
+      // Award prize to winner (90% of pool)
       const { data: session } = await supabase
         .from('game_sessions')
         .select('prize_amount')
@@ -418,6 +541,13 @@ export default function TankArenaGame() {
             <Text style={styles.statText}>Salud: {myTank.health}%</Text>
           )}
         </View>
+        {!gameStarted && (
+          <View style={styles.waitingContainer}>
+            <Text style={styles.waitingText}>
+              Esperando jugadores... ({playersReady.size}/{tanks.length})
+            </Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.arenaContainer}>
@@ -479,7 +609,7 @@ export default function TankArenaGame() {
         </View>
       </View>
 
-      {myTank && myTank.health > 0 && !gameOver && (
+      {myTank && myTank.health > 0 && !gameOver && gameStarted && (
         <View style={styles.controls}>
           <View style={styles.dpadContainer}>
             <TouchableOpacity 
@@ -564,6 +694,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
+  },
+  waitingContainer: {
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  waitingText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
   },
   arenaContainer: {
     flex: 1,
