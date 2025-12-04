@@ -14,6 +14,7 @@ import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const ARENA_SIZE = Math.min(SCREEN_WIDTH, SCREEN_HEIGHT * 0.6) - 40;
@@ -46,6 +47,14 @@ interface Block {
   destroyed: boolean;
 }
 
+interface GameState {
+  players: Player[];
+  bombs: Bomb[];
+  blocks: Block[];
+  timeLeft: number;
+  gameStarted: boolean;
+}
+
 export default function BombRunnerGame() {
   const router = useRouter();
   const { user } = useAuth();
@@ -56,20 +65,27 @@ export default function BombRunnerGame() {
   const [myPlayerId, setMyPlayerId] = useState<string>('');
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
   const [gameOver, setGameOver] = useState(false);
+  const [gameStarted, setGameStarted] = useState(false);
+  const [playersReady, setPlayersReady] = useState<Set<string>>(new Set());
   const gameLoopRef = useRef<NodeJS.Timeout | null>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
     initializeGame();
     return () => {
       if (gameLoopRef.current) clearInterval(gameLoopRef.current);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
   }, []);
 
   useEffect(() => {
-    if (timeLeft <= 0 && !gameOver) {
+    if (timeLeft <= 0 && !gameOver && gameStarted) {
       endGame();
     }
-  }, [timeLeft]);
+  }, [timeLeft, gameStarted]);
 
   const initializeGame = async () => {
     try {
@@ -94,12 +110,21 @@ export default function BombRunnerGame() {
       setPlayers(initialPlayers);
       setMyPlayerId(user?.id || '');
 
-      // Initialize blocks
+      // Initialize blocks (same seed for all players)
       const initialBlocks: Block[] = [];
       const gridSize = Math.floor(ARENA_SIZE / BLOCK_SIZE);
+      
+      // Use session ID as seed for consistent block generation
+      const seed = parseInt(sessionId?.toString().slice(0, 8) || '0', 16);
+      let random = seed;
+      const seededRandom = () => {
+        random = (random * 9301 + 49297) % 233280;
+        return random / 233280;
+      };
+
       for (let i = 0; i < gridSize; i++) {
         for (let j = 0; j < gridSize; j++) {
-          if (Math.random() > 0.3) {
+          if (seededRandom() > 0.3) {
             initialBlocks.push({
               x: i * BLOCK_SIZE,
               y: j * BLOCK_SIZE,
@@ -110,15 +135,118 @@ export default function BombRunnerGame() {
       }
       setBlocks(initialBlocks);
 
-      gameLoopRef.current = setInterval(() => {
-        updateGame();
-        setTimeLeft(prev => Math.max(0, prev - 1));
-      }, 1000);
+      // Set up real-time channel
+      await setupRealtimeChannel(initialPlayers, initialBlocks);
+
+      // Mark player as ready
+      await broadcastPlayerReady();
 
     } catch (error) {
       console.error('Error initializing game:', error);
+      Alert.alert('Error', 'No se pudo inicializar el juego');
     }
   };
+
+  const setupRealtimeChannel = async (initialPlayers: Player[], initialBlocks: Block[]) => {
+    if (channelRef.current?.state === 'subscribed') {
+      console.log('Already subscribed to game channel');
+      return;
+    }
+
+    const channel = supabase.channel(`game:${sessionId}:state`, {
+      config: {
+        broadcast: { self: false, ack: true },
+        presence: { key: user?.id },
+        private: false,
+      },
+    });
+
+    channelRef.current = channel;
+
+    channel
+      .on('broadcast', { event: 'player_ready' }, (payload: any) => {
+        console.log('Player ready:', payload);
+        setPlayersReady(prev => new Set([...prev, payload.playerId]));
+      })
+      .on('broadcast', { event: 'game_start' }, (payload: any) => {
+        console.log('Game starting!');
+        setGameStarted(true);
+        startGameLoop();
+      })
+      .on('broadcast', { event: 'player_moved' }, (payload: any) => {
+        if (payload.playerId !== myPlayerId) {
+          setPlayers(prevPlayers =>
+            prevPlayers.map(p =>
+              p.id === payload.playerId
+                ? { ...p, x: payload.x, y: payload.y }
+                : p
+            )
+          );
+        }
+      })
+      .on('broadcast', { event: 'bomb_placed' }, (payload: any) => {
+        setBombs(prev => [...prev, payload.bomb]);
+      })
+      .on('broadcast', { event: 'bomb_exploded' }, (payload: any) => {
+        handleBombExplosion(payload);
+      })
+      .on('broadcast', { event: 'player_died' }, (payload: any) => {
+        setPlayers(prevPlayers =>
+          prevPlayers.map(p =>
+            p.id === payload.playerId ? { ...p, alive: false } : p
+          )
+        );
+      })
+      .subscribe(async (status, err) => {
+        console.log('Game channel subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Connected to game channel');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Game channel error:', err);
+        }
+      });
+  };
+
+  const broadcastPlayerReady = async () => {
+    if (!channelRef.current) return;
+
+    await channelRef.current.send({
+      type: 'broadcast',
+      event: 'player_ready',
+      payload: { playerId: myPlayerId },
+    });
+  };
+
+  const startGameLoop = () => {
+    if (gameLoopRef.current) return;
+
+    gameLoopRef.current = setInterval(() => {
+      updateGame();
+      setTimeLeft(prev => Math.max(0, prev - 1));
+    }, 1000);
+  };
+
+  // Check if all players are ready and start game
+  useEffect(() => {
+    const checkAllPlayersReady = async () => {
+      if (playersReady.size === players.length && players.length > 0 && !gameStarted) {
+        // Only the first player starts the game
+        const sortedPlayers = [...players].sort((a, b) => a.id.localeCompare(b.id));
+        if (sortedPlayers[0].id === myPlayerId) {
+          console.log('All players ready! Starting game...');
+          await channelRef.current?.send({
+            type: 'broadcast',
+            event: 'game_start',
+            payload: { timestamp: Date.now() },
+          });
+          setGameStarted(true);
+          startGameLoop();
+        }
+      }
+    };
+
+    checkAllPlayersReady();
+  }, [playersReady, players, gameStarted, myPlayerId]);
 
   const updateGame = () => {
     setBombs(prevBombs => {
@@ -137,80 +265,180 @@ export default function BombRunnerGame() {
     });
   };
 
-  const explodeBomb = (bomb: Bomb) => {
+  const explodeBomb = async (bomb: Bomb) => {
     const explosionRange = 60;
 
-    // Damage players
+    // Calculate affected players and blocks
+    const affectedPlayers: string[] = [];
+    const affectedBlocks: { x: number; y: number }[] = [];
+
+    players.forEach(player => {
+      if (!player.alive) return;
+
+      const dx = player.x - bomb.x;
+      const dy = player.y - bomb.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < explosionRange) {
+        affectedPlayers.push(player.id);
+      }
+    });
+
+    blocks.forEach(block => {
+      if (block.destroyed) return;
+
+      const dx = block.x - bomb.x;
+      const dy = block.y - bomb.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < explosionRange) {
+        affectedBlocks.push({ x: block.x, y: block.y });
+      }
+    });
+
+    // Broadcast explosion
+    await channelRef.current?.send({
+      type: 'broadcast',
+      event: 'bomb_exploded',
+      payload: {
+        bombId: bomb.id,
+        ownerId: bomb.ownerId,
+        affectedPlayers,
+        affectedBlocks,
+      },
+    });
+
+    // Apply local changes
+    handleBombExplosion({
+      ownerId: bomb.ownerId,
+      affectedPlayers,
+      affectedBlocks,
+    });
+  };
+
+  const handleBombExplosion = (payload: any) => {
+    const { ownerId, affectedPlayers, affectedBlocks } = payload;
+
+    // Update players
     setPlayers(prevPlayers =>
       prevPlayers.map(player => {
-        if (!player.alive) return player;
-
-        const dx = player.x - bomb.x;
-        const dy = player.y - bomb.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-
-        if (distance < explosionRange) {
+        if (affectedPlayers.includes(player.id) && player.alive) {
           return { ...player, alive: false };
         }
+        if (player.id === ownerId) {
+          return {
+            ...player,
+            blocksDestroyed: player.blocksDestroyed + affectedBlocks.length,
+            damageDealt: player.damageDealt + (affectedBlocks.length * 10),
+          };
+        }
         return player;
       })
     );
 
-    // Destroy blocks
+    // Update blocks
     setBlocks(prevBlocks =>
       prevBlocks.map(block => {
-        if (block.destroyed) return block;
-
-        const dx = block.x - bomb.x;
-        const dy = block.y - bomb.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-
-        if (distance < explosionRange) {
-          setPlayers(prevPlayers =>
-            prevPlayers.map(p =>
-              p.id === bomb.ownerId
-                ? { ...p, blocksDestroyed: p.blocksDestroyed + 1, damageDealt: p.damageDealt + 10 }
-                : p
-            )
-          );
-          return { ...block, destroyed: true };
-        }
-        return block;
+        const isAffected = affectedBlocks.some(
+          ab => ab.x === block.x && ab.y === block.y
+        );
+        return isAffected ? { ...block, destroyed: true } : block;
       })
     );
   };
 
-  const movePlayer = (direction: 'up' | 'down' | 'left' | 'right') => {
+  const checkCollision = (newX: number, newY: number): boolean => {
+    // Check arena boundaries
+    if (
+      newX < PLAYER_SIZE / 2 ||
+      newX > ARENA_SIZE - PLAYER_SIZE / 2 ||
+      newY < PLAYER_SIZE / 2 ||
+      newY > ARENA_SIZE - PLAYER_SIZE / 2
+    ) {
+      return true;
+    }
+
+    // Check collision with blocks
+    for (const block of blocks) {
+      if (block.destroyed) continue;
+
+      const playerLeft = newX - PLAYER_SIZE / 2;
+      const playerRight = newX + PLAYER_SIZE / 2;
+      const playerTop = newY - PLAYER_SIZE / 2;
+      const playerBottom = newY + PLAYER_SIZE / 2;
+
+      const blockLeft = block.x;
+      const blockRight = block.x + BLOCK_SIZE;
+      const blockTop = block.y;
+      const blockBottom = block.y + BLOCK_SIZE;
+
+      // Check if player overlaps with block
+      if (
+        playerRight > blockLeft &&
+        playerLeft < blockRight &&
+        playerBottom > blockTop &&
+        playerTop < blockBottom
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  const movePlayer = async (direction: 'up' | 'down' | 'left' | 'right') => {
+    if (!gameStarted) return;
+
+    const myPlayer = players.find(p => p.id === myPlayerId);
+    if (!myPlayer || !myPlayer.alive) return;
+
+    const speed = 10;
+    let newX = myPlayer.x;
+    let newY = myPlayer.y;
+
+    switch (direction) {
+      case 'up':
+        newY = myPlayer.y - speed;
+        break;
+      case 'down':
+        newY = myPlayer.y + speed;
+        break;
+      case 'left':
+        newX = myPlayer.x - speed;
+        break;
+      case 'right':
+        newX = myPlayer.x + speed;
+        break;
+    }
+
+    // Check for collisions
+    if (checkCollision(newX, newY)) {
+      console.log('Collision detected! Cannot move.');
+      return;
+    }
+
+    // Update local state
     setPlayers(prevPlayers =>
-      prevPlayers.map(player => {
-        if (player.id === myPlayerId && player.alive) {
-          const speed = 10;
-          let newX = player.x;
-          let newY = player.y;
-
-          switch (direction) {
-            case 'up':
-              newY = Math.max(PLAYER_SIZE / 2, player.y - speed);
-              break;
-            case 'down':
-              newY = Math.min(ARENA_SIZE - PLAYER_SIZE / 2, player.y + speed);
-              break;
-            case 'left':
-              newX = Math.max(PLAYER_SIZE / 2, player.x - speed);
-              break;
-            case 'right':
-              newX = Math.min(ARENA_SIZE - PLAYER_SIZE / 2, player.x + speed);
-              break;
-          }
-
-          return { ...player, x: newX, y: newY };
-        }
-        return player;
-      })
+      prevPlayers.map(player =>
+        player.id === myPlayerId ? { ...player, x: newX, y: newY } : player
+      )
     );
+
+    // Broadcast movement
+    await channelRef.current?.send({
+      type: 'broadcast',
+      event: 'player_moved',
+      payload: {
+        playerId: myPlayerId,
+        x: newX,
+        y: newY,
+      },
+    });
   };
 
-  const placeBomb = () => {
+  const placeBomb = async () => {
+    if (!gameStarted) return;
+
     const myPlayer = players.find(p => p.id === myPlayerId);
     if (!myPlayer || !myPlayer.alive) return;
 
@@ -222,7 +450,15 @@ export default function BombRunnerGame() {
       timeToExplode: 3,
     };
 
+    // Update local state
     setBombs(prev => [...prev, newBomb]);
+
+    // Broadcast bomb placement
+    await channelRef.current?.send({
+      type: 'broadcast',
+      event: 'bomb_placed',
+      payload: { bomb: newBomb },
+    });
   };
 
   const endGame = async () => {
@@ -332,6 +568,13 @@ export default function BombRunnerGame() {
             </>
           )}
         </View>
+        {!gameStarted && (
+          <View style={styles.waitingContainer}>
+            <Text style={styles.waitingText}>
+              Esperando jugadores... ({playersReady.size}/{players.length})
+            </Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.arenaContainer}>
@@ -379,14 +622,18 @@ export default function BombRunnerGame() {
                       backgroundColor: player.color,
                     }
                   ]}
-                />
+                >
+                  {player.id === myPlayerId && (
+                    <View style={styles.playerIndicator} />
+                  )}
+                </View>
               )}
             </React.Fragment>
           ))}
         </View>
       </View>
 
-      {myPlayer && myPlayer.alive && !gameOver && (
+      {myPlayer && myPlayer.alive && gameStarted && !gameOver && (
         <View style={styles.controls}>
           <View style={styles.dpadContainer}>
             <TouchableOpacity
@@ -472,6 +719,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
+  waitingContainer: {
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  waitingText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+  },
   arenaContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -492,6 +748,14 @@ const styles = StyleSheet.create({
     borderRadius: PLAYER_SIZE / 2,
     borderWidth: 2,
     borderColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playerIndicator: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#fff',
   },
   bomb: {
     position: 'absolute',
