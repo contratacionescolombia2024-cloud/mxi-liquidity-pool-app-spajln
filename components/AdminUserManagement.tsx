@@ -76,6 +76,7 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
   const [inputValue, setInputValue] = useState('');
   const [inputValue2, setInputValue2] = useState('');
   const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
     loadUserDetails();
@@ -84,6 +85,7 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
   const loadUserDetails = async () => {
     try {
       setLoading(true);
+      console.log('Loading user details for:', userId);
 
       // Load user details first
       const { data: userData, error: userError } = await supabase
@@ -96,6 +98,8 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
         console.error('Error loading user:', userError);
         throw userError;
       }
+
+      console.log('User data loaded:', userData);
 
       // Load referrer information separately if referred_by exists
       let referrerData = null;
@@ -207,6 +211,7 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
   };
 
   const openModal = (type: string, item?: any) => {
+    console.log('Opening modal:', type);
     setModalType(type);
     setSelectedItem(item || null);
     setInputValue('');
@@ -231,21 +236,37 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
   };
 
   const handleBalanceOperation = async (operation: string) => {
+    console.log('Starting balance operation:', operation);
+    console.log('Input value:', inputValue);
+    
     const amount = parseFloat(inputValue);
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Por favor ingresa un monto válido');
+      Alert.alert('Error', 'Por favor ingresa un monto válido mayor a 0');
       return;
     }
 
-    setLoading(true);
+    setProcessing(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No authenticated');
+      // Get current authenticated user
+      const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError) {
+        console.error('Auth error:', authError);
+        throw new Error('Error de autenticación');
+      }
+      
+      if (!currentUser) {
+        throw new Error('No hay usuario autenticado');
+      }
+
+      console.log('Current user ID:', currentUser.id);
+      console.log('Target user ID:', userId);
+      console.log('Amount:', amount);
 
       let rpcFunction = '';
       let params: any = {
         p_user_id: userId,
-        p_admin_id: user.id,
+        p_admin_id: currentUser.id,
         p_amount: amount,
       };
 
@@ -272,31 +293,49 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
           rpcFunction = 'admin_subtract_balance_tournament';
           break;
         default:
-          throw new Error('Invalid operation');
+          throw new Error('Operación inválida');
       }
+
+      console.log('Calling RPC function:', rpcFunction);
+      console.log('With params:', params);
 
       const { data, error } = await supabase.rpc(rpcFunction, params);
 
-      if (error) throw error;
+      console.log('RPC response data:', data);
+      console.log('RPC response error:', error);
 
-      if (data?.success) {
-        Alert.alert('✅ Éxito', data.message);
+      if (error) {
+        console.error('RPC error details:', error);
+        throw error;
+      }
+
+      if (data && typeof data === 'object') {
+        if (data.success) {
+          Alert.alert('✅ Éxito', data.message || 'Operación completada exitosamente');
+          closeModal();
+          await loadUserDetails();
+          onUpdate();
+        } else {
+          Alert.alert('❌ Error', data.error || 'Error en la operación');
+        }
+      } else {
+        // If data is not an object, assume success
+        Alert.alert('✅ Éxito', 'Operación completada exitosamente');
         closeModal();
         await loadUserDetails();
         onUpdate();
-      } else {
-        Alert.alert('❌ Error', data?.error || 'Error en la operación');
       }
     } catch (error: any) {
       console.error('Error in balance operation:', error);
-      Alert.alert('❌ Error', error.message || 'Error en la operación');
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      Alert.alert('❌ Error', error.message || 'Error en la operación. Por favor, intenta de nuevo.');
     } finally {
-      setLoading(false);
+      setProcessing(false);
     }
   };
 
   const handleUpdateReferrer = async () => {
-    setLoading(true);
+    setProcessing(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No authenticated');
@@ -321,7 +360,7 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
       console.error('Error updating referrer:', error);
       Alert.alert('❌ Error', error.message || 'Error al actualizar referidor');
     } finally {
-      setLoading(false);
+      setProcessing(false);
     }
   };
 
@@ -331,7 +370,7 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
       return;
     }
 
-    setLoading(true);
+    setProcessing(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No authenticated');
@@ -356,7 +395,7 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
       console.error('Error linking referral:', error);
       Alert.alert('❌ Error', error.message || 'Error al vincular referido');
     } finally {
-      setLoading(false);
+      setProcessing(false);
     }
   };
 
@@ -444,6 +483,8 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
             </Text>
             <Text style={styles.modalSubtitle}>
               {modalType.includes('vesting') ? 'Vesting' : modalType.includes('tournament') ? 'Torneo' : 'Balance General'}
+              {modalType === 'add_balance_with_commission' && ' (Con Comisión)'}
+              {modalType === 'add_balance_no_commission' && ' (Sin Comisión)'}
             </Text>
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Cantidad de MXI</Text>
@@ -454,14 +495,15 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
                 keyboardType="decimal-pad"
                 placeholder="0.00"
                 placeholderTextColor={colors.textSecondary}
+                autoFocus
               />
             </View>
             <TouchableOpacity
-              style={[buttonStyles.primary, loading && buttonStyles.disabled]}
+              style={[buttonStyles.primary, processing && buttonStyles.disabled]}
               onPress={() => handleBalanceOperation(modalType)}
-              disabled={loading}
+              disabled={processing}
             >
-              {loading ? (
+              {processing ? (
                 <ActivityIndicator color="#000" />
               ) : (
                 <Text style={buttonStyles.primaryText}>Confirmar</Text>
@@ -496,11 +538,11 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
               </View>
             )}
             <TouchableOpacity
-              style={[buttonStyles.primary, loading && buttonStyles.disabled]}
+              style={[buttonStyles.primary, processing && buttonStyles.disabled]}
               onPress={handleUpdateReferrer}
-              disabled={loading}
+              disabled={processing}
             >
-              {loading ? (
+              {processing ? (
                 <ActivityIndicator color="#000" />
               ) : (
                 <Text style={buttonStyles.primaryText}>Actualizar</Text>
@@ -537,11 +579,11 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
               />
             </View>
             <TouchableOpacity
-              style={[buttonStyles.primary, loading && buttonStyles.disabled]}
+              style={[buttonStyles.primary, processing && buttonStyles.disabled]}
               onPress={handleLinkReferral}
-              disabled={loading}
+              disabled={processing}
             >
-              {loading ? (
+              {processing ? (
                 <ActivityIndicator color="#000" />
               ) : (
                 <Text style={buttonStyles.primaryText}>Vincular</Text>
@@ -710,7 +752,7 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
           <TouchableOpacity
             style={[styles.actionCard, { backgroundColor: colors.primary + '15' }]}
             onPress={() => openModal('add_balance_with_commission')}
-            >
+          >
             <IconSymbol ios_icon_name="plus.circle.fill" android_material_icon_name="add_circle" size={24} color={colors.primary} />
             <Text style={styles.actionText}>Añadir{'\n'}Con Comisión</Text>
           </TouchableOpacity>
@@ -728,7 +770,7 @@ export function AdminUserManagement({ userId, userName, userEmail, onUpdate }: A
             onPress={() => openModal('add_vesting')}
           >
             <IconSymbol ios_icon_name="lock.fill" android_material_icon_name="lock" size={24} color={colors.accent} />
-            <Text style={styles.actionText}>Añadir{'\n'}Vesting</Text>
+            <Text style={styles.actionText}>Modificar{'\n'}Vesting</Text>
           </TouchableOpacity>
         </View>
       </View>
