@@ -1102,7 +1102,7 @@ function VestingDiarioTab() {
   );
 }
 
-// En la Práctica Tab Content - NOW WITH INVESTOR PROFILES CONTENT AND NEW IMAGE
+// En la Práctica Tab Content - NOW WITH INVESTOR PROFILES CONTENT
 function EnLaPracticaTab() {
   const { t } = useLanguage();
   
@@ -1114,7 +1114,7 @@ function EnLaPracticaTab() {
 
       <View style={styles.imageContainer}>
         <Image
-          source={require('@/assets/images/763bcff6-8fa4-4f22-b2ef-dce7c2e2f042.png')}
+          source={require('@/assets/images/9c088d87-87e8-4a3f-9920-2242244ecea7.png')}
           style={styles.practicaImage}
           resizeMode="contain"
         />
