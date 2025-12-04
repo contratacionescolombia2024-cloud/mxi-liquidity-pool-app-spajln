@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRealtime } from '@/contexts/RealtimeContext';
 import { useRouter } from 'expo-router';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -20,12 +21,23 @@ import * as Clipboard from 'expo-clipboard';
 import { supabase } from '@/lib/supabase';
 
 export default function ReferralsScreen() {
-  const { user, getCurrentYield } = useAuth();
+  const { user, getCurrentYield, refreshUser } = useAuth();
+  const { lastUpdate } = useRealtime();
   const router = useRouter();
   const [currentYield, setCurrentYield] = useState(0);
   const [loading, setLoading] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const lastUpdateRef = useRef<Date | null>(null);
+
+  // Reload data when real-time update occurs
+  useEffect(() => {
+    if (lastUpdate && lastUpdate !== lastUpdateRef.current) {
+      console.log('Real-time update detected, refreshing user data');
+      lastUpdateRef.current = lastUpdate;
+      refreshUser();
+    }
+  }, [lastUpdate, refreshUser]);
 
   useEffect(() => {
     if (user && getCurrentYield) {
@@ -119,6 +131,9 @@ export default function ReferralsScreen() {
               
               setWithdrawAmount('');
               setShowWithdrawModal(false);
+              
+              // Refresh user data
+              await refreshUser();
             } catch (error: any) {
               console.error('Exception during withdrawal:', error);
               Alert.alert('Error', error.message || 'Ocurrió un error inesperado');
@@ -351,9 +366,12 @@ export default function ReferralsScreen() {
             </View>
           </View>
           <View style={styles.activeReferrals}>
-            <Text style={styles.activeLabel}>Active Referrals (Level 1):</Text>
+            <Text style={styles.activeLabel}>Referidos Activos (Nivel 1):</Text>
             <Text style={styles.activeValue}>{user?.activeReferrals || 0}</Text>
           </View>
+          <Text style={styles.activeReferralsNote}>
+            * Referidos activos son aquellos que han realizado al menos una compra de 50 USDT o más
+          </Text>
         </View>
 
         {/* How It Works */}
@@ -368,12 +386,13 @@ export default function ReferralsScreen() {
             <Text style={styles.infoTitle}>How Referrals Work</Text>
           </View>
           <View style={styles.infoList}>
-            <Text style={styles.infoItem}>• Share your referral code with friends</Text>
-            <Text style={styles.infoItem}>• Earn 5% in MXI from Level 1 referrals</Text>
-            <Text style={styles.infoItem}>• Earn 2% in MXI from Level 2 referrals</Text>
-            <Text style={styles.infoItem}>• Earn 1% in MXI from Level 3 referrals</Text>
-            <Text style={styles.infoItem}>• All commissions are credited directly in MXI</Text>
-            <Text style={styles.infoItem}>• Need 5 active Level 1 referrals to withdraw</Text>
+            <Text style={styles.infoItem}>- Share your referral code with friends</Text>
+            <Text style={styles.infoItem}>- Earn 5% in MXI from Level 1 referrals</Text>
+            <Text style={styles.infoItem}>- Earn 2% in MXI from Level 2 referrals</Text>
+            <Text style={styles.infoItem}>- Earn 1% in MXI from Level 3 referrals</Text>
+            <Text style={styles.infoItem}>- All commissions are credited directly in MXI</Text>
+            <Text style={styles.infoItem}>- Need 5 active Level 1 referrals to withdraw</Text>
+            <Text style={styles.infoItem}>- Active referrals must have purchased at least 50 USDT</Text>
           </View>
         </View>
       </ScrollView>
@@ -528,6 +547,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.success + '40',
+    marginBottom: 8,
   },
   activeLabel: {
     fontSize: 14,
@@ -538,6 +558,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: colors.success,
+  },
+  activeReferralsNote: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
   infoCard: {
     backgroundColor: colors.primary + '10',

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRealtime } from '@/contexts/RealtimeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useRouter } from 'expo-router';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
@@ -42,6 +43,7 @@ interface AmbassadorData {
 
 export default function EmbajadoresMXIScreen() {
   const { user } = useAuth();
+  const { lastUpdate } = useRealtime();
   const { t } = useLanguage();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -49,6 +51,16 @@ export default function EmbajadoresMXIScreen() {
   const [usdtAddress, setUsdtAddress] = useState('');
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
+  const lastUpdateRef = useRef<Date | null>(null);
+
+  // Reload data when real-time update occurs
+  useEffect(() => {
+    if (lastUpdate && lastUpdate !== lastUpdateRef.current) {
+      console.log('Real-time update detected, reloading ambassador data');
+      lastUpdateRef.current = lastUpdate;
+      loadAmbassadorData();
+    }
+  }, [lastUpdate]);
 
   useEffect(() => {
     loadAmbassadorData();
