@@ -202,6 +202,28 @@ export default function EmbajadoresMXIScreen() {
     return calculateWithdrawableBonus() > 0;
   };
 
+  const getWithdrawBlockReason = (): string | null => {
+    if (!user || !ambassadorData) return null;
+
+    if (ambassadorData.current_level === 0) {
+      return 'Debes alcanzar al menos el Nivel 1 (Bronce) para retirar bonos';
+    }
+
+    if (user.kycStatus !== 'approved') {
+      return 'Debes completar tu verificación KYC para retirar bonos';
+    }
+
+    if (!user.mxiPurchasedDirectly || user.mxiPurchasedDirectly <= 0) {
+      return 'Debes realizar al menos una compra personal para habilitar retiros';
+    }
+
+    if (calculateWithdrawableBonus() <= 0) {
+      return 'No tienes bonos disponibles para retirar';
+    }
+
+    return null;
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -246,6 +268,7 @@ export default function EmbajadoresMXIScreen() {
   const progressToNext = nextLevel 
     ? (ambassadorData.total_valid_purchases / nextLevel.requirement) * 100 
     : 100;
+  const withdrawBlockReason = getWithdrawBlockReason();
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -320,7 +343,7 @@ export default function EmbajadoresMXIScreen() {
           )}
         </View>
 
-        {/* Withdrawable Bonus Card */}
+        {/* Withdrawable Bonus Card - ALWAYS VISIBLE */}
         <View style={[commonStyles.card, styles.bonusCard]}>
           <Text style={styles.cardTitle}>Bono Retirable</Text>
           <Text style={styles.bonusAmount}>
@@ -333,7 +356,8 @@ export default function EmbajadoresMXIScreen() {
             Bonos acumulativos disponibles
           </Text>
 
-          {!canWithdraw() && withdrawableBonus > 0 && (
+          {/* Show warning if cannot withdraw */}
+          {withdrawBlockReason && (
             <View style={styles.warningBox}>
               <IconSymbol 
                 ios_icon_name="exclamationmark.triangle.fill" 
@@ -342,67 +366,85 @@ export default function EmbajadoresMXIScreen() {
                 color={colors.warning} 
               />
               <Text style={styles.warningText}>
-                Debes cumplir todos los requisitos para retirar
+                {withdrawBlockReason}
               </Text>
             </View>
           )}
 
-          {withdrawableBonus > 0 && canWithdraw() && !showWithdrawModal && (
-            <TouchableOpacity
-              style={[buttonStyles.primary, styles.withdrawButton]}
-              onPress={() => setShowWithdrawModal(true)}
-            >
-              <IconSymbol 
-                ios_icon_name="arrow.down.circle" 
-                android_material_icon_name="arrow_circle_down" 
-                size={20} 
-                color="#000" 
-              />
-              <Text style={buttonStyles.primaryText}>Retirar Bono</Text>
-            </TouchableOpacity>
-          )}
-
-          {showWithdrawModal && (
-            <View style={styles.withdrawForm}>
-              <Text style={styles.withdrawFormTitle}>Dirección USDT TRC20</Text>
-              <TextInput
-                style={styles.input}
-                value={usdtAddress}
-                onChangeText={setUsdtAddress}
-                placeholder="Ingresa tu dirección TRC20"
-                placeholderTextColor={colors.textSecondary}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <Text style={styles.inputHint}>
-                Solo se permiten retiros en USDT TRC20
-              </Text>
-
-              <View style={styles.withdrawActions}>
+          {/* Withdrawal Button - ALWAYS SHOW when there are bonuses */}
+          {withdrawableBonus > 0 && (
+            <>
+              {!showWithdrawModal ? (
                 <TouchableOpacity
-                  style={[buttonStyles.secondary, styles.actionButton]}
+                  style={[
+                    buttonStyles.primary, 
+                    styles.withdrawButton,
+                    !canWithdraw() && styles.withdrawButtonDisabled
+                  ]}
                   onPress={() => {
-                    setShowWithdrawModal(false);
-                    setUsdtAddress('');
+                    if (canWithdraw()) {
+                      setShowWithdrawModal(true);
+                    } else {
+                      Alert.alert('Requisitos No Cumplidos', withdrawBlockReason || 'No puedes retirar en este momento');
+                    }
                   }}
-                  disabled={withdrawing}
                 >
-                  <Text style={buttonStyles.secondaryText}>Cancelar</Text>
+                  <IconSymbol 
+                    ios_icon_name="arrow.down.circle.fill" 
+                    android_material_icon_name="arrow_circle_down" 
+                    size={20} 
+                    color={canWithdraw() ? "#000" : colors.textSecondary} 
+                  />
+                  <Text style={[
+                    buttonStyles.primaryText,
+                    !canWithdraw() && styles.withdrawButtonTextDisabled
+                  ]}>
+                    Solicitar Retiro de Bono
+                  </Text>
                 </TouchableOpacity>
+              ) : (
+                <View style={styles.withdrawForm}>
+                  <Text style={styles.withdrawFormTitle}>Dirección USDT TRC20</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={usdtAddress}
+                    onChangeText={setUsdtAddress}
+                    placeholder="Ingresa tu dirección TRC20"
+                    placeholderTextColor={colors.textSecondary}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                  <Text style={styles.inputHint}>
+                    Solo se permiten retiros en USDT TRC20
+                  </Text>
 
-                <TouchableOpacity
-                  style={[buttonStyles.primary, styles.actionButton]}
-                  onPress={handleWithdrawBonus}
-                  disabled={withdrawing}
-                >
-                  {withdrawing ? (
-                    <ActivityIndicator color="#000" />
-                  ) : (
-                    <Text style={buttonStyles.primaryText}>Confirmar</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
+                  <View style={styles.withdrawActions}>
+                    <TouchableOpacity
+                      style={[buttonStyles.secondary, styles.actionButton]}
+                      onPress={() => {
+                        setShowWithdrawModal(false);
+                        setUsdtAddress('');
+                      }}
+                      disabled={withdrawing}
+                    >
+                      <Text style={buttonStyles.secondaryText}>Cancelar</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[buttonStyles.primary, styles.actionButton]}
+                      onPress={handleWithdrawBonus}
+                      disabled={withdrawing}
+                    >
+                      {withdrawing ? (
+                        <ActivityIndicator color="#000" />
+                      ) : (
+                        <Text style={buttonStyles.primaryText}>Confirmar</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            </>
           )}
         </View>
 
@@ -728,16 +770,29 @@ const styles = StyleSheet.create({
     backgroundColor: colors.warning + '20',
     padding: 12,
     borderRadius: 8,
-    marginBottom: 12,
+    marginBottom: 16,
+    width: '100%',
   },
   warningText: {
     fontSize: 13,
     color: colors.warning,
     flex: 1,
+    fontWeight: '600',
   },
   withdrawButton: {
     width: '100%',
-    marginTop: 12,
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  withdrawButtonDisabled: {
+    backgroundColor: colors.border,
+    opacity: 0.6,
+  },
+  withdrawButtonTextDisabled: {
+    color: colors.textSecondary,
   },
   withdrawForm: {
     width: '100%',
