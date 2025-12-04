@@ -57,6 +57,7 @@ export default function EmbajadoresMXIScreen() {
   const lastUpdateRef = useRef<Date | null>(null);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isLoadingRef = useRef(false);
+  const mountedRef = useRef(true);
 
   // Reload data when real-time update occurs
   useEffect(() => {
@@ -69,20 +70,22 @@ export default function EmbajadoresMXIScreen() {
 
   useEffect(() => {
     console.log('[Embajadores MXI] Component mounted, user:', user?.id);
+    mountedRef.current = true;
     
     // Set a timeout to prevent infinite loading
     loadingTimeoutRef.current = setTimeout(() => {
-      console.warn('[Embajadores MXI] Loading timeout reached after 20 seconds');
-      if (isLoadingRef.current) {
+      console.warn('[Embajadores MXI] Loading timeout reached after 12 seconds');
+      if (isLoadingRef.current && mountedRef.current) {
         setLoading(false);
         isLoadingRef.current = false;
         setLoadError('La carga tomó demasiado tiempo. Por favor, intenta de nuevo.');
       }
-    }, 20000); // 20 second timeout
+    }, 12000); // 12 second timeout
 
     loadAmbassadorData();
 
     return () => {
+      mountedRef.current = false;
       if (loadingTimeoutRef.current) {
         clearTimeout(loadingTimeoutRef.current);
       }
@@ -92,8 +95,10 @@ export default function EmbajadoresMXIScreen() {
   const loadAmbassadorData = async (retryCount = 0) => {
     if (!user) {
       console.log('[Embajadores MXI] No user found, skipping load');
-      setLoading(false);
-      isLoadingRef.current = false;
+      if (mountedRef.current) {
+        setLoading(false);
+        isLoadingRef.current = false;
+      }
       return;
     }
 
@@ -105,13 +110,47 @@ export default function EmbajadoresMXIScreen() {
 
     try {
       console.log('[Embajadores MXI] Starting to load ambassador data for user:', user.id, 'retry:', retryCount);
-      setLoading(true);
-      isLoadingRef.current = true;
-      setLoadError(null);
+      
+      if (mountedRef.current) {
+        setLoading(true);
+        isLoadingRef.current = true;
+        setLoadError(null);
+      }
 
-      // Call the function to update and get ambassador level with a timeout
+      // First, try to get cached data from ambassador_levels table
+      console.log('[Embajadores MXI] Attempting to fetch cached data first...');
+      const { data: cachedData, error: cachedError } = await supabase
+        .from('ambassador_levels')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      // If we have cached data and it's recent (less than 5 minutes old), use it
+      if (cachedData && !cachedError) {
+        const cacheAge = Date.now() - new Date(cachedData.updated_at).getTime();
+        if (cacheAge < 5 * 60 * 1000) { // 5 minutes
+          console.log('[Embajadores MXI] Using cached data (age:', Math.round(cacheAge / 1000), 'seconds)');
+          if (mountedRef.current) {
+            setAmbassadorData(cachedData as AmbassadorData);
+            setLastDataUpdate(new Date(cachedData.updated_at));
+            setLoadError(null);
+            setLoading(false);
+            isLoadingRef.current = false;
+          }
+          
+          // Refresh user data in background
+          if (refreshUser) {
+            refreshUser().catch(err => console.error('[Embajadores MXI] Error refreshing user:', err));
+          }
+          
+          return;
+        }
+      }
+
+      // If no cached data or it's old, call the RPC function with a timeout
+      console.log('[Embajadores MXI] Fetching fresh data from RPC...');
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Request timeout after 15 seconds')), 15000)
+        setTimeout(() => reject(new Error('Request timeout after 10 seconds')), 10000)
       );
       
       const rpcPromise = supabase.rpc('update_ambassador_level', {
@@ -123,6 +162,11 @@ export default function EmbajadoresMXIScreen() {
         timeoutPromise
       ]) as any;
 
+      if (!mountedRef.current) {
+        console.log('[Embajadores MXI] Component unmounted, aborting');
+        return;
+      }
+
       const { data, error } = result;
 
       console.log('[Embajadores MXI] RPC response:', { data, error, hasData: !!data });
@@ -130,20 +174,36 @@ export default function EmbajadoresMXIScreen() {
       if (error) {
         console.error('[Embajadores MXI] Error loading ambassador data:', error);
         
+        // If RPC fails but we have cached data, use it as fallback
+        if (cachedData) {
+          console.log('[Embajadores MXI] Using cached data as fallback after RPC error');
+          if (mountedRef.current) {
+            setAmbassadorData(cachedData as AmbassadorData);
+            setLastDataUpdate(new Date(cachedData.updated_at));
+            setLoadError('Mostrando datos en caché (puede no estar actualizado)');
+            setLoading(false);
+            isLoadingRef.current = false;
+          }
+          return;
+        }
+        
         // Retry logic for timeout or network errors
         if (retryCount < 2 && (
           error.message?.includes('timeout') || 
           error.message?.includes('network') ||
-          error.message?.includes('fetch')
+          error.message?.includes('fetch') ||
+          error.message?.includes('tomó demasiado tiempo')
         )) {
           console.log('[Embajadores MXI] Retrying due to timeout/network error... (attempt', retryCount + 1, ')');
           await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
           return loadAmbassadorData(retryCount + 1);
         }
         
-        setLoadError('Error al cargar datos: ' + (error.message || 'Error desconocido'));
-        setLoading(false);
-        isLoadingRef.current = false;
+        if (mountedRef.current) {
+          setLoadError('Error al cargar datos: ' + (error.message || 'Error desconocido'));
+          setLoading(false);
+          isLoadingRef.current = false;
+        }
         
         Alert.alert(
           'Error de Carga',
@@ -165,40 +225,80 @@ export default function EmbajadoresMXIScreen() {
 
       if (data) {
         console.log('[Embajadores MXI] Ambassador data loaded successfully:', data);
-        setAmbassadorData(data as AmbassadorData);
-        setLastDataUpdate(new Date());
-        setLoadError(null);
+        if (mountedRef.current) {
+          setAmbassadorData(data as AmbassadorData);
+          setLastDataUpdate(new Date());
+          setLoadError(null);
+        }
       } else {
         console.warn('[Embajadores MXI] No data returned from RPC');
-        setLoadError('No se recibieron datos del servidor');
         
-        // Don't show alert on retry
-        if (retryCount === 0) {
-          Alert.alert(
-            'Sin Datos',
-            'No se recibieron datos del servidor. Por favor, intenta de nuevo.',
-            [
-              {
-                text: 'Reintentar',
-                onPress: () => loadAmbassadorData(0),
-              },
-              {
-                text: 'Volver',
-                onPress: () => router.back(),
-                style: 'cancel',
-              },
-            ]
-          );
+        // Use cached data as fallback if available
+        if (cachedData) {
+          console.log('[Embajadores MXI] Using cached data as fallback (no data from RPC)');
+          if (mountedRef.current) {
+            setAmbassadorData(cachedData as AmbassadorData);
+            setLastDataUpdate(new Date(cachedData.updated_at));
+            setLoadError('Mostrando datos en caché');
+          }
+        } else {
+          if (mountedRef.current) {
+            setLoadError('No se recibieron datos del servidor');
+          }
+          
+          // Don't show alert on retry
+          if (retryCount === 0) {
+            Alert.alert(
+              'Sin Datos',
+              'No se recibieron datos del servidor. Por favor, intenta de nuevo.',
+              [
+                {
+                  text: 'Reintentar',
+                  onPress: () => loadAmbassadorData(0),
+                },
+                {
+                  text: 'Volver',
+                  onPress: () => router.back(),
+                  style: 'cancel',
+                },
+              ]
+            );
+          }
         }
       }
       
       // Also refresh user data to get updated active_referrals
-      if (refreshUser) {
+      if (refreshUser && mountedRef.current) {
         console.log('[Embajadores MXI] Refreshing user data');
         await refreshUser();
       }
     } catch (error: any) {
       console.error('[Embajadores MXI] Exception loading ambassador data:', error);
+      
+      if (!mountedRef.current) {
+        return;
+      }
+      
+      // Try to get cached data as fallback
+      try {
+        const { data: cachedData } = await supabase
+          .from('ambassador_levels')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (cachedData && mountedRef.current) {
+          console.log('[Embajadores MXI] Using cached data as fallback after exception');
+          setAmbassadorData(cachedData as AmbassadorData);
+          setLastDataUpdate(new Date(cachedData.updated_at));
+          setLoadError('Mostrando datos en caché (error al actualizar)');
+          setLoading(false);
+          isLoadingRef.current = false;
+          return;
+        }
+      } catch (cacheError) {
+        console.error('[Embajadores MXI] Error fetching cached data:', cacheError);
+      }
       
       // Retry logic for exceptions
       if (retryCount < 2) {
@@ -208,7 +308,9 @@ export default function EmbajadoresMXIScreen() {
       }
       
       const errorMessage = error.message || 'Ocurrió un error inesperado';
-      setLoadError(errorMessage);
+      if (mountedRef.current) {
+        setLoadError(errorMessage);
+      }
       
       Alert.alert(
         'Error',
@@ -227,8 +329,10 @@ export default function EmbajadoresMXIScreen() {
       );
     } finally {
       console.log('[Embajadores MXI] Finished loading, setting loading to false');
-      setLoading(false);
-      isLoadingRef.current = false;
+      if (mountedRef.current) {
+        setLoading(false);
+        isLoadingRef.current = false;
+      }
       if (loadingTimeoutRef.current) {
         clearTimeout(loadingTimeoutRef.current);
         loadingTimeoutRef.current = null;
@@ -496,6 +600,19 @@ export default function EmbajadoresMXIScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Show cache warning if present */}
+        {loadError && (
+          <View style={styles.cacheWarningBox}>
+            <IconSymbol 
+              ios_icon_name="info.circle.fill" 
+              android_material_icon_name="info" 
+              size={20} 
+              color={colors.warning} 
+            />
+            <Text style={styles.cacheWarningText}>{loadError}</Text>
+          </View>
+        )}
+
         {/* Current Level Card */}
         <View style={[commonStyles.card, styles.levelCard]}>
           <Text style={styles.cardTitle}>Tu Nivel Actual</Text>
@@ -849,6 +966,23 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 20,
     paddingBottom: 100,
+  },
+  cacheWarningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.warning + '20',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.warning + '40',
+  },
+  cacheWarningText: {
+    fontSize: 13,
+    color: colors.warning,
+    flex: 1,
+    fontWeight: '600',
   },
   loadingText: {
     fontSize: 16,
