@@ -20,7 +20,7 @@ export default function Footer() {
       icon: 'xmark',
       androidIcon: 'close',
       label: 'X (Twitter)',
-      color: '#000000',
+      color: '#1DA1F2',
     },
     {
       id: 'facebook',
