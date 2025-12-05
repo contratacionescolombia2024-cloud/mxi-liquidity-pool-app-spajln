@@ -283,9 +283,6 @@ export function FundraisingProgress() {
     Alert.alert(
       'Actualizado',
       `Total recaudado: $${totalRaised.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT\n\n` +
-      `Desglose USDT:\n` +
-      `• Usuarios: $${debugInfo.userTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} USDT\n` +
-      `• Admin: $${debugInfo.adminTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} USDT\n\n` +
       `Desglose MXI:\n` +
       `• Compras: ${mxiDistribution.total_mxi_purchased.toLocaleString('es-ES', { minimumFractionDigits: 2 })} MXI\n` +
       `• Comisiones: ${mxiDistribution.total_mxi_commissions.toLocaleString('es-ES', { minimumFractionDigits: 2 })} MXI\n` +
@@ -419,73 +416,6 @@ export function FundraisingProgress() {
             <Text style={styles.progressFooterText}>
               {formatLargeNumber(MAX_FUNDRAISING_GOAL, 0)} USDT
             </Text>
-          </View>
-        </View>
-
-        {/* USDT Breakdown Info */}
-        <View style={styles.breakdownSection}>
-          <Text style={styles.breakdownTitle}>Desglose de Recaudación USDT</Text>
-          
-          {/* Status Breakdown */}
-          <View style={styles.breakdownRow}>
-            <View style={styles.breakdownItem}>
-              <IconSymbol 
-                ios_icon_name="checkmark.circle.fill" 
-                android_material_icon_name="check_circle" 
-                size={16} 
-                color="#00ff88" 
-              />
-              <Text style={styles.breakdownLabel}>Pagos Finalizados</Text>
-              <Text style={styles.breakdownValue}>
-                ${formatNumberWithCommas(debugInfo.finishedTotal, 2)} USDT
-              </Text>
-            </View>
-            <View style={styles.breakdownItem}>
-              <IconSymbol 
-                ios_icon_name="checkmark.seal.fill" 
-                android_material_icon_name="verified" 
-                size={16} 
-                color="#ffdd00" 
-              />
-              <Text style={styles.breakdownLabel}>Pagos Confirmados</Text>
-              <Text style={styles.breakdownValue}>
-                ${formatNumberWithCommas(debugInfo.confirmedTotal, 2)} USDT
-              </Text>
-            </View>
-          </View>
-
-          {/* Source Breakdown */}
-          <View style={[styles.breakdownRow, { marginTop: 12 }]}>
-            <View style={styles.breakdownItem}>
-              <IconSymbol 
-                ios_icon_name="person.fill" 
-                android_material_icon_name="person" 
-                size={16} 
-                color="#00ff88" 
-              />
-              <Text style={styles.breakdownLabel}>Compras de Usuarios</Text>
-              <Text style={styles.breakdownValue}>
-                ${formatNumberWithCommas(debugInfo.userTotal, 2)} USDT
-              </Text>
-              <Text style={styles.breakdownCount}>
-                ({debugInfo.userCount} pagos)
-              </Text>
-            </View>
-            <View style={styles.breakdownItem}>
-              <IconSymbol 
-                ios_icon_name="gear.circle.fill" 
-                android_material_icon_name="settings" 
-                size={16} 
-                color="#ffdd00" 
-              />
-              <Text style={styles.breakdownLabel}>Saldos Admin</Text>
-              <Text style={styles.breakdownValue}>
-                ${formatNumberWithCommas(debugInfo.adminTotal, 2)} USDT
-              </Text>
-              <Text style={styles.breakdownCount}>
-                ({debugInfo.adminCount} pagos)
-              </Text>
-            </View>
           </View>
         </View>
 
@@ -862,46 +792,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: colors.textSecondary,
-  },
-  breakdownSection: {
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 255, 136, 0.2)',
-  },
-  breakdownTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#00ff88',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  breakdownRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  breakdownItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-  },
-  breakdownLabel: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  breakdownValue: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#00ff88',
-    textAlign: 'center',
-  },
-  breakdownCount: {
-    fontSize: 9,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
   },
   mxiBreakdownToggle: {
     backgroundColor: 'rgba(0, 255, 136, 0.1)',
