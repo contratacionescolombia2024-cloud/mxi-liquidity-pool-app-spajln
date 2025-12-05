@@ -143,43 +143,6 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Total MXI Balance Card */}
-        <View style={[commonStyles.card, styles.totalBalanceCard]}>
-          <Text style={styles.cardTitle}>{t('totalBalance')} MXI</Text>
-          <Text style={styles.totalBalanceValue}>
-            {user.mxiBalance.toLocaleString('es-ES', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })} MXI
-          </Text>
-          <View style={styles.balanceBreakdown}>
-            <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>{t('mxiPurchased')}:</Text>
-              <Text style={styles.breakdownValue}>
-                {(user.mxiPurchasedDirectly || 0).toFixed(2)}
-              </Text>
-            </View>
-            <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>MXI {t('vesting')}:</Text>
-              <Text style={styles.breakdownValue}>
-                {(user.mxiVestingLocked || 0).toFixed(2)}
-              </Text>
-            </View>
-            <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>MXI {t('tournaments')}:</Text>
-              <Text style={styles.breakdownValue}>
-                {(user.mxiFromChallenges || 0).toFixed(2)}
-              </Text>
-            </View>
-            <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>{t('mxiCommissions')}:</Text>
-              <Text style={styles.breakdownValue}>
-                {(user.mxiFromUnifiedCommissions || 0).toFixed(2)}
-              </Text>
-            </View>
-          </View>
-        </View>
-
         {/* Admin Panel Access */}
         {!checkingAdmin && isAdmin && (
           <TouchableOpacity
@@ -326,44 +289,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.primary,
-  },
-  totalBalanceCard: {
-    marginBottom: 16,
-    backgroundColor: colors.primary + '15',
-    borderWidth: 2,
-    borderColor: colors.primary,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 16,
-  },
-  totalBalanceValue: {
-    fontSize: 36,
-    fontWeight: '900',
-    color: colors.primary,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  balanceBreakdown: {
-    gap: 8,
-  },
-  breakdownRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border + '30',
-  },
-  breakdownLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  breakdownValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
   },
   adminCard: {
     marginBottom: 24,
