@@ -20,6 +20,8 @@ import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
 import PaymentStatusPoller from '@/components/PaymentStatusPoller';
 import { showAlert, showConfirm } from '@/utils/confirmDialog';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useRouter } from 'expo-router';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -91,6 +93,8 @@ interface NowPaymentsModalProps {
 }
 
 export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymentsModalProps) {
+  const { t } = useLanguage();
+  const router = useRouter();
   const [step, setStep] = useState<'amount' | 'currency' | 'payment'>('amount');
   const [usdtAmount, setUsdtAmount] = useState('');
   const [selectedCurrency, setSelectedCurrency] = useState<Currency | null>(null);
@@ -428,6 +432,22 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
     });
   };
 
+  const handlePaymentVerificationError = () => {
+    showConfirm({
+      title: t('automaticVerificationFailed'),
+      message: t('automaticVerificationFailedMessage'),
+      confirmText: t('requestManualVerificationNow'),
+      cancelText: t('continueWaiting'),
+      type: 'warning',
+      onConfirm: () => {
+        handleClose();
+        // Navigate to manual verification screen
+        router.push('/(tabs)/(home)/manual-verification');
+      },
+      onCancel: () => {},
+    });
+  };
+
   const handleClose = () => {
     resetModal();
     onClose();
@@ -740,6 +760,7 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
         <PaymentStatusPoller
           orderId={paymentIntent.order_id}
           onPaymentConfirmed={handlePaymentConfirmed}
+          onVerificationError={handlePaymentVerificationError}
         />
 
         {timeRemaining !== null && (
@@ -824,6 +845,9 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
           </Text>
           <Text style={styles.instructionText}>
             6. El sistema verifica el estado cada 30 segundos
+          </Text>
+          <Text style={styles.instructionText}>
+            7. Si la verificación automática falla, solicita verificación manual
           </Text>
         </View>
 
