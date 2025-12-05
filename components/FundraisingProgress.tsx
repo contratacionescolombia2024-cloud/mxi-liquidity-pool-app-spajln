@@ -29,6 +29,8 @@ const formatNumberWithCommas = (num: number, decimals: number = 2): string => {
 export function FundraisingProgress() {
   const { t } = useLanguage();
   const [totalRaised, setTotalRaised] = useState(0);
+  const [adminTotal, setAdminTotal] = useState(0);
+  const [userTotal, setUserTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
@@ -63,71 +65,75 @@ export function FundraisingProgress() {
 
   const loadFundraisingData = async () => {
     try {
-      console.log('🔄 Loading fundraising data...');
+      console.log('🔄 Loading fundraising data with SQL aggregation...');
       
-      // Get total USDT from all confirmed/finished payments
-      // This includes:
-      // 1. User MXI purchases (status = 'finished' or 'confirmed')
-      // 2. Admin-added balances (order_id starts with 'ADMIN-')
-      const { data: paymentsData, error } = await supabase
-        .from('payments')
-        .select('price_amount, status, order_id')
-        .in('status', ['finished', 'confirmed']);
+      // DRASTIC FIX: Use SQL to calculate totals directly in the database
+      // This ensures proper numeric handling and avoids JavaScript type coercion issues
+      const { data, error } = await supabase.rpc('get_fundraising_totals');
 
       if (error) {
         console.error('❌ Error loading fundraising data:', error);
+        
+        // Fallback: Try direct query if RPC doesn't exist
+        console.log('⚠️ Trying fallback query...');
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('payments')
+          .select('price_amount, order_id')
+          .in('status', ['finished', 'confirmed']);
+
+        if (fallbackError) {
+          console.error('❌ Fallback query failed:', fallbackError);
+          return;
+        }
+
+        // Manual calculation as last resort
+        let total = 0;
+        let admin = 0;
+        let user = 0;
+
+        fallbackData?.forEach((payment) => {
+          // Force conversion to number, handling all possible formats
+          const amountStr = String(payment.price_amount || '0');
+          const amount = Number(amountStr);
+          
+          if (!isNaN(amount) && amount > 0) {
+            total += amount;
+            if (payment.order_id?.startsWith('ADMIN-')) {
+              admin += amount;
+            } else {
+              user += amount;
+            }
+          }
+        });
+
+        console.log('💰 Fallback Calculation Results:');
+        console.log('  📊 Total:', total, 'USDT');
+        console.log('  🔧 Admin:', admin, 'USDT');
+        console.log('  👥 User:', user, 'USDT');
+
+        setTotalRaised(total);
+        setAdminTotal(admin);
+        setUserTotal(user);
+        setLastUpdate(new Date());
+        setLoading(false);
         return;
       }
 
-      if (paymentsData) {
-        console.log('📦 Raw payments data:', paymentsData);
+      if (data && data.length > 0) {
+        const result = data[0];
+        const total = Number(result.total_raised || 0);
+        const admin = Number(result.admin_total || 0);
+        const user = Number(result.user_total || 0);
         
-        // Calculate total from all confirmed payments
-        // Handle both string and numeric types for price_amount
-        const total = paymentsData.reduce((sum, payment) => {
-          // Convert to number, handling both string and numeric types
-          let amount = 0;
-          if (typeof payment.price_amount === 'string') {
-            amount = parseFloat(payment.price_amount);
-          } else if (typeof payment.price_amount === 'number') {
-            amount = payment.price_amount;
-          }
-          
-          // Validate the amount is a valid number
-          if (isNaN(amount)) {
-            console.warn('⚠️ Invalid amount for payment:', payment.order_id, payment.price_amount);
-            return sum;
-          }
-          
-          console.log(`  💵 Adding ${amount} USDT from ${payment.order_id}`);
-          return sum + amount;
-        }, 0);
-        
-        // Count different types of payments
-        const adminPayments = paymentsData.filter(p => p.order_id?.startsWith('ADMIN-'));
-        const userPayments = paymentsData.filter(p => !p.order_id?.startsWith('ADMIN-'));
-        
-        const adminTotal = adminPayments.reduce((sum, p) => {
-          const amount = typeof p.price_amount === 'string' 
-            ? parseFloat(p.price_amount) 
-            : (p.price_amount || 0);
-          return sum + (isNaN(amount) ? 0 : amount);
-        }, 0);
-        
-        const userTotal = userPayments.reduce((sum, p) => {
-          const amount = typeof p.price_amount === 'string' 
-            ? parseFloat(p.price_amount) 
-            : (p.price_amount || 0);
-          return sum + (isNaN(amount) ? 0 : amount);
-        }, 0);
-        
-        console.log('💰 Fundraising Data Summary:');
+        console.log('💰 Fundraising Data from RPC:');
         console.log('  📊 Total Raised:', total, 'USDT');
-        console.log('  👥 User Purchases:', userTotal, 'USDT', `(${userPayments.length} payments)`);
-        console.log('  🔧 Admin Additions:', adminTotal, 'USDT', `(${adminPayments.length} payments)`);
+        console.log('  👥 User Purchases:', user, 'USDT');
+        console.log('  🔧 Admin Additions:', admin, 'USDT');
         console.log('  📈 Progress:', ((total / MAX_FUNDRAISING_GOAL) * 100).toFixed(4), '%');
         
         setTotalRaised(total);
+        setAdminTotal(admin);
+        setUserTotal(user);
         setLastUpdate(new Date());
       }
     } catch (error) {
@@ -233,6 +239,39 @@ export function FundraisingProgress() {
           <Text style={styles.progressFooterText}>
             {formatLargeNumber(MAX_FUNDRAISING_GOAL, 0)} USDT
           </Text>
+        </View>
+      </View>
+
+      {/* Breakdown Stats */}
+      <View style={styles.breakdownContainer}>
+        <View style={styles.breakdownItem}>
+          <View style={styles.breakdownIcon}>
+            <IconSymbol 
+              ios_icon_name="person.2.fill" 
+              android_material_icon_name="people" 
+              size={16} 
+              color="#00ff88" 
+            />
+          </View>
+          <View style={styles.breakdownTextContainer}>
+            <Text style={styles.breakdownLabel}>Compras de Usuarios</Text>
+            <Text style={styles.breakdownValue}>${formatNumberWithCommas(userTotal, 2)} USDT</Text>
+          </View>
+        </View>
+
+        <View style={styles.breakdownItem}>
+          <View style={styles.breakdownIcon}>
+            <IconSymbol 
+              ios_icon_name="wrench.and.screwdriver.fill" 
+              android_material_icon_name="build" 
+              size={16} 
+              color="#ffdd00" 
+            />
+          </View>
+          <View style={styles.breakdownTextContainer}>
+            <Text style={styles.breakdownLabel}>Añadido por Admin</Text>
+            <Text style={styles.breakdownValue}>${formatNumberWithCommas(adminTotal, 2)} USDT</Text>
+          </View>
         </View>
       </View>
 
@@ -427,6 +466,44 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: colors.textSecondary,
+  },
+  breakdownContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 136, 0.2)',
+    gap: 10,
+  },
+  breakdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  breakdownIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 255, 136, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 136, 0.3)',
+  },
+  breakdownTextContainer: {
+    flex: 1,
+  },
+  breakdownLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginBottom: 2,
+  },
+  breakdownValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#00ff88',
+    fontFamily: 'monospace',
   },
   infoBox: {
     flexDirection: 'row',
