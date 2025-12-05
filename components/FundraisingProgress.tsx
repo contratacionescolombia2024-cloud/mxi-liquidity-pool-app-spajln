@@ -571,7 +571,7 @@ export function FundraisingProgress() {
           />
           <Text style={styles.infoText}>
             Esta métrica muestra el progreso total de la recaudación del proyecto MXI. 
-            Incluye todas las compras de MXI confirmadas y los saldos añadidos por el administrador. 
+            Incluye todas las compras de MXI confirmadas. 
             El objetivo máximo es de 17,500,000 USDT para el desarrollo completo del ecosistema (3 fases de preventa).
           </Text>
         </View>
