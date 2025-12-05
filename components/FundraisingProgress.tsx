@@ -26,41 +26,6 @@ const formatNumberWithCommas = (num: number, decimals: number = 0): string => {
   });
 };
 
-// DRASTIC FIX: Ultra-robust price amount parser
-const parsePriceAmount = (priceAmount: any): number => {
-  console.log('🔍 [parsePriceAmount] Input:', { value: priceAmount, type: typeof priceAmount });
-  
-  // Handle null/undefined
-  if (priceAmount === null || priceAmount === undefined) {
-    console.log('⚠️ [parsePriceAmount] Null/undefined input, returning 0');
-    return 0;
-  }
-  
-  // If already a number, return it
-  if (typeof priceAmount === 'number') {
-    console.log('✅ [parsePriceAmount] Already a number:', priceAmount);
-    return isNaN(priceAmount) ? 0 : priceAmount;
-  }
-  
-  // Convert to string and clean it
-  let priceStr = String(priceAmount).trim();
-  console.log('🧹 [parsePriceAmount] Cleaned string:', priceStr);
-  
-  // Remove any non-numeric characters except decimal point and minus sign
-  priceStr = priceStr.replace(/[^\d.-]/g, '');
-  console.log('🔢 [parsePriceAmount] After removing non-numeric:', priceStr);
-  
-  // Parse as float
-  const parsed = parseFloat(priceStr);
-  console.log('📊 [parsePriceAmount] Parsed result:', parsed);
-  
-  // Return 0 if NaN, otherwise return the parsed value
-  const result = isNaN(parsed) ? 0 : parsed;
-  console.log('✅ [parsePriceAmount] Final result:', result);
-  
-  return result;
-};
-
 export function FundraisingProgress() {
   const { t } = useLanguage();
   const [totalRaised, setTotalRaised] = useState(0);
@@ -74,7 +39,7 @@ export function FundraisingProgress() {
     adminCount: number;
     finishedTotal: number;
     confirmedTotal: number;
-    rawPayments: any[];
+    totalCount: number;
   }>({ 
     userTotal: 0, 
     adminTotal: 0, 
@@ -82,7 +47,7 @@ export function FundraisingProgress() {
     adminCount: 0,
     finishedTotal: 0,
     confirmedTotal: 0,
-    rawPayments: [],
+    totalCount: 0,
   });
 
   useEffect(() => {
@@ -91,7 +56,7 @@ export function FundraisingProgress() {
     
     // Set up real-time subscription for payments table
     const paymentsChannel = supabase
-      .channel('fundraising-payments-updates-v2')
+      .channel('fundraising-payments-updates-v4')
       .on(
         'postgres_changes',
         {
@@ -106,11 +71,11 @@ export function FundraisingProgress() {
       )
       .subscribe();
 
-    // Refresh every 15 seconds as backup
+    // Refresh every 10 seconds as backup
     const interval = setInterval(() => {
       console.log('⏰ [FundraisingProgress] Auto-refresh triggered');
       loadFundraisingData();
-    }, 15000);
+    }, 10000);
     
     return () => {
       console.log('🛑 [FundraisingProgress] Component unmounting, cleaning up...');
@@ -127,114 +92,69 @@ export function FundraisingProgress() {
       console.log('═══════════════════════════════════════════════════════════');
       console.log('');
       
-      // Get total USDT from all confirmed/finished payments
-      const { data: paymentsData, error } = await supabase
-        .from('payments')
-        .select('price_amount, status, order_id, created_at')
-        .in('status', ['finished', 'confirmed'])
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('❌ [FundraisingProgress] Error loading fundraising data:', error);
+      // DRASTIC FIX: Use database RPC function for accurate calculation
+      const { data: breakdownData, error: breakdownError } = await supabase
+        .rpc('get_fundraising_breakdown');
+      
+      if (breakdownError) {
+        console.error('❌ [FundraisingProgress] Error calling get_fundraising_breakdown:', breakdownError);
         setLoading(false);
         return;
       }
 
-      if (!paymentsData || paymentsData.length === 0) {
-        console.warn('⚠️ [FundraisingProgress] No payments data returned');
+      if (!breakdownData || breakdownData.length === 0) {
+        console.warn('⚠️ [FundraisingProgress] No breakdown data returned');
         setLoading(false);
         return;
       }
 
-      console.log('📦 [FundraisingProgress] Raw payments data count:', paymentsData.length);
-      console.log('📦 [FundraisingProgress] Raw payments data:', JSON.stringify(paymentsData, null, 2));
+      const breakdown = breakdownData[0];
+      console.log('📊 [FundraisingProgress] Breakdown data received:', JSON.stringify(breakdown, null, 2));
       
-      // DRASTIC FIX: Calculate totals with ultra-robust parsing
-      let total = 0;
-      let finishedTotal = 0;
-      let confirmedTotal = 0;
-      let adminTotal = 0;
-      let userTotal = 0;
-      let adminCount = 0;
-      let userCount = 0;
-      
-      console.log('');
-      console.log('───────────────────────────────────────────────────────────');
-      console.log('💵 PROCESSING INDIVIDUAL PAYMENTS:');
-      console.log('───────────────────────────────────────────────────────────');
-      
-      paymentsData.forEach((payment, index) => {
-        console.log('');
-        console.log(`💳 Payment #${index + 1}/${paymentsData.length}:`);
-        console.log(`   Order ID: ${payment.order_id}`);
-        console.log(`   Status: ${payment.status}`);
-        console.log(`   Raw Amount: ${JSON.stringify(payment.price_amount)}`);
-        console.log(`   Raw Amount Type: ${typeof payment.price_amount}`);
-        
-        const amount = parsePriceAmount(payment.price_amount);
-        console.log(`   ✅ Parsed Amount: ${amount} USDT`);
-        
-        const isAdmin = payment.order_id?.startsWith('ADMIN-') || false;
-        console.log(`   Type: ${isAdmin ? '🔧 ADMIN' : '👥 USER'}`);
-        
-        // Add to total
-        total += amount;
-        console.log(`   Running Total: ${total} USDT`);
-        
-        // Add to status totals
-        if (payment.status === 'finished') {
-          finishedTotal += amount;
-          console.log(`   Added to Finished Total: ${finishedTotal} USDT`);
-        } else if (payment.status === 'confirmed') {
-          confirmedTotal += amount;
-          console.log(`   Added to Confirmed Total: ${confirmedTotal} USDT`);
-        }
-        
-        // Add to type totals
-        if (isAdmin) {
-          adminTotal += amount;
-          adminCount++;
-          console.log(`   Added to Admin Total: ${adminTotal} USDT (Count: ${adminCount})`);
-        } else {
-          userTotal += amount;
-          userCount++;
-          console.log(`   Added to User Total: ${userTotal} USDT (Count: ${userCount})`);
-        }
-      });
+      // Parse all values as numbers
+      const totalRaisedValue = parseFloat(String(breakdown.total_raised || '0'));
+      const userTotalValue = parseFloat(String(breakdown.user_total || '0'));
+      const adminTotalValue = parseFloat(String(breakdown.admin_total || '0'));
+      const finishedTotalValue = parseFloat(String(breakdown.finished_total || '0'));
+      const confirmedTotalValue = parseFloat(String(breakdown.confirmed_total || '0'));
+      const userCountValue = parseInt(String(breakdown.user_count || '0'), 10);
+      const adminCountValue = parseInt(String(breakdown.admin_count || '0'), 10);
+      const totalCountValue = parseInt(String(breakdown.total_count || '0'), 10);
       
       console.log('');
       console.log('═══════════════════════════════════════════════════════════');
-      console.log('💰 FINAL CALCULATION SUMMARY:');
+      console.log('💰 FUNDRAISING BREAKDOWN SUMMARY:');
       console.log('═══════════════════════════════════════════════════════════');
-      console.log(`  🎯 TOTAL RAISED: ${total.toFixed(2)} USDT`);
-      console.log(`  ✅ Finished Payments: ${finishedTotal.toFixed(2)} USDT`);
-      console.log(`  ✓ Confirmed Payments: ${confirmedTotal.toFixed(2)} USDT`);
-      console.log(`  👥 User Purchases: ${userTotal.toFixed(2)} USDT (${userCount} payments)`);
-      console.log(`  🔧 Admin Additions: ${adminTotal.toFixed(2)} USDT (${adminCount} payments)`);
-      console.log(`  📈 Progress: ${((total / MAX_FUNDRAISING_GOAL) * 100).toFixed(4)}%`);
-      console.log(`  🔍 Verification: userTotal + adminTotal = ${(userTotal + adminTotal).toFixed(2)} USDT`);
-      console.log(`  🔍 Verification: finishedTotal + confirmedTotal = ${(finishedTotal + confirmedTotal).toFixed(2)} USDT`);
+      console.log(`  🎯 TOTAL RAISED: ${totalRaisedValue.toFixed(2)} USDT`);
+      console.log(`  👥 User Purchases: ${userTotalValue.toFixed(2)} USDT (${userCountValue} payments)`);
+      console.log(`  🔧 Admin Additions: ${adminTotalValue.toFixed(2)} USDT (${adminCountValue} payments)`);
+      console.log(`  ✅ Finished Payments: ${finishedTotalValue.toFixed(2)} USDT`);
+      console.log(`  ✓ Confirmed Payments: ${confirmedTotalValue.toFixed(2)} USDT`);
+      console.log(`  📊 Total Payments: ${totalCountValue}`);
+      console.log(`  📈 Progress: ${((totalRaisedValue / MAX_FUNDRAISING_GOAL) * 100).toFixed(4)}%`);
+      console.log(`  🔍 Verification: userTotal + adminTotal = ${(userTotalValue + adminTotalValue).toFixed(2)} USDT`);
+      console.log(`  🔍 Verification: finishedTotal + confirmedTotal = ${(finishedTotalValue + confirmedTotalValue).toFixed(2)} USDT`);
       console.log(`  ⏰ Timestamp: ${new Date().toISOString()}`);
       console.log('═══════════════════════════════════════════════════════════');
       console.log('');
       
-      // DRASTIC FIX: Force state update with explicit values
-      console.log('🔄 [FundraisingProgress] Updating state with new values...');
-      setTotalRaised(total);
+      // Update state with parsed values
+      console.log('🔄 [FundraisingProgress] Updating state...');
+      setTotalRaised(totalRaisedValue);
       setDebugInfo({
-        userTotal,
-        adminTotal,
-        userCount,
-        adminCount,
-        finishedTotal,
-        confirmedTotal,
-        rawPayments: paymentsData,
+        userTotal: userTotalValue,
+        adminTotal: adminTotalValue,
+        userCount: userCountValue,
+        adminCount: adminCountValue,
+        finishedTotal: finishedTotalValue,
+        confirmedTotal: confirmedTotalValue,
+        totalCount: totalCountValue,
       });
       setLastUpdate(new Date());
       setRefreshCount(prev => prev + 1);
       
       console.log('✅ [FundraisingProgress] State updated successfully');
-      console.log(`   Total Raised State: ${total}`);
+      console.log(`   Total Raised: ${totalRaisedValue}`);
       console.log(`   Refresh Count: ${refreshCount + 1}`);
       
     } catch (error) {
@@ -250,9 +170,14 @@ export function FundraisingProgress() {
     console.log('🔄 [FundraisingProgress] Manual refresh triggered by user');
     setLoading(true);
     await loadFundraisingData();
+    
     Alert.alert(
       'Actualizado',
-      `Total recaudado: $${totalRaised.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`,
+      `Total recaudado: $${totalRaised.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT\n\n` +
+      `Desglose:\n` +
+      `• Usuarios: $${debugInfo.userTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} USDT\n` +
+      `• Admin: $${debugInfo.adminTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} USDT\n\n` +
+      `Total de pagos: ${debugInfo.totalCount}`,
       [{ text: 'OK' }]
     );
   };
@@ -307,7 +232,7 @@ export function FundraisingProgress() {
         </TouchableOpacity>
       </View>
 
-      {/* Main Stats - DRASTIC FIX: Display with explicit formatting */}
+      {/* Main Stats */}
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
           <Text style={styles.statLabel}>Total Recaudado</Text>
@@ -469,19 +394,24 @@ export function FundraisingProgress() {
         </Text>
       </View>
 
-      {/* Debug Info - DRASTIC FIX: Show raw calculation */}
+      {/* Debug Info */}
       <TouchableOpacity 
         style={styles.debugSection}
         onPress={() => {
           Alert.alert(
             'Debug Info',
-            `Total Raised: ${totalRaised}\n` +
-            `User Total: ${debugInfo.userTotal}\n` +
-            `Admin Total: ${debugInfo.adminTotal}\n` +
-            `Finished: ${debugInfo.finishedTotal}\n` +
-            `Confirmed: ${debugInfo.confirmedTotal}\n` +
-            `Payments Count: ${debugInfo.rawPayments.length}\n` +
-            `Refresh Count: ${refreshCount}`,
+            `Total Raised: ${totalRaised.toFixed(2)} USDT\n` +
+            `User Total: ${debugInfo.userTotal.toFixed(2)} USDT\n` +
+            `Admin Total: ${debugInfo.adminTotal.toFixed(2)} USDT\n` +
+            `Finished: ${debugInfo.finishedTotal.toFixed(2)} USDT\n` +
+            `Confirmed: ${debugInfo.confirmedTotal.toFixed(2)} USDT\n` +
+            `Total Payments: ${debugInfo.totalCount}\n` +
+            `User Payments: ${debugInfo.userCount}\n` +
+            `Admin Payments: ${debugInfo.adminCount}\n` +
+            `Refresh Count: ${refreshCount}\n\n` +
+            `Verification:\n` +
+            `User + Admin = ${(debugInfo.userTotal + debugInfo.adminTotal).toFixed(2)} USDT\n` +
+            `Finished + Confirmed = ${(debugInfo.finishedTotal + debugInfo.confirmedTotal).toFixed(2)} USDT`,
             [{ text: 'OK' }]
           );
         }}
