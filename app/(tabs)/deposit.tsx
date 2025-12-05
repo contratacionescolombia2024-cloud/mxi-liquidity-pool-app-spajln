@@ -79,6 +79,84 @@ export default function DepositScreen() {
           <Text style={styles.balanceSubtext}>${user?.usdtContributed.toFixed(2) || '0.00'} {t('usdtContributed')}</Text>
         </View>
 
+        {/* IMPORTANT: Manual Verification Recommendation - Prominent Position */}
+        <View style={styles.manualVerificationRecommendationCard}>
+          <View style={styles.recommendationHeader}>
+            <View style={styles.recommendationIconContainer}>
+              <IconSymbol
+                ios_icon_name="exclamationmark.triangle.fill"
+                android_material_icon_name="warning"
+                size={32}
+                color="#FFFFFF"
+              />
+            </View>
+            <View style={styles.recommendationTextContainer}>
+              <Text style={styles.recommendationTitle}>
+                {t('automaticVerificationIssue')}
+              </Text>
+              <Text style={styles.recommendationSubtitle}>
+                {t('ifAutomaticVerificationFails')}
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={styles.manualVerificationRecommendationButton}
+            onPress={() => router.push('/(tabs)/(home)/manual-verification')}
+            activeOpacity={0.8}
+          >
+            <IconSymbol
+              ios_icon_name="person.fill.checkmark"
+              android_material_icon_name="admin_panel_settings"
+              size={20}
+              color="#FFFFFF"
+            />
+            <Text style={styles.manualVerificationRecommendationButtonText}>
+              {t('requestManualVerificationButton')}
+            </Text>
+            <IconSymbol
+              ios_icon_name="arrow.right"
+              android_material_icon_name="arrow_forward"
+              size={20}
+              color="#FFFFFF"
+            />
+          </TouchableOpacity>
+          <View style={styles.recommendationFeatures}>
+            <View style={styles.recommendationFeatureItem}>
+              <IconSymbol
+                ios_icon_name="checkmark.circle.fill"
+                android_material_icon_name="check_circle"
+                size={14}
+                color="#FFFFFF"
+              />
+              <Text style={styles.recommendationFeatureText}>
+                {t('fastAdminReview')}
+              </Text>
+            </View>
+            <View style={styles.recommendationFeatureItem}>
+              <IconSymbol
+                ios_icon_name="checkmark.circle.fill"
+                android_material_icon_name="check_circle"
+                size={14}
+                color="#FFFFFF"
+              />
+              <Text style={styles.recommendationFeatureText}>
+                {t('responseInLessThan2Hours')}
+              </Text>
+            </View>
+            <View style={styles.recommendationFeatureItem}>
+              <IconSymbol
+                ios_icon_name="checkmark.circle.fill"
+                android_material_icon_name="check_circle"
+                size={14}
+                color="#FFFFFF"
+              />
+              <Text style={styles.recommendationFeatureText}>
+                {t('supportForAllPaymentMethods')}
+              </Text>
+            </View>
+          </View>
+        </View>
+
         {/* Phase Information Card */}
         <View style={styles.phaseCard}>
           <Text style={styles.phaseTitle}>{t('currentPresalePhase')}</Text>
@@ -436,6 +514,17 @@ export default function DepositScreen() {
                 </Text>
               </View>
             </View>
+            <View style={styles.stepItem}>
+              <View style={styles.stepNumber}>
+                <Text style={styles.stepNumberText}>5</Text>
+              </View>
+              <View style={styles.stepContent}>
+                <Text style={styles.stepTitle}>{t('ifVerificationFails')}</Text>
+                <Text style={styles.stepDescription}>
+                  {t('requestManualVerificationFromAdmin')}
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -485,6 +574,17 @@ export default function DepositScreen() {
               />
               <Text style={styles.benefitText}>
                 {t('available247WithoutIntermediaries')}
+              </Text>
+            </View>
+            <View style={styles.benefitItem}>
+              <IconSymbol
+                ios_icon_name="person.fill.checkmark"
+                android_material_icon_name="admin_panel_settings"
+                size={24}
+                color={colors.primary}
+              />
+              <Text style={styles.benefitText}>
+                {t('manualVerificationFallback')}
               </Text>
             </View>
           </View>
@@ -580,6 +680,79 @@ const styles = StyleSheet.create({
   balanceSubtext: {
     fontSize: 14,
     color: colors.textSecondary,
+  },
+  manualVerificationRecommendationCard: {
+    backgroundColor: '#FF6B35',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 24,
+    shadowColor: '#FF6B35',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 16,
+    borderWidth: 3,
+    borderColor: '#FF8C5A',
+  },
+  recommendationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  recommendationIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  recommendationTextContainer: {
+    flex: 1,
+  },
+  recommendationTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  recommendationSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.95)',
+    lineHeight: 18,
+  },
+  manualVerificationRecommendationButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+  },
+  manualVerificationRecommendationButtonText: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    flex: 1,
+    textAlign: 'center',
+  },
+  recommendationFeatures: {
+    gap: 8,
+  },
+  recommendationFeatureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  recommendationFeatureText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   phaseCard: {
     backgroundColor: 'rgba(255, 215, 0, 0.15)',

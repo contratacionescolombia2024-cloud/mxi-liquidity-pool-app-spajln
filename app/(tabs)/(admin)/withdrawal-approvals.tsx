@@ -22,9 +22,12 @@ interface Withdrawal {
   id: string;
   user_id: string;
   amount: number;
+  mxi_amount: number;
+  usdt_amount: number;
   currency: string;
   wallet_address: string;
   status: string;
+  withdrawal_type: string | null;
   created_at: string;
   user_email: string;
   user_name: string;
@@ -80,10 +83,10 @@ export default function WithdrawalApprovalsScreen() {
     }
   };
 
-  const handleApprove = async (withdrawalId: string) => {
+  const handleApprove = async (withdrawal: Withdrawal) => {
     Alert.alert(
       'Approve Withdrawal',
-      'Are you sure you want to approve this withdrawal request?',
+      `Are you sure you want to approve this withdrawal request?\n\nThis will automatically deduct ${withdrawal.mxi_amount?.toFixed(2) || withdrawal.amount?.toFixed(2)} MXI from the user's ${withdrawal.withdrawal_type || 'balance'}.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -98,7 +101,8 @@ export default function WithdrawalApprovalsScreen() {
                 .eq('user_id', user?.id)
                 .single();
 
-              const { error } = await supabase
+              // Start a transaction to update withdrawal status and deduct balance
+              const { error: withdrawalError } = await supabase
                 .from('withdrawals')
                 .update({
                   status: 'processing',
@@ -106,17 +110,57 @@ export default function WithdrawalApprovalsScreen() {
                   reviewed_at: new Date().toISOString(),
                   admin_notes: adminNotes || null,
                 })
-                .eq('id', withdrawalId);
+                .eq('id', withdrawal.id);
 
-              if (error) throw error;
+              if (withdrawalError) throw withdrawalError;
 
-              Alert.alert('Success', 'Withdrawal approved and set to processing');
+              // Deduct balance from the appropriate source
+              if (withdrawal.withdrawal_type) {
+                const mxiAmount = withdrawal.mxi_amount || withdrawal.amount;
+                const updates: any = {};
+
+                switch (withdrawal.withdrawal_type) {
+                  case 'purchased':
+                    updates.mxi_purchased_directly = supabase.raw(`GREATEST(mxi_purchased_directly - ${mxiAmount}, 0)`);
+                    break;
+                  case 'commissions':
+                    updates.mxi_from_unified_commissions = supabase.raw(`GREATEST(mxi_from_unified_commissions - ${mxiAmount}, 0)`);
+                    break;
+                  case 'vesting':
+                    updates.accumulated_yield = 0;
+                    updates.last_yield_claim = new Date().toISOString();
+                    break;
+                  case 'tournaments':
+                    updates.mxi_from_challenges = supabase.raw(`GREATEST(mxi_from_challenges - ${mxiAmount}, 0)`);
+                    break;
+                }
+
+                // Update user balance
+                const { error: balanceError } = await supabase
+                  .from('users')
+                  .update(updates)
+                  .eq('id', withdrawal.user_id);
+
+                if (balanceError) {
+                  console.error('Error updating user balance:', balanceError);
+                  // Rollback withdrawal status
+                  await supabase
+                    .from('withdrawals')
+                    .update({ status: 'pending' })
+                    .eq('id', withdrawal.id);
+                  throw new Error('Failed to deduct balance from user account');
+                }
+
+                console.log(`✅ Balance deducted: ${mxiAmount} MXI from ${withdrawal.withdrawal_type}`);
+              }
+
+              Alert.alert('Success', 'Withdrawal approved and balance deducted automatically');
               setSelectedWithdrawal(null);
               setAdminNotes('');
               loadWithdrawals();
-            } catch (error) {
+            } catch (error: any) {
               console.error('Error approving withdrawal:', error);
-              Alert.alert('Error', 'Failed to approve withdrawal');
+              Alert.alert('Error', error.message || 'Failed to approve withdrawal');
             } finally {
               setProcessing(false);
             }
@@ -165,7 +209,7 @@ export default function WithdrawalApprovalsScreen() {
     );
   };
 
-  const handleReject = async (withdrawalId: string) => {
+  const handleReject = async (withdrawal: Withdrawal) => {
     if (!adminNotes.trim()) {
       Alert.alert('Error', 'Please provide a reason for rejection');
       return;
@@ -173,7 +217,7 @@ export default function WithdrawalApprovalsScreen() {
 
     Alert.alert(
       'Reject Withdrawal',
-      'Are you sure you want to reject this withdrawal request?',
+      'Are you sure you want to reject this withdrawal request? The balance will be restored to the user.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -189,7 +233,8 @@ export default function WithdrawalApprovalsScreen() {
                 .eq('user_id', user?.id)
                 .single();
 
-              const { error } = await supabase
+              // Update withdrawal status to failed
+              const { error: withdrawalError } = await supabase
                 .from('withdrawals')
                 .update({
                   status: 'failed',
@@ -197,11 +242,39 @@ export default function WithdrawalApprovalsScreen() {
                   reviewed_at: new Date().toISOString(),
                   admin_notes: adminNotes,
                 })
-                .eq('id', withdrawalId);
+                .eq('id', withdrawal.id);
 
-              if (error) throw error;
+              if (withdrawalError) throw withdrawalError;
 
-              Alert.alert('Success', 'Withdrawal rejected');
+              // Restore balance if it was already deducted (status was processing)
+              if (withdrawal.status === 'processing' && withdrawal.withdrawal_type) {
+                const mxiAmount = withdrawal.mxi_amount || withdrawal.amount;
+                const updates: any = {};
+
+                switch (withdrawal.withdrawal_type) {
+                  case 'purchased':
+                    updates.mxi_purchased_directly = supabase.raw(`mxi_purchased_directly + ${mxiAmount}`);
+                    break;
+                  case 'commissions':
+                    updates.mxi_from_unified_commissions = supabase.raw(`mxi_from_unified_commissions + ${mxiAmount}`);
+                    break;
+                  case 'vesting':
+                    updates.accumulated_yield = supabase.raw(`accumulated_yield + ${mxiAmount}`);
+                    break;
+                  case 'tournaments':
+                    updates.mxi_from_challenges = supabase.raw(`mxi_from_challenges + ${mxiAmount}`);
+                    break;
+                }
+
+                await supabase
+                  .from('users')
+                  .update(updates)
+                  .eq('id', withdrawal.user_id);
+
+                console.log(`✅ Balance restored: ${mxiAmount} MXI to ${withdrawal.withdrawal_type}`);
+              }
+
+              Alert.alert('Success', 'Withdrawal rejected and balance restored');
               setSelectedWithdrawal(null);
               setAdminNotes('');
               loadWithdrawals();
@@ -217,11 +290,32 @@ export default function WithdrawalApprovalsScreen() {
     );
   };
 
+  const getWithdrawalTypeLabel = (type: string | null): string => {
+    if (!type) return 'N/A';
+    switch (type) {
+      case 'purchased':
+        return 'Purchased MXI';
+      case 'commissions':
+        return 'Commission MXI';
+      case 'vesting':
+        return 'Vesting MXI';
+      case 'tournaments':
+        return 'Tournament MXI';
+      default:
+        return type;
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <IconSymbol name="chevron.left" size={24} color={colors.primary} />
+          <IconSymbol 
+            ios_icon_name="chevron.left" 
+            android_material_icon_name="arrow_back" 
+            size={24} 
+            color={colors.primary} 
+          />
         </TouchableOpacity>
         <View style={styles.headerText}>
           <Text style={styles.title}>Withdrawal Approvals</Text>
@@ -254,7 +348,12 @@ export default function WithdrawalApprovalsScreen() {
         </View>
       ) : withdrawals.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <IconSymbol name="checkmark.seal" size={64} color={colors.textSecondary} />
+          <IconSymbol 
+            ios_icon_name="checkmark.seal" 
+            android_material_icon_name="verified" 
+            size={64} 
+            color={colors.textSecondary} 
+          />
           <Text style={styles.emptyText}>No withdrawal requests to review</Text>
         </View>
       ) : (
@@ -280,14 +379,35 @@ export default function WithdrawalApprovalsScreen() {
               <View style={styles.withdrawalDetails}>
                 <View style={styles.amountRow}>
                   <IconSymbol 
-                    name={withdrawal.currency === 'MXI' ? 'bitcoinsign.circle' : 'dollarsign.circle'} 
+                    ios_icon_name={withdrawal.currency === 'MXI' ? 'bitcoinsign.circle' : 'dollarsign.circle'} 
+                    android_material_icon_name="monetization_on"
                     size={24} 
                     color={colors.primary} 
                   />
-                  <Text style={styles.amount}>
-                    {withdrawal.amount.toFixed(2)} {withdrawal.currency}
-                  </Text>
+                  <View style={styles.amountInfo}>
+                    <Text style={styles.amount}>
+                      {(withdrawal.mxi_amount || withdrawal.amount)?.toFixed(2)} MXI
+                    </Text>
+                    {withdrawal.usdt_amount > 0 && (
+                      <Text style={styles.amountSubtext}>
+                        ≈ {withdrawal.usdt_amount.toFixed(2)} USDT
+                      </Text>
+                    )}
+                  </View>
                 </View>
+                {withdrawal.withdrawal_type && (
+                  <View style={styles.typeRow}>
+                    <IconSymbol 
+                      ios_icon_name="tag.fill" 
+                      android_material_icon_name="label"
+                      size={16} 
+                      color={colors.textSecondary} 
+                    />
+                    <Text style={styles.typeText}>
+                      Source: {getWithdrawalTypeLabel(withdrawal.withdrawal_type)}
+                    </Text>
+                  </View>
+                )}
                 <Text style={styles.walletAddress} numberOfLines={1}>
                   To: {withdrawal.wallet_address}
                 </Text>
@@ -312,12 +432,17 @@ export default function WithdrawalApprovalsScreen() {
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Withdrawal Review</Text>
                 <TouchableOpacity onPress={() => setSelectedWithdrawal(null)}>
-                  <IconSymbol name="xmark.circle.fill" size={28} color={colors.textSecondary} />
+                  <IconSymbol 
+                    ios_icon_name="xmark.circle.fill" 
+                    android_material_icon_name="cancel"
+                    size={28} 
+                    color={colors.textSecondary} 
+                  />
                 </TouchableOpacity>
               </View>
 
               {selectedWithdrawal && (
-                <>
+                <React.Fragment>
                   <View style={styles.detailSection}>
                     <Text style={styles.detailLabel}>User</Text>
                     <Text style={styles.detailValue}>{selectedWithdrawal.user_name}</Text>
@@ -327,9 +452,26 @@ export default function WithdrawalApprovalsScreen() {
                   <View style={styles.detailSection}>
                     <Text style={styles.detailLabel}>Amount</Text>
                     <Text style={styles.detailValue}>
-                      {selectedWithdrawal.amount.toFixed(2)} {selectedWithdrawal.currency}
+                      {(selectedWithdrawal.mxi_amount || selectedWithdrawal.amount)?.toFixed(2)} MXI
                     </Text>
+                    {selectedWithdrawal.usdt_amount > 0 && (
+                      <Text style={styles.detailSubvalue}>
+                        ≈ {selectedWithdrawal.usdt_amount.toFixed(2)} USDT
+                      </Text>
+                    )}
                   </View>
+
+                  {selectedWithdrawal.withdrawal_type && (
+                    <View style={styles.detailSection}>
+                      <Text style={styles.detailLabel}>Withdrawal Source</Text>
+                      <Text style={styles.detailValue}>
+                        {getWithdrawalTypeLabel(selectedWithdrawal.withdrawal_type)}
+                      </Text>
+                      <Text style={styles.detailSubvalue}>
+                        Balance will be automatically deducted from this source
+                      </Text>
+                    </View>
+                  )}
 
                   <View style={styles.detailSection}>
                     <Text style={styles.detailLabel}>Wallet Address</Text>
@@ -363,37 +505,47 @@ export default function WithdrawalApprovalsScreen() {
 
                   <View style={styles.actionButtons}>
                     {selectedWithdrawal.status === 'pending' && (
-                      <>
+                      <React.Fragment>
                         <TouchableOpacity
                           style={[buttonStyles.primary, styles.approveButton]}
-                          onPress={() => handleApprove(selectedWithdrawal.id)}
+                          onPress={() => handleApprove(selectedWithdrawal)}
                           disabled={processing}
                         >
                           {processing ? (
                             <ActivityIndicator color="#fff" />
                           ) : (
-                            <>
-                              <IconSymbol name="checkmark.circle.fill" size={20} color="#fff" />
-                              <Text style={styles.buttonText}>Approve</Text>
-                            </>
+                            <React.Fragment>
+                              <IconSymbol 
+                                ios_icon_name="checkmark.circle.fill" 
+                                android_material_icon_name="check_circle"
+                                size={20} 
+                                color="#fff" 
+                              />
+                              <Text style={styles.buttonText}>Approve & Deduct</Text>
+                            </React.Fragment>
                           )}
                         </TouchableOpacity>
 
                         <TouchableOpacity
                           style={[buttonStyles.primary, styles.rejectButton]}
-                          onPress={() => handleReject(selectedWithdrawal.id)}
+                          onPress={() => handleReject(selectedWithdrawal)}
                           disabled={processing}
                         >
                           {processing ? (
                             <ActivityIndicator color="#fff" />
                           ) : (
-                            <>
-                              <IconSymbol name="xmark.circle.fill" size={20} color="#fff" />
+                            <React.Fragment>
+                              <IconSymbol 
+                                ios_icon_name="xmark.circle.fill" 
+                                android_material_icon_name="cancel"
+                                size={20} 
+                                color="#fff" 
+                              />
                               <Text style={styles.buttonText}>Reject</Text>
-                            </>
+                            </React.Fragment>
                           )}
                         </TouchableOpacity>
-                      </>
+                      </React.Fragment>
                     )}
 
                     {selectedWithdrawal.status === 'processing' && (
@@ -405,15 +557,20 @@ export default function WithdrawalApprovalsScreen() {
                         {processing ? (
                           <ActivityIndicator color="#fff" />
                         ) : (
-                          <>
-                            <IconSymbol name="checkmark.seal.fill" size={20} color="#fff" />
+                          <React.Fragment>
+                            <IconSymbol 
+                              ios_icon_name="checkmark.seal.fill" 
+                              android_material_icon_name="verified"
+                              size={20} 
+                              color="#fff" 
+                            />
                             <Text style={styles.buttonText}>Mark as Completed</Text>
-                          </>
+                          </React.Fragment>
                         )}
                       </TouchableOpacity>
                     )}
                   </View>
-                </>
+                </React.Fragment>
               )}
             </ScrollView>
           </View>
@@ -461,7 +618,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 12,
-    backgroundColor: colors.card,
+    backgroundColor: colors.cardBackground,
     alignItems: 'center',
   },
   filterButtonActive: {
@@ -473,7 +630,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   filterTextActive: {
-    color: '#fff',
+    color: '#000',
   },
   loadingContainer: {
     flex: 1,
@@ -547,10 +704,29 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 8,
   },
+  amountInfo: {
+    flex: 1,
+  },
   amount: {
     fontSize: 20,
     fontWeight: '700',
     color: colors.text,
+  },
+  amountSubtext: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  typeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  typeText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '600',
   },
   walletAddress: {
     fontSize: 12,
@@ -604,7 +780,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   notesInput: {
-    backgroundColor: colors.card,
+    backgroundColor: colors.cardBackground,
     borderRadius: 12,
     padding: 16,
     fontSize: 14,
