@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
@@ -26,20 +26,39 @@ const formatNumberWithCommas = (num: number, decimals: number = 0): string => {
   });
 };
 
-// Helper function to safely parse price_amount
+// DRASTIC FIX: Ultra-robust price amount parser
 const parsePriceAmount = (priceAmount: any): number => {
+  console.log('🔍 [parsePriceAmount] Input:', { value: priceAmount, type: typeof priceAmount });
+  
+  // Handle null/undefined
   if (priceAmount === null || priceAmount === undefined) {
+    console.log('⚠️ [parsePriceAmount] Null/undefined input, returning 0');
     return 0;
   }
   
-  // Convert to string first
-  const priceStr = String(priceAmount).trim();
+  // If already a number, return it
+  if (typeof priceAmount === 'number') {
+    console.log('✅ [parsePriceAmount] Already a number:', priceAmount);
+    return isNaN(priceAmount) ? 0 : priceAmount;
+  }
+  
+  // Convert to string and clean it
+  let priceStr = String(priceAmount).trim();
+  console.log('🧹 [parsePriceAmount] Cleaned string:', priceStr);
+  
+  // Remove any non-numeric characters except decimal point and minus sign
+  priceStr = priceStr.replace(/[^\d.-]/g, '');
+  console.log('🔢 [parsePriceAmount] After removing non-numeric:', priceStr);
   
   // Parse as float
   const parsed = parseFloat(priceStr);
+  console.log('📊 [parsePriceAmount] Parsed result:', parsed);
   
-  // Return 0 if NaN
-  return isNaN(parsed) ? 0 : parsed;
+  // Return 0 if NaN, otherwise return the parsed value
+  const result = isNaN(parsed) ? 0 : parsed;
+  console.log('✅ [parsePriceAmount] Final result:', result);
+  
+  return result;
 };
 
 export function FundraisingProgress() {
@@ -47,6 +66,7 @@ export function FundraisingProgress() {
   const [totalRaised, setTotalRaised] = useState(0);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [refreshCount, setRefreshCount] = useState(0);
   const [debugInfo, setDebugInfo] = useState<{
     userTotal: number;
     adminTotal: number;
@@ -54,6 +74,7 @@ export function FundraisingProgress() {
     adminCount: number;
     finishedTotal: number;
     confirmedTotal: number;
+    rawPayments: any[];
   }>({ 
     userTotal: 0, 
     adminTotal: 0, 
@@ -61,14 +82,16 @@ export function FundraisingProgress() {
     adminCount: 0,
     finishedTotal: 0,
     confirmedTotal: 0,
+    rawPayments: [],
   });
 
   useEffect(() => {
+    console.log('🚀 [FundraisingProgress] Component mounted, loading data...');
     loadFundraisingData();
     
     // Set up real-time subscription for payments table
     const paymentsChannel = supabase
-      .channel('fundraising-payments-updates')
+      .channel('fundraising-payments-updates-v2')
       .on(
         'postgres_changes',
         {
@@ -77,16 +100,20 @@ export function FundraisingProgress() {
           table: 'payments',
         },
         (payload) => {
-          console.log('💰 Payment update detected:', payload);
+          console.log('💰 [FundraisingProgress] Payment update detected:', payload);
           loadFundraisingData();
         }
       )
       .subscribe();
 
-    // Refresh every 30 seconds as backup
-    const interval = setInterval(loadFundraisingData, 30000);
+    // Refresh every 15 seconds as backup
+    const interval = setInterval(() => {
+      console.log('⏰ [FundraisingProgress] Auto-refresh triggered');
+      loadFundraisingData();
+    }, 15000);
     
     return () => {
+      console.log('🛑 [FundraisingProgress] Component unmounting, cleaning up...');
       paymentsChannel.unsubscribe();
       clearInterval(interval);
     };
@@ -94,16 +121,18 @@ export function FundraisingProgress() {
 
   const loadFundraisingData = async () => {
     try {
-      console.log('🔄 [FundraisingProgress] Loading fundraising data...');
+      console.log('');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('🔄 [FundraisingProgress] LOADING FUNDRAISING DATA - START');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('');
       
       // Get total USDT from all confirmed/finished payments
-      // This includes:
-      // 1. User MXI purchases (status = 'finished' or 'confirmed')
-      // 2. Admin-added balances (order_id starts with 'ADMIN-')
       const { data: paymentsData, error } = await supabase
         .from('payments')
-        .select('price_amount, status, order_id')
-        .in('status', ['finished', 'confirmed']);
+        .select('price_amount, status, order_id, created_at')
+        .in('status', ['finished', 'confirmed'])
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('❌ [FundraisingProgress] Error loading fundraising data:', error);
@@ -111,15 +140,16 @@ export function FundraisingProgress() {
         return;
       }
 
-      if (!paymentsData) {
+      if (!paymentsData || paymentsData.length === 0) {
         console.warn('⚠️ [FundraisingProgress] No payments data returned');
         setLoading(false);
         return;
       }
 
       console.log('📦 [FundraisingProgress] Raw payments data count:', paymentsData.length);
+      console.log('📦 [FundraisingProgress] Raw payments data:', JSON.stringify(paymentsData, null, 2));
       
-      // Calculate totals with robust parsing
+      // DRASTIC FIX: Calculate totals with ultra-robust parsing
       let total = 0;
       let finishedTotal = 0;
       let confirmedTotal = 0;
@@ -128,48 +158,68 @@ export function FundraisingProgress() {
       let adminCount = 0;
       let userCount = 0;
       
+      console.log('');
+      console.log('───────────────────────────────────────────────────────────');
+      console.log('💵 PROCESSING INDIVIDUAL PAYMENTS:');
+      console.log('───────────────────────────────────────────────────────────');
+      
       paymentsData.forEach((payment, index) => {
-        const amount = parsePriceAmount(payment.price_amount);
-        const isAdmin = payment.order_id?.startsWith('ADMIN-') || false;
+        console.log('');
+        console.log(`💳 Payment #${index + 1}/${paymentsData.length}:`);
+        console.log(`   Order ID: ${payment.order_id}`);
+        console.log(`   Status: ${payment.status}`);
+        console.log(`   Raw Amount: ${JSON.stringify(payment.price_amount)}`);
+        console.log(`   Raw Amount Type: ${typeof payment.price_amount}`);
         
-        console.log(`  💵 [${index + 1}/${paymentsData.length}] Payment ${payment.order_id}:`, {
-          raw_amount: payment.price_amount,
-          parsed_amount: amount,
-          status: payment.status,
-          type: isAdmin ? 'ADMIN' : 'USER',
-        });
+        const amount = parsePriceAmount(payment.price_amount);
+        console.log(`   ✅ Parsed Amount: ${amount} USDT`);
+        
+        const isAdmin = payment.order_id?.startsWith('ADMIN-') || false;
+        console.log(`   Type: ${isAdmin ? '🔧 ADMIN' : '👥 USER'}`);
         
         // Add to total
         total += amount;
+        console.log(`   Running Total: ${total} USDT`);
         
         // Add to status totals
         if (payment.status === 'finished') {
           finishedTotal += amount;
+          console.log(`   Added to Finished Total: ${finishedTotal} USDT`);
         } else if (payment.status === 'confirmed') {
           confirmedTotal += amount;
+          console.log(`   Added to Confirmed Total: ${confirmedTotal} USDT`);
         }
         
         // Add to type totals
         if (isAdmin) {
           adminTotal += amount;
           adminCount++;
+          console.log(`   Added to Admin Total: ${adminTotal} USDT (Count: ${adminCount})`);
         } else {
           userTotal += amount;
           userCount++;
+          console.log(`   Added to User Total: ${userTotal} USDT (Count: ${userCount})`);
         }
       });
       
-      console.log('💰 [FundraisingProgress] Calculation Summary:');
-      console.log('  📊 TOTAL RAISED:', total.toFixed(2), 'USDT');
-      console.log('  ✅ Finished Payments:', finishedTotal.toFixed(2), 'USDT');
-      console.log('  ✓ Confirmed Payments:', confirmedTotal.toFixed(2), 'USDT');
-      console.log('  👥 User Purchases:', userTotal.toFixed(2), 'USDT', `(${userCount} payments)`);
-      console.log('  🔧 Admin Additions:', adminTotal.toFixed(2), 'USDT', `(${adminCount} payments)`);
-      console.log('  📈 Progress:', ((total / MAX_FUNDRAISING_GOAL) * 100).toFixed(4), '%');
-      console.log('  🔍 Verification: userTotal + adminTotal =', (userTotal + adminTotal).toFixed(2), 'USDT');
-      console.log('  🔍 Verification: finishedTotal + confirmedTotal =', (finishedTotal + confirmedTotal).toFixed(2), 'USDT');
+      console.log('');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('💰 FINAL CALCULATION SUMMARY:');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log(`  🎯 TOTAL RAISED: ${total.toFixed(2)} USDT`);
+      console.log(`  ✅ Finished Payments: ${finishedTotal.toFixed(2)} USDT`);
+      console.log(`  ✓ Confirmed Payments: ${confirmedTotal.toFixed(2)} USDT`);
+      console.log(`  👥 User Purchases: ${userTotal.toFixed(2)} USDT (${userCount} payments)`);
+      console.log(`  🔧 Admin Additions: ${adminTotal.toFixed(2)} USDT (${adminCount} payments)`);
+      console.log(`  📈 Progress: ${((total / MAX_FUNDRAISING_GOAL) * 100).toFixed(4)}%`);
+      console.log(`  🔍 Verification: userTotal + adminTotal = ${(userTotal + adminTotal).toFixed(2)} USDT`);
+      console.log(`  🔍 Verification: finishedTotal + confirmedTotal = ${(finishedTotal + confirmedTotal).toFixed(2)} USDT`);
+      console.log(`  ⏰ Timestamp: ${new Date().toISOString()}`);
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('');
       
-      // Update state
+      // DRASTIC FIX: Force state update with explicit values
+      console.log('🔄 [FundraisingProgress] Updating state with new values...');
       setTotalRaised(total);
       setDebugInfo({
         userTotal,
@@ -178,30 +228,58 @@ export function FundraisingProgress() {
         adminCount,
         finishedTotal,
         confirmedTotal,
+        rawPayments: paymentsData,
       });
       setLastUpdate(new Date());
+      setRefreshCount(prev => prev + 1);
+      
+      console.log('✅ [FundraisingProgress] State updated successfully');
+      console.log(`   Total Raised State: ${total}`);
+      console.log(`   Refresh Count: ${refreshCount + 1}`);
       
     } catch (error) {
       console.error('❌ [FundraisingProgress] Error in loadFundraisingData:', error);
+      console.error('❌ [FundraisingProgress] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     } finally {
       setLoading(false);
+      console.log('🏁 [FundraisingProgress] Loading complete');
     }
+  };
+
+  const handleManualRefresh = async () => {
+    console.log('🔄 [FundraisingProgress] Manual refresh triggered by user');
+    setLoading(true);
+    await loadFundraisingData();
+    Alert.alert(
+      'Actualizado',
+      `Total recaudado: $${totalRaised.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`,
+      [{ text: 'OK' }]
+    );
   };
 
   const progressPercentage = (totalRaised / MAX_FUNDRAISING_GOAL) * 100;
   const remaining = MAX_FUNDRAISING_GOAL - totalRaised;
 
-  if (loading) {
+  console.log('🎨 [FundraisingProgress] Rendering with:', {
+    totalRaised,
+    progressPercentage: progressPercentage.toFixed(2),
+    remaining,
+    loading,
+    refreshCount,
+  });
+
+  if (loading && refreshCount === 0) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="small" color={colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Cargando datos de recaudación...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* Header with Manual Refresh Button */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <IconSymbol 
@@ -215,9 +293,21 @@ export function FundraisingProgress() {
             <Text style={styles.subtitle}>Progreso de la preventa MXI</Text>
           </View>
         </View>
+        <TouchableOpacity 
+          onPress={handleManualRefresh}
+          style={styles.refreshButton}
+          disabled={loading}
+        >
+          <IconSymbol 
+            ios_icon_name="arrow.clockwise" 
+            android_material_icon_name="refresh" 
+            size={24} 
+            color={loading ? colors.textSecondary : '#00ff88'} 
+          />
+        </TouchableOpacity>
       </View>
 
-      {/* Main Stats */}
+      {/* Main Stats - DRASTIC FIX: Display with explicit formatting */}
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
           <Text style={styles.statLabel}>Total Recaudado</Text>
@@ -227,6 +317,9 @@ export function FundraisingProgress() {
           <Text style={styles.statUnit}>USDT</Text>
           <Text style={styles.statFullValue}>
             ${formatNumberWithCommas(totalRaised, 2)}
+          </Text>
+          <Text style={styles.statDebug}>
+            Raw: {totalRaised.toFixed(2)}
           </Text>
         </View>
 
@@ -372,9 +465,31 @@ export function FundraisingProgress() {
       {/* Last Update */}
       <View style={styles.lastUpdateContainer}>
         <Text style={styles.lastUpdateText}>
-          Última actualización: {lastUpdate.toLocaleTimeString('es-ES')}
+          Última actualización: {lastUpdate.toLocaleTimeString('es-ES')} (Refresh #{refreshCount})
         </Text>
       </View>
+
+      {/* Debug Info - DRASTIC FIX: Show raw calculation */}
+      <TouchableOpacity 
+        style={styles.debugSection}
+        onPress={() => {
+          Alert.alert(
+            'Debug Info',
+            `Total Raised: ${totalRaised}\n` +
+            `User Total: ${debugInfo.userTotal}\n` +
+            `Admin Total: ${debugInfo.adminTotal}\n` +
+            `Finished: ${debugInfo.finishedTotal}\n` +
+            `Confirmed: ${debugInfo.confirmedTotal}\n` +
+            `Payments Count: ${debugInfo.rawPayments.length}\n` +
+            `Refresh Count: ${refreshCount}`,
+            [{ text: 'OK' }]
+          );
+        }}
+      >
+        <Text style={styles.debugText}>
+          🔍 Debug: Tap para ver detalles técnicos
+        </Text>
+      </TouchableOpacity>
 
       {/* Milestones */}
       <View style={styles.milestonesSection}>
@@ -428,13 +543,23 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
+  loadingText: {
+    color: colors.text,
+    marginTop: 12,
+    textAlign: 'center',
+    fontSize: 14,
+  },
   header: {
     marginBottom: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    flex: 1,
   },
   headerTextContainer: {
     flex: 1,
@@ -453,6 +578,13 @@ const styles = StyleSheet.create({
     color: '#ffdd00',
     fontWeight: '600',
   },
+  refreshButton: {
+    padding: 8,
+    backgroundColor: 'rgba(0, 255, 136, 0.1)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 136, 0.3)',
+  },
   statsContainer: {
     flexDirection: 'row',
     gap: 12,
@@ -466,7 +598,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0, 255, 136, 0.2)',
     alignItems: 'center',
-    minHeight: 110,
+    minHeight: 130,
   },
   statLabel: {
     fontSize: 10,
@@ -493,6 +625,13 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontFamily: 'monospace',
     textAlign: 'center',
+  },
+  statDebug: {
+    fontSize: 7,
+    color: 'rgba(255, 255, 255, 0.3)',
+    fontFamily: 'monospace',
+    textAlign: 'center',
+    marginTop: 4,
   },
   progressSection: {
     marginBottom: 20,
@@ -606,12 +745,26 @@ const styles = StyleSheet.create({
   },
   lastUpdateContainer: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 12,
   },
   lastUpdateText: {
     fontSize: 10,
     color: colors.textSecondary,
     fontStyle: 'italic',
+  },
+  debugSection: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  debugText: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    fontFamily: 'monospace',
   },
   milestonesSection: {
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
