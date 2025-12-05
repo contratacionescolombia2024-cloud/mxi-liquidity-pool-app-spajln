@@ -20,6 +20,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
 import PaymentStatusPoller from '@/components/PaymentStatusPoller';
 import { showAlert, showConfirm } from '@/utils/confirmDialog';
+import { useRouter } from 'expo-router';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -91,6 +92,7 @@ interface NowPaymentsModalProps {
 }
 
 export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymentsModalProps) {
+  const router = useRouter();
   const [step, setStep] = useState<'amount' | 'currency' | 'payment'>('amount');
   const [usdtAmount, setUsdtAmount] = useState('');
   const [selectedCurrency, setSelectedCurrency] = useState<Currency | null>(null);
@@ -98,6 +100,7 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
   const [paymentIntent, setPaymentIntent] = useState<any>(null);
   const [currentPrice, setCurrentPrice] = useState(0.4);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
   
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -141,6 +144,7 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
     setTimeRemaining(null);
     setSearchQuery('');
     setSelectedCategory('all');
+    setPaymentError(null);
   };
 
   const loadCurrentPrice = async () => {
@@ -225,6 +229,7 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
     const amount = parseFloat(usdtAmount);
 
     setLoading(true);
+    setPaymentError(null);
 
     try {
       const orderId = `MXI-${Date.now()}-${Math.random().toString(36).substring(7)}`;
@@ -301,7 +306,27 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
           })
           .eq('id', txHistory.id);
 
-        throw new Error(result.error || 'Error al crear el pago');
+        // Set error state to show manual verification option
+        setPaymentError(result.error || 'Error al crear el pago');
+        
+        // Show error with manual verification option
+        showConfirm({
+          title: '⚠️ Error al Crear el Pago',
+          message: `${result.error || 'No se pudo crear el pago con NowPayments.'}\n\n¿Deseas solicitar verificación manual del pago?`,
+          confirmText: 'Verificación Manual',
+          cancelText: 'Reintentar',
+          type: 'warning',
+          onConfirm: () => {
+            handleClose();
+            router.push('/(tabs)/(home)/manual-verification');
+          },
+          onCancel: () => {
+            setPaymentError(null);
+            setStep('amount');
+          },
+        });
+        
+        return;
       }
 
       // Update transaction history with payment details
@@ -325,12 +350,22 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
       setStep('payment');
     } catch (error: any) {
       console.error('Error creating payment:', error);
-      showAlert(
-        'Error',
-        error.message || 'No se pudo crear el pago. Por favor intenta nuevamente.',
-        undefined,
-        'error'
-      );
+      
+      // Show error with manual verification option
+      showConfirm({
+        title: '⚠️ Error de Conexión',
+        message: `${error.message || 'No se pudo conectar con el proveedor de pagos.'}\n\n¿Deseas solicitar verificación manual del pago?`,
+        confirmText: 'Verificación Manual',
+        cancelText: 'Reintentar',
+        type: 'error',
+        onConfirm: () => {
+          handleClose();
+          router.push('/(tabs)/(home)/manual-verification');
+        },
+        onCancel: () => {
+          setPaymentError(null);
+        },
+      });
     } finally {
       setLoading(false);
     }
@@ -422,7 +457,22 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
       type: 'success',
       onConfirm: () => {
         handleClose();
-        // Navigate to balance screen
+        router.push('/(tabs)/(home)/saldo-mxi');
+      },
+      onCancel: handleClose,
+    });
+  };
+
+  const handlePaymentFailed = () => {
+    showConfirm({
+      title: '⚠️ Error en el Pago',
+      message: 'Hubo un problema al verificar tu pago automáticamente.\n\n¿Deseas solicitar verificación manual?',
+      confirmText: 'Verificación Manual',
+      cancelText: 'Cerrar',
+      type: 'warning',
+      onConfirm: () => {
+        handleClose();
+        router.push('/(tabs)/(home)/manual-verification');
       },
       onCancel: handleClose,
     });
@@ -740,6 +790,7 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
         <PaymentStatusPoller
           orderId={paymentIntent.order_id}
           onPaymentConfirmed={handlePaymentConfirmed}
+          onPaymentFailed={handlePaymentFailed}
         />
 
         {timeRemaining !== null && (
@@ -854,6 +905,22 @@ export default function NowPaymentsModal({ visible, onClose, userId }: NowPaymen
             Enviar otra moneda o usar otra red resultará en pérdida de fondos.
           </Text>
         </View>
+
+        <TouchableOpacity
+          style={styles.manualVerifyButton}
+          onPress={() => {
+            handleClose();
+            router.push('/(tabs)/(home)/manual-verification');
+          }}
+        >
+          <IconSymbol
+            ios_icon_name="person.fill.checkmark"
+            android_material_icon_name="admin_panel_settings"
+            size={20}
+            color="#FFFFFF"
+          />
+          <Text style={styles.manualVerifyButtonText}>Solicitar Verificación Manual</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.closeButton}
@@ -1316,6 +1383,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
     lineHeight: 18,
+  },
+  manualVerifyButton: {
+    backgroundColor: '#FF9800',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#FFB74D',
+  },
+  manualVerifyButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   closeButton: {
     backgroundColor: colors.cardBackground,
