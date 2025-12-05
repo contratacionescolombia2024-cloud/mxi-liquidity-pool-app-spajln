@@ -467,9 +467,6 @@ export function FundraisingProgress() {
               </Text>
               <View style={styles.mxiBreakdownCardStats}>
                 <Text style={styles.mxiBreakdownCardStat}>
-                  👥 {mxiDistribution.users_with_purchased} usuarios
-                </Text>
-                <Text style={styles.mxiBreakdownCardStat}>
                   📊 {mxiDistribution.total_mxi_all_sources > 0 ? ((mxiDistribution.total_mxi_purchased / mxiDistribution.total_mxi_all_sources) * 100).toFixed(1) : '0.0'}% del total
                 </Text>
               </View>
@@ -493,9 +490,6 @@ export function FundraisingProgress() {
                 MXI generado por el sistema de referidos (3% nivel 1, 2% nivel 2, 1% nivel 3). Se calcula automáticamente cuando los referidos realizan compras.
               </Text>
               <View style={styles.mxiBreakdownCardStats}>
-                <Text style={styles.mxiBreakdownCardStat}>
-                  👥 {mxiDistribution.users_with_commissions} usuarios
-                </Text>
                 <Text style={styles.mxiBreakdownCardStat}>
                   📊 {mxiDistribution.total_mxi_all_sources > 0 ? ((mxiDistribution.total_mxi_commissions / mxiDistribution.total_mxi_all_sources) * 100).toFixed(1) : '0.0'}% del total
                 </Text>
@@ -521,9 +515,6 @@ export function FundraisingProgress() {
               </Text>
               <View style={styles.mxiBreakdownCardStats}>
                 <Text style={styles.mxiBreakdownCardStat}>
-                  👥 {mxiDistribution.users_with_challenges} usuarios
-                </Text>
-                <Text style={styles.mxiBreakdownCardStat}>
                   📊 {mxiDistribution.total_mxi_all_sources > 0 ? ((mxiDistribution.total_mxi_challenges / mxiDistribution.total_mxi_all_sources) * 100).toFixed(1) : '0.0'}% del total
                 </Text>
               </View>
@@ -547,9 +538,6 @@ export function FundraisingProgress() {
                 MXI generado por el sistema de vesting/yield. Bloqueado hasta la fecha de lanzamiento oficial de MXI.
               </Text>
               <View style={styles.mxiBreakdownCardStats}>
-                <Text style={styles.mxiBreakdownCardStat}>
-                  👥 {mxiDistribution.users_with_vesting} usuarios
-                </Text>
                 <Text style={styles.mxiBreakdownCardStat}>
                   📊 {mxiDistribution.total_mxi_all_sources > 0 ? ((mxiDistribution.total_mxi_vesting / mxiDistribution.total_mxi_all_sources) * 100).toFixed(1) : '0.0'}% del total
                 </Text>
@@ -857,7 +845,7 @@ const styles = StyleSheet.create({
   },
   mxiBreakdownCardStats: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.1)',
