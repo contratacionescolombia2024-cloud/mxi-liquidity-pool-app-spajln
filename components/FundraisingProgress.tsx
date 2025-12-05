@@ -36,7 +36,16 @@ export function FundraisingProgress() {
     adminTotal: number;
     userCount: number;
     adminCount: number;
-  }>({ userTotal: 0, adminTotal: 0, userCount: 0, adminCount: 0 });
+    finishedTotal: number;
+    confirmedTotal: number;
+  }>({ 
+    userTotal: 0, 
+    adminTotal: 0, 
+    userCount: 0, 
+    adminCount: 0,
+    finishedTotal: 0,
+    confirmedTotal: 0,
+  });
 
   useEffect(() => {
     loadFundraisingData();
@@ -86,11 +95,16 @@ export function FundraisingProgress() {
       }
 
       if (paymentsData) {
+        console.log('📦 Raw payments data count:', paymentsData.length);
         console.log('📦 Raw payments data:', JSON.stringify(paymentsData, null, 2));
         
         // Calculate total from all confirmed payments
         // Handle both string and number types for price_amount
-        const total = paymentsData.reduce((sum, payment) => {
+        let total = 0;
+        let finishedTotal = 0;
+        let confirmedTotal = 0;
+        
+        paymentsData.forEach((payment) => {
           // Convert to string first, then parse as float
           const priceAmountStr = String(payment.price_amount || '0');
           const amount = parseFloat(priceAmountStr);
@@ -98,12 +112,19 @@ export function FundraisingProgress() {
           // Additional validation
           if (isNaN(amount)) {
             console.warn(`⚠️ Invalid amount for payment ${payment.order_id}: ${payment.price_amount}`);
-            return sum;
+            return;
           }
           
           console.log(`  💵 Payment ${payment.order_id}: ${amount} USDT (raw: ${payment.price_amount}, type: ${typeof payment.price_amount}, status: ${payment.status})`);
-          return sum + amount;
-        }, 0);
+          
+          total += amount;
+          
+          if (payment.status === 'finished') {
+            finishedTotal += amount;
+          } else if (payment.status === 'confirmed') {
+            confirmedTotal += amount;
+          }
+        });
         
         // Count different types of payments
         const adminPayments = paymentsData.filter(p => p.order_id?.startsWith('ADMIN-'));
@@ -121,10 +142,13 @@ export function FundraisingProgress() {
         
         console.log('💰 Fundraising Data Summary:');
         console.log('  📊 Total Raised:', total, 'USDT');
+        console.log('  ✅ Finished Payments:', finishedTotal, 'USDT');
+        console.log('  ✓ Confirmed Payments:', confirmedTotal, 'USDT');
         console.log('  👥 User Purchases:', userTotal, 'USDT', `(${userPayments.length} payments)`);
         console.log('  🔧 Admin Additions:', adminTotal, 'USDT', `(${adminPayments.length} payments)`);
         console.log('  📈 Progress:', ((total / MAX_FUNDRAISING_GOAL) * 100).toFixed(4), '%');
         console.log('  🔍 Verification: userTotal + adminTotal =', userTotal + adminTotal, 'USDT');
+        console.log('  🔍 Verification: finishedTotal + confirmedTotal =', finishedTotal + confirmedTotal, 'USDT');
         
         setTotalRaised(total);
         setDebugInfo({
@@ -132,6 +156,8 @@ export function FundraisingProgress() {
           adminTotal,
           userCount: userPayments.length,
           adminCount: adminPayments.length,
+          finishedTotal,
+          confirmedTotal,
         });
         setLastUpdate(new Date());
       }
@@ -244,7 +270,37 @@ export function FundraisingProgress() {
       {/* Breakdown Info */}
       <View style={styles.breakdownSection}>
         <Text style={styles.breakdownTitle}>Desglose de Recaudación</Text>
+        
+        {/* Status Breakdown */}
         <View style={styles.breakdownRow}>
+          <View style={styles.breakdownItem}>
+            <IconSymbol 
+              ios_icon_name="checkmark.circle.fill" 
+              android_material_icon_name="check_circle" 
+              size={16} 
+              color="#00ff88" 
+            />
+            <Text style={styles.breakdownLabel}>Pagos Finalizados</Text>
+            <Text style={styles.breakdownValue}>
+              ${formatNumberWithCommas(debugInfo.finishedTotal, 2)} USDT
+            </Text>
+          </View>
+          <View style={styles.breakdownItem}>
+            <IconSymbol 
+              ios_icon_name="checkmark.seal.fill" 
+              android_material_icon_name="verified" 
+              size={16} 
+              color="#ffdd00" 
+            />
+            <Text style={styles.breakdownLabel}>Pagos Confirmados</Text>
+            <Text style={styles.breakdownValue}>
+              ${formatNumberWithCommas(debugInfo.confirmedTotal, 2)} USDT
+            </Text>
+          </View>
+        </View>
+
+        {/* Source Breakdown */}
+        <View style={[styles.breakdownRow, { marginTop: 12 }]}>
           <View style={styles.breakdownItem}>
             <IconSymbol 
               ios_icon_name="person.fill" 
