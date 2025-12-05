@@ -15,12 +15,13 @@ export default function Footer() {
       color: '#00ff88',
     },
     {
-      id: 'twitter',
+      id: 'x',
       url: 'https://x.com/MXIStragic',
-      icon: 'at',
-      androidIcon: 'alternate_email',
+      icon: 'xmark',
+      androidIcon: 'close',
       label: 'X (Twitter)',
-      color: '#1DA1F2',
+      color: '#FFFFFF',
+      backgroundColor: '#000000',
     },
     {
       id: 'facebook',
@@ -41,8 +42,8 @@ export default function Footer() {
     {
       id: 'whatsapp',
       url: 'https://wa.me/4367853354093',
-      icon: 'phone.fill',
-      androidIcon: 'phone',
+      icon: 'message.fill',
+      androidIcon: 'chat',
       label: 'WhatsApp',
       color: '#25D366',
     },
@@ -80,7 +81,13 @@ export default function Footer() {
           {socialLinks.map((social, index) => (
             <TouchableOpacity
               key={social.id}
-              style={[styles.socialIcon, { backgroundColor: social.color + '20', borderColor: social.color }]}
+              style={[
+                styles.socialIcon,
+                {
+                  backgroundColor: social.backgroundColor || social.color + '20',
+                  borderColor: social.backgroundColor || social.color,
+                }
+              ]}
               onPress={() => handleSocialPress(social.url, social.label)}
               activeOpacity={0.7}
             >
