@@ -30,40 +30,80 @@ export function FundraisingProgress() {
   const { t } = useLanguage();
   const [totalRaised, setTotalRaised] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
   useEffect(() => {
     loadFundraisingData();
     
-    // Refresh every 30 seconds
+    // Set up real-time subscription for payments table
+    const paymentsChannel = supabase
+      .channel('fundraising-payments-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'payments',
+        },
+        (payload) => {
+          console.log('💰 Payment update detected:', payload);
+          loadFundraisingData();
+        }
+      )
+      .subscribe();
+
+    // Refresh every 30 seconds as backup
     const interval = setInterval(loadFundraisingData, 30000);
-    return () => clearInterval(interval);
+    
+    return () => {
+      paymentsChannel.unsubscribe();
+      clearInterval(interval);
+    };
   }, []);
 
   const loadFundraisingData = async () => {
     try {
-      // Get total USDT contributed from all users
-      // This includes both:
-      // 1. MXI purchases (usdt_contributed from payments)
-      // 2. Admin-added balances (also reflected in usdt_contributed)
-      const { data: usersData, error } = await supabase
-        .from('users')
-        .select('usdt_contributed');
+      console.log('🔄 Loading fundraising data...');
+      
+      // Get total USDT from all confirmed/finished payments
+      // This includes:
+      // 1. User MXI purchases (status = 'finished' or 'confirmed')
+      // 2. Admin-added balances (order_id starts with 'ADMIN-')
+      const { data: paymentsData, error } = await supabase
+        .from('payments')
+        .select('price_amount, status, order_id')
+        .in('status', ['finished', 'confirmed']);
 
       if (error) {
-        console.error('Error loading fundraising data:', error);
+        console.error('❌ Error loading fundraising data:', error);
         return;
       }
 
-      if (usersData) {
-        const total = usersData.reduce((sum, user) => {
-          return sum + parseFloat(user.usdt_contributed || '0');
+      if (paymentsData) {
+        // Calculate total from all confirmed payments
+        const total = paymentsData.reduce((sum, payment) => {
+          const amount = parseFloat(payment.price_amount || '0');
+          return sum + amount;
         }, 0);
         
-        console.log('💰 Total USDT raised (purchases + admin additions):', total);
+        // Count different types of payments
+        const adminPayments = paymentsData.filter(p => p.order_id?.startsWith('ADMIN-'));
+        const userPayments = paymentsData.filter(p => !p.order_id?.startsWith('ADMIN-'));
+        
+        const adminTotal = adminPayments.reduce((sum, p) => sum + parseFloat(p.price_amount || '0'), 0);
+        const userTotal = userPayments.reduce((sum, p) => sum + parseFloat(p.price_amount || '0'), 0);
+        
+        console.log('💰 Fundraising Data Summary:');
+        console.log('  📊 Total Raised:', total, 'USDT');
+        console.log('  👥 User Purchases:', userTotal, 'USDT', `(${userPayments.length} payments)`);
+        console.log('  🔧 Admin Additions:', adminTotal, 'USDT', `(${adminPayments.length} payments)`);
+        console.log('  📈 Progress:', ((total / MAX_FUNDRAISING_GOAL) * 100).toFixed(4), '%');
+        
         setTotalRaised(total);
+        setLastUpdate(new Date());
       }
     } catch (error) {
-      console.error('Error in loadFundraisingData:', error);
+      console.error('❌ Error in loadFundraisingData:', error);
     } finally {
       setLoading(false);
     }
@@ -178,8 +218,15 @@ export function FundraisingProgress() {
         />
         <Text style={styles.infoText}>
           Esta métrica muestra el progreso total de la recaudación del proyecto MXI. 
-          Incluye todas las compras de MXI y los saldos añadidos por el administrador. 
+          Incluye todas las compras de MXI confirmadas y los saldos añadidos por el administrador. 
           El objetivo máximo es de 21,000,000 USDT para el desarrollo completo del ecosistema.
+        </Text>
+      </View>
+
+      {/* Last Update */}
+      <View style={styles.lastUpdateContainer}>
+        <Text style={styles.lastUpdateText}>
+          Última actualización: {lastUpdate.toLocaleTimeString('es-ES')}
         </Text>
       </View>
 
@@ -360,7 +407,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     gap: 8,
-    marginBottom: 20,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: 'rgba(0, 255, 136, 0.3)',
   },
@@ -370,6 +417,15 @@ const styles = StyleSheet.create({
     color: '#00ff88',
     lineHeight: 16,
     fontWeight: '600',
+  },
+  lastUpdateContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  lastUpdateText: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
   },
   milestonesSection: {
     backgroundColor: 'rgba(0, 0, 0, 0.4)',

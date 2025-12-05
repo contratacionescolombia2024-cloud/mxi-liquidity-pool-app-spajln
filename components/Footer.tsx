@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, Platform, Alert } from 'react-native';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 
@@ -55,14 +55,30 @@ export default function Footer() {
 
   const handleSocialPress = async (url: string, label: string) => {
     try {
+      console.log(`🔗 Attempting to open ${label}:`, url);
+      
+      // Check if the URL can be opened
       const canOpen = await Linking.canOpenURL(url);
+      console.log(`✅ Can open ${label}:`, canOpen);
+      
       if (canOpen) {
         await Linking.openURL(url);
+        console.log(`✅ Successfully opened ${label}`);
       } else {
-        console.log(`Cannot open ${label} URL:`, url);
+        console.error(`❌ Cannot open ${label} URL:`, url);
+        Alert.alert(
+          'Error',
+          `No se puede abrir ${label}. Por favor, verifica que tengas la aplicación instalada.`,
+          [{ text: 'OK' }]
+        );
       }
     } catch (error) {
-      console.error(`Error opening ${label}:`, error);
+      console.error(`❌ Error opening ${label}:`, error);
+      Alert.alert(
+        'Error',
+        `Error al abrir ${label}: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -82,7 +98,7 @@ export default function Footer() {
       <View style={styles.socialContainer}>
         <Text style={styles.socialTitle}>Síguenos en nuestras redes</Text>
         <View style={styles.socialIconsRow}>
-          {socialLinks.map((social, index) => (
+          {socialLinks.map((social) => (
             <TouchableOpacity
               key={social.id}
               style={[
