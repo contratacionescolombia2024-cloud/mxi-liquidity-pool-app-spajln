@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
@@ -26,12 +26,36 @@ const formatNumberWithCommas = (num: number, decimals: number = 0): string => {
   });
 };
 
+interface MXIDistribution {
+  total_mxi_purchased: number;
+  total_mxi_commissions: number;
+  total_mxi_challenges: number;
+  total_mxi_vesting: number;
+  total_mxi_all_sources: number;
+  users_with_purchased: number;
+  users_with_commissions: number;
+  users_with_challenges: number;
+  users_with_vesting: number;
+}
+
 export function FundraisingProgress() {
   const { t } = useLanguage();
   const [totalRaised, setTotalRaised] = useState(0);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [refreshCount, setRefreshCount] = useState(0);
+  const [showMXIBreakdown, setShowMXIBreakdown] = useState(false);
+  const [mxiDistribution, setMxiDistribution] = useState<MXIDistribution>({
+    total_mxi_purchased: 0,
+    total_mxi_commissions: 0,
+    total_mxi_challenges: 0,
+    total_mxi_vesting: 0,
+    total_mxi_all_sources: 0,
+    users_with_purchased: 0,
+    users_with_commissions: 0,
+    users_with_challenges: 0,
+    users_with_vesting: 0,
+  });
   const [debugInfo, setDebugInfo] = useState<{
     userTotal: number;
     adminTotal: number;
@@ -56,7 +80,7 @@ export function FundraisingProgress() {
     
     // Set up real-time subscription for payments table
     const paymentsChannel = supabase
-      .channel('fundraising-payments-updates-v4')
+      .channel('fundraising-payments-updates-v5')
       .on(
         'postgres_changes',
         {
@@ -71,6 +95,23 @@ export function FundraisingProgress() {
       )
       .subscribe();
 
+    // Set up real-time subscription for users table (MXI changes)
+    const usersChannel = supabase
+      .channel('fundraising-users-updates-v5')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'users',
+        },
+        (payload) => {
+          console.log('👤 [FundraisingProgress] User MXI update detected:', payload);
+          loadMXIDistribution();
+        }
+      )
+      .subscribe();
+
     // Refresh every 10 seconds as backup
     const interval = setInterval(() => {
       console.log('⏰ [FundraisingProgress] Auto-refresh triggered');
@@ -80,9 +121,88 @@ export function FundraisingProgress() {
     return () => {
       console.log('🛑 [FundraisingProgress] Component unmounting, cleaning up...');
       paymentsChannel.unsubscribe();
+      usersChannel.unsubscribe();
       clearInterval(interval);
     };
   }, []);
+
+  const loadMXIDistribution = async () => {
+    try {
+      console.log('📊 [FundraisingProgress] Loading MXI distribution...');
+      
+      const { data, error } = await supabase.rpc('execute_sql', {
+        query: `
+          SELECT 
+            COALESCE(SUM(mxi_purchased_directly), 0) as total_mxi_purchased,
+            COALESCE(SUM(mxi_from_unified_commissions), 0) as total_mxi_commissions,
+            COALESCE(SUM(mxi_from_challenges), 0) as total_mxi_challenges,
+            COALESCE(SUM(mxi_vesting_locked), 0) as total_mxi_vesting,
+            COALESCE(SUM(
+              mxi_purchased_directly + 
+              mxi_from_unified_commissions + 
+              mxi_from_challenges + 
+              mxi_vesting_locked
+            ), 0) as total_mxi_all_sources,
+            COUNT(CASE WHEN mxi_purchased_directly > 0 THEN 1 END) as users_with_purchased,
+            COUNT(CASE WHEN mxi_from_unified_commissions > 0 THEN 1 END) as users_with_commissions,
+            COUNT(CASE WHEN mxi_from_challenges > 0 THEN 1 END) as users_with_challenges,
+            COUNT(CASE WHEN mxi_vesting_locked > 0 THEN 1 END) as users_with_vesting
+          FROM users
+        `
+      });
+
+      if (error) {
+        console.error('❌ [FundraisingProgress] Error loading MXI distribution:', error);
+        return;
+      }
+
+      // Direct SQL query
+      const { data: mxiData, error: mxiError } = await supabase
+        .from('users')
+        .select('mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges, mxi_vesting_locked');
+
+      if (mxiError) {
+        console.error('❌ [FundraisingProgress] Error loading MXI data:', mxiError);
+        return;
+      }
+
+      // Calculate totals
+      const totals = mxiData.reduce((acc, user) => {
+        acc.total_mxi_purchased += parseFloat(String(user.mxi_purchased_directly || 0));
+        acc.total_mxi_commissions += parseFloat(String(user.mxi_from_unified_commissions || 0));
+        acc.total_mxi_challenges += parseFloat(String(user.mxi_from_challenges || 0));
+        acc.total_mxi_vesting += parseFloat(String(user.mxi_vesting_locked || 0));
+        
+        if (user.mxi_purchased_directly > 0) acc.users_with_purchased++;
+        if (user.mxi_from_unified_commissions > 0) acc.users_with_commissions++;
+        if (user.mxi_from_challenges > 0) acc.users_with_challenges++;
+        if (user.mxi_vesting_locked > 0) acc.users_with_vesting++;
+        
+        return acc;
+      }, {
+        total_mxi_purchased: 0,
+        total_mxi_commissions: 0,
+        total_mxi_challenges: 0,
+        total_mxi_vesting: 0,
+        users_with_purchased: 0,
+        users_with_commissions: 0,
+        users_with_challenges: 0,
+        users_with_vesting: 0,
+      });
+
+      totals.total_mxi_all_sources = 
+        totals.total_mxi_purchased + 
+        totals.total_mxi_commissions + 
+        totals.total_mxi_challenges + 
+        totals.total_mxi_vesting;
+
+      console.log('✅ [FundraisingProgress] MXI distribution loaded:', totals);
+      setMxiDistribution(totals as MXIDistribution);
+      
+    } catch (error) {
+      console.error('❌ [FundraisingProgress] Error in loadMXIDistribution:', error);
+    }
+  };
 
   const loadFundraisingData = async () => {
     try {
@@ -92,7 +212,7 @@ export function FundraisingProgress() {
       console.log('═══════════════════════════════════════════════════════════');
       console.log('');
       
-      // DRASTIC FIX: Use database RPC function for accurate calculation
+      // Load USDT fundraising data
       const { data: breakdownData, error: breakdownError } = await supabase
         .rpc('get_fundraising_breakdown');
       
@@ -153,6 +273,9 @@ export function FundraisingProgress() {
       setLastUpdate(new Date());
       setRefreshCount(prev => prev + 1);
       
+      // Load MXI distribution
+      await loadMXIDistribution();
+      
       console.log('✅ [FundraisingProgress] State updated successfully');
       console.log(`   Total Raised: ${totalRaisedValue}`);
       console.log(`   Refresh Count: ${refreshCount + 1}`);
@@ -203,262 +326,402 @@ export function FundraisingProgress() {
   }
 
   return (
-    <View style={styles.container}>
-      {/* Header with Manual Refresh Button */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <IconSymbol 
-            ios_icon_name="chart.bar.fill" 
-            android_material_icon_name="bar_chart" 
-            size={28} 
-            color="#00ff88" 
-          />
-          <View style={styles.headerTextContainer}>
-            <Text style={styles.title}>Recaudación Total del Proyecto</Text>
-            <Text style={styles.subtitle}>Progreso de la preventa MXI</Text>
+    <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+      <View style={styles.container}>
+        {/* Header with Manual Refresh Button */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <IconSymbol 
+              ios_icon_name="chart.bar.fill" 
+              android_material_icon_name="bar_chart" 
+              size={28} 
+              color="#00ff88" 
+            />
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.title}>Recaudación Total del Proyecto</Text>
+              <Text style={styles.subtitle}>Progreso de la preventa MXI</Text>
+            </View>
           </View>
-        </View>
-        <TouchableOpacity 
-          onPress={handleManualRefresh}
-          style={styles.refreshButton}
-          disabled={loading}
-        >
-          <IconSymbol 
-            ios_icon_name="arrow.clockwise" 
-            android_material_icon_name="refresh" 
-            size={24} 
-            color={loading ? colors.textSecondary : '#00ff88'} 
-          />
-        </TouchableOpacity>
-      </View>
-
-      {/* Main Stats */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Total Recaudado</Text>
-          <Text style={styles.statValue}>
-            ${formatLargeNumber(totalRaised, 2)}
-          </Text>
-          <Text style={styles.statUnit}>USDT</Text>
-          <Text style={styles.statFullValue}>
-            ${formatNumberWithCommas(totalRaised, 2)}
-          </Text>
-          <Text style={styles.statDebug}>
-            Raw: {totalRaised.toFixed(2)}
-          </Text>
-        </View>
-
-        <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Meta Total</Text>
-          <Text style={styles.statValue}>
-            ${formatLargeNumber(MAX_FUNDRAISING_GOAL, 0)}
-          </Text>
-          <Text style={styles.statUnit}>USDT</Text>
-          <Text style={styles.statFullValue}>
-            ${formatNumberWithCommas(MAX_FUNDRAISING_GOAL, 0)}
-          </Text>
-        </View>
-
-        <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Restante</Text>
-          <Text style={styles.statValue}>
-            ${formatLargeNumber(remaining, 2)}
-          </Text>
-          <Text style={styles.statUnit}>USDT</Text>
-          <Text style={styles.statFullValue}>
-            ${formatNumberWithCommas(remaining, 2)}
-          </Text>
-        </View>
-      </View>
-
-      {/* Progress Bar */}
-      <View style={styles.progressSection}>
-        <View style={styles.progressHeader}>
-          <Text style={styles.progressLabel}>Progreso General</Text>
-          <Text style={styles.progressPercentage}>
-            {progressPercentage.toFixed(2)}%
-          </Text>
-        </View>
-        
-        <View style={styles.progressBarContainer}>
-          <View 
-            style={[
-              styles.progressBar, 
-              { width: `${Math.min(progressPercentage, 100)}%` }
-            ]}
+          <TouchableOpacity 
+            onPress={handleManualRefresh}
+            style={styles.refreshButton}
+            disabled={loading}
           >
-            {progressPercentage > 5 && (
-              <Text style={styles.progressBarText}>
-                {progressPercentage.toFixed(1)}%
-              </Text>
-            )}
+            <IconSymbol 
+              ios_icon_name="arrow.clockwise" 
+              android_material_icon_name="refresh" 
+              size={24} 
+              color={loading ? colors.textSecondary : '#00ff88'} 
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Main Stats */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>Total Recaudado</Text>
+            <Text style={styles.statValue}>
+              ${formatLargeNumber(totalRaised, 2)}
+            </Text>
+            <Text style={styles.statUnit}>USDT</Text>
+            <Text style={styles.statFullValue}>
+              ${formatNumberWithCommas(totalRaised, 2)}
+            </Text>
+            <Text style={styles.statDebug}>
+              Raw: {totalRaised.toFixed(2)}
+            </Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>Meta Total</Text>
+            <Text style={styles.statValue}>
+              ${formatLargeNumber(MAX_FUNDRAISING_GOAL, 0)}
+            </Text>
+            <Text style={styles.statUnit}>USDT</Text>
+            <Text style={styles.statFullValue}>
+              ${formatNumberWithCommas(MAX_FUNDRAISING_GOAL, 0)}
+            </Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>Restante</Text>
+            <Text style={styles.statValue}>
+              ${formatLargeNumber(remaining, 2)}
+            </Text>
+            <Text style={styles.statUnit}>USDT</Text>
+            <Text style={styles.statFullValue}>
+              ${formatNumberWithCommas(remaining, 2)}
+            </Text>
           </View>
         </View>
 
-        <View style={styles.progressFooter}>
-          <Text style={styles.progressFooterText}>
-            {formatLargeNumber(totalRaised, 0)} USDT
-          </Text>
-          <Text style={styles.progressFooterText}>
-            {formatLargeNumber(MAX_FUNDRAISING_GOAL, 0)} USDT
-          </Text>
-        </View>
-      </View>
-
-      {/* Breakdown Info */}
-      <View style={styles.breakdownSection}>
-        <Text style={styles.breakdownTitle}>Desglose de Recaudación</Text>
-        
-        {/* Status Breakdown */}
-        <View style={styles.breakdownRow}>
-          <View style={styles.breakdownItem}>
-            <IconSymbol 
-              ios_icon_name="checkmark.circle.fill" 
-              android_material_icon_name="check_circle" 
-              size={16} 
-              color="#00ff88" 
-            />
-            <Text style={styles.breakdownLabel}>Pagos Finalizados</Text>
-            <Text style={styles.breakdownValue}>
-              ${formatNumberWithCommas(debugInfo.finishedTotal, 2)} USDT
+        {/* Progress Bar */}
+        <View style={styles.progressSection}>
+          <View style={styles.progressHeader}>
+            <Text style={styles.progressLabel}>Progreso General</Text>
+            <Text style={styles.progressPercentage}>
+              {progressPercentage.toFixed(2)}%
             </Text>
           </View>
-          <View style={styles.breakdownItem}>
-            <IconSymbol 
-              ios_icon_name="checkmark.seal.fill" 
-              android_material_icon_name="verified" 
-              size={16} 
-              color="#ffdd00" 
-            />
-            <Text style={styles.breakdownLabel}>Pagos Confirmados</Text>
-            <Text style={styles.breakdownValue}>
-              ${formatNumberWithCommas(debugInfo.confirmedTotal, 2)} USDT
+          
+          <View style={styles.progressBarContainer}>
+            <View 
+              style={[
+                styles.progressBar, 
+                { width: `${Math.min(progressPercentage, 100)}%` }
+              ]}
+            >
+              {progressPercentage > 5 && (
+                <Text style={styles.progressBarText}>
+                  {progressPercentage.toFixed(1)}%
+                </Text>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.progressFooter}>
+            <Text style={styles.progressFooterText}>
+              {formatLargeNumber(totalRaised, 0)} USDT
+            </Text>
+            <Text style={styles.progressFooterText}>
+              {formatLargeNumber(MAX_FUNDRAISING_GOAL, 0)} USDT
             </Text>
           </View>
         </View>
 
-        {/* Source Breakdown */}
-        <View style={[styles.breakdownRow, { marginTop: 12 }]}>
-          <View style={styles.breakdownItem}>
-            <IconSymbol 
-              ios_icon_name="person.fill" 
-              android_material_icon_name="person" 
-              size={16} 
-              color="#00ff88" 
-            />
-            <Text style={styles.breakdownLabel}>Compras de Usuarios</Text>
-            <Text style={styles.breakdownValue}>
-              ${formatNumberWithCommas(debugInfo.userTotal, 2)} USDT
-            </Text>
-            <Text style={styles.breakdownCount}>
-              ({debugInfo.userCount} pagos)
-            </Text>
-          </View>
-          <View style={styles.breakdownItem}>
-            <IconSymbol 
-              ios_icon_name="gear.circle.fill" 
-              android_material_icon_name="settings" 
-              size={16} 
-              color="#ffdd00" 
-            />
-            <Text style={styles.breakdownLabel}>Saldos Admin</Text>
-            <Text style={styles.breakdownValue}>
-              ${formatNumberWithCommas(debugInfo.adminTotal, 2)} USDT
-            </Text>
-            <Text style={styles.breakdownCount}>
-              ({debugInfo.adminCount} pagos)
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Info Box */}
-      <View style={styles.infoBox}>
-        <IconSymbol 
-          ios_icon_name="info.circle.fill" 
-          android_material_icon_name="info" 
-          size={20} 
-          color="#00ff88" 
-        />
-        <Text style={styles.infoText}>
-          Esta métrica muestra el progreso total de la recaudación del proyecto MXI. 
-          Incluye todas las compras de MXI confirmadas y los saldos añadidos por el administrador. 
-          El objetivo máximo es de 21,000,000 USDT para el desarrollo completo del ecosistema.
-        </Text>
-      </View>
-
-      {/* Last Update */}
-      <View style={styles.lastUpdateContainer}>
-        <Text style={styles.lastUpdateText}>
-          Última actualización: {lastUpdate.toLocaleTimeString('es-ES')} (Refresh #{refreshCount})
-        </Text>
-      </View>
-
-      {/* Debug Info */}
-      <TouchableOpacity 
-        style={styles.debugSection}
-        onPress={() => {
-          Alert.alert(
-            'Debug Info',
-            `Total Raised: ${totalRaised.toFixed(2)} USDT\n` +
-            `User Total: ${debugInfo.userTotal.toFixed(2)} USDT\n` +
-            `Admin Total: ${debugInfo.adminTotal.toFixed(2)} USDT\n` +
-            `Finished: ${debugInfo.finishedTotal.toFixed(2)} USDT\n` +
-            `Confirmed: ${debugInfo.confirmedTotal.toFixed(2)} USDT\n` +
-            `Total Payments: ${debugInfo.totalCount}\n` +
-            `User Payments: ${debugInfo.userCount}\n` +
-            `Admin Payments: ${debugInfo.adminCount}\n` +
-            `Refresh Count: ${refreshCount}\n\n` +
-            `Verification:\n` +
-            `User + Admin = ${(debugInfo.userTotal + debugInfo.adminTotal).toFixed(2)} USDT\n` +
-            `Finished + Confirmed = ${(debugInfo.finishedTotal + debugInfo.confirmedTotal).toFixed(2)} USDT`,
-            [{ text: 'OK' }]
-          );
-        }}
-      >
-        <Text style={styles.debugText}>
-          🔍 Debug: Tap para ver detalles técnicos
-        </Text>
-      </TouchableOpacity>
-
-      {/* Milestones */}
-      <View style={styles.milestonesSection}>
-        <Text style={styles.milestonesTitle}>Hitos de Recaudación</Text>
-        
-        <View style={styles.milestonesList}>
-          {[
-            { amount: 5000000, label: '5M - Fase 1 Completa', reached: totalRaised >= 5000000 },
-            { amount: 10000000, label: '10M - Fase 2 Completa', reached: totalRaised >= 10000000 },
-            { amount: 15000000, label: '15M - Fase 3 Completa', reached: totalRaised >= 15000000 },
-            { amount: 21000000, label: '21M - Meta Final', reached: totalRaised >= 21000000 },
-          ].map((milestone, index) => (
-            <View key={index} style={styles.milestoneItem}>
-              <View style={[
-                styles.milestoneIcon,
-                { backgroundColor: milestone.reached ? '#00ff8820' : 'rgba(255, 255, 255, 0.05)' }
-              ]}>
-                <IconSymbol 
-                  ios_icon_name={milestone.reached ? 'checkmark.circle.fill' : 'circle'}
-                  android_material_icon_name={milestone.reached ? 'check_circle' : 'radio_button_unchecked'}
-                  size={20} 
-                  color={milestone.reached ? '#00ff88' : colors.textSecondary} 
-                />
-              </View>
-              <Text style={[
-                styles.milestoneLabel,
-                { color: milestone.reached ? '#00ff88' : colors.textSecondary }
-              ]}>
-                {milestone.label}
+        {/* USDT Breakdown Info */}
+        <View style={styles.breakdownSection}>
+          <Text style={styles.breakdownTitle}>Desglose de Recaudación USDT</Text>
+          
+          {/* Status Breakdown */}
+          <View style={styles.breakdownRow}>
+            <View style={styles.breakdownItem}>
+              <IconSymbol 
+                ios_icon_name="checkmark.circle.fill" 
+                android_material_icon_name="check_circle" 
+                size={16} 
+                color="#00ff88" 
+              />
+              <Text style={styles.breakdownLabel}>Pagos Finalizados</Text>
+              <Text style={styles.breakdownValue}>
+                ${formatNumberWithCommas(debugInfo.finishedTotal, 2)} USDT
               </Text>
             </View>
-          ))}
+            <View style={styles.breakdownItem}>
+              <IconSymbol 
+                ios_icon_name="checkmark.seal.fill" 
+                android_material_icon_name="verified" 
+                size={16} 
+                color="#ffdd00" 
+              />
+              <Text style={styles.breakdownLabel}>Pagos Confirmados</Text>
+              <Text style={styles.breakdownValue}>
+                ${formatNumberWithCommas(debugInfo.confirmedTotal, 2)} USDT
+              </Text>
+            </View>
+          </View>
+
+          {/* Source Breakdown */}
+          <View style={[styles.breakdownRow, { marginTop: 12 }]}>
+            <View style={styles.breakdownItem}>
+              <IconSymbol 
+                ios_icon_name="person.fill" 
+                android_material_icon_name="person" 
+                size={16} 
+                color="#00ff88" 
+              />
+              <Text style={styles.breakdownLabel}>Compras de Usuarios</Text>
+              <Text style={styles.breakdownValue}>
+                ${formatNumberWithCommas(debugInfo.userTotal, 2)} USDT
+              </Text>
+              <Text style={styles.breakdownCount}>
+                ({debugInfo.userCount} pagos)
+              </Text>
+            </View>
+            <View style={styles.breakdownItem}>
+              <IconSymbol 
+                ios_icon_name="gear.circle.fill" 
+                android_material_icon_name="settings" 
+                size={16} 
+                color="#ffdd00" 
+              />
+              <Text style={styles.breakdownLabel}>Saldos Admin</Text>
+              <Text style={styles.breakdownValue}>
+                ${formatNumberWithCommas(debugInfo.adminTotal, 2)} USDT
+              </Text>
+              <Text style={styles.breakdownCount}>
+                ({debugInfo.adminCount} pagos)
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* MXI Distribution Breakdown - NEW SECTION */}
+        <TouchableOpacity 
+          style={styles.mxiBreakdownToggle}
+          onPress={() => setShowMXIBreakdown(!showMXIBreakdown)}
+        >
+          <View style={styles.mxiBreakdownHeader}>
+            <IconSymbol 
+              ios_icon_name="chart.pie.fill" 
+              android_material_icon_name="pie_chart" 
+              size={24} 
+              color="#00ff88" 
+            />
+            <View style={styles.mxiBreakdownHeaderText}>
+              <Text style={styles.mxiBreakdownTitle}>Desglose de MXI Entregado</Text>
+              <Text style={styles.mxiBreakdownSubtitle}>
+                Total: {formatNumberWithCommas(mxiDistribution.total_mxi_all_sources, 2)} MXI
+              </Text>
+            </View>
+            <IconSymbol 
+              ios_icon_name={showMXIBreakdown ? "chevron.up" : "chevron.down"}
+              android_material_icon_name={showMXIBreakdown ? "expand_less" : "expand_more"}
+              size={24} 
+              color="#00ff88" 
+            />
+          </View>
+        </TouchableOpacity>
+
+        {showMXIBreakdown && (
+          <View style={styles.mxiBreakdownContent}>
+            {/* MXI from Direct Purchases */}
+            <View style={styles.mxiBreakdownCard}>
+              <View style={styles.mxiBreakdownCardHeader}>
+                <IconSymbol 
+                  ios_icon_name="cart.fill" 
+                  android_material_icon_name="shopping_cart" 
+                  size={20} 
+                  color="#00ff88" 
+                />
+                <Text style={styles.mxiBreakdownCardTitle}>MXI por Compras Directas</Text>
+              </View>
+              <Text style={styles.mxiBreakdownCardValue}>
+                {formatNumberWithCommas(mxiDistribution.total_mxi_purchased, 2)} MXI
+              </Text>
+              <Text style={styles.mxiBreakdownCardDescription}>
+                MXI adquirido mediante pagos en USDT. Los usuarios reciben MXI según el precio de la fase actual.
+              </Text>
+              <View style={styles.mxiBreakdownCardStats}>
+                <Text style={styles.mxiBreakdownCardStat}>
+                  👥 {mxiDistribution.users_with_purchased} usuarios
+                </Text>
+                <Text style={styles.mxiBreakdownCardStat}>
+                  📊 {((mxiDistribution.total_mxi_purchased / mxiDistribution.total_mxi_all_sources) * 100).toFixed(1)}% del total
+                </Text>
+              </View>
+            </View>
+
+            {/* MXI from Commissions */}
+            <View style={styles.mxiBreakdownCard}>
+              <View style={styles.mxiBreakdownCardHeader}>
+                <IconSymbol 
+                  ios_icon_name="person.3.fill" 
+                  android_material_icon_name="group" 
+                  size={20} 
+                  color="#ffdd00" 
+                />
+                <Text style={styles.mxiBreakdownCardTitle}>MXI por Comisiones de Referidos</Text>
+              </View>
+              <Text style={styles.mxiBreakdownCardValue}>
+                {formatNumberWithCommas(mxiDistribution.total_mxi_commissions, 2)} MXI
+              </Text>
+              <Text style={styles.mxiBreakdownCardDescription}>
+                MXI generado por el sistema de referidos (3% nivel 1, 2% nivel 2, 1% nivel 3). Se calcula automáticamente cuando los referidos realizan compras.
+              </Text>
+              <View style={styles.mxiBreakdownCardStats}>
+                <Text style={styles.mxiBreakdownCardStat}>
+                  👥 {mxiDistribution.users_with_commissions} usuarios
+                </Text>
+                <Text style={styles.mxiBreakdownCardStat}>
+                  📊 {((mxiDistribution.total_mxi_commissions / mxiDistribution.total_mxi_all_sources) * 100).toFixed(1)}% del total
+                </Text>
+              </View>
+            </View>
+
+            {/* MXI from Challenges */}
+            <View style={styles.mxiBreakdownCard}>
+              <View style={styles.mxiBreakdownCardHeader}>
+                <IconSymbol 
+                  ios_icon_name="trophy.fill" 
+                  android_material_icon_name="emoji_events" 
+                  size={20} 
+                  color="#ff6b6b" 
+                />
+                <Text style={styles.mxiBreakdownCardTitle}>MXI por Desafíos y Torneos</Text>
+              </View>
+              <Text style={styles.mxiBreakdownCardValue}>
+                {formatNumberWithCommas(mxiDistribution.total_mxi_challenges, 2)} MXI
+              </Text>
+              <Text style={styles.mxiBreakdownCardDescription}>
+                MXI ganado en torneos y desafíos. Requiere 5 referidos activos para poder retirar.
+              </Text>
+              <View style={styles.mxiBreakdownCardStats}>
+                <Text style={styles.mxiBreakdownCardStat}>
+                  👥 {mxiDistribution.users_with_challenges} usuarios
+                </Text>
+                <Text style={styles.mxiBreakdownCardStat}>
+                  📊 {((mxiDistribution.total_mxi_challenges / mxiDistribution.total_mxi_all_sources) * 100).toFixed(1)}% del total
+                </Text>
+              </View>
+            </View>
+
+            {/* MXI from Vesting */}
+            <View style={styles.mxiBreakdownCard}>
+              <View style={styles.mxiBreakdownCardHeader}>
+                <IconSymbol 
+                  ios_icon_name="clock.fill" 
+                  android_material_icon_name="schedule" 
+                  size={20} 
+                  color="#9b59b6" 
+                />
+                <Text style={styles.mxiBreakdownCardTitle}>MXI por Vesting (Bloqueado)</Text>
+              </View>
+              <Text style={styles.mxiBreakdownCardValue}>
+                {formatNumberWithCommas(mxiDistribution.total_mxi_vesting, 2)} MXI
+              </Text>
+              <Text style={styles.mxiBreakdownCardDescription}>
+                MXI generado por el sistema de vesting/yield. Bloqueado hasta la fecha de lanzamiento oficial de MXI.
+              </Text>
+              <View style={styles.mxiBreakdownCardStats}>
+                <Text style={styles.mxiBreakdownCardStat}>
+                  👥 {mxiDistribution.users_with_vesting} usuarios
+                </Text>
+                <Text style={styles.mxiBreakdownCardStat}>
+                  📊 {((mxiDistribution.total_mxi_vesting / mxiDistribution.total_mxi_all_sources) * 100).toFixed(1)}% del total
+                </Text>
+              </View>
+            </View>
+
+            {/* Explanation Box */}
+            <View style={styles.mxiExplanationBox}>
+              <IconSymbol 
+                ios_icon_name="info.circle.fill" 
+                android_material_icon_name="info" 
+                size={20} 
+                color="#00ff88" 
+              />
+              <View style={styles.mxiExplanationText}>
+                <Text style={styles.mxiExplanationTitle}>¿Por qué el MXI entregado es mayor que el USDT recaudado?</Text>
+                <Text style={styles.mxiExplanationDescription}>
+                  El MXI total incluye:
+                  {'\n'}• Compras directas con USDT
+                  {'\n'}• Comisiones de referidos (generadas automáticamente)
+                  {'\n'}• Premios de torneos y desafíos
+                  {'\n'}• Vesting/yield acumulado
+                  {'\n\n'}
+                  El USDT recaudado solo refleja los pagos directos de usuarios y administradores. 
+                  Las comisiones, premios y vesting se generan como incentivos adicionales del ecosistema MXI.
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Info Box */}
+        <View style={styles.infoBox}>
+          <IconSymbol 
+            ios_icon_name="info.circle.fill" 
+            android_material_icon_name="info" 
+            size={20} 
+            color="#00ff88" 
+          />
+          <Text style={styles.infoText}>
+            Esta métrica muestra el progreso total de la recaudación del proyecto MXI. 
+            Incluye todas las compras de MXI confirmadas y los saldos añadidos por el administrador. 
+            El objetivo máximo es de 21,000,000 USDT para el desarrollo completo del ecosistema.
+          </Text>
+        </View>
+
+        {/* Last Update */}
+        <View style={styles.lastUpdateContainer}>
+          <Text style={styles.lastUpdateText}>
+            Última actualización: {lastUpdate.toLocaleTimeString('es-ES')} (Refresh #{refreshCount})
+          </Text>
+        </View>
+
+        {/* Milestones */}
+        <View style={styles.milestonesSection}>
+          <Text style={styles.milestonesTitle}>Hitos de Recaudación</Text>
+          
+          <View style={styles.milestonesList}>
+            {[
+              { amount: 5000000, label: '5M - Fase 1 Completa', reached: totalRaised >= 5000000 },
+              { amount: 10000000, label: '10M - Fase 2 Completa', reached: totalRaised >= 10000000 },
+              { amount: 15000000, label: '15M - Fase 3 Completa', reached: totalRaised >= 15000000 },
+              { amount: 21000000, label: '21M - Meta Final', reached: totalRaised >= 21000000 },
+            ].map((milestone, index) => (
+              <View key={index} style={styles.milestoneItem}>
+                <View style={[
+                  styles.milestoneIcon,
+                  { backgroundColor: milestone.reached ? '#00ff8820' : 'rgba(255, 255, 255, 0.05)' }
+                ]}>
+                  <IconSymbol 
+                    ios_icon_name={milestone.reached ? 'checkmark.circle.fill' : 'circle'}
+                    android_material_icon_name={milestone.reached ? 'check_circle' : 'radio_button_unchecked'}
+                    size={20} 
+                    color={milestone.reached ? '#00ff88' : colors.textSecondary} 
+                  />
+                </View>
+                <Text style={[
+                  styles.milestoneLabel,
+                  { color: milestone.reached ? '#00ff88' : colors.textSecondary }
+                ]}>
+                  {milestone.label}
+                </Text>
+              </View>
+            ))}
+          </View>
         </View>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  scrollContainer: {
+    flex: 1,
+  },
   container: {
     backgroundColor: 'rgba(0, 20, 20, 0.95)',
     borderRadius: 20,
@@ -655,6 +918,104 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontStyle: 'italic',
   },
+  mxiBreakdownToggle: {
+    backgroundColor: 'rgba(0, 255, 136, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(0, 255, 136, 0.3)',
+  },
+  mxiBreakdownHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  mxiBreakdownHeaderText: {
+    flex: 1,
+  },
+  mxiBreakdownTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#00ff88',
+    marginBottom: 4,
+  },
+  mxiBreakdownSubtitle: {
+    fontSize: 12,
+    color: '#ffdd00',
+    fontWeight: '600',
+  },
+  mxiBreakdownContent: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  mxiBreakdownCard: {
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 136, 0.2)',
+  },
+  mxiBreakdownCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  mxiBreakdownCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  mxiBreakdownCardValue: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#00ff88',
+    marginBottom: 8,
+    fontFamily: 'monospace',
+  },
+  mxiBreakdownCardDescription: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  mxiBreakdownCardStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  mxiBreakdownCardStat: {
+    fontSize: 11,
+    color: '#ffdd00',
+    fontWeight: '600',
+  },
+  mxiExplanationBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(0, 255, 136, 0.15)',
+    padding: 16,
+    borderRadius: 12,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 136, 0.3)',
+  },
+  mxiExplanationText: {
+    flex: 1,
+  },
+  mxiExplanationTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#00ff88',
+    marginBottom: 8,
+  },
+  mxiExplanationDescription: {
+    fontSize: 11,
+    color: colors.text,
+    lineHeight: 16,
+  },
   infoBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -681,20 +1042,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.textSecondary,
     fontStyle: 'italic',
-  },
-  debugSection: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  debugText: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    fontFamily: 'monospace',
   },
   milestonesSection: {
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
