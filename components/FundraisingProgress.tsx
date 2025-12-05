@@ -11,7 +11,9 @@ const MAX_FUNDRAISING_GOAL = 17500000; // 17,500,000 USDT (Total de las 3 fases 
 // Helper function to format large numbers with abbreviations
 const formatLargeNumber = (num: number, decimals: number = 2): string => {
   if (num >= 1000000) {
-    return `${(num / 1000000).toFixed(decimals)}M`;
+    const millions = num / 1000000;
+    // Use 1 decimal place for millions to show 17.5M instead of 18M
+    return `${millions.toFixed(decimals === 0 ? 1 : decimals)}M`;
   } else if (num >= 1000) {
     return `${(num / 1000).toFixed(decimals)}K`;
   }
@@ -365,7 +367,7 @@ export function FundraisingProgress() {
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>Meta Total</Text>
             <Text style={styles.statValue}>
-              ${formatLargeNumber(MAX_FUNDRAISING_GOAL, 0)}
+              ${formatLargeNumber(MAX_FUNDRAISING_GOAL, 1)}
             </Text>
             <Text style={styles.statUnit}>USDT</Text>
             <Text style={styles.statFullValue}>
@@ -411,10 +413,10 @@ export function FundraisingProgress() {
 
           <View style={styles.progressFooter}>
             <Text style={styles.progressFooterText}>
-              {formatLargeNumber(totalRaised, 0)} USDT
+              {formatLargeNumber(totalRaised, 1)} USDT
             </Text>
             <Text style={styles.progressFooterText}>
-              {formatLargeNumber(MAX_FUNDRAISING_GOAL, 0)} USDT
+              {formatLargeNumber(MAX_FUNDRAISING_GOAL, 1)} USDT
             </Text>
           </View>
         </View>
