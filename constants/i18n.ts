@@ -1314,7 +1314,29 @@ const translations = {
     invalidEmail: 'Por favor ingresa un correo electrónico válido',
     accountCreatedSuccessfully: '✅ ¡Cuenta creada exitosamente! Por favor verifica tu email antes de iniciar sesión.',
     failedToCreateAccount: 'Error al crear la cuenta. Por favor intenta de nuevo.',
-    termsContent: 'El contenido de los Términos y Condiciones se mostrará aquí...',
+    termsContent: `Al registrarse en la App MXI Strategic Presale ("la App"), usted acepta estos Términos y Condiciones. Si no está de acuerdo, no debe usar la App.
+
+La App es operada por MXI Technologies Inc. (Panamá). El token MXI y la marca pertenecen a MXI Strategic Holdings Ltd. (Islas Caimán). La App es una plataforma digital para adquirir MXI en su etapa de desarrollo, gestionar saldos, participar en funciones internas y usar un sistema promocional de referidos. La App no ofrece productos financieros, inversiones ni rentabilidades garantizadas.
+
+Para usar la App, usted debe ser mayor de 18 años, tener capacidad legal y proporcionar datos verídicos. El usuario es responsable de cumplir las leyes de su país. Solo se permite una cuenta por persona. El KYC es obligatorio para retiros y verificación de identidad. Proveer información falsa o intentar manipular el sistema generará el cierre de la cuenta.
+
+Las compras de MXI se realizan únicamente en USDT mediante Binance. El token MXI no representa inversión, valor negociable, instrumento financiero, participación accionaria ni derecho a rendimientos. No tiene valor comercial y su uso es exclusivamente interno dentro del ecosistema. Cualquier posible convertibilidad dependerá de factores externos no controlados por MXI.
+
+El sistema de referidos es promocional. Las comisiones (5%, 2%, 1%) provienen de un fondo de marketing y no de aportes de otros usuarios. Para retirarlas se requieren 5 referidos activos, 10 días de antigüedad, KYC aprobado y una wallet válida.
+
+La App utiliza un sistema de liberación progresiva del saldo digital (antes llamado "rendimiento"). Esta liberación no constituye interés, ganancia ni retorno financiero. Es una mecánica interna sin valor económico real.
+
+Para retiros de MXI, se requiere KYC y 5 referidos activos. Montos superiores podrán liberarse de forma gradual para proteger la estabilidad del ecosistema.
+
+Las actividades gamificadas (retos, minijuegos, Bonus MXI) son dinámicas de habilidad, no juegos de azar ni apuestas. Las recompensas son digitales, promocionales y sin valor comercial.
+
+Está prohibido: crear varias cuentas, suministrar datos falsos, manipular referidos, evadir KYC o usar la App para actividades ilícitas. MXI podrá suspender o bloquear cuentas en caso de sospecha de fraude o violación de estos Términos.
+
+La App se ofrece "tal cual". MXI no es responsable por pérdidas económicas, fallas técnicas, errores de terceros o daños indirectos derivados del uso de la plataforma.
+
+Al continuar, usted declara que entiende estos Términos, acepta los riesgos tecnológicos y regulatorios del uso de criptoactivos y confirma que no utilizará la App con fines ilícitos.
+
+Versión 1.1 – Vigente desde el 15/01/2026`,
     
     // Admin Panel - User Management
     userManagement: 'Gestión de Usuarios',
