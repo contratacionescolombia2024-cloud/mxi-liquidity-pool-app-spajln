@@ -6,7 +6,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-const MAX_FUNDRAISING_GOAL = 21000000; // 21,000,000 USDT
+const MAX_FUNDRAISING_GOAL = 17500000; // 17,500,000 USDT (Total de las 3 fases de preventa)
 
 // Helper function to format large numbers with abbreviations
 const formatLargeNumber = (num: number, decimals: number = 2): string => {
@@ -572,7 +572,7 @@ export function FundraisingProgress() {
           <Text style={styles.infoText}>
             Esta métrica muestra el progreso total de la recaudación del proyecto MXI. 
             Incluye todas las compras de MXI confirmadas y los saldos añadidos por el administrador. 
-            El objetivo máximo es de 21,000,000 USDT para el desarrollo completo del ecosistema.
+            El objetivo máximo es de 17,500,000 USDT para el desarrollo completo del ecosistema (3 fases de preventa).
           </Text>
         </View>
 
@@ -583,16 +583,15 @@ export function FundraisingProgress() {
           </Text>
         </View>
 
-        {/* Milestones */}
+        {/* Milestones - Updated for 3 phases */}
         <View style={styles.milestonesSection}>
           <Text style={styles.milestonesTitle}>Hitos de Recaudación</Text>
           
           <View style={styles.milestonesList}>
             {[
-              { amount: 5000000, label: '5M - Fase 1 Completa', reached: totalRaised >= 5000000 },
-              { amount: 10000000, label: '10M - Fase 2 Completa', reached: totalRaised >= 10000000 },
-              { amount: 15000000, label: '15M - Fase 3 Completa', reached: totalRaised >= 15000000 },
-              { amount: 21000000, label: '21M - Meta Final', reached: totalRaised >= 21000000 },
+              { amount: 3333333, label: 'Fase 1 - 3.33M USDT (0.40 USDT/MXI)', reached: totalRaised >= 3333333 },
+              { amount: 9166666, label: 'Fase 2 - 9.17M USDT (0.70 USDT/MXI)', reached: totalRaised >= 9166666 },
+              { amount: 17500000, label: 'Fase 3 - 17.5M USDT (1.00 USDT/MXI)', reached: totalRaised >= 17500000 },
             ].map((milestone, index) => (
               <View key={index} style={styles.milestoneItem}>
                 <View style={[
