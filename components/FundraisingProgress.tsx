@@ -8,6 +8,24 @@ import { useLanguage } from '@/contexts/LanguageContext';
 
 const MAX_FUNDRAISING_GOAL = 21000000; // 21,000,000 USDT
 
+// Helper function to format large numbers with abbreviations
+const formatLargeNumber = (num: number, decimals: number = 2): string => {
+  if (num >= 1000000) {
+    return `${(num / 1000000).toFixed(decimals)}M`;
+  } else if (num >= 1000) {
+    return `${(num / 1000).toFixed(decimals)}K`;
+  }
+  return num.toFixed(decimals);
+};
+
+// Helper function to format numbers with commas for display
+const formatNumberWithCommas = (num: number, decimals: number = 0): string => {
+  return num.toLocaleString('es-ES', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+};
+
 export function FundraisingProgress() {
   const { t } = useLanguage();
   const [totalRaised, setTotalRaised] = useState(0);
@@ -24,6 +42,9 @@ export function FundraisingProgress() {
   const loadFundraisingData = async () => {
     try {
       // Get total USDT contributed from all users
+      // This includes both:
+      // 1. MXI purchases (usdt_contributed from payments)
+      // 2. Admin-added balances (also reflected in usdt_contributed)
       const { data: usersData, error } = await supabase
         .from('users')
         .select('usdt_contributed');
@@ -38,6 +59,7 @@ export function FundraisingProgress() {
           return sum + parseFloat(user.usdt_contributed || '0');
         }, 0);
         
+        console.log('💰 Total USDT raised (purchases + admin additions):', total);
         setTotalRaised(total);
       }
     } catch (error) {
@@ -81,34 +103,34 @@ export function FundraisingProgress() {
         <View style={styles.statCard}>
           <Text style={styles.statLabel}>Total Recaudado</Text>
           <Text style={styles.statValue}>
-            ${totalRaised.toLocaleString('es-ES', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
+            ${formatLargeNumber(totalRaised, 2)}
           </Text>
           <Text style={styles.statUnit}>USDT</Text>
+          <Text style={styles.statFullValue}>
+            ${formatNumberWithCommas(totalRaised, 2)}
+          </Text>
         </View>
 
         <View style={styles.statCard}>
           <Text style={styles.statLabel}>Meta Total</Text>
           <Text style={styles.statValue}>
-            ${MAX_FUNDRAISING_GOAL.toLocaleString('es-ES', {
-              minimumFractionDigits: 0,
-              maximumFractionDigits: 0,
-            })}
+            ${formatLargeNumber(MAX_FUNDRAISING_GOAL, 0)}
           </Text>
           <Text style={styles.statUnit}>USDT</Text>
+          <Text style={styles.statFullValue}>
+            ${formatNumberWithCommas(MAX_FUNDRAISING_GOAL, 0)}
+          </Text>
         </View>
 
         <View style={styles.statCard}>
           <Text style={styles.statLabel}>Restante</Text>
           <Text style={styles.statValue}>
-            ${remaining.toLocaleString('es-ES', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
+            ${formatLargeNumber(remaining, 2)}
           </Text>
           <Text style={styles.statUnit}>USDT</Text>
+          <Text style={styles.statFullValue}>
+            ${formatNumberWithCommas(remaining, 2)}
+          </Text>
         </View>
       </View>
 
@@ -138,10 +160,10 @@ export function FundraisingProgress() {
 
         <View style={styles.progressFooter}>
           <Text style={styles.progressFooterText}>
-            {totalRaised.toLocaleString('es-ES', { maximumFractionDigits: 0 })} USDT
+            {formatLargeNumber(totalRaised, 0)} USDT
           </Text>
           <Text style={styles.progressFooterText}>
-            {MAX_FUNDRAISING_GOAL.toLocaleString('es-ES', { maximumFractionDigits: 0 })} USDT
+            {formatLargeNumber(MAX_FUNDRAISING_GOAL, 0)} USDT
           </Text>
         </View>
       </View>
@@ -156,6 +178,7 @@ export function FundraisingProgress() {
         />
         <Text style={styles.infoText}>
           Esta métrica muestra el progreso total de la recaudación del proyecto MXI. 
+          Incluye todas las compras de MXI y los saldos añadidos por el administrador. 
           El objetivo máximo es de 21,000,000 USDT para el desarrollo completo del ecosistema.
         </Text>
       </View>
@@ -250,6 +273,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0, 255, 136, 0.2)',
     alignItems: 'center',
+    minHeight: 110,
   },
   statLabel: {
     fontSize: 10,
@@ -258,16 +282,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   statValue: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '900',
     color: '#00ff88',
     marginBottom: 2,
     fontFamily: 'monospace',
+    textAlign: 'center',
   },
   statUnit: {
     fontSize: 10,
     color: '#ffdd00',
     fontWeight: '600',
+    marginBottom: 4,
+  },
+  statFullValue: {
+    fontSize: 8,
+    color: colors.textSecondary,
+    fontFamily: 'monospace',
+    textAlign: 'center',
   },
   progressSection: {
     marginBottom: 20,
