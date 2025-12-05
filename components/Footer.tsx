@@ -17,8 +17,8 @@ export default function Footer() {
     {
       id: 'twitter',
       url: 'https://x.com/MXIStragic',
-      icon: 'xmark',
-      androidIcon: 'close',
+      icon: 'at',
+      androidIcon: 'alternate_email',
       label: 'X (Twitter)',
       color: '#1DA1F2',
     },
@@ -41,8 +41,8 @@ export default function Footer() {
     {
       id: 'whatsapp',
       url: 'https://wa.me/4367853354093',
-      icon: 'message.fill',
-      androidIcon: 'chat',
+      icon: 'phone.fill',
+      androidIcon: 'phone',
       label: 'WhatsApp',
       color: '#25D366',
     },
