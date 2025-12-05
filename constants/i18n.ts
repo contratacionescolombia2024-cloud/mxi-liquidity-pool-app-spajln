@@ -2070,6 +2070,7 @@ const translations = {
     buyMXIWithMultipleOptions: 'Compra MXI con múltiples opciones',
     currentBalance: 'Saldo Actual',
     usdtContributed: 'USDT Contribuido',
+    loadingHistory: 'Cargando historial...',
     currentPresalePhase: 'Fase Actual de Preventa',
     activePhase: 'Fase Activa',
     phaseOf: 'Fase {{current}} de {{total}}',
