@@ -626,7 +626,7 @@ export function FundraisingProgress() {
               </View>
             </View>
 
-            {/* Explanation Box */}
+            {/* Explanation Box - SIMPLIFIED */}
             <View style={styles.mxiExplanationBox}>
               <IconSymbol 
                 ios_icon_name="info.circle.fill" 
@@ -635,15 +635,7 @@ export function FundraisingProgress() {
                 color="#00ff88" 
               />
               <View style={styles.mxiExplanationText}>
-                <Text style={styles.mxiExplanationTitle}>¿Por qué el MXI entregado es mayor que el USDT recaudado?</Text>
                 <Text style={styles.mxiExplanationDescription}>
-                  El MXI total incluye:
-                  {'\n'}• Compras directas con USDT
-                  {'\n'}• Comisiones de referidos (generadas automáticamente)
-                  {'\n'}• Premios de torneos y desafíos
-                  {'\n'}• Vesting/yield acumulado
-                  {'\n\n'}
-                  El USDT recaudado solo refleja los pagos directos de usuarios y administradores. 
                   Las comisiones, premios y vesting se generan como incentivos adicionales del ecosistema MXI.
                 </Text>
               </View>
@@ -997,12 +989,6 @@ const styles = StyleSheet.create({
   },
   mxiExplanationText: {
     flex: 1,
-  },
-  mxiExplanationTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#00ff88',
-    marginBottom: 8,
   },
   mxiExplanationDescription: {
     fontSize: 11,
