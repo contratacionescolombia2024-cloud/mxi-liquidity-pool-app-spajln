@@ -86,11 +86,22 @@ export function FundraisingProgress() {
       }
 
       if (paymentsData) {
+        console.log('📦 Raw payments data:', JSON.stringify(paymentsData, null, 2));
+        
         // Calculate total from all confirmed payments
-        // Make sure to convert price_amount to number properly
+        // Handle both string and number types for price_amount
         const total = paymentsData.reduce((sum, payment) => {
-          const amount = parseFloat(String(payment.price_amount || '0'));
-          console.log(`  💵 Payment ${payment.order_id}: ${amount} USDT (status: ${payment.status})`);
+          // Convert to string first, then parse as float
+          const priceAmountStr = String(payment.price_amount || '0');
+          const amount = parseFloat(priceAmountStr);
+          
+          // Additional validation
+          if (isNaN(amount)) {
+            console.warn(`⚠️ Invalid amount for payment ${payment.order_id}: ${payment.price_amount}`);
+            return sum;
+          }
+          
+          console.log(`  💵 Payment ${payment.order_id}: ${amount} USDT (raw: ${payment.price_amount}, type: ${typeof payment.price_amount}, status: ${payment.status})`);
           return sum + amount;
         }, 0);
         
@@ -98,14 +109,22 @@ export function FundraisingProgress() {
         const adminPayments = paymentsData.filter(p => p.order_id?.startsWith('ADMIN-'));
         const userPayments = paymentsData.filter(p => !p.order_id?.startsWith('ADMIN-'));
         
-        const adminTotal = adminPayments.reduce((sum, p) => sum + parseFloat(String(p.price_amount || '0')), 0);
-        const userTotal = userPayments.reduce((sum, p) => sum + parseFloat(String(p.price_amount || '0')), 0);
+        const adminTotal = adminPayments.reduce((sum, p) => {
+          const amount = parseFloat(String(p.price_amount || '0'));
+          return sum + (isNaN(amount) ? 0 : amount);
+        }, 0);
+        
+        const userTotal = userPayments.reduce((sum, p) => {
+          const amount = parseFloat(String(p.price_amount || '0'));
+          return sum + (isNaN(amount) ? 0 : amount);
+        }, 0);
         
         console.log('💰 Fundraising Data Summary:');
         console.log('  📊 Total Raised:', total, 'USDT');
         console.log('  👥 User Purchases:', userTotal, 'USDT', `(${userPayments.length} payments)`);
         console.log('  🔧 Admin Additions:', adminTotal, 'USDT', `(${adminPayments.length} payments)`);
         console.log('  📈 Progress:', ((total / MAX_FUNDRAISING_GOAL) * 100).toFixed(4), '%');
+        console.log('  🔍 Verification: userTotal + adminTotal =', userTotal + adminTotal, 'USDT');
         
         setTotalRaised(total);
         setDebugInfo({
