@@ -19,7 +19,7 @@ const formatLargeNumber = (num: number, decimals: number = 2): string => {
 };
 
 // Helper function to format numbers with commas for display
-const formatNumberWithCommas = (num: number, decimals: number = 0): string => {
+const formatNumberWithCommas = (num: number, decimals: number = 2): string => {
   return num.toLocaleString('es-ES', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
@@ -80,9 +80,26 @@ export function FundraisingProgress() {
       }
 
       if (paymentsData) {
+        console.log('📦 Raw payments data:', paymentsData);
+        
         // Calculate total from all confirmed payments
+        // Handle both string and numeric types for price_amount
         const total = paymentsData.reduce((sum, payment) => {
-          const amount = parseFloat(payment.price_amount || '0');
+          // Convert to number, handling both string and numeric types
+          let amount = 0;
+          if (typeof payment.price_amount === 'string') {
+            amount = parseFloat(payment.price_amount);
+          } else if (typeof payment.price_amount === 'number') {
+            amount = payment.price_amount;
+          }
+          
+          // Validate the amount is a valid number
+          if (isNaN(amount)) {
+            console.warn('⚠️ Invalid amount for payment:', payment.order_id, payment.price_amount);
+            return sum;
+          }
+          
+          console.log(`  💵 Adding ${amount} USDT from ${payment.order_id}`);
           return sum + amount;
         }, 0);
         
@@ -90,8 +107,19 @@ export function FundraisingProgress() {
         const adminPayments = paymentsData.filter(p => p.order_id?.startsWith('ADMIN-'));
         const userPayments = paymentsData.filter(p => !p.order_id?.startsWith('ADMIN-'));
         
-        const adminTotal = adminPayments.reduce((sum, p) => sum + parseFloat(p.price_amount || '0'), 0);
-        const userTotal = userPayments.reduce((sum, p) => sum + parseFloat(p.price_amount || '0'), 0);
+        const adminTotal = adminPayments.reduce((sum, p) => {
+          const amount = typeof p.price_amount === 'string' 
+            ? parseFloat(p.price_amount) 
+            : (p.price_amount || 0);
+          return sum + (isNaN(amount) ? 0 : amount);
+        }, 0);
+        
+        const userTotal = userPayments.reduce((sum, p) => {
+          const amount = typeof p.price_amount === 'string' 
+            ? parseFloat(p.price_amount) 
+            : (p.price_amount || 0);
+          return sum + (isNaN(amount) ? 0 : amount);
+        }, 0);
         
         console.log('💰 Fundraising Data Summary:');
         console.log('  📊 Total Raised:', total, 'USDT');
