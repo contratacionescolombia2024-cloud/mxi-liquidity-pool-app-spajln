@@ -26,6 +26,22 @@ const formatNumberWithCommas = (num: number, decimals: number = 0): string => {
   });
 };
 
+// Helper function to safely parse price_amount
+const parsePriceAmount = (priceAmount: any): number => {
+  if (priceAmount === null || priceAmount === undefined) {
+    return 0;
+  }
+  
+  // Convert to string first
+  const priceStr = String(priceAmount).trim();
+  
+  // Parse as float
+  const parsed = parseFloat(priceStr);
+  
+  // Return 0 if NaN
+  return isNaN(parsed) ? 0 : parsed;
+};
+
 export function FundraisingProgress() {
   const { t } = useLanguage();
   const [totalRaised, setTotalRaised] = useState(0);
@@ -78,7 +94,7 @@ export function FundraisingProgress() {
 
   const loadFundraisingData = async () => {
     try {
-      console.log('🔄 Loading fundraising data...');
+      console.log('🔄 [FundraisingProgress] Loading fundraising data...');
       
       // Get total USDT from all confirmed/finished payments
       // This includes:
@@ -90,79 +106,83 @@ export function FundraisingProgress() {
         .in('status', ['finished', 'confirmed']);
 
       if (error) {
-        console.error('❌ Error loading fundraising data:', error);
+        console.error('❌ [FundraisingProgress] Error loading fundraising data:', error);
+        setLoading(false);
         return;
       }
 
-      if (paymentsData) {
-        console.log('📦 Raw payments data count:', paymentsData.length);
-        console.log('📦 Raw payments data:', JSON.stringify(paymentsData, null, 2));
-        
-        // Calculate total from all confirmed payments
-        // Handle both string and number types for price_amount
-        let total = 0;
-        let finishedTotal = 0;
-        let confirmedTotal = 0;
-        
-        paymentsData.forEach((payment) => {
-          // Convert to string first, then parse as float
-          const priceAmountStr = String(payment.price_amount || '0');
-          const amount = parseFloat(priceAmountStr);
-          
-          // Additional validation
-          if (isNaN(amount)) {
-            console.warn(`⚠️ Invalid amount for payment ${payment.order_id}: ${payment.price_amount}`);
-            return;
-          }
-          
-          console.log(`  💵 Payment ${payment.order_id}: ${amount} USDT (raw: ${payment.price_amount}, type: ${typeof payment.price_amount}, status: ${payment.status})`);
-          
-          total += amount;
-          
-          if (payment.status === 'finished') {
-            finishedTotal += amount;
-          } else if (payment.status === 'confirmed') {
-            confirmedTotal += amount;
-          }
-        });
-        
-        // Count different types of payments
-        const adminPayments = paymentsData.filter(p => p.order_id?.startsWith('ADMIN-'));
-        const userPayments = paymentsData.filter(p => !p.order_id?.startsWith('ADMIN-'));
-        
-        const adminTotal = adminPayments.reduce((sum, p) => {
-          const amount = parseFloat(String(p.price_amount || '0'));
-          return sum + (isNaN(amount) ? 0 : amount);
-        }, 0);
-        
-        const userTotal = userPayments.reduce((sum, p) => {
-          const amount = parseFloat(String(p.price_amount || '0'));
-          return sum + (isNaN(amount) ? 0 : amount);
-        }, 0);
-        
-        console.log('💰 Fundraising Data Summary:');
-        console.log('  📊 Total Raised:', total, 'USDT');
-        console.log('  ✅ Finished Payments:', finishedTotal, 'USDT');
-        console.log('  ✓ Confirmed Payments:', confirmedTotal, 'USDT');
-        console.log('  👥 User Purchases:', userTotal, 'USDT', `(${userPayments.length} payments)`);
-        console.log('  🔧 Admin Additions:', adminTotal, 'USDT', `(${adminPayments.length} payments)`);
-        console.log('  📈 Progress:', ((total / MAX_FUNDRAISING_GOAL) * 100).toFixed(4), '%');
-        console.log('  🔍 Verification: userTotal + adminTotal =', userTotal + adminTotal, 'USDT');
-        console.log('  🔍 Verification: finishedTotal + confirmedTotal =', finishedTotal + confirmedTotal, 'USDT');
-        
-        setTotalRaised(total);
-        setDebugInfo({
-          userTotal,
-          adminTotal,
-          userCount: userPayments.length,
-          adminCount: adminPayments.length,
-          finishedTotal,
-          confirmedTotal,
-        });
-        setLastUpdate(new Date());
+      if (!paymentsData) {
+        console.warn('⚠️ [FundraisingProgress] No payments data returned');
+        setLoading(false);
+        return;
       }
+
+      console.log('📦 [FundraisingProgress] Raw payments data count:', paymentsData.length);
+      
+      // Calculate totals with robust parsing
+      let total = 0;
+      let finishedTotal = 0;
+      let confirmedTotal = 0;
+      let adminTotal = 0;
+      let userTotal = 0;
+      let adminCount = 0;
+      let userCount = 0;
+      
+      paymentsData.forEach((payment, index) => {
+        const amount = parsePriceAmount(payment.price_amount);
+        const isAdmin = payment.order_id?.startsWith('ADMIN-') || false;
+        
+        console.log(`  💵 [${index + 1}/${paymentsData.length}] Payment ${payment.order_id}:`, {
+          raw_amount: payment.price_amount,
+          parsed_amount: amount,
+          status: payment.status,
+          type: isAdmin ? 'ADMIN' : 'USER',
+        });
+        
+        // Add to total
+        total += amount;
+        
+        // Add to status totals
+        if (payment.status === 'finished') {
+          finishedTotal += amount;
+        } else if (payment.status === 'confirmed') {
+          confirmedTotal += amount;
+        }
+        
+        // Add to type totals
+        if (isAdmin) {
+          adminTotal += amount;
+          adminCount++;
+        } else {
+          userTotal += amount;
+          userCount++;
+        }
+      });
+      
+      console.log('💰 [FundraisingProgress] Calculation Summary:');
+      console.log('  📊 TOTAL RAISED:', total.toFixed(2), 'USDT');
+      console.log('  ✅ Finished Payments:', finishedTotal.toFixed(2), 'USDT');
+      console.log('  ✓ Confirmed Payments:', confirmedTotal.toFixed(2), 'USDT');
+      console.log('  👥 User Purchases:', userTotal.toFixed(2), 'USDT', `(${userCount} payments)`);
+      console.log('  🔧 Admin Additions:', adminTotal.toFixed(2), 'USDT', `(${adminCount} payments)`);
+      console.log('  📈 Progress:', ((total / MAX_FUNDRAISING_GOAL) * 100).toFixed(4), '%');
+      console.log('  🔍 Verification: userTotal + adminTotal =', (userTotal + adminTotal).toFixed(2), 'USDT');
+      console.log('  🔍 Verification: finishedTotal + confirmedTotal =', (finishedTotal + confirmedTotal).toFixed(2), 'USDT');
+      
+      // Update state
+      setTotalRaised(total);
+      setDebugInfo({
+        userTotal,
+        adminTotal,
+        userCount,
+        adminCount,
+        finishedTotal,
+        confirmedTotal,
+      });
+      setLastUpdate(new Date());
+      
     } catch (error) {
-      console.error('❌ Error in loadFundraisingData:', error);
+      console.error('❌ [FundraisingProgress] Error in loadFundraisingData:', error);
     } finally {
       setLoading(false);
     }
