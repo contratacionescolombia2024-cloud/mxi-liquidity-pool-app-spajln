@@ -44,7 +44,7 @@ export function FundraisingProgress() {
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [refreshCount, setRefreshCount] = useState(0);
-  const [showMXIBreakdown, setShowMXIBreakdown] = useState(false);
+  const [showMXIBreakdown, setShowMXIBreakdown] = useState(true); // Changed to true by default
   const [mxiDistribution, setMxiDistribution] = useState<MXIDistribution>({
     total_mxi_purchased: 0,
     total_mxi_commissions: 0,
@@ -80,7 +80,7 @@ export function FundraisingProgress() {
     
     // Set up real-time subscription for payments table
     const paymentsChannel = supabase
-      .channel('fundraising-payments-updates-v5')
+      .channel('fundraising-payments-updates-v6')
       .on(
         'postgres_changes',
         {
@@ -97,7 +97,7 @@ export function FundraisingProgress() {
 
     // Set up real-time subscription for users table (MXI changes)
     const usersChannel = supabase
-      .channel('fundraising-users-updates-v5')
+      .channel('fundraising-users-updates-v6')
       .on(
         'postgres_changes',
         {
@@ -130,32 +130,6 @@ export function FundraisingProgress() {
     try {
       console.log('📊 [FundraisingProgress] Loading MXI distribution...');
       
-      const { data, error } = await supabase.rpc('execute_sql', {
-        query: `
-          SELECT 
-            COALESCE(SUM(mxi_purchased_directly), 0) as total_mxi_purchased,
-            COALESCE(SUM(mxi_from_unified_commissions), 0) as total_mxi_commissions,
-            COALESCE(SUM(mxi_from_challenges), 0) as total_mxi_challenges,
-            COALESCE(SUM(mxi_vesting_locked), 0) as total_mxi_vesting,
-            COALESCE(SUM(
-              mxi_purchased_directly + 
-              mxi_from_unified_commissions + 
-              mxi_from_challenges + 
-              mxi_vesting_locked
-            ), 0) as total_mxi_all_sources,
-            COUNT(CASE WHEN mxi_purchased_directly > 0 THEN 1 END) as users_with_purchased,
-            COUNT(CASE WHEN mxi_from_unified_commissions > 0 THEN 1 END) as users_with_commissions,
-            COUNT(CASE WHEN mxi_from_challenges > 0 THEN 1 END) as users_with_challenges,
-            COUNT(CASE WHEN mxi_vesting_locked > 0 THEN 1 END) as users_with_vesting
-          FROM users
-        `
-      });
-
-      if (error) {
-        console.error('❌ [FundraisingProgress] Error loading MXI distribution:', error);
-        return;
-      }
-
       // Direct SQL query
       const { data: mxiData, error: mxiError } = await supabase
         .from('users')
@@ -163,6 +137,11 @@ export function FundraisingProgress() {
 
       if (mxiError) {
         console.error('❌ [FundraisingProgress] Error loading MXI data:', mxiError);
+        return;
+      }
+
+      if (!mxiData || mxiData.length === 0) {
+        console.warn('⚠️ [FundraisingProgress] No MXI data found');
         return;
       }
 
@@ -197,6 +176,13 @@ export function FundraisingProgress() {
         totals.total_mxi_vesting;
 
       console.log('✅ [FundraisingProgress] MXI distribution loaded:', totals);
+      console.log('📊 [FundraisingProgress] MXI Breakdown:');
+      console.log(`   • Compras Directas: ${totals.total_mxi_purchased.toFixed(2)} MXI (${totals.users_with_purchased} usuarios)`);
+      console.log(`   • Comisiones: ${totals.total_mxi_commissions.toFixed(2)} MXI (${totals.users_with_commissions} usuarios)`);
+      console.log(`   • Desafíos: ${totals.total_mxi_challenges.toFixed(2)} MXI (${totals.users_with_challenges} usuarios)`);
+      console.log(`   • Vesting: ${totals.total_mxi_vesting.toFixed(2)} MXI (${totals.users_with_vesting} usuarios)`);
+      console.log(`   • TOTAL: ${totals.total_mxi_all_sources.toFixed(2)} MXI`);
+      
       setMxiDistribution(totals as MXIDistribution);
       
     } catch (error) {
@@ -297,10 +283,15 @@ export function FundraisingProgress() {
     Alert.alert(
       'Actualizado',
       `Total recaudado: $${totalRaised.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT\n\n` +
-      `Desglose:\n` +
+      `Desglose USDT:\n` +
       `• Usuarios: $${debugInfo.userTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} USDT\n` +
       `• Admin: $${debugInfo.adminTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 })} USDT\n\n` +
-      `Total de pagos: ${debugInfo.totalCount}`,
+      `Desglose MXI:\n` +
+      `• Compras: ${mxiDistribution.total_mxi_purchased.toLocaleString('es-ES', { minimumFractionDigits: 2 })} MXI\n` +
+      `• Comisiones: ${mxiDistribution.total_mxi_commissions.toLocaleString('es-ES', { minimumFractionDigits: 2 })} MXI\n` +
+      `• Desafíos: ${mxiDistribution.total_mxi_challenges.toLocaleString('es-ES', { minimumFractionDigits: 2 })} MXI\n` +
+      `• Vesting: ${mxiDistribution.total_mxi_vesting.toLocaleString('es-ES', { minimumFractionDigits: 2 })} MXI\n` +
+      `• Total MXI: ${mxiDistribution.total_mxi_all_sources.toLocaleString('es-ES', { minimumFractionDigits: 2 })} MXI`,
       [{ text: 'OK' }]
     );
   };
@@ -314,6 +305,8 @@ export function FundraisingProgress() {
     remaining,
     loading,
     refreshCount,
+    showMXIBreakdown,
+    mxiDistribution,
   });
 
   if (loading && refreshCount === 0) {
@@ -496,7 +489,7 @@ export function FundraisingProgress() {
           </View>
         </View>
 
-        {/* MXI Distribution Breakdown - NEW SECTION */}
+        {/* MXI Distribution Breakdown - NOW VISIBLE BY DEFAULT */}
         <TouchableOpacity 
           style={styles.mxiBreakdownToggle}
           onPress={() => setShowMXIBreakdown(!showMXIBreakdown)}
@@ -547,7 +540,7 @@ export function FundraisingProgress() {
                   👥 {mxiDistribution.users_with_purchased} usuarios
                 </Text>
                 <Text style={styles.mxiBreakdownCardStat}>
-                  📊 {((mxiDistribution.total_mxi_purchased / mxiDistribution.total_mxi_all_sources) * 100).toFixed(1)}% del total
+                  📊 {mxiDistribution.total_mxi_all_sources > 0 ? ((mxiDistribution.total_mxi_purchased / mxiDistribution.total_mxi_all_sources) * 100).toFixed(1) : '0.0'}% del total
                 </Text>
               </View>
             </View>
@@ -574,7 +567,7 @@ export function FundraisingProgress() {
                   👥 {mxiDistribution.users_with_commissions} usuarios
                 </Text>
                 <Text style={styles.mxiBreakdownCardStat}>
-                  📊 {((mxiDistribution.total_mxi_commissions / mxiDistribution.total_mxi_all_sources) * 100).toFixed(1)}% del total
+                  📊 {mxiDistribution.total_mxi_all_sources > 0 ? ((mxiDistribution.total_mxi_commissions / mxiDistribution.total_mxi_all_sources) * 100).toFixed(1) : '0.0'}% del total
                 </Text>
               </View>
             </View>
@@ -601,7 +594,7 @@ export function FundraisingProgress() {
                   👥 {mxiDistribution.users_with_challenges} usuarios
                 </Text>
                 <Text style={styles.mxiBreakdownCardStat}>
-                  📊 {((mxiDistribution.total_mxi_challenges / mxiDistribution.total_mxi_all_sources) * 100).toFixed(1)}% del total
+                  📊 {mxiDistribution.total_mxi_all_sources > 0 ? ((mxiDistribution.total_mxi_challenges / mxiDistribution.total_mxi_all_sources) * 100).toFixed(1) : '0.0'}% del total
                 </Text>
               </View>
             </View>
@@ -628,7 +621,7 @@ export function FundraisingProgress() {
                   👥 {mxiDistribution.users_with_vesting} usuarios
                 </Text>
                 <Text style={styles.mxiBreakdownCardStat}>
-                  📊 {((mxiDistribution.total_mxi_vesting / mxiDistribution.total_mxi_all_sources) * 100).toFixed(1)}% del total
+                  📊 {mxiDistribution.total_mxi_all_sources > 0 ? ((mxiDistribution.total_mxi_vesting / mxiDistribution.total_mxi_all_sources) * 100).toFixed(1) : '0.0'}% del total
                 </Text>
               </View>
             </View>
