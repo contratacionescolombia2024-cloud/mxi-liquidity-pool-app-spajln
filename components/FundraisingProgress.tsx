@@ -31,6 +31,12 @@ export function FundraisingProgress() {
   const [totalRaised, setTotalRaised] = useState(0);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [debugInfo, setDebugInfo] = useState<{
+    userTotal: number;
+    adminTotal: number;
+    userCount: number;
+    adminCount: number;
+  }>({ userTotal: 0, adminTotal: 0, userCount: 0, adminCount: 0 });
 
   useEffect(() => {
     loadFundraisingData();
@@ -81,8 +87,10 @@ export function FundraisingProgress() {
 
       if (paymentsData) {
         // Calculate total from all confirmed payments
+        // Make sure to convert price_amount to number properly
         const total = paymentsData.reduce((sum, payment) => {
-          const amount = parseFloat(payment.price_amount || '0');
+          const amount = parseFloat(String(payment.price_amount || '0'));
+          console.log(`  💵 Payment ${payment.order_id}: ${amount} USDT (status: ${payment.status})`);
           return sum + amount;
         }, 0);
         
@@ -90,8 +98,8 @@ export function FundraisingProgress() {
         const adminPayments = paymentsData.filter(p => p.order_id?.startsWith('ADMIN-'));
         const userPayments = paymentsData.filter(p => !p.order_id?.startsWith('ADMIN-'));
         
-        const adminTotal = adminPayments.reduce((sum, p) => sum + parseFloat(p.price_amount || '0'), 0);
-        const userTotal = userPayments.reduce((sum, p) => sum + parseFloat(p.price_amount || '0'), 0);
+        const adminTotal = adminPayments.reduce((sum, p) => sum + parseFloat(String(p.price_amount || '0')), 0);
+        const userTotal = userPayments.reduce((sum, p) => sum + parseFloat(String(p.price_amount || '0')), 0);
         
         console.log('💰 Fundraising Data Summary:');
         console.log('  📊 Total Raised:', total, 'USDT');
@@ -100,6 +108,12 @@ export function FundraisingProgress() {
         console.log('  📈 Progress:', ((total / MAX_FUNDRAISING_GOAL) * 100).toFixed(4), '%');
         
         setTotalRaised(total);
+        setDebugInfo({
+          userTotal,
+          adminTotal,
+          userCount: userPayments.length,
+          adminCount: adminPayments.length,
+        });
         setLastUpdate(new Date());
       }
     } catch (error) {
@@ -205,6 +219,43 @@ export function FundraisingProgress() {
           <Text style={styles.progressFooterText}>
             {formatLargeNumber(MAX_FUNDRAISING_GOAL, 0)} USDT
           </Text>
+        </View>
+      </View>
+
+      {/* Breakdown Info */}
+      <View style={styles.breakdownSection}>
+        <Text style={styles.breakdownTitle}>Desglose de Recaudación</Text>
+        <View style={styles.breakdownRow}>
+          <View style={styles.breakdownItem}>
+            <IconSymbol 
+              ios_icon_name="person.fill" 
+              android_material_icon_name="person" 
+              size={16} 
+              color="#00ff88" 
+            />
+            <Text style={styles.breakdownLabel}>Compras de Usuarios</Text>
+            <Text style={styles.breakdownValue}>
+              ${formatNumberWithCommas(debugInfo.userTotal, 2)} USDT
+            </Text>
+            <Text style={styles.breakdownCount}>
+              ({debugInfo.userCount} pagos)
+            </Text>
+          </View>
+          <View style={styles.breakdownItem}>
+            <IconSymbol 
+              ios_icon_name="gear.circle.fill" 
+              android_material_icon_name="settings" 
+              size={16} 
+              color="#ffdd00" 
+            />
+            <Text style={styles.breakdownLabel}>Saldos Admin</Text>
+            <Text style={styles.breakdownValue}>
+              ${formatNumberWithCommas(debugInfo.adminTotal, 2)} USDT
+            </Text>
+            <Text style={styles.breakdownCount}>
+              ({debugInfo.adminCount} pagos)
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -399,6 +450,46 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: colors.textSecondary,
+  },
+  breakdownSection: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 136, 0.2)',
+  },
+  breakdownTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#00ff88',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  breakdownItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  breakdownLabel: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  breakdownValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#00ff88',
+    textAlign: 'center',
+  },
+  breakdownCount: {
+    fontSize: 9,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
   },
   infoBox: {
     flexDirection: 'row',

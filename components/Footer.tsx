@@ -18,8 +18,8 @@ export default function Footer() {
     {
       id: 'x',
       url: 'https://x.com/MXIStragic',
-      icon: 'xmark',
-      androidIcon: 'close',
+      icon: 'number',
+      androidIcon: 'tag',
       label: 'X (Twitter)',
       color: '#FFFFFF',
       backgroundColor: '#000000',
@@ -57,26 +57,59 @@ export default function Footer() {
     try {
       console.log(`🔗 Attempting to open ${label}:`, url);
       
+      // For WhatsApp, ensure proper formatting
+      let finalUrl = url;
+      if (label === 'WhatsApp') {
+        // WhatsApp URL should be in format: https://wa.me/4367853354093
+        // Remove any spaces or special characters from the phone number
+        const phoneNumber = url.replace('https://wa.me/', '').replace(/\s/g, '');
+        finalUrl = `https://wa.me/${phoneNumber}`;
+        console.log('📱 WhatsApp URL formatted:', finalUrl);
+      }
+      
       // Check if the URL can be opened
-      const canOpen = await Linking.canOpenURL(url);
+      const canOpen = await Linking.canOpenURL(finalUrl);
       console.log(`✅ Can open ${label}:`, canOpen);
       
       if (canOpen) {
-        await Linking.openURL(url);
+        await Linking.openURL(finalUrl);
         console.log(`✅ Successfully opened ${label}`);
       } else {
-        console.error(`❌ Cannot open ${label} URL:`, url);
+        console.error(`❌ Cannot open ${label} URL:`, finalUrl);
+        
+        // Provide more specific error messages
+        let errorMessage = `No se puede abrir ${label}.`;
+        if (label === 'WhatsApp') {
+          errorMessage += ' Por favor, verifica que tengas WhatsApp instalado en tu dispositivo.';
+        } else if (label === 'X (Twitter)') {
+          errorMessage += ' Intentando abrir en el navegador...';
+          // Try to open in browser as fallback
+          await Linking.openURL(finalUrl).catch(() => {
+            Alert.alert('Error', 'No se pudo abrir el enlace de X (Twitter).');
+          });
+          return;
+        }
+        
         Alert.alert(
           'Error',
-          `No se puede abrir ${label}. Por favor, verifica que tengas la aplicación instalada.`,
+          errorMessage,
           [{ text: 'OK' }]
         );
       }
     } catch (error) {
       console.error(`❌ Error opening ${label}:`, error);
+      
+      // More user-friendly error messages
+      let errorMessage = `Error al abrir ${label}.`;
+      if (label === 'WhatsApp') {
+        errorMessage = 'No se pudo abrir WhatsApp. Por favor, verifica que la aplicación esté instalada.';
+      } else if (label === 'X (Twitter)') {
+        errorMessage = 'No se pudo abrir X (Twitter). Por favor, intenta nuevamente.';
+      }
+      
       Alert.alert(
         'Error',
-        `Error al abrir ${label}: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+        errorMessage,
         [{ text: 'OK' }]
       );
     }
@@ -111,12 +144,17 @@ export default function Footer() {
               onPress={() => handleSocialPress(social.url, social.label)}
               activeOpacity={0.7}
             >
-              <IconSymbol
-                ios_icon_name={social.icon}
-                android_material_icon_name={social.androidIcon}
-                size={24}
-                color={social.color}
-              />
+              {social.id === 'x' ? (
+                // Custom X icon using text
+                <Text style={[styles.xIcon, { color: social.color }]}>𝕏</Text>
+              ) : (
+                <IconSymbol
+                  ios_icon_name={social.icon}
+                  android_material_icon_name={social.androidIcon}
+                  size={24}
+                  color={social.color}
+                />
+              )}
             </TouchableOpacity>
           ))}
         </View>
@@ -185,6 +223,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4.65,
     elevation: 8,
+  },
+  xIcon: {
+    fontSize: 28,
+    fontWeight: 'bold',
   },
   copyright: {
     fontSize: 10,
