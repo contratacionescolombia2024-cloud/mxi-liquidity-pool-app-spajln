@@ -8,10 +8,9 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-const CHART_HEIGHT = 320;
-const PADDING = { top: 20, right: 10, bottom: 70, left: 60 };
+const CHART_HEIGHT = 250; // Reduced from 320
+const PADDING = { top: 20, right: 10, bottom: 50, left: 50 }; // Reduced bottom padding
 const MIN_CHART_WIDTH = Dimensions.get('window').width - 80;
-const POINT_SPACING = 80; // Minimum spacing between data points
 
 interface BalanceDataPoint {
   timestamp: Date;
@@ -75,11 +74,15 @@ export function TotalMXIBalanceChart() {
     try {
       setLoading(true);
 
-      // Fetch ALL balance history from database (no time limit)
+      // Fetch balance history from database - limit to last 30 days for better visualization
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
       const { data: historyData, error } = await supabase
         .from('mxi_balance_history')
         .select('*')
         .eq('user_id', user?.id)
+        .gte('timestamp', thirtyDaysAgo.toISOString())
         .order('timestamp', { ascending: true });
 
       if (error) {
@@ -149,22 +152,23 @@ export function TotalMXIBalanceChart() {
       ? balanceData[balanceData.length - 1].totalBalance 
       : 0;
 
-    // Dynamic chart width based on number of data points
-    const dynamicChartWidth = Math.max(
-      MIN_CHART_WIDTH,
-      balanceData.length * POINT_SPACING
-    );
+    // Find min and max values for better scaling
+    const allBalances = balanceData.map(d => d.totalBalance);
+    const minBalance = Math.min(...allBalances);
+    const maxBalance = Math.max(...allBalances);
+    
+    // Add 10% padding to min/max for better visualization
+    const range = maxBalance - minBalance;
+    const padding = range * 0.1;
+    const minY = Math.max(0, minBalance - padding);
+    const maxY = maxBalance + padding;
 
-    // Y-axis scale: Always start from 0, max is 2x the total MXI for balanced view
-    const maxY = Math.max(currentTotal * 2, 10); // Minimum 10 to avoid division by zero
-    const minY = 0; // Always start from 0
-
-    const chartWidth = dynamicChartWidth - PADDING.left - PADDING.right;
+    const chartWidth = MIN_CHART_WIDTH - PADDING.left - PADDING.right;
     const chartHeight = CHART_HEIGHT - PADDING.top - PADDING.bottom;
 
-    // Y-axis scale - always starts from 0
+    // Y-axis scale - dynamic based on actual data
     const yScale = (value: number) => {
-      if (maxY === 0) return PADDING.top + chartHeight;
+      if (maxY === minY) return PADDING.top + chartHeight / 2;
       return PADDING.top + chartHeight - ((value - minY) / (maxY - minY)) * chartHeight;
     };
 
@@ -210,7 +214,7 @@ export function TotalMXIBalanceChart() {
       // Close the path to create filled area
       const lastX = xScale(balanceData.length - 1);
       const firstX = xScale(0);
-      const baseY = yScale(0);
+      const baseY = yScale(minY);
       path += ` L ${lastX} ${baseY}`;
       path += ` L ${firstX} ${baseY}`;
       path += ' Z';
@@ -218,23 +222,24 @@ export function TotalMXIBalanceChart() {
       return path;
     };
 
-    // Format timestamp for display
+    // Format timestamp for display - show only date
     const formatTimestamp = (date: Date) => {
       const day = date.getDate().toString().padStart(2, '0');
       const month = (date.getMonth() + 1).toString().padStart(2, '0');
-      const year = date.getFullYear();
-      const hours = date.getHours().toString().padStart(2, '0');
-      const minutes = date.getMinutes().toString().padStart(2, '0');
-      return `${day}/${month}/${year}\n${hours}:${minutes}`;
+      return `${day}/${month}`;
     };
 
+    // Show only first, middle, and last labels to avoid crowding
+    const getVisibleLabels = () => {
+      if (balanceData.length <= 3) return balanceData.map((_, i) => i);
+      return [0, Math.floor(balanceData.length / 2), balanceData.length - 1];
+    };
+
+    const visibleLabels = getVisibleLabels();
+
     return (
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingRight: 20 }}
-      >
-        <Svg width={dynamicChartWidth} height={CHART_HEIGHT}>
+      <View>
+        <Svg width={MIN_CHART_WIDTH} height={CHART_HEIGHT}>
           <Defs>
             {/* Green gradient for main line */}
             <LinearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
@@ -242,12 +247,6 @@ export function TotalMXIBalanceChart() {
               <Stop offset="100%" stopColor="#00cc66" stopOpacity="1" />
             </LinearGradient>
             
-            {/* Yellow gradient for glow */}
-            <LinearGradient id="yellowGradient" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0%" stopColor="#ffdd00" stopOpacity="0.8" />
-              <Stop offset="100%" stopColor="#ffaa00" stopOpacity="0.6" />
-            </LinearGradient>
-
             {/* Area fill gradient */}
             <LinearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
               <Stop offset="0%" stopColor="#00ff88" stopOpacity="0.3" />
@@ -256,8 +255,8 @@ export function TotalMXIBalanceChart() {
             </LinearGradient>
           </Defs>
 
-          {/* Grid lines - Y axis */}
-          {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => {
+          {/* Grid lines - Y axis (only 3 lines) */}
+          {[0, 0.5, 1].map((ratio, i) => {
             const y = PADDING.top + chartHeight * ratio;
             const value = maxY - ((maxY - minY) * ratio);
             return (
@@ -265,7 +264,7 @@ export function TotalMXIBalanceChart() {
                 <Line
                   x1={PADDING.left}
                   y1={y}
-                  x2={dynamicChartWidth - PADDING.right}
+                  x2={MIN_CHART_WIDTH - PADDING.right}
                   y2={y}
                   stroke="rgba(0, 255, 136, 0.15)"
                   strokeWidth="1"
@@ -279,26 +278,9 @@ export function TotalMXIBalanceChart() {
                   textAnchor="end"
                   fontWeight="600"
                 >
-                  {value.toFixed(2)}
+                  {value.toFixed(0)}
                 </SvgText>
               </G>
-            );
-          })}
-
-          {/* Vertical grid lines at each data point */}
-          {balanceData.map((point, index) => {
-            const x = xScale(index);
-            return (
-              <Line
-                key={`grid-x-${index}`}
-                x1={x}
-                y1={PADDING.top}
-                x2={x}
-                y2={CHART_HEIGHT - PADDING.bottom}
-                stroke="rgba(0, 255, 136, 0.15)"
-                strokeWidth="1"
-                strokeDasharray="4,4"
-              />
             );
           })}
 
@@ -309,14 +291,7 @@ export function TotalMXIBalanceChart() {
             opacity={0.4}
           />
 
-          {/* Main trend line with glow effect */}
-          <Path
-            d={createSmoothPath()}
-            stroke="#ffdd00"
-            strokeWidth="4"
-            fill="none"
-            opacity={0.3}
-          />
+          {/* Main trend line */}
           <Path
             d={createSmoothPath()}
             stroke="url(#greenGradient)"
@@ -325,10 +300,11 @@ export function TotalMXIBalanceChart() {
             opacity={1}
           />
 
-          {/* Data points with glow - show all points */}
-          {balanceData.map((point, index) => {
+          {/* Data points - show only first and last */}
+          {[0, balanceData.length - 1].map((index) => {
+            if (index >= balanceData.length) return null;
             const x = xScale(index);
-            const y = yScale(point.totalBalance);
+            const y = yScale(balanceData[index].totalBalance);
             
             return (
               <G key={`point-${index}`}>
@@ -352,35 +328,22 @@ export function TotalMXIBalanceChart() {
             );
           })}
 
-          {/* X-axis labels - date and time for each balance change */}
-          {balanceData.map((point, index) => {
+          {/* X-axis labels - only show selected labels */}
+          {visibleLabels.map((index) => {
             const x = xScale(index);
-            const formattedTime = formatTimestamp(point.timestamp);
-            const lines = formattedTime.split('\n');
+            const formattedTime = formatTimestamp(balanceData[index].timestamp);
             
             return (
               <G key={`x-label-${index}`}>
-                {/* Date */}
                 <SvgText
                   x={x}
                   y={CHART_HEIGHT - PADDING.bottom + 15}
                   fill="#00ff88"
-                  fontSize="9"
+                  fontSize="10"
                   textAnchor="middle"
                   fontWeight="600"
                 >
-                  {lines[0]}
-                </SvgText>
-                {/* Time */}
-                <SvgText
-                  x={x}
-                  y={CHART_HEIGHT - PADDING.bottom + 28}
-                  fill="#ffdd00"
-                  fontSize="8"
-                  textAnchor="middle"
-                  fontWeight="500"
-                >
-                  {lines[1]}
+                  {formattedTime}
                 </SvgText>
               </G>
             );
@@ -396,22 +359,10 @@ export function TotalMXIBalanceChart() {
             fontWeight="700"
             transform={`rotate(-90, 15, ${CHART_HEIGHT / 2})`}
           >
-            {t('mxiTotal')}
-          </SvgText>
-
-          {/* X-axis label */}
-          <SvgText
-            x={dynamicChartWidth / 2}
-            y={CHART_HEIGHT - 5}
-            fill="#00ff88"
-            fontSize="11"
-            textAnchor="middle"
-            fontWeight="700"
-          >
-            {t('balanceChangeTimestamps')}
+            MXI
           </SvgText>
         </Svg>
-      </ScrollView>
+      </View>
     );
   };
 
@@ -441,16 +392,6 @@ export function TotalMXIBalanceChart() {
     totalBalance: currentTotal,
   };
 
-  // Log for debugging
-  console.log('📊 TotalMXIBalanceChart - Current Balance Breakdown:', {
-    purchased: currentBreakdown.mxiPurchased,
-    commissions: currentBreakdown.mxiCommissions,
-    tournaments: currentBreakdown.mxiTournaments,
-    vesting: currentBreakdown.mxiVesting,
-    total: currentTotal,
-    dataPoints: balanceData.length,
-  });
-
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -466,34 +407,23 @@ export function TotalMXIBalanceChart() {
             })}
           </Text>
           <Text style={styles.currentUnit}>MXI</Text>
-          <View style={[styles.changeBadge, { backgroundColor: isPositive ? '#00ff8820' : '#ff004420' }]}>
-            <IconSymbol
-              ios_icon_name={isPositive ? 'arrow.up' : 'arrow.down'}
-              android_material_icon_name={isPositive ? 'arrow_upward' : 'arrow_downward'}
-              size={12}
-              color={isPositive ? '#00ff88' : '#ff0044'}
-            />
-            <Text style={[styles.changeText, { color: isPositive ? '#00ff88' : '#ff0044' }]}>
-              {isPositive ? '+' : ''}{change.toFixed(2)} ({percentage >= 0 ? '+' : ''}{percentage.toFixed(2)}%)
-            </Text>
-          </View>
+          {balanceData.length >= 2 && (
+            <View style={[styles.changeBadge, { backgroundColor: isPositive ? '#00ff8820' : '#ff004420' }]}>
+              <IconSymbol
+                ios_icon_name={isPositive ? 'arrow.up' : 'arrow.down'}
+                android_material_icon_name={isPositive ? 'arrow_upward' : 'arrow_downward'}
+                size={12}
+                color={isPositive ? '#00ff88' : '#ff0044'}
+              />
+              <Text style={[styles.changeText, { color: isPositive ? '#00ff88' : '#ff0044' }]}>
+                {isPositive ? '+' : ''}{change.toFixed(2)} ({percentage >= 0 ? '+' : ''}{percentage.toFixed(2)}%)
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 
-      {/* Info Box */}
-      <View style={styles.infoBox}>
-        <IconSymbol 
-          ios_icon_name="info.circle.fill" 
-          android_material_icon_name="info" 
-          size={20} 
-          color="#00ff88" 
-        />
-        <Text style={styles.infoText}>
-          {t('chartShowsDynamicBalance')}
-        </Text>
-      </View>
-
-      {/* Chart - Horizontal scroll enabled, scrollbar hidden */}
+      {/* Chart */}
       <View style={styles.chartContainer}>
         {loading ? (
           <View style={styles.loadingContainer}>
@@ -727,24 +657,6 @@ const styles = StyleSheet.create({
   changeText: {
     fontSize: 11,
     fontWeight: '700',
-  },
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: 'rgba(0, 255, 136, 0.1)',
-    padding: 12,
-    borderRadius: 8,
-    gap: 8,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 255, 136, 0.3)',
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 11,
-    color: '#00ff88',
-    lineHeight: 16,
-    fontWeight: '600',
   },
   chartContainer: {
     backgroundColor: 'rgba(0, 0, 0, 0.4)',

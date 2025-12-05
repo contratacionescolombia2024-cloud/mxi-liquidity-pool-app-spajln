@@ -18,6 +18,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { YieldDisplay } from '@/components/YieldDisplay';
 import { LaunchCountdown } from '@/components/LaunchCountdown';
 import { TotalMXIBalanceChart } from '@/components/TotalMXIBalanceChart';
+import { FundraisingProgress } from '@/components/FundraisingProgress';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import VersionDisplay from '@/components/VersionDisplay';
 import Footer from '@/components/Footer';
@@ -555,6 +556,9 @@ export default function HomeScreen() {
       >
         {/* Launch Countdown */}
         <LaunchCountdown />
+
+        {/* NEW: Fundraising Progress Display */}
+        <FundraisingProgress />
 
         {/* NEW: Total MXI Balance Chart with Timeframe Options */}
         <TotalMXIBalanceChart />

@@ -13,6 +13,7 @@ export default function Footer() {
       androidIcon: 'language',
       label: 'Website',
       color: '#00ff88',
+      backgroundColor: '#00ff8820',
     },
     {
       id: 'x',
@@ -30,6 +31,7 @@ export default function Footer() {
       androidIcon: 'facebook',
       label: 'Facebook',
       color: '#1877F2',
+      backgroundColor: '#1877F220',
     },
     {
       id: 'telegram',
@@ -38,6 +40,7 @@ export default function Footer() {
       androidIcon: 'send',
       label: 'Telegram',
       color: '#0088cc',
+      backgroundColor: '#0088cc20',
     },
     {
       id: 'whatsapp',
@@ -46,6 +49,7 @@ export default function Footer() {
       androidIcon: 'chat',
       label: 'WhatsApp',
       color: '#25D366',
+      backgroundColor: '#25D36620',
     },
   ];
 
@@ -84,8 +88,8 @@ export default function Footer() {
               style={[
                 styles.socialIcon,
                 {
-                  backgroundColor: social.backgroundColor || social.color + '20',
-                  borderColor: social.backgroundColor || social.color,
+                  backgroundColor: social.backgroundColor,
+                  borderColor: social.color,
                 }
               ]}
               onPress={() => handleSocialPress(social.url, social.label)}
