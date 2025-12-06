@@ -28,6 +28,7 @@ const translations = {
     copied: 'Copied!',
     copied2: '✅ Copied',
     or: 'or',
+    and: 'and',
     total: 'Total',
     continue: 'Continue',
     send: 'Send',
@@ -119,7 +120,290 @@ const translations = {
     invalidEmail: 'Please enter a valid email address',
     accountCreatedSuccessfully: '✅ Account created successfully! Please verify your email before logging in.',
     failedToCreateAccount: 'Failed to create account. Please try again.',
-    termsContent: 'Terms and Conditions content will be displayed here...',
+    termsContent: `TERMS AND CONDITIONS OF USE
+
+MXI STRATEGIC PRESALE – APP VERSION
+
+MAXCOIN (MXI) is a registered trademark of MXI Strategic Holdings Ltd., Cayman Islands.
+App operated by MXI Technologies Inc. (Panamá).
+Last update: 15/01/2026 – Version 1.1
+
+1. Acceptance
+
+By creating an account or using the MXI Strategic Presale application (the "App"), you accept these Terms and Conditions.
+If you do not agree with them, you should not use the App.
+
+2. About MXI
+
+MXI Strategic Holdings Ltd. (Cayman) is the entity that owns the MXI token, the brand and intellectual property.
+
+MXI Technologies Inc. (Panama) is the company that operates the App and is responsible for its operation.
+
+3. Function of the App
+
+The App allows:
+
+- Register users
+- Buy MXI tokens with USDT (via CRYPTOCURRENCY)
+- Access a referral system
+- View balances, yields and movements
+- Request withdrawals of commissions and/or MXI according to current rules
+
+4. Eligibility
+
+To use the App, you must:
+
+- Be over 18 years old
+- Have legal capacity to contract
+- Provide truthful data
+- Not live in countries where cryptocurrencies are prohibited
+
+5. Registration and Account
+
+- Only one account per person is allowed
+- It is mandatory to complete KYC to enable withdrawals
+- Registered information must match official documents
+- Identification numbers cannot be repeated
+
+6. Purchase of MXI Tokens
+
+- Minimum purchase: 50 USDT
+- Maximum per user: 100,000 USDT
+- Payment exclusively in USDT through CRYPTOCURRENCY
+- The number of tokens received depends on the presale phase
+
+7. Referral System
+
+Commission structure:
+
+- Level 1: 5%
+- Level 2: 2%
+- Level 3: 1%
+
+Requirements to withdraw commissions:
+
+- 5 active referrals
+- 10 days since registration
+- Approved KYC
+- Each referral must have made at least one purchase
+
+8. Yields and Vesting
+
+- Yield: 0.005% per hour
+- Unified commissions also generate yield
+- Yields do not increase vesting
+- 10 active referrals are required to unify vesting to main balance
+
+9. Withdrawals
+
+9.1 Commission withdrawals (USDT)
+
+Requirements:
+
+- 5 active referrals
+- 10 days of membership
+- Approved KYC
+- Valid USDT wallet
+
+9.2 MXI withdrawals
+
+Requirements:
+
+- 5 active referrals
+- Approved KYC
+
+Phased release if amount exceeds 50000 USDT:
+
+- 10% initial
+- +10% every 7 days
+
+10. Mandatory KYC
+
+Will be requested:
+
+- Valid official document
+- Photographs
+- Selfie (proof of life)
+- Verifiable information
+
+11. Risks
+
+Investing in cryptocurrencies involves risks:
+
+- Extreme volatility
+- Total or partial loss of capital
+- Regulatory changes
+- Technological and cybersecurity risks
+
+MXI Strategic does not guarantee profits or fixed returns.
+
+12. Prohibited Conduct
+
+Not allowed:
+
+- Create multiple accounts
+- Provide false data
+- Manipulate referrals
+- Use the App for illicit activities
+- Process money laundering
+
+13. Limitation of Liability
+
+The App is offered "as is".
+Neither MXI Strategic Holdings Ltd. nor MXI Technologies Inc. are responsible for:
+
+- Economic losses
+- Third party or blockchain errors
+- Indirect or incidental damages
+- Misuse of the App
+
+14. Final Acceptance
+
+By registering, you declare that:
+
+- You have read and understand these Terms
+- You accept the risks
+- You provide truthful information
+- You comply with the laws of your country
+
+15. MXI TOKEN USE POLICY
+
+The MXI token is a digital asset in pre-launch stage, without commercial value, without public listing and without recognition as legal tender in Colombia, Spain, Mexico or any other jurisdiction. Its use within the platform is exclusively functional, intended for internal rewards, participation in gamified activities and access to benefits of the MXI ecosystem.
+
+MXI does not represent investments, property rights, guaranteed profitability, equity participation, financial instruments, negotiable securities or similar products. Users accept that the use of the token is experimental, subject to changes and dependent on technical and regulatory validation processes.
+
+Any future value, convertibility or listing of the token will depend on conditions external to the company, regulatory processes and market decisions that cannot be guaranteed. The platform does not ensure economic benefits, appreciation or any return associated with MXI.
+
+16. LEGAL ANNEX – MXI GAMES AND REWARDS
+
+The dynamics available within the platform (including challenges, mini-games such as tap, clicker, "AirBall", skill challenges and the "Bonus MXI" modality) are based exclusively on the user's skill, speed, precision or active participation, and do not depend on chance to determine results.
+
+No activity offered should be interpreted as:
+
+- game of chance,
+- bet,
+- raffle for profit,
+- regulated raffles,
+- state or private lotteries,
+- nor equivalent mechanisms regulated in Colombia, Spain or Mexico.
+
+Access to these dynamics may require a symbolic payment in MXI, but such payment does not constitute a bet, since the token has no real economic value and is used only as an internal participation mechanism.
+
+The "Bonus MXI" modality, including random prize allocation, is carried out outside the main platform, through independent, transparent and verifiable processes, whose purpose is to distribute promotional rewards in MXI without this constituting a regulated game of chance.
+
+Users accept that the rewards granted are promotional, digital and without commercial value, and that participation in any dynamic does not guarantee real economic gains.
+
+---
+
+**IMPORTANT**: These terms and conditions are legally binding. If you do not agree with any part, you should not use the Application. It is recommended to consult with a legal or financial advisor before making investments in cryptocurrencies.
+
+**Effective date**: January 15, 2026
+**Version**: 1.1`,
+    privacyPolicy: 'Privacy Policy',
+    viewPrivacyPolicy: 'View Privacy Policy',
+    privacyPolicyContent: `PRIVACY POLICY
+
+This Privacy Policy describes how MXI Technologies Inc. ("MXI", "we") collects, uses and protects the personal data of users who use the MXI Strategic Presale App ("the App"). By registering or using the App, you accept this Policy.
+
+1. Data we collect
+
+We collect the information necessary for the safe operation of the App, including:
+
+- Full name
+- Identity document
+- Date of birth
+- Email
+- Phone number
+- Session and activity data in the App
+- USDT wallet provided by the user
+- Information captured during the KYC process (photo of document, selfie, biometric verification)
+
+We do not collect data that is not necessary for the operation of the service.
+
+2. Use of information
+
+We use your data to:
+
+- Create and manage your account
+- Verify identity (KYC)
+- Allow MXI purchases in the development stage
+- Manage the referral system
+- Process withdrawal requests
+- Improve security and prevent fraud
+- Send notifications related to your account or App changes
+
+Your data is not sold or exchanged with third parties.
+
+3. Legal bases
+
+The treatment is based on:
+
+- Your consent when registering
+- Compliance with verification obligations (KYC/AML)
+- Fraud prevention
+- Execution of the contracted service
+
+4. Storage and protection
+
+MXI adopts technical and administrative measures to protect information, including:
+
+- Encryption
+- Restricted access
+- Anti-fraud controls
+- Secure servers
+
+No system is completely invulnerable, but we apply good international security practices.
+
+5. Data sharing
+
+We may share data only with:
+
+- KYC verification providers
+- Analysis or security services
+- Competent authorities if required by law
+
+We do not share data with third parties for commercial purposes.
+
+6. Data retention
+
+We retain your data while your account is active and for the time required to:
+
+- Comply with legal obligations
+- Resolve disputes
+- Prevent fraudulent activities
+
+You can request deletion of your account, except when there are pending regulatory obligations.
+
+7. User rights
+
+You can:
+
+- Access your data
+- Rectify them
+- Update them
+- Request deletion
+- Withdraw your consent
+- Limit treatment
+
+To exercise these rights, you can contact us via support within the App.
+
+8. International transfers
+
+Your data may be processed in countries with different protection laws than yours. By using the App, you authorize such transfers, always under adequate security measures.
+
+9. Minors
+
+The use of the App is restricted to persons over 18 years of age. We will delete any account created by minors.
+
+10. Changes to this Policy
+
+We may update this Policy at any time. The current version will be available within the App. Continued use implies acceptance of changes.
+
+11. Contact
+
+For inquiries or requests related to privacy you can contact us through the official support of the App.
+
+Version 1.1 – Effective from 01/15/2026.`,
     
     // Admin Panel - User Management
     userManagement: 'User Management',
@@ -1223,6 +1507,7 @@ const translations = {
     copied: '¡Copiado!',
     copied2: '✅ Copiado',
     or: 'o',
+    and: 'y',
     total: 'Total',
     continue: 'Continuar',
     send: 'Enviar',
@@ -1314,7 +1599,290 @@ const translations = {
     invalidEmail: 'Por favor ingresa un correo electrónico válido',
     accountCreatedSuccessfully: '✅ ¡Cuenta creada exitosamente! Por favor verifica tu email antes de iniciar sesión.',
     failedToCreateAccount: 'Error al crear la cuenta. Por favor intenta de nuevo.',
-    termsContent: `Al registrarse en la App MXI Strategic Presale ("la App"), usted acepta estos Términos y Condiciones. Si no está de acuerdo, no debe usar la App. La App es operada por MXI Technologies Inc. (Panamá). El token MXI y la marca pertenecen a MXI Strategic Holdings Ltd. (Islas Caimán). La App es una plataforma digital para adquirir MXI en su etapa de desarrollo, gestionar saldos, participar en funciones internas y usar un sistema promocional de referidos. La App no ofrece productos financieros, inversiones ni rentabilidades garantizadas. Para usar la App, usted debe ser mayor de 18 años, tener capacidad legal y proporcionar datos verídicos. El usuario es responsable de cumplir las leyes de su país. Solo se permite una cuenta por persona. El KYC es obligatorio para retiros y verificación de identidad. Proveer información falsa o intentar manipular el sistema generará el cierre de la cuenta. Las compras de MXI se realizan únicamente en USDT mediante Binance. El token MXI no representa inversión, valor negociable, instrumento financiero, participación accionaria ni derecho a rendimientos. No tiene valor comercial y su uso es exclusivamente interno dentro del ecosistema. Cualquier posible convertibilidad dependerá de factores externos no controlados por MXI. El sistema de referidos es promocional. Las comisiones (5%, 2%, 1%) provienen de un fondo de marketing y no de aportes de otros usuarios. Para retirarlas se requieren 5 referidos activos, 10 días de antigüedad, KYC aprobado y una wallet válida. La App utiliza un sistema de liberación progresiva del saldo digital (antes llamado "rendimiento"). Esta liberación no constituye interés, ganancia ni retorno financiero. Es una mecánica interna sin valor económico real. Para retiros de MXI, se requiere KYC y 5 referidos activos. Montos superiores podrán liberarse de forma gradual para proteger la estabilidad del ecosistema. Las actividades gamificadas (retos, minijuegos, Bonus MXI) son dinámicas de habilidad, no juegos de azar ni apuestas. Las recompensas son digitales, promocionales y sin valor comercial. Está prohibido: crear varias cuentas, suministrar datos falsos, manipular referidos, evadir KYC o usar la App para actividades ilícitas. MXI podrá suspender o bloquear cuentas en caso de sospecha de fraude o violación de estos Términos. La App se ofrece "tal cual". MXI no es responsable por pérdidas económicas, fallas técnicas, errores de terceros o daños indirectos derivados del uso de la plataforma. Al continuar, usted declara que entiende estos Términos, acepta los riesgos tecnológicos y regulatorios del uso de criptoactivos y confirma que no utilizará la App con fines ilícitos. Versión 1.1 – Vigente desde el 15/01/2026`,
+    termsContent: `TÉRMINOS Y CONDICIONES DE USO
+
+MXI STRATEGIC PRESALE – APP VERSION
+
+MAXCOIN (MXI) es una marca registrada de MXI Strategic Holdings Ltd., Islas Caimán.
+App operada por MXI Technologies Inc. (Panamá).
+Última actualización: 15/01/2026 – Versión 1.1
+
+1. Aceptación
+
+Al crear una cuenta o utilizar la aplicación MXI Strategic Presale (la "App"), usted acepta estos Términos y Condiciones.
+Si no está de acuerdo con ellos, no debe usar la App.
+
+2. Sobre MXI
+
+MXI Strategic Holdings Ltd. (Caimán) es la entidad propietaria del token MXI, la marca y la propiedad intelectual.
+
+MXI Technologies Inc. (Panamá) es la empresa operadora de la App y responsable de su funcionamiento.
+
+3. Función de la App
+
+La App permite:
+
+- Registrar usuarios
+- Comprar tokens MXI con USDT (vía CRIPTOMONEDA)
+- Acceder a un sistema de referidos
+- Ver saldos, rendimientos y movimientos
+- Solicitar retiros de comisiones y/o MXI según las reglas vigentes
+
+4. Elegibilidad
+
+Para usar la App, usted debe:
+
+- Ser mayor de 18 años
+- Tener capacidad legal para contratar
+- Suministrar datos verídicos
+- No vivir en países donde las criptomonedas estén prohibidas
+
+5. Registro y Cuenta
+
+- Solo se permite una cuenta por persona
+- Es obligatorio completar KYC para habilitar retiros
+- La información registrada debe coincidir con documentos oficiales
+- Los números de identificación no pueden repetirse
+
+6. Compra de Tokens MXI
+
+- Mínimo de compra: 50 USDT
+- Máximo por usuario: 100.000 USDT
+- Pago exclusivamente en USDT a través de CRIPTOMONEDA
+- El número de tokens recibidos depende de la fase de la preventa
+
+7. Sistema de Referidos
+
+Estructura de comisiones:
+
+- Nivel 1: 5%
+- Nivel 2: 2%
+- Nivel 3: 1%
+
+Requisitos para retirar comisiones:
+
+- 5 referidos activos
+- 10 días desde registro
+- KYC aprobado
+- Cada referido debe haber hecho al menos una compra
+
+8. Rendimientos y Vesting
+
+- Rendimiento: 0,005% por hora
+- Comisiones unificadas también generan rendimiento
+- Rendimientos no aumentan el vesting
+- Se requieren 10 referidos activos para unificar el vesting al saldo principal
+
+9. Retiros
+
+9.1 Retiros de comisiones (USDT)
+
+Requisitos:
+
+- 5 referidos activos
+- 10 días de membresía
+- KYC aprobado
+- Wallet USDT válida
+
+9.2 Retiros de MXI
+
+Requisitos:
+
+- 5 referidos activos
+- KYC aprobado
+
+Liberación por fases si el monto excede 50000 usdt:
+
+- 10% inicial
+- +10% cada 7 días
+
+10. KYC Obligatorio
+
+Se solicitará:
+
+- Documento oficial válido
+- Fotografías
+- Selfie (prueba de vida)
+- Información verificable
+
+11. Riesgos
+
+Invertir en criptomonedas implica riesgos:
+
+- Volatilidad extrema
+- Pérdida total o parcial del capital
+- Cambios regulatorios
+- Riesgos tecnológicos y de ciberseguridad
+
+MXI Strategic no garantiza ganancias ni retornos fijos.
+
+12. Conductas Prohibidas
+
+No se permite:
+
+- Crear múltiples cuentas
+- Proveer datos falsos
+- Manipular referidos
+- Usar la App para actividades ilícitas
+- Procesar lavado de dinero
+
+13. Limitación de Responsabilidad
+
+La App se ofrece "tal cual".
+Ni MXI Strategic Holdings Ltd. ni MXI Technologies Inc. son responsables por:
+
+- Pérdidas económicas
+- Errores de terceros o blockchain
+- Daños indirectos o incidentales
+- Uso indebido de la App
+
+14. Aceptación Final
+
+Al registrarse, usted declara que:
+
+- Leyó y entiende estos Términos
+- Acepta los riesgos
+- Proporciona información veraz
+- Cumple con las leyes de su país
+
+15. POLÍTICA DE USO DEL TOKEN MXI
+
+El token MXI es un activo digital en etapa de prelanzamiento, sin valor comercial, sin cotización pública y sin reconocimiento como moneda de curso legal en Colombia, España, México ni en ninguna otra jurisdicción. Su uso dentro de la plataforma es exclusivamente funcional, destinado a recompensas internas, participación en actividades gamificadas y acceso a beneficios del ecosistema MXI.
+
+MXI no representa inversiones, derechos de propiedad, rentabilidad garantizada, participación accionaria, instrumentos financieros, valores negociables ni productos similares. Los usuarios aceptan que el uso del token es experimental, sujeto a cambios y dependiente de procesos de validación técnica y regulatoria.
+
+Cualquier futuro valor, convertibilidad o listado del token dependerá de condiciones externas a la compañía, procesos regulatorios y decisiones de mercado que no pueden garantizarse. La plataforma no asegura beneficios económicos, apreciación ni rendimiento alguno asociado al MXI.
+
+16. ANEXO LEGAL – JUEGOS Y RECOMPENSAS MXI
+
+Las dinámicas disponibles dentro de la plataforma (incluyendo retos, minijuegos como tap, clicker, "AirBall", desafíos de habilidad y la modalidad "Bonus MXI") se basan exclusivamente en la destreza, rapidez, precisión o participación activa del usuario, y no dependen del azar para determinar resultados.
+
+Ninguna actividad ofrecida debe interpretarse como:
+
+- juego de azar,
+- apuesta,
+- sorteo con fines lucrativos,
+- rifas reguladas,
+- loterías estatales o privadas,
+- ni mecanismos equivalentes regulados en Colombia, España o México.
+
+El acceso a estas dinámicas puede requerir un pago simbólico en MXI, pero dicho pago no constituye una apuesta, ya que el token no posee valor económico real y se utiliza únicamente como mecanismo interno de participación.
+
+La modalidad "Bonus MXI", incluyendo asignación aleatoria de premios, se realiza fuera de la plataforma principal, mediante procesos independientes, transparentes y verificables, cuyo fin es distribuir recompensas promocionales en MXI sin que ello constituya un juego de azar regulado.
+
+Los usuarios aceptan que las recompensas otorgadas son promocionales, digitales y sin valor comercial, y que la participación en cualquier dinámica no garantiza ganancias económicas reales.
+
+---
+
+**IMPORTANTE**: Estos términos y condiciones son legalmente vinculantes. Si no está de acuerdo con alguna parte, no debe utilizar la Aplicación. Se recomienda consultar con un asesor legal o financiero antes de realizar inversiones en criptomonedas.
+
+**Fecha de vigencia**: 15 de Enero de 2026
+**Versión**: 1.1`,
+    privacyPolicy: 'Política de Privacidad',
+    viewPrivacyPolicy: 'Ver Política de Privacidad',
+    privacyPolicyContent: `POLÍTICA DE PRIVACIDAD
+
+La presente Política de Privacidad describe cómo MXI Technologies Inc. ("MXI", "nosotros") recopila, utiliza y protege los datos personales de los usuarios que utilizan la App MXI Strategic Presale ("la App"). Al registrarse o usar la App, usted acepta esta Política.
+
+1. Datos que recopilamos
+
+Recopilamos la información necesaria para el funcionamiento seguro de la App, incluyendo:
+
+- Nombre completo
+- Documento de identidad
+- Fecha de nacimiento
+- Correo electrónico
+- Número de teléfono
+- Datos de sesión y actividad en la App
+- Wallet USDT proporcionada por el usuario
+- Información capturada durante el proceso KYC (foto del documento, selfie, verificación biométrica)
+
+No recopilamos datos que no sean necesarios para la operación del servicio.
+
+2. Uso de la información
+
+Usamos sus datos para:
+
+- Crear y administrar su cuenta
+- Verificar identidad (KYC)
+- Permitir compras de MXI en la etapa de desarrollo
+- Administrar el sistema de referidos
+- Procesar solicitudes de retiro
+- Mejorar la seguridad y prevenir fraude
+- Enviar notificaciones relacionadas con su cuenta o cambios de la App
+
+Sus datos no se venden ni se intercambian con terceros.
+
+3. Bases legales
+
+El tratamiento se fundamenta en:
+
+- Su consentimiento al registrarse
+- Cumplimiento de obligaciones de verificación (KYC/AML)
+- Prevención de fraude
+- Ejecución del servicio contratado
+
+4. Almacenamiento y protección
+
+MXI adopta medidas técnicas y administrativas para proteger la información, incluyendo:
+
+- Encriptación
+- Acceso restringido
+- Controles antifraude
+- Servidores seguros
+
+Ningún sistema es completamente invulnerable, pero aplicamos buenas prácticas internacionales de seguridad.
+
+5. Compartición de datos
+
+Podemos compartir datos únicamente con:
+
+- Proveedores de verificación KYC
+- Servicios de análisis o seguridad
+- Autoridades competentes si la ley lo exige
+
+No compartimos datos con terceros para fines comerciales.
+
+6. Retención de datos
+
+Conservamos sus datos mientras su cuenta esté activa y durante el tiempo requerido para:
+
+- Cumplir obligaciones legales
+- Resolver disputas
+- Prevenir actividades fraudulentas
+
+Puede solicitar eliminación de su cuenta, excepto cuando existan obligaciones regulatorias pendientes.
+
+7. Derechos del usuario
+
+Usted puede:
+
+- Acceder a sus datos
+- Rectificarlos
+- Actualizarlos
+- Solicitar eliminación
+- Retirar su consentimiento
+- Limitar el tratamiento
+
+Para ejercer estos derechos, puede contactarnos vía soporte dentro de la App.
+
+8. Transferencias internacionales
+
+Sus datos pueden ser procesados en países con leyes de protección distintas a las suyas. Al usar la App, usted autoriza tales transferencias, siempre bajo medidas de seguridad adecuadas.
+
+9. Menores de edad
+
+El uso de la App está restringido a personas mayores de 18 años. Eliminaremos cualquier cuenta creada por menores.
+
+10. Cambios en esta Política
+
+Podemos actualizar esta Política en cualquier momento. La versión vigente estará disponible dentro de la App. El uso continuado implica aceptación de los cambios.
+
+11. Contacto
+
+Para consultas o solicitudes relacionadas con privacidad puede comunicarse mediante el soporte oficial de la App.
+
+Versión 1.1 – Vigente desde 15/01/2026.`,
     
     // Admin Panel - User Management
     userManagement: 'Gestión de Usuarios',
@@ -2419,6 +2987,7 @@ const translations = {
     copied: 'Copiado!',
     copied2: '✅ Copiado',
     or: 'ou',
+    and: 'e',
     total: 'Total',
     continue: 'Continuar',
     send: 'Enviar',
@@ -2617,6 +3186,351 @@ const translations = {
     rewards: 'Recompensas',
     ecosystem: 'Ecossistema',
     support: 'Suporte',
+    
+    // Auth - Login Screen
+    loginButton: 'Entrar',
+    emailLabel: 'Email',
+    passwordLabel: 'Senha',
+    confirmPassword: 'Confirmar Senha',
+    name: 'Nome Completo',
+    idNumber: 'Número de Identificação',
+    address: 'Endereço',
+    referralCode: 'Código de Referência (Opcional)',
+    alreadyHaveAccount: 'Já tem uma conta?',
+    dontHaveAccount: 'Não tem uma conta?',
+    signIn: 'Entrar',
+    signUp: 'Registrar',
+    createAccount: 'Criar Conta',
+    forgotPassword: 'Esqueceu sua senha?',
+    rememberPassword: 'Lembrar senha',
+    enterYourEmail: 'seu@email.com',
+    enterYourPassword: 'Digite sua senha',
+    fillAllFields: 'Por favor, preencha todos os campos',
+    emailVerificationRequired: 'Verificação de Email Necessária',
+    pleaseVerifyEmail: 'Por favor, verifique seu email antes de fazer login. Verifique sua caixa de entrada para o link de verificação.',
+    resendEmail: 'Reenviar Email',
+    loginError: 'Erro de Login',
+    invalidCredentials: 'Email ou senha inválidos. Por favor, tente novamente.',
+    errorLoggingIn: 'Erro ao fazer login. Por favor, tente novamente.',
+    emailVerificationSent: 'Email de verificação enviado! Por favor, verifique sua caixa de entrada.',
+    errorResendingEmail: 'Erro ao reenviar email de verificação. Por favor, tente novamente.',
+    recoverPasswordTitle: 'Recuperar Senha',
+    recoverPasswordMessage: 'Para recuperar sua senha, por favor, entre em contato com nossa equipe de suporte.',
+    contactSupport: 'Contatar Suporte',
+    sendEmailTo: 'Envie um email para:',
+    supportEmail: 'suporte@maxcoin.com',
+    mxiStrategicPresale: 'Pré-venda Estratégica MXI',
+    secureYourPosition: 'Garanta sua posição no futuro',
+    viewTerms: 'Ver Termos e Condições',
+    termsAndConditions: 'Termos e Condições',
+    presaleClosesOn: 'A pré-venda fecha em 15 de fevereiro de 2026 às 12:00 UTC',
+    pleaseVerifyEmailBeforeLogin: 'Por favor, verifique seu email antes de fazer login',
+    resendEmailButton: 'Reenviar Email',
+    
+    // Register Screen
+    joinMXIStrategicPresale: 'Junte-se à Pré-venda Estratégica MXI',
+    fullName: 'Nome Completo',
+    enterYourFullName: 'Digite seu nome completo',
+    enterYourIDNumber: 'Digite seu número de identificação',
+    enterYourResidentialAddress: 'Digite seu endereço residencial',
+    minimumSixCharacters: 'Mínimo 6 caracteres',
+    reEnterPassword: 'Digite novamente sua senha',
+    enterReferralCode: 'Digite o código de referência (opcional)',
+    onlyOneAccountPerPerson: 'Apenas uma conta por pessoa. Contas múltiplas serão suspensas.',
+    iHaveReadAndAccept: 'Li e aceito os',
+    alreadyHaveAccountLogin: 'Já tem uma conta?',
+    acceptTermsButton: 'Aceitar Termos',
+    termsAndConditionsRequired: 'Termos e Condições Necessários',
+    youMustAcceptTerms: 'Você deve aceitar os Termos e Condições para continuar',
+    passwordsDontMatch: 'As senhas não coincidem',
+    passwordTooShort: 'A senha deve ter pelo menos 6 caracteres',
+    invalidEmail: 'Por favor, digite um endereço de email válido',
+    accountCreatedSuccessfully: '✅ Conta criada com sucesso! Por favor, verifique seu email antes de fazer login.',
+    failedToCreateAccount: 'Falha ao criar conta. Por favor, tente novamente.',
+    termsContent: `TERMOS E CONDIÇÕES DE USO
+
+MXI STRATEGIC PRESALE – APP VERSION
+
+MAXCOIN (MXI) é uma marca registrada da MXI Strategic Holdings Ltd., Ilhas Cayman.
+App operado pela MXI Technologies Inc. (Panamá).
+Última atualização: 15/01/2026 – Versão 1.1
+
+1. Aceitação
+
+Ao criar uma conta ou usar o aplicativo MXI Strategic Presale (o "App"), você aceita estes Termos e Condições.
+Se você não concordar com eles, não deve usar o App.
+
+2. Sobre MXI
+
+MXI Strategic Holdings Ltd. (Cayman) é a entidade proprietária do token MXI, da marca e da propriedade intelectual.
+
+MXI Technologies Inc. (Panamá) é a empresa operadora do App e responsável por seu funcionamento.
+
+3. Função do App
+
+O App permite:
+
+- Registrar usuários
+- Comprar tokens MXI com USDT (via CRIPTOMOEDA)
+- Acessar um sistema de referências
+- Ver saldos, rendimentos e movimentos
+- Solicitar retiradas de comissões e/ou MXI de acordo com as regras vigentes
+
+4. Elegibilidade
+
+Para usar o App, você deve:
+
+- Ter mais de 18 anos
+- Ter capacidade legal para contratar
+- Fornecer dados verdadeiros
+- Não viver em países onde as criptomoedas são proibidas
+
+5. Registro e Conta
+
+- Apenas uma conta por pessoa é permitida
+- É obrigatório completar KYC para habilitar retiradas
+- As informações registradas devem corresponder aos documentos oficiais
+- Os números de identificação não podem ser repetidos
+
+6. Compra de Tokens MXI
+
+- Compra mínima: 50 USDT
+- Máximo por usuário: 100.000 USDT
+- Pagamento exclusivamente em USDT através de CRIPTOMOEDA
+- O número de tokens recebidos depende da fase da pré-venda
+
+7. Sistema de Referências
+
+Estrutura de comissões:
+
+- Nível 1: 5%
+- Nível 2: 2%
+- Nível 3: 1%
+
+Requisitos para retirar comissões:
+
+- 5 referências ativas
+- 10 dias desde o registro
+- KYC aprovado
+- Cada referência deve ter feito pelo menos uma compra
+
+8. Rendimentos e Vesting
+
+- Rendimento: 0,005% por hora
+- Comissões unificadas também geram rendimento
+- Rendimentos não aumentam o vesting
+- São necessárias 10 referências ativas para unificar o vesting ao saldo principal
+
+9. Retiradas
+
+9.1 Retiradas de comissões (USDT)
+
+Requisitos:
+
+- 5 referências ativas
+- 10 dias de associação
+- KYC aprovado
+- Carteira USDT válida
+
+9.2 Retiradas de MXI
+
+Requisitos:
+
+- 5 referências ativas
+- KYC aprovado
+
+Liberação por fases se o valor exceder 50000 USDT:
+
+- 10% inicial
+- +10% a cada 7 dias
+
+10. KYC Obrigatório
+
+Será solicitado:
+
+- Documento oficial válido
+- Fotografias
+- Selfie (prova de vida)
+- Informações verificáveis
+
+11. Riscos
+
+Investir em criptomoedas envolve riscos:
+
+- Volatilidade extrema
+- Perda total ou parcial do capital
+- Mudanças regulatórias
+- Riscos tecnológicos e de cibersegurança
+
+MXI Strategic não garante lucros ou retornos fixos.
+
+12. Condutas Proibidas
+
+Não é permitido:
+
+- Criar múltiplas contas
+- Fornecer dados falsos
+- Manipular referências
+- Usar o App para atividades ilícitas
+- Processar lavagem de dinheiro
+
+13. Limitação de Responsabilidade
+
+O App é oferecido "como está".
+Nem MXI Strategic Holdings Ltd. nem MXI Technologies Inc. são responsáveis por:
+
+- Perdas econômicas
+- Erros de terceiros ou blockchain
+- Danos indiretos ou incidentais
+- Uso indevido do App
+
+14. Aceitação Final
+
+Ao se registrar, você declara que:
+
+- Leu e entende estes Termos
+- Aceita os riscos
+- Fornece informações verdadeiras
+- Cumpre com as leis de seu país
+
+15. POLÍTICA DE USO DO TOKEN MXI
+
+O token MXI é um ativo digital em estágio de pré-lançamento, sem valor comercial, sem cotação pública e sem reconhecimento como moeda de curso legal na Colômbia, Espanha, México ou em qualquer outra jurisdição. Seu uso dentro da plataforma é exclusivamente funcional, destinado a recompensas internas, participação em atividades gamificadas e acesso a benefícios do ecossistema MXI.
+
+MXI não representa investimentos, direitos de propriedade, rentabilidade garantida, participação acionária, instrumentos financeiros, valores negociáveis ou produtos similares. Os usuários aceitam que o uso do token é experimental, sujeito a mudanças e dependente de processos de validação técnica e regulatória.
+
+Qualquer valor futuro, convertibilidade ou listagem do token dependerá de condições externas à empresa, processos regulatórios e decisões de mercado que não podem ser garantidas. A plataforma não garante benefícios econômicos, apreciação ou qualquer retorno associado ao MXI.
+
+16. ANEXO LEGAL – JOGOS E RECOMPENSAS MXI
+
+As dinâmicas disponíveis dentro da plataforma (incluindo desafios, mini-jogos como tap, clicker, "AirBall", desafios de habilidade e a modalidade "Bonus MXI") são baseadas exclusivamente na habilidade, velocidade, precisão ou participação ativa do usuário, e não dependem do acaso para determinar resultados.
+
+Nenhuma atividade oferecida deve ser interpretada como:
+
+- jogo de azar,
+- aposta,
+- sorteio com fins lucrativos,
+- rifas reguladas,
+- loterias estatais ou privadas,
+- nem mecanismos equivalentes regulados na Colômbia, Espanha ou México.
+
+O acesso a essas dinâmicas pode exigir um pagamento simbólico em MXI, mas tal pagamento não constitui uma aposta, já que o token não possui valor econômico real e é usado apenas como mecanismo interno de participação.
+
+A modalidade "Bonus MXI", incluindo alocação aleatória de prêmios, é realizada fora da plataforma principal, através de processos independentes, transparentes e verificáveis, cujo objetivo é distribuir recompensas promocionais em MXI sem que isso constitua um jogo de azar regulado.
+
+Os usuários aceitam que as recompensas concedidas são promocionais, digitais e sem valor comercial, e que a participação em qualquer dinâmica não garante ganhos econômicos reais.
+
+---
+
+**IMPORTANTE**: Estes termos e condições são legalmente vinculativos. Se você não concordar com qualquer parte, não deve usar o Aplicativo. É recomendável consultar um consultor legal ou financeiro antes de fazer investimentos em criptomoedas.
+
+**Data de vigência**: 15 de Janeiro de 2026
+**Versão**: 1.1`,
+    privacyPolicy: 'Política de Privacidade',
+    viewPrivacyPolicy: 'Ver Política de Privacidade',
+    privacyPolicyContent: `POLÍTICA DE PRIVACIDADE
+
+Esta Política de Privacidade descreve como a MXI Technologies Inc. ("MXI", "nós") coleta, usa e protege os dados pessoais dos usuários que usam o App MXI Strategic Presale ("o App"). Ao se registrar ou usar o App, você aceita esta Política.
+
+1. Dados que coletamos
+
+Coletamos as informações necessárias para o funcionamento seguro do App, incluindo:
+
+- Nome completo
+- Documento de identidade
+- Data de nascimento
+- Email
+- Número de telefone
+- Dados de sessão e atividade no App
+- Carteira USDT fornecida pelo usuário
+- Informações capturadas durante o processo KYC (foto do documento, selfie, verificação biométrica)
+
+Não coletamos dados que não sejam necessários para a operação do serviço.
+
+2. Uso das informações
+
+Usamos seus dados para:
+
+- Criar e gerenciar sua conta
+- Verificar identidade (KYC)
+- Permitir compras de MXI na fase de desenvolvimento
+- Gerenciar o sistema de referências
+- Processar solicitações de retirada
+- Melhorar a segurança e prevenir fraude
+- Enviar notificações relacionadas à sua conta ou mudanças no App
+
+Seus dados não são vendidos ou trocados com terceiros.
+
+3. Bases legais
+
+O tratamento é baseado em:
+
+- Seu consentimento ao se registrar
+- Cumprimento de obrigações de verificação (KYC/AML)
+- Prevenção de fraude
+- Execução do serviço contratado
+
+4. Armazenamento e proteção
+
+MXI adota medidas técnicas e administrativas para proteger as informações, incluindo:
+
+- Criptografia
+- Acesso restrito
+- Controles antifraude
+- Servidores seguros
+
+Nenhum sistema é completamente invulnerável, mas aplicamos boas práticas internacionais de segurança.
+
+5. Compartilhamento de dados
+
+Podemos compartilhar dados apenas com:
+
+- Provedores de verificação KYC
+- Serviços de análise ou segurança
+- Autoridades competentes se exigido por lei
+
+Não compartilhamos dados com terceiros para fins comerciais.
+
+6. Retenção de dados
+
+Retemos seus dados enquanto sua conta estiver ativa e pelo tempo necessário para:
+
+- Cumprir obrigações legais
+- Resolver disputas
+- Prevenir atividades fraudulentas
+
+Você pode solicitar a exclusão de sua conta, exceto quando houver obrigações regulatórias pendentes.
+
+7. Direitos do usuário
+
+Você pode:
+
+- Acessar seus dados
+- Retificá-los
+- Atualizá-los
+- Solicitar exclusão
+- Retirar seu consentimento
+- Limitar o tratamento
+
+Para exercer esses direitos, você pode nos contatar via suporte dentro do App.
+
+8. Transferências internacionais
+
+Seus dados podem ser processados em países com leis de proteção diferentes das suas. Ao usar o App, você autoriza tais transferências, sempre sob medidas de segurança adequadas.
+
+9. Menores de idade
+
+O uso do App é restrito a pessoas maiores de 18 anos. Excluiremos qualquer conta criada por menores.
+
+10. Mudanças nesta Política
+
+Podemos atualizar esta Política a qualquer momento. A versão atual estará disponível dentro do App. O uso continuado implica aceitação das mudanças.
+
+11. Contato
+
+Para consultas ou solicitações relacionadas à privacidade, você pode nos contatar através do suporte oficial do App.
+
+Versão 1.1 – Vigente desde 15/01/2026.`,
     
     // Ecosystem Screen
     liquidityPool: 'Pool de Liquidez',

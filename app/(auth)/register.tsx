@@ -37,6 +37,7 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   const handleRegister = async () => {
     const { name, idNumber, address, email, password, confirmPassword, referralCode } = formData;
@@ -268,6 +269,13 @@ export default function RegisterScreen() {
                   >
                     {t('termsAndConditions')}
                   </Text>
+                  {' '}{t('and')}{' '}
+                  <Text
+                    style={styles.termsLink}
+                    onPress={() => setShowPrivacyModal(true)}
+                  >
+                    {t('privacyPolicy')}
+                  </Text>
                 </Text>
               </View>
             </TouchableOpacity>
@@ -331,6 +339,48 @@ export default function RegisterScreen() {
             <TouchableOpacity
               style={[buttonStyles.secondary, styles.closeButton]}
               onPress={() => setShowTermsModal(false)}
+            >
+              <Text style={buttonStyles.secondaryText}>{t('close')}</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Privacy Policy Modal */}
+      <Modal
+        visible={showPrivacyModal}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setShowPrivacyModal(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>🔒 {t('privacyPolicy')}</Text>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setShowPrivacyModal(false)}
+            >
+              <Text style={styles.modalCloseEmoji}>✖️</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.modalContent} contentContainerStyle={styles.modalScrollContent}>
+            <Text style={styles.termsContent}>
+              {t('privacyPolicyContent')}
+            </Text>
+          </ScrollView>
+          <View style={styles.modalFooter}>
+            <TouchableOpacity
+              style={[buttonStyles.primary, styles.acceptButton]}
+              onPress={() => {
+                setAcceptedTerms(true);
+                setShowPrivacyModal(false);
+              }}
+            >
+              <Text style={buttonStyles.primaryText}>✓ {t('acceptTermsButton')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[buttonStyles.secondary, styles.closeButton]}
+              onPress={() => setShowPrivacyModal(false)}
             >
               <Text style={buttonStyles.secondaryText}>{t('close')}</Text>
             </TouchableOpacity>
