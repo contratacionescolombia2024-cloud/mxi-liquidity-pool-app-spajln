@@ -2266,7 +2266,7 @@ Versión 1.1 – Vigente desde 15/01/2026.`,
     whatIsMXINotJustToken: '🎯 MXI no es solo un token: es un modelo diseñado para crecer rápido, integrar servicios reales y posicionarse como una infraestructura digital lista para escalar en el corto plazo.',
     
     // How MXI Works - NEW CONTENT
-    howMXIWorksTitle: '¿Cómo funciona MXI? (versión técnica–persuasiva)',
+    howMXIWorksTitle: '¿Cómo funciona MXI?',
     howMXIWorksIntro: 'MXI funciona mediante un sistema modular de componentes que se activan progresivamente:',
     howMXIWorksStep1Title: '1️⃣ Preventa con acceso anticipado',
     howMXIWorksStep1Desc: 'Los usuarios adquieren MXI a precios preferenciales antes del lanzamiento oficial. Desde el primer día, el sistema genera una versión simulada del saldo que luego entra en vesting.',
