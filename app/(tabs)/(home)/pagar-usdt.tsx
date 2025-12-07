@@ -507,6 +507,22 @@ export default function PagarUSDTScreen() {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* 🆕 NEW: Informative Notice */}
+        <View style={styles.infoNoticeCard}>
+          <View style={styles.infoNoticeHeader}>
+            <IconSymbol
+              ios_icon_name="info.circle.fill"
+              android_material_icon_name="info"
+              size={24}
+              color={colors.primary}
+            />
+            <Text style={styles.infoNoticeTitle}>{t('importantInformation')}</Text>
+          </View>
+          <Text style={styles.infoNoticeText}>
+            {t('ifAutomaticFailsUseManual')}
+          </Text>
+        </View>
+
         <View style={[styles.networkCard, { borderColor: selectedNetworkData?.color }]}>
           <Text style={styles.networkTitle}>{t('selectPaymentNetwork')}</Text>
           <Text style={styles.networkSubtitle}>
@@ -833,6 +849,30 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 20,
+  },
+  infoNoticeCard: {
+    backgroundColor: colors.primary + '15',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  infoNoticeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
+  infoNoticeTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  infoNoticeText: {
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
   },
   networkCard: {
     backgroundColor: colors.cardBackground,
