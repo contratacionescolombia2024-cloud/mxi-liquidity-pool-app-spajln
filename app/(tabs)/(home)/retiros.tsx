@@ -128,8 +128,8 @@ export default function RetirosScreen() {
       return false;
     }
 
-    // Vesting requires 10 active referrals (changed from 5)
-    if (type === 'vesting' && user.activeReferrals < 10) {
+    // Vesting requires 7 active referrals (changed from 10)
+    if (type === 'vesting' && user.activeReferrals < 7) {
       return false;
     }
 
@@ -180,10 +180,10 @@ export default function RetirosScreen() {
         return;
       }
 
-      if (selectedType === 'vesting' && user.activeReferrals < 10) {
+      if (selectedType === 'vesting' && user.activeReferrals < 7) {
         Alert.alert(
           t('requirementNotMet'),
-          t('vestingRequires10Referrals', { count: user.activeReferrals }),
+          `Los retiros de vesting requieren 7 referidos activos. Actualmente tienes ${user.activeReferrals}.`,
           [{ text: t('understood') }]
         );
         return;
@@ -449,9 +449,9 @@ export default function RetirosScreen() {
                 </Text>
                 {!poolStatus?.is_mxi_launched ? (
                   <Text style={styles.typeStatus}>{t('lockedUntilLaunch')}</Text>
-                ) : user.activeReferrals < 10 ? (
+                ) : user.activeReferrals < 7 ? (
                   <Text style={styles.typeStatus}>
-                    {t('activeReferralsForVestingWithdrawals', { count: user.activeReferrals })}
+                    7 Referidos Activos para retiros de vesting ({user.activeReferrals}/7)
                   </Text>
                 ) : (
                   <Text style={[styles.typeStatus, { color: colors.success }]}>
@@ -590,19 +590,19 @@ export default function RetirosScreen() {
                 color={user.activeReferrals >= 5 ? colors.success : colors.error}
               />
               <Text style={styles.requirementText}>
-                {t('activeReferralsForGeneralWithdrawals2', { count: user.activeReferrals })}
+                5 Referidos Activos para retiros generales ({user.activeReferrals}/5)
               </Text>
             </View>
 
             <View style={styles.requirementItem}>
               <IconSymbol
-                ios_icon_name={user.activeReferrals >= 10 ? "checkmark.circle.fill" : "xmark.circle.fill"}
-                android_material_icon_name={user.activeReferrals >= 10 ? "check_circle" : "cancel"}
+                ios_icon_name={user.activeReferrals >= 7 ? "checkmark.circle.fill" : "xmark.circle.fill"}
+                android_material_icon_name={user.activeReferrals >= 7 ? "check_circle" : "cancel"}
                 size={20}
-                color={user.activeReferrals >= 10 ? colors.success : colors.error}
+                color={user.activeReferrals >= 7 ? colors.success : colors.error}
               />
               <Text style={styles.requirementText}>
-                {t('activeReferralsForVestingWithdrawals', { count: user.activeReferrals })}
+                7 Referidos Activos para retiros de vesting ({user.activeReferrals}/7)
               </Text>
             </View>
 
@@ -635,7 +635,7 @@ export default function RetirosScreen() {
               <Text style={styles.infoText}>• {t('mxiTournamentsAvailableSameAsCommissions')}</Text>
             </View>
             <View style={styles.infoItem}>
-              <Text style={styles.infoText}>• {t('mxiVestingRequires10Referrals')}</Text>
+              <Text style={styles.infoText}>• El vesting MXI requiere 7 referidos activos y el lanzamiento de MXI</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoText}>• {t('mxiPurchasedLockedUntilLaunch')}</Text>

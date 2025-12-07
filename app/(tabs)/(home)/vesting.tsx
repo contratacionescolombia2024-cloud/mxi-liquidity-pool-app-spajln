@@ -246,7 +246,7 @@ export default function VestingScreen() {
               : t('vestingReleaseInfoPreLaunchText', { percentage: releasePercentage })}
           </Text>
           <Text style={[styles.descriptionText, styles.importantNote]}>
-            {t('vestingImportantNoteText')}
+            ⚠️ Importante: El vesting se puede desbloquear al tener al menos 7 referidos activos. Solo el MXI comprado directamente genera vesting.
           </Text>
         </View>
 
