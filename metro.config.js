@@ -2,7 +2,6 @@
 const { getDefaultConfig } = require('expo/metro-config');
 const { FileStore } = require('metro-cache');
 const path = require('path');
-const fs = require('fs');
 
 const config = getDefaultConfig(__dirname);
 
@@ -25,6 +24,18 @@ config.transformer = {
       drop_console: false,
     },
   },
+};
+
+// Ensure proper asset resolution for web
+config.resolver = {
+  ...config.resolver,
+  assetExts: [
+    ...config.resolver.assetExts,
+    'ttf',
+    'otf',
+    'woff',
+    'woff2',
+  ],
 };
 
 module.exports = config;
