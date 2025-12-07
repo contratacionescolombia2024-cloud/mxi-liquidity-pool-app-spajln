@@ -1,7 +1,8 @@
+
 {
   "expo": {
     "name": "MXI Liquidity Pool",
-    "slug": "MXI Liquidity Pool",
+    "slug": "mxi-liquidity-pool",
     "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/04a4d9ac-4539-41d2-bafd-67dd75925bde.png",
@@ -27,6 +28,7 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.mxistrategicholdings.mxistrategic",
+      "versionCode": 1,
       "intentFilters": [
         {
           "action": "VIEW",
@@ -86,6 +88,5 @@
       "router": {},
       "buildTimestamp": "BUILD_TIMESTAMP_PLACEHOLDER"
     }
-  },
-  "scheme": "MXI Liquidity Pool"
+  }
 }
