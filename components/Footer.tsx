@@ -26,7 +26,7 @@ export default function Footer() {
     },
     {
       id: 'facebook',
-      url: 'https://www.facebook.com/minerMaxcoin',
+      url: 'https://www.facebook.com/MXIStrategic/',
       icon: 'f.circle.fill',
       androidIcon: 'facebook',
       label: 'Facebook',
