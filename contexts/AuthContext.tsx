@@ -72,8 +72,8 @@ interface AuthContextType {
   session: Session | null;
   isAuthenticated: boolean;
   loading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  register: (userData: RegisterData) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; userId?: string }>;
+  register: (userData: RegisterData) => Promise<{ success: boolean; error?: string; userId?: string }>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -241,25 +241,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('Platform:', Platform.OS);
     console.log('Supabase client available:', !!supabase);
     
-    // Add a timeout to prevent infinite loading - reduced to 6 seconds to match error
+    // Increased timeout to 15 seconds for better reliability
     const loadingTimeout = setTimeout(() => {
-      console.warn('⚠️ Auth initialization timeout (6s) - forcing loading to false');
+      console.warn('⚠️ Auth initialization timeout (15s) - forcing loading to false');
       if (loading) {
         setLoading(false);
         setIsAuthenticated(false);
         setUser(null);
         setSession(null);
       }
-    }, 6000); // 6 second timeout to match the error message
+    }, 15000);
 
-    // Wrap the initialization in a try-catch with timeout
     const initializeAuth = async () => {
       try {
         console.log('🔄 Starting auth session check...');
         
-        // Create a promise that rejects after 5 seconds
+        // Create a promise that rejects after 10 seconds
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Session check timeout')), 5000);
+          setTimeout(() => reject(new Error('Session check timeout')), 10000);
         });
 
         // Race between getting session and timeout
@@ -450,7 +449,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string; userId?: string }> => {
     try {
       console.log('=== LOGIN FUNCTION START ===');
       console.log('Attempting login for:', email);
@@ -472,7 +471,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Check if user exists but email is not verified
           const { data: userData, error: userCheckError } = await supabase
             .from('users')
-            .select('email_verified')
+            .select('email_verified, id')
             .eq('email', email.trim().toLowerCase())
             .maybeSingle();
           
@@ -483,7 +482,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (userData && !userData.email_verified) {
             console.log('User exists but email not verified');
             return { 
-              success: false, 
+              success: false,
+              userId: userData.id,
               error: 'Por favor verifica tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada para el enlace de verificación.' 
             };
           }
@@ -514,14 +514,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('Email not verified, signing out user');
         await supabase.auth.signOut();
         return { 
-          success: false, 
+          success: false,
+          userId: data.user.id,
           error: 'Por favor verifica tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada para el enlace de verificación.' 
         };
       }
 
       console.log('Login successful');
       console.log('=== LOGIN FUNCTION END ===');
-      return { success: true };
+      return { success: true, userId: data.user.id };
     } catch (error: any) {
       console.error('=== LOGIN EXCEPTION ===');
       console.error('Login exception:', error);
@@ -529,7 +530,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (userData: RegisterData): Promise<{ success: boolean; error?: string }> => {
+  const register = async (userData: RegisterData): Promise<{ success: boolean; error?: string; userId?: string }> => {
     try {
       console.log('=== REGISTRATION START ===');
       console.log('Attempting registration for:', userData.email);
@@ -539,7 +540,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data: existingUser, error: emailCheckError } = await supabase
         .from('users')
         .select('email')
-        .eq('email', userData.email)
+        .eq('email', userData.email.trim().toLowerCase())
         .maybeSingle();
 
       if (emailCheckError) {
@@ -570,7 +571,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Create auth user
       console.log('Creating auth user...');
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: userData.email,
+        email: userData.email.trim().toLowerCase(),
         password: userData.password,
         options: {
           emailRedirectTo: 'https://natively.dev/email-confirmed',
@@ -618,7 +619,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data: referrerData, error: referrerError } = await supabase
           .from('users')
           .select('id')
-          .eq('referral_code', userData.referralCode)
+          .eq('referral_code', userData.referralCode.toUpperCase())
           .maybeSingle();
 
         if (referrerError) {
@@ -692,7 +693,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             name: userData.name,
             id_number: userData.idNumber,
             address: userData.address,
-            email: userData.email,
+            email: userData.email.trim().toLowerCase(),
             referral_code: referralCode,
             referred_by: referrerId,
             email_verified: false,
@@ -727,7 +728,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       console.log('=== REGISTRATION SUCCESSFUL ===');
       console.log('User profile verified:', finalCheck);
-      return { success: true };
+      return { success: true, userId: authData.user.id };
     } catch (error: any) {
       console.error('=== REGISTRATION EXCEPTION ===');
       console.error('Registration exception:', error);

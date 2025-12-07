@@ -34,6 +34,7 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(false);
+  const [unverifiedUserId, setUnverifiedUserId] = useState<string | null>(null);
   const [rememberPassword, setRememberPassword] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
@@ -101,6 +102,9 @@ export default function LoginScreen() {
       const errorMessage = result.error?.toLowerCase() || '';
       if (errorMessage.includes('verif') || errorMessage.includes('email')) {
         setNeedsVerification(true);
+        if (result.userId) {
+          setUnverifiedUserId(result.userId);
+        }
         showConfirm({
           title: t('emailVerificationRequired'),
           message: t('pleaseVerifyEmail'),
