@@ -586,6 +586,22 @@ export default function TournamentsScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
+        {/* Informational Notice */}
+        <View style={[commonStyles.card, styles.noticeCard]}>
+          <View style={styles.noticeHeader}>
+            <IconSymbol 
+              ios_icon_name="info.circle.fill" 
+              android_material_icon_name="info" 
+              size={24} 
+              color={colors.primary} 
+            />
+            <Text style={styles.noticeTitle}>Aviso Informativo</Text>
+          </View>
+          <Text style={styles.noticeText}>
+            Los torneos y recompensas, se actualizarán en el proceso de desarrollo de MXI ONE wallet, con todas sus implementaciones, los torneos y recompensas hacen parte de la app de prueba y se actualizarán mediante el desarrollo orgánico de la misma, comunicarse con soporte en caso de alguna inconsistencia.
+          </Text>
+        </View>
+
         <View style={[commonStyles.card, styles.infoCard]}>
           <View style={styles.infoHeader}>
             <IconSymbol 
@@ -919,6 +935,28 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     color: colors.textSecondary,
+  },
+  noticeCard: {
+    marginBottom: 16,
+    backgroundColor: colors.primary + '10',
+    borderWidth: 2,
+    borderColor: colors.primary + '40',
+  },
+  noticeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  noticeTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  noticeText: {
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 22,
   },
   infoCard: {
     marginBottom: 16,
