@@ -21,6 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { showAlert, showConfirm } from '@/utils/confirmDialog';
+import { supabase } from '@/lib/supabase';
 
 const REMEMBER_EMAIL_KEY = '@mxi_remember_email';
 const REMEMBER_PASSWORD_KEY = '@mxi_remember_password';
@@ -38,6 +39,9 @@ export default function LoginScreen() {
   const [rememberPassword, setRememberPassword] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [sendingReset, setSendingReset] = useState(false);
 
   // Load saved credentials on mount
   useEffect(() => {
@@ -143,17 +147,59 @@ export default function LoginScreen() {
   };
 
   const handleForgotPassword = () => {
-    showConfirm({
-      title: t('recoverPasswordTitle'),
-      message: t('recoverPasswordMessage'),
-      confirmText: t('contactSupport'),
-      cancelText: t('cancel'),
-      type: 'info',
-      onConfirm: () => {
-        showAlert(t('support'), `${t('sendEmailTo')} ${t('supportEmail')}`, undefined, 'info');
-      },
-      onCancel: () => {},
-    });
+    setResetEmail(email);
+    setShowPasswordResetModal(true);
+  };
+
+  const handleSendPasswordReset = async () => {
+    if (!resetEmail) {
+      showAlert(t('error'), t('pleaseEnterTransactionHash'), undefined, 'error');
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(resetEmail)) {
+      showAlert(t('error'), t('invalidEmail'), undefined, 'error');
+      return;
+    }
+
+    setSendingReset(true);
+    
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: 'https://natively.dev/email-confirmed',
+      });
+
+      setSendingReset(false);
+
+      if (error) {
+        console.error('Password reset error:', error);
+        showAlert(
+          t('error'),
+          error.message || 'Error al enviar el correo de recuperación',
+          undefined,
+          'error'
+        );
+      } else {
+        setShowPasswordResetModal(false);
+        showAlert(
+          t('success'),
+          'Se ha enviado un correo electrónico con instrucciones para restablecer tu contraseña. Por favor revisa tu bandeja de entrada.',
+          undefined,
+          'success'
+        );
+      }
+    } catch (error: any) {
+      setSendingReset(false);
+      console.error('Password reset exception:', error);
+      showAlert(
+        t('error'),
+        error.message || 'Error al enviar el correo de recuperación',
+        undefined,
+        'error'
+      );
+    }
   };
 
   // Show loading overlay if auth is initializing
@@ -328,6 +374,87 @@ export default function LoginScreen() {
         {/* Footer */}
         <Footer />
       </ScrollView>
+
+      {/* Password Reset Modal */}
+      <Modal
+        visible={showPasswordResetModal}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setShowPasswordResetModal(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>🔑 {t('recoverPasswordTitle')}</Text>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setShowPasswordResetModal(false)}
+            >
+              <IconSymbol
+                ios_icon_name="xmark.circle.fill"
+                android_material_icon_name="close"
+                size={28}
+                color={colors.text}
+              />
+            </TouchableOpacity>
+          </View>
+          <ScrollView 
+            style={styles.modalContent} 
+            contentContainerStyle={styles.modalScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <Text style={styles.resetDescription}>
+              Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.
+            </Text>
+
+            <View style={styles.resetInputContainer}>
+              <Text style={commonStyles.label}>{t('emailLabel')}</Text>
+              <TextInput
+                style={commonStyles.input}
+                placeholder={t('enterYourEmail')}
+                placeholderTextColor={colors.textSecondary}
+                value={resetEmail}
+                onChangeText={setResetEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                editable={!sendingReset}
+              />
+            </View>
+
+            <View style={styles.resetInfoBox}>
+              <IconSymbol 
+                ios_icon_name="info.circle.fill" 
+                android_material_icon_name="info" 
+                size={20} 
+                color={colors.primary} 
+              />
+              <Text style={styles.resetInfoText}>
+                Recibirás un correo electrónico con un enlace para crear una nueva contraseña. El enlace expirará en 24 horas.
+              </Text>
+            </View>
+          </ScrollView>
+          <View style={styles.modalFooter}>
+            <TouchableOpacity
+              style={[buttonStyles.primary, styles.sendResetButton, sendingReset && styles.buttonDisabled]}
+              onPress={handleSendPasswordReset}
+              disabled={sendingReset}
+            >
+              {sendingReset ? (
+                <ActivityIndicator color="#000" />
+              ) : (
+                <Text style={buttonStyles.primaryText}>Enviar Enlace de Recuperación</Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[buttonStyles.secondary, styles.closeButton]}
+              onPress={() => setShowPasswordResetModal(false)}
+              disabled={sendingReset}
+            >
+              <Text style={buttonStyles.secondaryText}>{t('cancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
 
       {/* Terms and Conditions Modal */}
       <Modal
@@ -637,5 +764,32 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     marginBottom: 0,
+  },
+  resetDescription: {
+    fontSize: 15,
+    color: colors.text,
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  resetInputContainer: {
+    marginBottom: 20,
+  },
+  resetInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.cardBackground,
+    padding: 12,
+    borderRadius: 8,
+    gap: 8,
+    marginTop: 8,
+  },
+  resetInfoText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  sendResetButton: {
+    marginBottom: 12,
   },
 });

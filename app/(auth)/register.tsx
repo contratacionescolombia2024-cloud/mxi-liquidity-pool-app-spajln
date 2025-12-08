@@ -42,6 +42,7 @@ export default function RegisterScreen() {
   const handleRegister = async () => {
     const { name, idNumber, address, email, password, confirmPassword, referralCode } = formData;
 
+    // Validation
     if (!name || !idNumber || !address || !email || !password || !confirmPassword) {
       showAlert(t('error'), t('fillAllFields'), undefined, 'error');
       return;
@@ -74,39 +75,98 @@ export default function RegisterScreen() {
       return;
     }
 
-    setLoading(true);
-    const result = await register({
-      name,
-      idNumber,
-      address,
-      email,
-      password,
-      referralCode: referralCode || undefined,
-    });
-
-    if (result.success && result.userId) {
-      // Save terms acceptance timestamp
-      const { error: termsError } = await supabase
-        .from('users')
-        .update({ terms_accepted_at: new Date().toISOString() })
-        .eq('id', result.userId);
-
-      if (termsError) {
-        console.error('Error saving terms acceptance:', termsError);
-      }
+    // Validate name (at least 2 words)
+    const nameParts = name.trim().split(' ').filter(part => part.length > 0);
+    if (nameParts.length < 2) {
+      showAlert(
+        t('error'),
+        'Por favor ingresa tu nombre completo (nombre y apellido)',
+        undefined,
+        'error'
+      );
+      return;
     }
 
-    setLoading(false);
-
-    if (result.success) {
+    // Validate ID number (at least 5 characters)
+    if (idNumber.trim().length < 5) {
       showAlert(
-        t('success'),
-        t('accountCreatedSuccessfully'),
-        () => router.replace('/(auth)/login'),
-        'success'
+        t('error'),
+        'El número de identificación debe tener al menos 5 caracteres',
+        undefined,
+        'error'
       );
-    } else {
-      showAlert(t('error'), result.error || t('failedToCreateAccount'), undefined, 'error');
+      return;
+    }
+
+    // Validate address (at least 10 characters)
+    if (address.trim().length < 10) {
+      showAlert(
+        t('error'),
+        'Por favor ingresa una dirección completa (mínimo 10 caracteres)',
+        undefined,
+        'error'
+      );
+      return;
+    }
+
+    setLoading(true);
+    
+    try {
+      const result = await register({
+        name: name.trim(),
+        idNumber: idNumber.trim(),
+        address: address.trim(),
+        email: email.trim().toLowerCase(),
+        password,
+        referralCode: referralCode ? referralCode.trim().toUpperCase() : undefined,
+      });
+
+      if (result.success && result.userId) {
+        // Save terms acceptance timestamp
+        const { error: termsError } = await supabase
+          .from('users')
+          .update({ terms_accepted_at: new Date().toISOString() })
+          .eq('id', result.userId);
+
+        if (termsError) {
+          console.error('Error saving terms acceptance:', termsError);
+        }
+      }
+
+      setLoading(false);
+
+      if (result.success) {
+        showAlert(
+          t('success'),
+          '✅ ¡Cuenta creada exitosamente!\n\n📧 Por favor verifica tu correo electrónico antes de iniciar sesión.\n\nRevisa tu bandeja de entrada (y la carpeta de spam) para el enlace de verificación.',
+          () => router.replace('/(auth)/login'),
+          'success'
+        );
+      } else {
+        // Provide more specific error messages
+        let errorMessage = result.error || t('failedToCreateAccount');
+        
+        if (errorMessage.includes('already registered') || errorMessage.includes('ya está registrado')) {
+          errorMessage = 'Este correo electrónico ya está registrado. Por favor usa otro correo o intenta iniciar sesión.';
+        } else if (errorMessage.includes('ID number') || errorMessage.includes('identificación')) {
+          errorMessage = 'Este número de identificación ya está registrado. Solo se permite una cuenta por persona.';
+        } else if (errorMessage.includes('referral') || errorMessage.includes('referido')) {
+          errorMessage = 'El código de referido ingresado no es válido. Por favor verifica el código o déjalo en blanco.';
+        } else if (errorMessage.includes('email') && errorMessage.includes('invalid')) {
+          errorMessage = 'El formato del correo electrónico no es válido. Por favor verifica e intenta de nuevo.';
+        }
+        
+        showAlert(t('error'), errorMessage, undefined, 'error');
+      }
+    } catch (error: any) {
+      setLoading(false);
+      console.error('Registration exception:', error);
+      showAlert(
+        t('error'),
+        'Ocurrió un error inesperado durante el registro. Por favor intenta de nuevo o contacta a soporte si el problema persiste.',
+        undefined,
+        'error'
+      );
     }
   };
 
@@ -140,43 +200,46 @@ export default function RegisterScreen() {
             <Text style={commonStyles.label}>{t('fullName')} *</Text>
             <TextInput
               style={commonStyles.input}
-              placeholder={t('enterYourFullName')}
+              placeholder="Ej: Juan Pérez"
               placeholderTextColor={colors.textSecondary}
               value={formData.name}
               onChangeText={(value) => updateField('name', value)}
               autoCapitalize="words"
             />
+            <Text style={styles.helperText}>Ingresa tu nombre completo (nombre y apellido)</Text>
           </View>
 
           <View style={styles.inputContainer}>
             <Text style={commonStyles.label}>{t('idNumber')} *</Text>
             <TextInput
               style={commonStyles.input}
-              placeholder={t('enterYourIDNumber')}
+              placeholder="Ej: 123456789"
               placeholderTextColor={colors.textSecondary}
               value={formData.idNumber}
               onChangeText={(value) => updateField('idNumber', value)}
-              keyboardType="numeric"
+              keyboardType="default"
             />
+            <Text style={styles.helperText}>Número de cédula, DNI o pasaporte</Text>
           </View>
 
           <View style={styles.inputContainer}>
             <Text style={commonStyles.label}>{t('address')} *</Text>
             <TextInput
               style={commonStyles.input}
-              placeholder={t('enterYourResidentialAddress')}
+              placeholder="Ej: Calle 123 #45-67, Ciudad"
               placeholderTextColor={colors.textSecondary}
               value={formData.address}
               onChangeText={(value) => updateField('address', value)}
               autoCapitalize="words"
             />
+            <Text style={styles.helperText}>Dirección completa de residencia</Text>
           </View>
 
           <View style={styles.inputContainer}>
             <Text style={commonStyles.label}>{t('email')} *</Text>
             <TextInput
               style={commonStyles.input}
-              placeholder={t('enterYourEmail')}
+              placeholder="tu@email.com"
               placeholderTextColor={colors.textSecondary}
               value={formData.email}
               onChangeText={(value) => updateField('email', value)}
@@ -184,6 +247,7 @@ export default function RegisterScreen() {
               autoCapitalize="none"
               autoComplete="email"
             />
+            <Text style={styles.helperText}>Usarás este correo para iniciar sesión</Text>
           </View>
 
           <View style={styles.inputContainer}>
@@ -229,12 +293,13 @@ export default function RegisterScreen() {
             <Text style={commonStyles.label}>{t('referralCode')}</Text>
             <TextInput
               style={commonStyles.input}
-              placeholder={t('enterReferralCode')}
+              placeholder="Ej: MXI123456 (opcional)"
               placeholderTextColor={colors.textSecondary}
               value={formData.referralCode}
               onChangeText={(value) => updateField('referralCode', value)}
               autoCapitalize="characters"
             />
+            <Text style={styles.helperText}>Si tienes un código de referido, ingrésalo aquí</Text>
           </View>
 
           <View style={styles.infoBox}>
@@ -440,6 +505,12 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     marginBottom: 16,
+  },
+  helperText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
+    marginLeft: 4,
   },
   passwordContainer: {
     position: 'relative',
