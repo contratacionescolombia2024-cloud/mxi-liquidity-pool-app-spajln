@@ -153,7 +153,7 @@ export default function LoginScreen() {
 
   const handleSendPasswordReset = async () => {
     if (!resetEmail) {
-      showAlert(t('error'), t('pleaseEnterTransactionHash'), undefined, 'error');
+      showAlert(t('error'), 'Por favor ingresa tu correo electrónico', undefined, 'error');
       return;
     }
 
@@ -167,8 +167,9 @@ export default function LoginScreen() {
     setSendingReset(true);
     
     try {
+      // Use the dedicated reset-password page as redirect URL
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: 'https://natively.dev/email-confirmed',
+        redirectTo: 'https://natively.dev/reset-password',
       });
 
       setSendingReset(false);
@@ -185,7 +186,7 @@ export default function LoginScreen() {
         setShowPasswordResetModal(false);
         showAlert(
           t('success'),
-          'Se ha enviado un correo electrónico con instrucciones para restablecer tu contraseña. Por favor revisa tu bandeja de entrada.',
+          'Se ha enviado un correo electrónico con instrucciones para restablecer tu contraseña. Por favor revisa tu bandeja de entrada y haz clic en el enlace para crear una nueva contraseña.',
           undefined,
           'success'
         );
