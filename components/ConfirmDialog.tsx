@@ -7,6 +7,7 @@ import {
   Modal,
   TouchableOpacity,
   Platform,
+  Pressable,
 } from 'react-native';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -40,11 +41,11 @@ export default function ConfirmDialog({
   const getTypeColor = () => {
     switch (type) {
       case 'warning':
-        return colors.warning;
+        return '#FF9800';
       case 'error':
-        return colors.error;
+        return '#F44336';
       case 'success':
-        return colors.success;
+        return '#4CAF50';
       default:
         return colors.primary;
     }
@@ -66,6 +67,9 @@ export default function ConfirmDialog({
   const displayIcon = icon || getDefaultIcon();
   const typeColor = getTypeColor();
 
+  // For single-button alerts (when cancelText is empty)
+  const isSingleButton = !cancelText || cancelText === '';
+
   return (
     <Modal
       visible={visible}
@@ -74,8 +78,8 @@ export default function ConfirmDialog({
       onRequestClose={onCancel}
       statusBarTranslucent={true}
     >
-      <View style={styles.overlay}>
-        <View style={styles.dialog}>
+      <Pressable style={styles.overlay} onPress={onCancel}>
+        <Pressable style={styles.dialog} onPress={(e) => e.stopPropagation()}>
           <View style={[styles.iconContainer, { backgroundColor: typeColor + '20' }]}>
             <IconSymbol
               ios_icon_name={displayIcon.ios}
@@ -88,25 +92,32 @@ export default function ConfirmDialog({
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.message}>{message}</Text>
 
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={[styles.button, styles.cancelButton]}
-              onPress={onCancel}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.cancelButtonText}>{cancelText}</Text>
-            </TouchableOpacity>
+          <View style={[styles.buttonContainer, isSingleButton && styles.singleButtonContainer]}>
+            {!isSingleButton && (
+              <TouchableOpacity
+                style={[styles.button, styles.cancelButton]}
+                onPress={onCancel}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.cancelButtonText}>{cancelText}</Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
-              style={[styles.button, styles.confirmButton, { backgroundColor: typeColor }]}
+              style={[
+                styles.button, 
+                styles.confirmButton, 
+                { backgroundColor: typeColor },
+                isSingleButton && styles.singleButton
+              ]}
               onPress={onConfirm}
               activeOpacity={0.7}
             >
               <Text style={styles.confirmButtonText}>{confirmText}</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }
@@ -166,6 +177,9 @@ const styles = StyleSheet.create({
     gap: 12,
     width: '100%',
   },
+  singleButtonContainer: {
+    flexDirection: 'column',
+  },
   button: {
     flex: 1,
     paddingVertical: 14,
@@ -173,6 +187,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  singleButton: {
+    flex: 0,
+    width: '100%',
   },
   cancelButton: {
     backgroundColor: colors.cardBackground,

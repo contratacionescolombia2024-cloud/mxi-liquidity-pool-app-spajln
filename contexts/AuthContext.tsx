@@ -314,24 +314,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (_event === 'SIGNED_IN' && session) {
         console.log('User signed in, checking if user exists in database');
-        const { data: existingUser } = await supabase
-          .from('users')
-          .select('id')
-          .eq('id', session.user.id)
-          .single();
-        
-        if (!existingUser && session.user.email) {
-          console.log('New user, updating email verification status');
-          await supabase
+        try {
+          const { data: existingUser } = await supabase
             .from('users')
-            .update({ email_verified: true })
-            .eq('email', session.user.email);
+            .select('id')
+            .eq('id', session.user.id)
+            .maybeSingle();
+          
+          if (!existingUser && session.user.email) {
+            console.log('New user, updating email verification status');
+            await supabase
+              .from('users')
+              .update({ email_verified: true })
+              .eq('email', session.user.email);
+          }
+          
+          await loadUserData(session.user.id);
+        } catch (error) {
+          console.error('Error in SIGNED_IN handler:', error);
+          setLoading(false);
         }
-        
-        loadUserData(session.user.id);
       } else if (session) {
         console.log('Session present, loading user data');
-        loadUserData(session.user.id);
+        await loadUserData(session.user.id);
       } else {
         console.log('No session, clearing user state');
         setUser(null);
@@ -355,7 +360,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .from('users')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (userError) {
         console.error('Error loading user data:', userError);
@@ -398,7 +403,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .from('mxi_withdrawal_schedule')
         .select('*')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       const mappedUser: User = {
         id: userData.id,
@@ -504,7 +509,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .from('users')
         .select('email_verified')
         .eq('id', data.user.id)
-        .single();
+        .maybeSingle();
 
       if (userError) {
         console.error('Error fetching user data:', userError);
@@ -719,7 +724,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .from('users')
         .select('id, name, email, referral_code')
         .eq('id', authData.user.id)
-        .single();
+        .maybeSingle();
 
       if (finalCheckError || !finalCheck) {
         console.error('Final verification failed:', finalCheckError);
@@ -749,7 +754,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .from('users')
         .select('referred_by')
         .eq('id', directReferrerId)
-        .single();
+        .maybeSingle();
 
       if (level2Data?.referred_by) {
         console.log('Creating level 2 referral');
@@ -763,7 +768,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .from('users')
           .select('referred_by')
           .eq('id', level2Data.referred_by)
-          .single();
+          .maybeSingle();
 
         if (level3Data?.referred_by) {
           console.log('Creating level 3 referral');

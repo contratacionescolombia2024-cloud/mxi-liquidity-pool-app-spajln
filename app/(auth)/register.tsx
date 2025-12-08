@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Image,
   Modal,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -41,6 +42,9 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     const { name, idNumber, address, email, password, confirmPassword, referralCode } = formData;
+
+    console.log('=== REGISTRATION ATTEMPT START ===');
+    console.log('Platform:', Platform.OS);
 
     // Validation
     if (!name || !idNumber || !address || !email || !password || !confirmPassword) {
@@ -112,6 +116,7 @@ export default function RegisterScreen() {
     setLoading(true);
     
     try {
+      console.log('Calling register function...');
       const result = await register({
         name: name.trim(),
         idNumber: idNumber.trim(),
@@ -121,28 +126,42 @@ export default function RegisterScreen() {
         referralCode: referralCode ? referralCode.trim().toUpperCase() : undefined,
       });
 
-      if (result.success && result.userId) {
-        // Save terms acceptance timestamp
-        const { error: termsError } = await supabase
-          .from('users')
-          .update({ terms_accepted_at: new Date().toISOString() })
-          .eq('id', result.userId);
+      console.log('Registration result:', result);
 
-        if (termsError) {
-          console.error('Error saving terms acceptance:', termsError);
+      if (result.success && result.userId) {
+        console.log('Registration successful, saving terms acceptance...');
+        // Save terms acceptance timestamp
+        try {
+          const { error: termsError } = await supabase
+            .from('users')
+            .update({ terms_accepted_at: new Date().toISOString() })
+            .eq('id', result.userId);
+
+          if (termsError) {
+            console.error('Error saving terms acceptance:', termsError);
+          } else {
+            console.log('Terms acceptance saved successfully');
+          }
+        } catch (termsErr) {
+          console.error('Exception saving terms:', termsErr);
         }
       }
 
       setLoading(false);
 
       if (result.success) {
+        console.log('Showing success message and navigating to login');
         showAlert(
           t('success'),
           '✅ ¡Cuenta creada exitosamente!\n\n📧 Por favor verifica tu correo electrónico antes de iniciar sesión.\n\nRevisa tu bandeja de entrada (y la carpeta de spam) para el enlace de verificación.',
-          () => router.replace('/(auth)/login'),
+          () => {
+            console.log('User acknowledged success, navigating to login');
+            router.replace('/(auth)/login');
+          },
           'success'
         );
       } else {
+        console.log('Registration failed:', result.error);
         // Provide more specific error messages
         let errorMessage = result.error || t('failedToCreateAccount');
         
@@ -160,7 +179,10 @@ export default function RegisterScreen() {
       }
     } catch (error: any) {
       setLoading(false);
+      console.error('=== REGISTRATION EXCEPTION ===');
       console.error('Registration exception:', error);
+      console.error('Error stack:', error.stack);
+      
       showAlert(
         t('error'),
         'Ocurrió un error inesperado durante el registro. Por favor intenta de nuevo o contacta a soporte si el problema persiste.',
@@ -168,6 +190,8 @@ export default function RegisterScreen() {
         'error'
       );
     }
+    
+    console.log('=== REGISTRATION ATTEMPT END ===');
   };
 
   const updateField = (field: string, value: string) => {
@@ -205,6 +229,7 @@ export default function RegisterScreen() {
               value={formData.name}
               onChangeText={(value) => updateField('name', value)}
               autoCapitalize="words"
+              editable={!loading}
             />
             <Text style={styles.helperText}>Ingresa tu nombre completo (nombre y apellido)</Text>
           </View>
@@ -218,6 +243,7 @@ export default function RegisterScreen() {
               value={formData.idNumber}
               onChangeText={(value) => updateField('idNumber', value)}
               keyboardType="default"
+              editable={!loading}
             />
             <Text style={styles.helperText}>Número de cédula, DNI o pasaporte</Text>
           </View>
@@ -231,6 +257,7 @@ export default function RegisterScreen() {
               value={formData.address}
               onChangeText={(value) => updateField('address', value)}
               autoCapitalize="words"
+              editable={!loading}
             />
             <Text style={styles.helperText}>Dirección completa de residencia</Text>
           </View>
@@ -246,6 +273,7 @@ export default function RegisterScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               autoComplete="email"
+              editable={!loading}
             />
             <Text style={styles.helperText}>Usarás este correo para iniciar sesión</Text>
           </View>
@@ -261,10 +289,12 @@ export default function RegisterScreen() {
                 onChangeText={(value) => updateField('password', value)}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
+                editable={!loading}
               />
               <TouchableOpacity
                 style={styles.eyeIcon}
                 onPress={() => setShowPassword(!showPassword)}
+                disabled={loading}
               >
                 <IconSymbol
                   ios_icon_name={showPassword ? 'eye.slash.fill' : 'eye.fill'}
@@ -286,6 +316,7 @@ export default function RegisterScreen() {
               onChangeText={(value) => updateField('confirmPassword', value)}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
+              editable={!loading}
             />
           </View>
 
@@ -298,6 +329,7 @@ export default function RegisterScreen() {
               value={formData.referralCode}
               onChangeText={(value) => updateField('referralCode', value)}
               autoCapitalize="characters"
+              editable={!loading}
             />
             <Text style={styles.helperText}>Si tienes un código de referido, ingrésalo aquí</Text>
           </View>
@@ -319,6 +351,7 @@ export default function RegisterScreen() {
             <TouchableOpacity
               style={styles.checkboxContainer}
               onPress={() => setAcceptedTerms(!acceptedTerms)}
+              disabled={loading}
             >
               <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
                 {acceptedTerms && (
@@ -347,7 +380,7 @@ export default function RegisterScreen() {
           </View>
 
           <TouchableOpacity
-            style={[buttonStyles.primary, styles.registerButton]}
+            style={[buttonStyles.primary, styles.registerButton, loading && styles.buttonDisabled]}
             onPress={handleRegister}
             disabled={loading}
           >
@@ -361,6 +394,7 @@ export default function RegisterScreen() {
           <TouchableOpacity
             style={styles.loginLink}
             onPress={() => router.back()}
+            disabled={loading}
           >
             <Text style={styles.loginLinkText}>
               {t('alreadyHaveAccountLogin')} <Text style={styles.loginLinkBold}>{t('login')}</Text>
@@ -581,6 +615,9 @@ const styles = StyleSheet.create({
   },
   registerButton: {
     marginTop: 8,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   buttonText: {
     color: '#fff',

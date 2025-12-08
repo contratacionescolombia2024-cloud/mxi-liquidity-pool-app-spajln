@@ -24,6 +24,7 @@ export interface ConfirmConfig {
  */
 export function registerWebConfirmHandler(handler: (config: ConfirmConfig) => void) {
   webConfirmCallback = handler;
+  console.log('Web confirm handler registered');
 }
 
 /**
@@ -41,11 +42,15 @@ export function showConfirm(config: ConfirmConfig) {
     onCancel,
   } = config;
 
+  console.log('showConfirm called:', { title, platform: Platform.OS });
+
   if (Platform.OS === 'web') {
     // Use custom dialog on web
     if (webConfirmCallback) {
+      console.log('Using web confirm callback');
       webConfirmCallback(config);
     } else {
+      console.warn('Web confirm callback not registered, using fallback');
       // Fallback to browser confirm
       if (window.confirm(`${title}\n\n${message}`)) {
         onConfirm();
@@ -55,6 +60,7 @@ export function showConfirm(config: ConfirmConfig) {
     }
   } else {
     // Use native Alert on mobile
+    console.log('Using native Alert');
     Alert.alert(
       title,
       message,
@@ -82,11 +88,13 @@ export function showAlert(
   onPress?: () => void,
   type: 'info' | 'warning' | 'error' | 'success' = 'info'
 ) {
+  console.log('showAlert called:', { title, type, platform: Platform.OS });
+  
   showConfirm({
     title,
     message,
     confirmText: 'OK',
-    cancelText: '',
+    cancelText: '', // Empty string for single-button alert
     onConfirm: onPress || (() => {}),
     onCancel: onPress || (() => {}),
     type,

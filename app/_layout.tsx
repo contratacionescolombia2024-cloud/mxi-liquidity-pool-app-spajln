@@ -4,15 +4,16 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
-import { useColorScheme } from 'react-native';
+import { useColorScheme, Platform } from 'react-native';
 import { AuthProvider } from '../contexts/AuthContext';
 import { LanguageProvider } from '../contexts/LanguageContext';
 import { RealtimeProvider } from '../contexts/RealtimeContext';
 import { WidgetProvider } from '../contexts/WidgetContext';
 import { ErrorBoundary } from '../components/ErrorBoundary';
-import { Platform } from 'react-native';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { registerWebConfirmHandler, ConfirmConfig } from '../utils/confirmDialog';
 
 // Import Material Icons font for web
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -28,6 +29,9 @@ export default function RootLayout() {
     'SpaceMono-Italic': require('../assets/fonts/SpaceMono-Italic.ttf'),
     'SpaceMono-BoldItalic': require('../assets/fonts/SpaceMono-BoldItalic.ttf'),
   });
+
+  // State for web confirm dialog
+  const [confirmDialogConfig, setConfirmDialogConfig] = useState<ConfirmConfig | null>(null);
 
   useEffect(() => {
     if (loaded) {
@@ -52,9 +56,32 @@ export default function RootLayout() {
     }
   }, []);
 
+  // Register web confirm handler
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      registerWebConfirmHandler((config: ConfirmConfig) => {
+        setConfirmDialogConfig(config);
+      });
+    }
+  }, []);
+
   if (!loaded) {
     return null;
   }
+
+  const handleConfirmDialogConfirm = () => {
+    if (confirmDialogConfig?.onConfirm) {
+      confirmDialogConfig.onConfirm();
+    }
+    setConfirmDialogConfig(null);
+  };
+
+  const handleConfirmDialogCancel = () => {
+    if (confirmDialogConfig?.onCancel) {
+      confirmDialogConfig.onCancel();
+    }
+    setConfirmDialogConfig(null);
+  };
 
   return (
     <ErrorBoundary>
@@ -79,6 +106,21 @@ export default function RootLayout() {
                   <Stack.Screen name="games/tank-arena" options={{ headerShown: false }} />
                 </Stack>
                 <StatusBar style="auto" />
+                
+                {/* Web Confirm Dialog */}
+                {Platform.OS === 'web' && confirmDialogConfig && (
+                  <ConfirmDialog
+                    visible={true}
+                    title={confirmDialogConfig.title}
+                    message={confirmDialogConfig.message}
+                    confirmText={confirmDialogConfig.confirmText}
+                    cancelText={confirmDialogConfig.cancelText}
+                    onConfirm={handleConfirmDialogConfirm}
+                    onCancel={handleConfirmDialogCancel}
+                    type={confirmDialogConfig.type}
+                    icon={confirmDialogConfig.icon}
+                  />
+                )}
               </ThemeProvider>
             </WidgetProvider>
           </RealtimeProvider>
