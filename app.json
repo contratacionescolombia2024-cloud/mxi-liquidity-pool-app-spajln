@@ -1,4 +1,3 @@
-
 {
   "expo": {
     "name": "MXI Liquidity Pool",
@@ -95,5 +94,6 @@
     "assetBundlePatterns": [
       "**/*"
     ]
-  }
+  },
+  "scheme": "MXI Liquidity Pool"
 }
