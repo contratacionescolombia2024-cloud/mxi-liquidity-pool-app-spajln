@@ -545,11 +545,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'El correo electrónico ya está registrado' };
       }
 
-      // Check for existing ID number
+      // Check for existing ID number (excluding temporary IDs from trigger)
       const { data: existingId, error: idCheckError } = await supabase
         .from('users')
         .select('id_number')
         .eq('id_number', userData.idNumber)
+        .not('id_number', 'like', 'TEMP_%')
         .maybeSingle();
 
       if (idCheckError) {
@@ -561,52 +562,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'El número de identificación ya está registrado. Solo se permite una cuenta por persona.' };
       }
 
-      // Create auth user
-      console.log('Creating auth user...');
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: userData.email.trim().toLowerCase(),
-        password: userData.password,
-        options: {
-          emailRedirectTo: 'https://natively.dev/email-confirmed',
-          data: {
-            name: userData.name,
-            id_number: userData.idNumber,
-            address: userData.address,
-          },
-        },
-      });
-
-      if (authError) {
-        console.error('Auth signup error:', authError);
-        return { success: false, error: authError.message };
-      }
-
-      if (!authData.user) {
-        console.error('No user returned from signup');
-        return { success: false, error: 'Error al crear usuario' };
-      }
-
-      console.log('Auth user created successfully:', authData.user.id);
-
-      // Wait for trigger to fire
-      console.log('Waiting for database trigger to create profile...');
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Check if profile was created by trigger
-      const { data: profileCheck, error: profileCheckError } = await supabase
-        .from('users')
-        .select('id, name, referral_code')
-        .eq('id', authData.user.id)
-        .maybeSingle();
-
-      if (profileCheckError) {
-        console.error('Error checking profile:', profileCheckError);
-      }
-
-      let referralCode: string;
-      let referrerId: string | null = null;
-
       // Find referrer if referral code provided
+      let referrerId: string | null = null;
       if (userData.referralCode) {
         console.log('Looking up referrer with code:', userData.referralCode);
         const { data: referrerData, error: referrerError } = await supabase
@@ -627,85 +584,71 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      if (profileCheck) {
-        // Profile was created by trigger, update it with complete data
-        console.log('Profile created by trigger, updating with complete user data');
+      // Create auth user with metadata
+      console.log('Creating auth user...');
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: userData.email.trim().toLowerCase(),
+        password: userData.password,
+        options: {
+          emailRedirectTo: 'https://natively.dev/email-confirmed',
+          data: {
+            name: userData.name.trim(),
+            id_number: userData.idNumber.trim(),
+            address: userData.address.trim(),
+          },
+        },
+      });
+
+      if (authError) {
+        console.error('Auth signup error:', authError);
         
-        // Generate referral code if not already set
-        if (profileCheck.referral_code && profileCheck.referral_code.startsWith('MXI')) {
-          referralCode = profileCheck.referral_code;
-          console.log('Using existing referral code:', referralCode);
-        } else {
-          const { data: codeData, error: codeError } = await supabase.rpc('generate_referral_code');
-          if (codeError) {
-            console.error('Error generating referral code:', codeError);
-          }
-          referralCode = codeData || `MXI${Date.now().toString().slice(-6)}`;
-          console.log('Generated new referral code:', referralCode);
+        // Handle rate limiting
+        if (authError.message.includes('429') || authError.message.toLowerCase().includes('rate limit')) {
+          return { 
+            success: false, 
+            error: 'Demasiados intentos de registro. Por favor espera unos minutos e intenta de nuevo.' 
+          };
         }
+        
+        return { success: false, error: authError.message };
+      }
 
-        // Update the profile with complete data
-        const { error: updateError } = await supabase
-          .from('users')
-          .update({
-            name: userData.name,
-            id_number: userData.idNumber,
-            address: userData.address,
-            referral_code: referralCode,
-            referred_by: referrerId,
-            email_verified: false,
-          })
-          .eq('id', authData.user.id);
+      if (!authData.user) {
+        console.error('No user returned from signup');
+        return { success: false, error: 'Error al crear usuario' };
+      }
 
-        if (updateError) {
-          console.error('Profile update error:', updateError);
-          // Don't fail registration if update fails
-        } else {
-          console.log('Profile updated successfully');
-        }
+      console.log('Auth user created successfully:', authData.user.id);
 
-        // Create referral chain if applicable
-        if (referrerId) {
-          console.log('Creating referral chain...');
-          await createReferralChain(authData.user.id, referrerId);
-        }
+      // Wait for trigger to fire and create profile
+      console.log('Waiting for database trigger to create profile...');
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      // Update the profile with real data (the trigger creates it with temporary data)
+      console.log('Updating profile with real user data...');
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({
+          name: userData.name.trim(),
+          id_number: userData.idNumber.trim(),
+          address: userData.address.trim(),
+          referred_by: referrerId,
+          email_verified: false,
+        })
+        .eq('id', authData.user.id);
+
+      if (updateError) {
+        console.error('Profile update error:', updateError);
+        // Don't fail registration if update fails - the trigger already created the profile
+        console.log('Profile update failed, but user was created. User can update profile later.');
       } else {
-        // Trigger didn't work, create profile manually
-        console.log('Trigger did not create profile, creating manually');
-        
-        const { data: codeData, error: codeError } = await supabase.rpc('generate_referral_code');
-        if (codeError) {
-          console.error('Error generating referral code:', codeError);
-        }
-        referralCode = codeData || `MXI${Date.now().toString().slice(-6)}`;
-        console.log('Generated referral code:', referralCode);
+        console.log('Profile updated successfully');
+      }
 
-        const { error: insertError } = await supabase
-          .from('users')
-          .insert({
-            id: authData.user.id,
-            name: userData.name,
-            id_number: userData.idNumber,
-            address: userData.address,
-            email: userData.email.trim().toLowerCase(),
-            referral_code: referralCode,
-            referred_by: referrerId,
-            email_verified: false,
-            is_active_contributor: false,
-            kyc_status: 'not_submitted',
-          });
-
-        if (insertError) {
-          console.error('User insert error:', insertError);
-          return { success: false, error: 'Error al crear perfil de usuario. Por favor contacta soporte.' };
-        }
-
-        console.log('Profile created manually');
-
-        if (referrerId) {
-          console.log('Creating referral chain...');
-          await createReferralChain(authData.user.id, referrerId);
-        }
+      // Create referral chain if applicable
+      if (referrerId) {
+        console.log('Creating referral chain...');
+        await createReferralChain(authData.user.id, referrerId);
       }
 
       // Final verification
@@ -717,7 +660,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (finalCheckError || !finalCheck) {
         console.error('Final verification failed:', finalCheckError);
-        return { success: false, error: 'El usuario fue creado pero hubo un problema al verificar. Por favor contacta soporte.' };
+        return { 
+          success: false, 
+          error: 'El usuario fue creado pero hubo un problema al verificar. Por favor intenta iniciar sesión.' 
+        };
       }
 
       console.log('=== REGISTRATION SUCCESSFUL ===');
@@ -726,6 +672,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error: any) {
       console.error('=== REGISTRATION EXCEPTION ===');
       console.error('Registration exception:', error);
+      
+      // Handle specific errors
+      if (error.message && error.message.includes('429')) {
+        return { 
+          success: false, 
+          error: 'Demasiados intentos de registro. Por favor espera unos minutos e intenta de nuevo.' 
+        };
+      }
+      
       return { success: false, error: error.message || 'Error en el registro' };
     }
   };
