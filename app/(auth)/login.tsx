@@ -34,8 +34,6 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [needsVerification, setNeedsVerification] = useState(false);
-  const [unverifiedEmail, setUnverifiedEmail] = useState<string>('');
   const [rememberPassword, setRememberPassword] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
@@ -104,16 +102,14 @@ export default function LoginScreen() {
       
       // Check if error is related to email verification
       const errorMessage = result.error?.toLowerCase() || '';
-      if (errorMessage.includes('verif') || errorMessage.includes('email')) {
-        setNeedsVerification(true);
-        setUnverifiedEmail(email.trim().toLowerCase());
+      if (errorMessage.includes('verif') || errorMessage.includes('email not confirmed')) {
         showConfirm({
           title: t('emailVerificationRequired'),
           message: t('pleaseVerifyEmail'),
           confirmText: t('resendEmail'),
           cancelText: t('cancel'),
           type: 'warning',
-          onConfirm: handleResendVerification,
+          onConfirm: () => handleResendVerification(email),
           onCancel: () => {},
         });
       } else if (errorMessage.includes('invalid') || errorMessage.includes('credentials')) {
@@ -131,16 +127,16 @@ export default function LoginScreen() {
     console.log('=== LOGIN ATTEMPT END ===');
   };
 
-  const handleResendVerification = async () => {
-    console.log('Resending verification email to:', unverifiedEmail);
+  const handleResendVerification = async (emailToResend: string) => {
+    console.log('Resending verification email to:', emailToResend);
     
-    if (!unverifiedEmail) {
+    if (!emailToResend) {
       showAlert(t('error'), 'No se encontró el correo electrónico. Por favor intenta iniciar sesión nuevamente.', undefined, 'error');
       return;
     }
     
     setLoading(true);
-    const result = await resendVerificationEmail(unverifiedEmail);
+    const result = await resendVerificationEmail(emailToResend);
     setLoading(false);
 
     if (result.success) {
@@ -318,23 +314,6 @@ export default function LoginScreen() {
               <Text style={styles.forgotPasswordText}>{t('forgotPassword')}</Text>
             </TouchableOpacity>
           </View>
-
-          {needsVerification && (
-            <View style={styles.verificationBox}>
-              <IconSymbol 
-                ios_icon_name="exclamationmark.triangle.fill" 
-                android_material_icon_name="warning"
-                size={20} 
-                color={colors.warning} 
-              />
-              <Text style={styles.verificationText}>
-                {t('pleaseVerifyEmailBeforeLogin')}
-              </Text>
-              <TouchableOpacity onPress={handleResendVerification} disabled={loading}>
-                <Text style={styles.resendLink}>{t('resendEmailButton')}</Text>
-              </TouchableOpacity>
-            </View>
-          )}
 
           <TouchableOpacity
             style={[buttonStyles.primary, styles.loginButton, loading && styles.buttonDisabled]}
@@ -662,27 +641,6 @@ const styles = StyleSheet.create({
   },
   forgotPasswordText: {
     fontSize: 14,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  verificationBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.cardBackground,
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    gap: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.warning,
-  },
-  verificationText: {
-    flex: 1,
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  resendLink: {
-    fontSize: 12,
     color: colors.primary,
     fontWeight: '600',
   },

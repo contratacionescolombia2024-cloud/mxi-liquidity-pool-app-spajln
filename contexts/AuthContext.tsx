@@ -457,42 +457,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const trimmedEmail = email.trim().toLowerCase();
       
-      // First, check and sync email verification status
-      console.log('Checking and syncing email verification...');
-      const { data: isVerified, error: syncError } = await supabase.rpc(
-        'check_and_sync_email_verification',
-        { user_email: trimmedEmail }
-      );
-      
-      if (syncError) {
-        console.error('Error syncing email verification:', syncError);
-      } else {
-        console.log('Email verification sync result:', isVerified);
-      }
-      
-      // Check if user exists in our database
-      const { data: existingUser, error: userCheckError } = await supabase
-        .from('users')
-        .select('id, email, email_verified')
-        .eq('email', trimmedEmail)
-        .maybeSingle();
-      
-      if (userCheckError) {
-        console.error('Error checking user existence:', userCheckError);
-      }
-      
-      if (!existingUser) {
-        console.log('User not found in database');
-        return { 
-          success: false, 
-          error: 'No se encontró el correo electrónico. Por favor verifica que hayas ingresado el correo correcto o regístrate si aún no tienes una cuenta.' 
-        };
-      }
-      
-      console.log('User found in database:', existingUser.id);
-      console.log('Email verified status:', existingUser.email_verified);
-      
-      // Now try to sign in
+      // Attempt to sign in with Supabase Auth
       const { data, error } = await supabase.auth.signInWithPassword({
         email: trimmedEmail,
         password,
@@ -506,31 +471,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Check if it's an email not confirmed error
         if (error.message.toLowerCase().includes('email not confirmed')) {
           console.log('Email not confirmed error detected');
+          
+          // Get the user ID from the database
+          const { data: userData } = await supabase
+            .from('users')
+            .select('id')
+            .eq('email', trimmedEmail)
+            .maybeSingle();
+          
           return { 
             success: false,
-            userId: existingUser.id,
+            userId: userData?.id,
             error: 'Por favor verifica tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada (y carpeta de spam) para el enlace de verificación.' 
           };
         }
         
         // Check if it's an invalid credentials error
         if (error.message.toLowerCase().includes('invalid') || error.status === 400) {
-          // Re-check email verification status after sync
-          const { data: reCheckUser } = await supabase
-            .from('users')
-            .select('email_verified')
-            .eq('id', existingUser.id)
-            .maybeSingle();
-          
-          if (reCheckUser && !reCheckUser.email_verified) {
-            console.log('User exists but email not verified');
-            return { 
-              success: false,
-              userId: existingUser.id,
-              error: 'Por favor verifica tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada (y carpeta de spam) para el enlace de verificación.' 
-            };
-          }
-          
           return { 
             success: false, 
             error: 'Credenciales inválidas. Por favor verifica tu correo electrónico y contraseña.' 
@@ -546,6 +503,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       console.log('Auth login successful');
+      
+      // Sync email verification status after successful login
+      if (data.user.email_confirmed_at) {
+        console.log('Syncing email verification status to users table');
+        await supabase
+          .from('users')
+          .update({ email_verified: true })
+          .eq('id', data.user.id);
+      }
+      
       console.log('Login successful');
       console.log('=== LOGIN FUNCTION END ===');
       return { success: true, userId: data.user.id };
