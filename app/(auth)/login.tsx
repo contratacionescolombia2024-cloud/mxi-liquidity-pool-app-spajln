@@ -176,28 +176,17 @@ export default function LoginScreen() {
 
       if (error) {
         console.error('Password reset error:', error);
-        
-        // Check if it's a rate limit error
-        if (error.message.includes('40 seconds') || error.message.includes('rate limit')) {
-          showAlert(
-            '⏱️ Espera un momento',
-            'Por razones de seguridad, debes esperar 40 segundos entre solicitudes de recuperación de contraseña. Por favor intenta de nuevo en un momento.',
-            undefined,
-            'warning'
-          );
-        } else {
-          showAlert(
-            t('error'),
-            error.message || 'Error al enviar el correo de recuperación',
-            undefined,
-            'error'
-          );
-        }
+        showAlert(
+          t('error'),
+          error.message || 'Error al enviar el correo de recuperación',
+          undefined,
+          'error'
+        );
       } else {
         setShowPasswordResetModal(false);
         showAlert(
-          '✅ Correo Enviado',
-          `Se ha enviado un correo de recuperación a ${resetEmail}.\n\n📧 Por favor revisa:\n• Tu bandeja de entrada\n• La carpeta de SPAM/Correo no deseado\n\nEl correo viene de: noreply@mail.app.supabase.io\n\n⏰ Si no lo recibes en 5 minutos, revisa spam o intenta de nuevo.`,
+          t('success'),
+          'Se ha enviado un correo electrónico con instrucciones para restablecer tu contraseña. Por favor revisa tu bandeja de entrada y haz clic en el enlace para crear una nueva contraseña.',
           undefined,
           'success'
         );
