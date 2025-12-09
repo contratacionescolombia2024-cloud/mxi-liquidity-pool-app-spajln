@@ -28,6 +28,10 @@ interface UserData {
   id_number: string;
   address: string;
   mxi_balance: number;
+  mxi_purchased_directly: number;
+  mxi_from_unified_commissions: number;
+  mxi_from_challenges: number;
+  mxi_vesting_locked: number;
   usdt_contributed: number;
   is_active_contributor: boolean;
   active_referrals: number;
@@ -39,8 +43,6 @@ interface UserData {
   yield_rate_per_minute: number;
   accumulated_yield: number;
   last_yield_update: string;
-  mxi_purchased_directly: number;
-  mxi_from_unified_commissions: number;
   is_blocked: boolean;
   blocked_at: string | null;
   blocked_reason: string | null;
@@ -109,6 +111,15 @@ export default function UserManagementScreen() {
     }
 
     setFilteredUsers(filtered);
+  };
+
+  const calculateTotalMxiBalance = (userData: UserData) => {
+    return (
+      (userData.mxi_purchased_directly || 0) +
+      (userData.mxi_from_unified_commissions || 0) +
+      (userData.mxi_from_challenges || 0) +
+      (userData.mxi_vesting_locked || 0)
+    );
   };
 
   const handleUserPress = async (userData: UserData) => {
@@ -380,7 +391,7 @@ export default function UserManagementScreen() {
                         size={16} 
                         color={colors.primary} 
                       />
-                      <Text style={styles.userStatValue}>{parseFloat(userData.mxi_balance.toString()).toFixed(2)} MXI</Text>
+                      <Text style={styles.userStatValue}>{parseFloat(calculateTotalMxiBalance(userData).toString()).toFixed(2)} MXI</Text>
                     </View>
                     <View style={styles.userStat}>
                       <IconSymbol 
