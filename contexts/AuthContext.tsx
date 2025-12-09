@@ -369,6 +369,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       console.log('User data loaded:', userData.email);
+      console.log('Email verified status:', userData.email_verified);
 
       const { data: referralData } = await supabase
         .from('referrals')
@@ -405,7 +406,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         idNumber: userData.id_number,
         address: userData.address,
         email: userData.email,
-        emailVerified: userData.email_verified,
+        emailVerified: userData.email_verified || false,
         mxiBalance: parseFloat(userData.mxi_balance.toString()),
         usdtContributed: parseFloat(userData.usdt_contributed.toString()),
         referralCode: userData.referral_code,
@@ -456,7 +457,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const trimmedEmail = email.trim().toLowerCase();
       
-      // First, check if user exists in our database
+      // First, check if user exists in our database and get their verification status
       const { data: existingUser, error: userCheckError } = await supabase
         .from('users')
         .select('id, email, email_verified')
@@ -476,18 +477,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       console.log('User found in database:', existingUser.id);
-      console.log('Email verified status:', existingUser.email_verified);
+      console.log('Email verified status in users table:', existingUser.email_verified);
       
       // Check if email is verified in auth.users
-      const { data: authUser, error: authCheckError } = await supabase
-        .from('auth.users')
-        .select('email_confirmed_at')
-        .eq('id', existingUser.id)
-        .maybeSingle();
+      const { data: authUserData, error: authCheckError } = await supabase.rpc(
+        'check_email_verified',
+        { user_email: trimmedEmail }
+      );
       
-      if (!authCheckError && authUser?.email_confirmed_at && !existingUser.email_verified) {
+      console.log('Email verified status from function:', authUserData);
+      
+      // If email is verified in auth but not synced, update it
+      if (authUserData && !existingUser.email_verified) {
         console.log('Email confirmed in auth but not synced, updating...');
-        // Sync the verification status
         await supabase
           .from('users')
           .update({ email_verified: true })
@@ -504,6 +506,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Supabase auth error:', error);
         console.error('Error code:', error.status);
         console.error('Error message:', error.message);
+        
+        // Check if it's an email not confirmed error
+        if (error.message.toLowerCase().includes('email not confirmed')) {
+          console.log('Email not confirmed error detected');
+          return { 
+            success: false,
+            userId: existingUser.id,
+            error: 'Por favor verifica tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada para el enlace de verificación.' 
+          };
+        }
         
         // Check if it's an invalid credentials error
         if (error.message.toLowerCase().includes('invalid') || error.status === 400) {
@@ -678,6 +690,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             address: userData.address,
             referral_code: referralCode,
             referred_by: referrerId,
+            email_verified: false,
           })
           .eq('id', authData.user.id);
 

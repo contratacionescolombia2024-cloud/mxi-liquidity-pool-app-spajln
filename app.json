@@ -1,7 +1,8 @@
+
 {
   "expo": {
     "name": "MXI Liquidity Pool",
-    "slug": "mxi-liquidity-pool-app-spajln",
+    "slug": "MXI Liquidity Pool",
     "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/04a4d9ac-4539-41d2-bafd-67dd75925bde.png",
@@ -37,6 +38,10 @@
               "scheme": "https",
               "host": "natively.dev",
               "pathPrefix": "/email-confirmed"
+            },
+            {
+              "scheme": "mxiliquiditypool",
+              "host": "reset-password"
             }
           ],
           "category": [
@@ -79,7 +84,7 @@
         }
       ]
     ],
-    "scheme": "maxcoinpool",
+    "scheme": "mxiliquiditypool",
     "experiments": {
       "typedRoutes": true
     },
@@ -90,6 +95,5 @@
     "assetBundlePatterns": [
       "**/*"
     ]
-  },
-  "scheme": "MXI Liquidity Pool"
+  }
 }

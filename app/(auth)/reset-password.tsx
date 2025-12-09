@@ -9,7 +9,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -19,6 +19,7 @@ import * as Linking from 'expo-linking';
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -34,37 +35,75 @@ export default function ResetPasswordScreen() {
   const verifyResetToken = async () => {
     try {
       console.log('Verifying password reset token...');
+      console.log('URL params:', params);
       
       // Get the URL that opened the app
-      const url = await Linking.getInitialURL();
-      console.log('Reset password URL:', url);
+      let url = await Linking.getInitialURL();
+      console.log('Initial URL:', url);
+      
+      // If no URL from Linking, try to construct from params
+      if (!url && (params.access_token || params.refresh_token)) {
+        const accessToken = params.access_token as string;
+        const refreshToken = params.refresh_token as string;
+        const type = params.type as string || 'recovery';
+        
+        url = `mxiliquiditypool://reset-password?access_token=${accessToken}&refresh_token=${refreshToken}&type=${type}`;
+        console.log('Constructed URL from params:', url);
+      }
       
       if (url) {
-        // Extract the session from the URL
-        const { data, error } = await supabase.auth.getSessionFromUrl({ url });
+        // Parse the URL to extract tokens
+        const urlObj = new URL(url);
+        const accessToken = urlObj.searchParams.get('access_token');
+        const refreshToken = urlObj.searchParams.get('refresh_token');
+        const type = urlObj.searchParams.get('type');
         
-        if (error) {
-          console.error('Error verifying reset token:', error);
-          showAlert(
-            'Error',
-            'El enlace de recuperación no es válido o ha expirado. Por favor solicita uno nuevo.',
-            undefined,
-            'error'
-          );
-          setVerifying(false);
-          setTimeout(() => router.replace('/(auth)/login'), 3000);
-          return;
-        }
+        console.log('Extracted tokens:', { 
+          hasAccessToken: !!accessToken, 
+          hasRefreshToken: !!refreshToken,
+          type 
+        });
         
-        if (data.session) {
-          console.log('Valid reset token, user can now reset password');
-          setIsValidToken(true);
-          setVerifying(false);
+        if (accessToken && refreshToken && type === 'recovery') {
+          // Set the session using the tokens
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          
+          if (error) {
+            console.error('Error setting session:', error);
+            showAlert(
+              'Error',
+              'El enlace de recuperación no es válido o ha expirado. Por favor solicita uno nuevo.',
+              undefined,
+              'error'
+            );
+            setVerifying(false);
+            setTimeout(() => router.replace('/(auth)/login'), 3000);
+            return;
+          }
+          
+          if (data.session) {
+            console.log('Valid reset token, user can now reset password');
+            setIsValidToken(true);
+            setVerifying(false);
+          } else {
+            console.error('No session created from tokens');
+            showAlert(
+              'Error',
+              'No se pudo verificar el enlace de recuperación. Por favor intenta de nuevo.',
+              undefined,
+              'error'
+            );
+            setVerifying(false);
+            setTimeout(() => router.replace('/(auth)/login'), 3000);
+          }
         } else {
-          console.error('No session found in reset URL');
+          console.error('Missing required tokens or invalid type');
           showAlert(
             'Error',
-            'No se pudo verificar el enlace de recuperación. Por favor intenta de nuevo.',
+            'El enlace de recuperación no es válido. Por favor solicita uno nuevo.',
             undefined,
             'error'
           );
@@ -120,6 +159,8 @@ export default function ResetPasswordScreen() {
     setLoading(true);
 
     try {
+      console.log('Updating password...');
+      
       // Update the user's password
       const { error } = await supabase.auth.updateUser({
         password: newPassword,

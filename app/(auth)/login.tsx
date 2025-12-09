@@ -167,9 +167,13 @@ export default function LoginScreen() {
     setSendingReset(true);
     
     try {
-      // Use the dedicated reset-password page as redirect URL
+      console.log('Sending password reset email to:', resetEmail);
+      
+      // Use the app's deep link URL for password reset
+      const redirectUrl = 'mxiliquiditypool://reset-password';
+      
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: 'https://natively.dev/reset-password',
+        redirectTo: redirectUrl,
       });
 
       setSendingReset(false);
@@ -183,6 +187,7 @@ export default function LoginScreen() {
           'error'
         );
       } else {
+        console.log('Password reset email sent successfully');
         setShowPasswordResetModal(false);
         showAlert(
           t('success'),
