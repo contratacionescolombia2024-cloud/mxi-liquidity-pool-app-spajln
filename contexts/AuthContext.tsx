@@ -313,20 +313,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       if (_event === 'SIGNED_IN' && session) {
-        console.log('User signed in, checking if user exists in database');
+        console.log('User signed in, syncing email verification status');
         try {
-          const { data: existingUser } = await supabase
-            .from('users')
-            .select('id')
-            .eq('id', session.user.id)
-            .maybeSingle();
-          
-          if (!existingUser && session.user.email) {
-            console.log('New user, updating email verification status');
+          // Sync email verification status from auth.users to users table
+          if (session.user.email_confirmed_at) {
             await supabase
               .from('users')
               .update({ email_verified: true })
-              .eq('email', session.user.email);
+              .eq('id', session.user.id);
           }
           
           await loadUserData(session.user.id);
@@ -460,9 +454,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Attempting login for:', email);
       console.log('Platform:', Platform.OS);
       
-      // First, try to sign in
+      const trimmedEmail = email.trim().toLowerCase();
+      
+      // First, check if user exists in our database
+      const { data: existingUser, error: userCheckError } = await supabase
+        .from('users')
+        .select('id, email, email_verified')
+        .eq('email', trimmedEmail)
+        .maybeSingle();
+      
+      if (userCheckError) {
+        console.error('Error checking user existence:', userCheckError);
+      }
+      
+      if (!existingUser) {
+        console.log('User not found in database');
+        return { 
+          success: false, 
+          error: 'No se encontró el correo electrónico. Por favor verifica que hayas ingresado el correo correcto o regístrate si aún no tienes una cuenta.' 
+        };
+      }
+      
+      console.log('User found in database:', existingUser.id);
+      console.log('Email verified status:', existingUser.email_verified);
+      
+      // Check if email is verified in auth.users
+      const { data: authUser, error: authCheckError } = await supabase
+        .from('auth.users')
+        .select('email_confirmed_at')
+        .eq('id', existingUser.id)
+        .maybeSingle();
+      
+      if (!authCheckError && authUser?.email_confirmed_at && !existingUser.email_verified) {
+        console.log('Email confirmed in auth but not synced, updating...');
+        // Sync the verification status
+        await supabase
+          .from('users')
+          .update({ email_verified: true })
+          .eq('id', existingUser.id);
+      }
+      
+      // Now try to sign in
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
+        email: trimmedEmail,
         password,
       });
 
@@ -473,25 +507,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Check if it's an invalid credentials error
         if (error.message.toLowerCase().includes('invalid') || error.status === 400) {
-          // Check if user exists but email is not verified
-          const { data: userData, error: userCheckError } = await supabase
+          // Re-check email verification status
+          const { data: reCheckUser } = await supabase
             .from('users')
-            .select('email_verified, id')
-            .eq('email', email.trim().toLowerCase())
+            .select('email_verified')
+            .eq('id', existingUser.id)
             .maybeSingle();
           
-          if (userCheckError) {
-            console.error('Error checking user:', userCheckError);
-          }
-          
-          if (userData && !userData.email_verified) {
+          if (reCheckUser && !reCheckUser.email_verified) {
             console.log('User exists but email not verified');
             return { 
               success: false,
-              userId: userData.id,
+              userId: existingUser.id,
               error: 'Por favor verifica tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada para el enlace de verificación.' 
             };
           }
+          
+          return { 
+            success: false, 
+            error: 'Credenciales inválidas. Por favor verifica tu correo electrónico y contraseña.' 
+          };
         }
         
         return { success: false, error: error.message };
@@ -502,29 +537,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'No se pudo crear la sesión' };
       }
 
-      console.log('Auth login successful, checking email verification...');
-
-      // Double-check email verification status in our users table
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('email_verified')
-        .eq('id', data.user.id)
-        .maybeSingle();
-
-      if (userError) {
-        console.error('Error fetching user data:', userError);
-      }
-
-      if (userData && !userData.email_verified) {
-        console.log('Email not verified, signing out user');
-        await supabase.auth.signOut();
-        return { 
-          success: false,
-          userId: data.user.id,
-          error: 'Por favor verifica tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada para el enlace de verificación.' 
-        };
-      }
-
+      console.log('Auth login successful');
       console.log('Login successful');
       console.log('=== LOGIN FUNCTION END ===');
       return { success: true, userId: data.user.id };
