@@ -35,7 +35,7 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(false);
-  const [unverifiedUserId, setUnverifiedUserId] = useState<string | null>(null);
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string>('');
   const [rememberPassword, setRememberPassword] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
@@ -106,9 +106,7 @@ export default function LoginScreen() {
       const errorMessage = result.error?.toLowerCase() || '';
       if (errorMessage.includes('verif') || errorMessage.includes('email')) {
         setNeedsVerification(true);
-        if (result.userId) {
-          setUnverifiedUserId(result.userId);
-        }
+        setUnverifiedEmail(email.trim().toLowerCase());
         showConfirm({
           title: t('emailVerificationRequired'),
           message: t('pleaseVerifyEmail'),
@@ -134,13 +132,24 @@ export default function LoginScreen() {
   };
 
   const handleResendVerification = async () => {
-    console.log('Resending verification email...');
+    console.log('Resending verification email to:', unverifiedEmail);
+    
+    if (!unverifiedEmail) {
+      showAlert(t('error'), 'No se encontró el correo electrónico. Por favor intenta iniciar sesión nuevamente.', undefined, 'error');
+      return;
+    }
+    
     setLoading(true);
-    const result = await resendVerificationEmail();
+    const result = await resendVerificationEmail(unverifiedEmail);
     setLoading(false);
 
     if (result.success) {
-      showAlert(t('success'), t('emailVerificationSent'), undefined, 'success');
+      showAlert(
+        t('success'), 
+        'Correo de verificación enviado exitosamente. Por favor revisa tu bandeja de entrada y carpeta de spam.',
+        undefined,
+        'success'
+      );
     } else {
       showAlert(t('error'), result.error || t('errorResendingEmail'), undefined, 'error');
     }

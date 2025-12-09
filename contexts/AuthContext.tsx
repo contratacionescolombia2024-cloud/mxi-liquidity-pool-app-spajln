@@ -81,7 +81,7 @@ interface AuthContextType {
   withdrawCommission: (amount: number, walletAddress: string) => Promise<{ success: boolean; error?: string }>;
   withdrawMXI: (amount: number, walletAddress: string) => Promise<{ success: boolean; error?: string }>;
   unifyCommissionToMXI: (amount: number) => Promise<{ success: boolean; mxiAmount?: number; error?: string }>;
-  resendVerificationEmail: () => Promise<{ success: boolean; error?: string }>;
+  resendVerificationEmail: (email: string) => Promise<{ success: boolean; error?: string }>;
   checkWithdrawalEligibility: () => Promise<boolean>;
   claimYield: () => Promise<{ success: boolean; yieldEarned?: number; error?: string }>;
   getCurrentYield: () => number;
@@ -1190,23 +1190,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const resendVerificationEmail = async (): Promise<{ success: boolean; error?: string }> => {
+  const resendVerificationEmail = async (email: string): Promise<{ success: boolean; error?: string }> => {
     try {
       console.log('=== RESEND VERIFICATION EMAIL ===');
+      console.log('Resending verification email to:', email);
       
-      // Get email from session or user
-      let emailToVerify = session?.user?.email || user?.email;
-      
-      if (!emailToVerify) {
-        console.error('No email found in session or user');
-        return { success: false, error: 'No se encontró el correo electrónico. Por favor inicia sesión nuevamente.' };
+      if (!email) {
+        console.error('No email provided');
+        return { success: false, error: 'No se proporcionó un correo electrónico.' };
       }
       
-      console.log('Resending verification email to:', emailToVerify);
+      const trimmedEmail = email.trim().toLowerCase();
       
       const { error } = await supabase.auth.resend({
         type: 'signup',
-        email: emailToVerify,
+        email: trimmedEmail,
         options: {
           emailRedirectTo: 'https://natively.dev/email-confirmed',
         },
