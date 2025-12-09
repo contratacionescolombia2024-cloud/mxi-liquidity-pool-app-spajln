@@ -407,6 +407,8 @@ Version 1.1 – Effective from 01/15/2026.`,
     
     // Admin Panel - User Management
     userManagement: 'User Management',
+    deleteAccounts: 'Delete Accounts',
+    deleteUserAccount: 'Delete user accounts',
     searchPlaceholder: 'Search by name, email, ID...',
     loadingUsers: 'Loading users...',
     all: 'All',
@@ -430,6 +432,11 @@ Version 1.1 – Effective from 01/15/2026.`,
     userUnblockedSuccess: 'User unblocked successfully',
     errorUnblockingUser: 'Error unblocking user',
     failedToLoadSettings: 'Failed to load settings',
+    deleteUserPermanently: 'Delete Account Permanently',
+    deletionIsPermanent: 'Account deletion is permanent and irreversible. All user data will be permanently deleted.',
+    personalInformationSection: 'Personal Information',
+    financialInformationSection: 'Financial Information',
+    accountStatusSection: 'Account Status',
     
     // Home Screen
     hello: 'Hello',
@@ -1934,6 +1941,8 @@ Versión 1.1 – Vigente desde 15/01/2026.`,
     
     // Admin Panel - User Management
     userManagement: 'Gestión de Usuarios',
+    deleteAccounts: 'Eliminar Cuentas',
+    deleteUserAccount: 'Eliminar cuentas de usuario',
     searchPlaceholder: 'Buscar por nombre, email, ID...',
     loadingUsers: 'Cargando usuarios...',
     all: 'Todos',
@@ -1957,6 +1966,11 @@ Versión 1.1 – Vigente desde 15/01/2026.`,
     userUnblockedSuccess: 'Usuario desbloqueado exitosamente',
     errorUnblockingUser: 'Error al desbloquear usuario',
     failedToLoadSettings: 'Error al cargar configuración',
+    deleteUserPermanently: 'Eliminar Cuenta Permanentemente',
+    deletionIsPermanent: 'La eliminación de cuentas es permanente e irreversible. Todos los datos del usuario serán eliminados permanentemente.',
+    personalInformationSection: 'Información Personal',
+    financialInformationSection: 'Información Financiera',
+    accountStatusSection: 'Estado de la Cuenta',
     
     // Home Screen
     hello: 'Hola',
@@ -3111,6 +3125,8 @@ Versión 1.1 – Vigente desde 15/01/2026.`,
     
     // Admin Panel - User Management
     userManagement: 'Gestão de Usuários',
+    deleteAccounts: 'Excluir Contas',
+    deleteUserAccount: 'Excluir contas de usuário',
     searchPlaceholder: 'Buscar por nome, email, ID...',
     loadingUsers: 'Carregando usuários...',
     all: 'Todos',
@@ -3134,6 +3150,11 @@ Versión 1.1 – Vigente desde 15/01/2026.`,
     userUnblockedSuccess: 'Usuário desbloqueado com sucesso',
     errorUnblockingUser: 'Erro ao desbloquear usuário',
     failedToLoadSettings: 'Falha ao carregar configurações',
+    deleteUserPermanently: 'Excluir Conta Permanentemente',
+    deletionIsPermanent: 'A exclusão de contas é permanente e irreversível. Todos os dados do usuário serão excluídos permanentemente.',
+    personalInformationSection: 'Informações Pessoais',
+    financialInformationSection: 'Informações Financeiras',
+    accountStatusSection: 'Status da Conta',
     
     // Profile Screen
     profile: 'Perfil',
