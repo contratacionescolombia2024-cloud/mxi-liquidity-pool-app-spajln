@@ -18,8 +18,13 @@ export default function AdminLayout() {
       <Stack.Screen name="database-viewer" />
       <Stack.Screen name="settings" />
       <Stack.Screen name="user-management" />
+      <Stack.Screen name="user-management-advanced" />
+      <Stack.Screen name="user-management-enhanced" />
       <Stack.Screen name="manual-payment-credit" />
       <Stack.Screen name="manual-verification-requests" />
+      <Stack.Screen name="vesting-analytics" />
+      <Stack.Screen name="ambassador-withdrawals" />
+      <Stack.Screen name="user-deletion" />
     </Stack>
   );
 }

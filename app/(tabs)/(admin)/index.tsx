@@ -859,6 +859,16 @@ export default function AdminDashboard() {
 
             <TouchableOpacity
               style={styles.actionButton}
+              onPress={() => router.push('/(tabs)/(admin)/user-deletion')}
+            >
+              <View style={[styles.actionIcon, { backgroundColor: colors.error + '20' }]}>
+                <IconSymbol ios_icon_name="trash.fill" android_material_icon_name="delete_forever" size={24} color={colors.error} />
+              </View>
+              <Text style={styles.actionLabel}>Eliminar Cuentas</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionButton}
               onPress={() => router.push('/(tabs)/(admin)/vesting-analytics')}
             >
               <View style={[styles.actionIcon, { backgroundColor: colors.success + '20' }]}>
