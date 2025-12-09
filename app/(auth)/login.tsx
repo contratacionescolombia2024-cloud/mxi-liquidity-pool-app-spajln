@@ -134,15 +134,53 @@ export default function LoginScreen() {
   };
 
   const handleResendVerification = async () => {
-    console.log('Resending verification email...');
-    setLoading(true);
-    const result = await resendVerificationEmail();
-    setLoading(false);
+    console.log('Resending verification email for:', email);
+    
+    if (!email) {
+      showAlert(t('error'), 'Por favor ingresa tu correo electrónico', undefined, 'error');
+      return;
+    }
 
-    if (result.success) {
-      showAlert(t('success'), t('emailVerificationSent'), undefined, 'success');
-    } else {
-      showAlert(t('error'), result.error || t('errorResendingEmail'), undefined, 'error');
+    setLoading(true);
+    
+    try {
+      // Use the email from the form, not from session
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email.trim().toLowerCase(),
+        options: {
+          emailRedirectTo: 'https://natively.dev/email-confirmed',
+        },
+      });
+
+      setLoading(false);
+
+      if (error) {
+        console.error('Resend verification error:', error);
+        
+        // Check if it's a rate limit error
+        if (error.message.includes('40 seconds') || error.message.includes('rate limit')) {
+          showAlert(
+            '⏱️ Espera un momento',
+            'Por razones de seguridad, debes esperar 40 segundos entre solicitudes de verificación. Por favor intenta de nuevo en un momento.',
+            undefined,
+            'warning'
+          );
+        } else {
+          showAlert(t('error'), error.message || t('errorResendingEmail'), undefined, 'error');
+        }
+      } else {
+        showAlert(
+          '✅ Correo Enviado',
+          `Se ha enviado un correo de verificación a ${email}.\n\n📧 Por favor revisa:\n• Tu bandeja de entrada\n• La carpeta de SPAM/Correo no deseado\n\nEl correo viene de: noreply@mail.app.supabase.io`,
+          undefined,
+          'success'
+        );
+      }
+    } catch (error: any) {
+      setLoading(false);
+      console.error('Resend verification exception:', error);
+      showAlert(t('error'), error.message || t('errorResendingEmail'), undefined, 'error');
     }
   };
 
@@ -167,8 +205,8 @@ export default function LoginScreen() {
     setSendingReset(true);
     
     try {
-      // Use the dedicated reset-password page as redirect URL
-      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+      // CRITICAL FIX: Use the production URL, not localhost
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail.trim().toLowerCase(), {
         redirectTo: 'https://natively.dev/reset-password',
       });
 
@@ -197,7 +235,7 @@ export default function LoginScreen() {
         setShowPasswordResetModal(false);
         showAlert(
           '✅ Correo Enviado',
-          `Se ha enviado un correo de recuperación a ${resetEmail}.\n\n📧 Por favor revisa:\n• Tu bandeja de entrada\n• La carpeta de SPAM/Correo no deseado\n\nEl correo viene de: noreply@mail.app.supabase.io\n\n⏰ Si no lo recibes en 5 minutos, revisa spam o intenta de nuevo.`,
+          `Se ha enviado un correo de recuperación a ${resetEmail}.\n\n📧 Por favor revisa:\n• Tu bandeja de entrada\n• La carpeta de SPAM/Correo no deseado\n\nEl correo viene de: noreply@mail.app.supabase.io\n\n⏰ Si no lo recibes en 5 minutos, revisa spam o intenta de nuevo.\n\n⚠️ IMPORTANTE: El enlace expira en 24 horas.`,
           undefined,
           'success'
         );
