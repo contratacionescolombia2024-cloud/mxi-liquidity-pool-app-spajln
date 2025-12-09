@@ -6,7 +6,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
-import { useColorScheme, Platform } from 'react-native';
+import { useColorScheme, Platform, View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { AuthProvider } from '../contexts/AuthContext';
 import { LanguageProvider } from '../contexts/LanguageContext';
 import { RealtimeProvider } from '../contexts/RealtimeContext';
@@ -14,6 +14,7 @@ import { WidgetProvider } from '../contexts/WidgetContext';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { registerWebConfirmHandler, ConfirmConfig } from '../utils/confirmDialog';
+import { colors } from '../styles/commonStyles';
 
 // Import Material Icons font for web
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -23,7 +24,7 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
+  const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     'SpaceMono-Bold': require('../assets/fonts/SpaceMono-Bold.ttf'),
     'SpaceMono-Italic': require('../assets/fonts/SpaceMono-Italic.ttf'),
@@ -32,12 +33,19 @@ export default function RootLayout() {
 
   // State for web confirm dialog
   const [confirmDialogConfig, setConfirmDialogConfig] = useState<ConfirmConfig | null>(null);
+  const [initError, setInitError] = useState<Error | null>(null);
 
   useEffect(() => {
+    if (error) {
+      console.error('Font loading error:', error);
+      setInitError(error);
+    }
+    
     if (loaded) {
+      console.log('Fonts loaded successfully');
       SplashScreen.hideAsync();
     }
-  }, [loaded]);
+  }, [loaded, error]);
 
   // Preload Material Icons font on web
   useEffect(() => {
@@ -65,8 +73,27 @@ export default function RootLayout() {
     }
   }, []);
 
+  // Show error screen if initialization failed
+  if (initError) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorTitle}>Error de Inicialización</Text>
+        <Text style={styles.errorMessage}>
+          La aplicación no pudo inicializarse correctamente. Por favor recarga la página.
+        </Text>
+        <Text style={styles.errorDetails}>{initError.message}</Text>
+      </View>
+    );
+  }
+
+  // Show loading screen while fonts are loading
   if (!loaded) {
-    return null;
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Cargando...</Text>
+      </View>
+    );
   }
 
   const handleConfirmDialogConfirm = () => {
@@ -129,3 +156,45 @@ export default function RootLayout() {
     </ErrorBoundary>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: colors.text,
+  },
+  errorContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.error,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  errorMessage: {
+    fontSize: 16,
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 12,
+    lineHeight: 24,
+  },
+  errorDetails: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    fontFamily: 'monospace',
+    marginTop: 8,
+  },
+});
