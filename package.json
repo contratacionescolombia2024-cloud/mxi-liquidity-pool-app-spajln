@@ -10,7 +10,8 @@
     "build:web": "npm run prebuild && expo export -p web && npx workbox generateSW workbox-config.js",
     "build:android": "npm run prebuild && expo prebuild -p android",
     "prebuild": "echo 'Build preparation complete'",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "postinstall": "echo 'Dependencies installed successfully'"
   },
   "dependencies": {
     "@babel/plugin-proposal-export-namespace-from": "^7.18.9",
@@ -26,6 +27,7 @@
     "@react-navigation/native-stack": "^7.2.0",
     "@supabase/supabase-js": "^2.81.0",
     "@types/difflib": "^0.2.7",
+    "big-integer": "^1.6.52",
     "difflib": "^0.2.4",
     "eas": "^0.1.0",
     "expo": "~54.0.1",
@@ -85,7 +87,13 @@
     "webpack-cli": "^6.0.1"
   },
   "resolutions": {
-    "@expo/prebuild-config": "latest"
+    "@expo/prebuild-config": "latest",
+    "big-integer": "^1.6.52"
+  },
+  "pnpm": {
+    "overrides": {
+      "big-integer": "^1.6.52"
+    }
   },
   "private": true
 }
