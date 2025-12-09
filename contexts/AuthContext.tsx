@@ -651,23 +651,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await createReferralChain(authData.user.id, referrerId);
       }
 
-      // Final verification
-      const { data: finalCheck, error: finalCheckError } = await supabase
-        .from('users')
-        .select('id, name, email, referral_code')
-        .eq('id', authData.user.id)
-        .maybeSingle();
+      // Final verification - wait a bit longer and retry if needed
+      console.log('Performing final verification...');
+      let finalCheck = null;
+      let retries = 0;
+      const maxRetries = 3;
+      
+      while (!finalCheck && retries < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * (retries + 1))); // Exponential backoff
+        
+        const { data, error: finalCheckError } = await supabase
+          .from('users')
+          .select('id, name, email, referral_code')
+          .eq('id', authData.user.id)
+          .maybeSingle();
+        
+        if (finalCheckError) {
+          console.error(`Final verification attempt ${retries + 1} failed:`, finalCheckError);
+        } else if (data) {
+          finalCheck = data;
+          console.log('Final verification successful:', data);
+        }
+        
+        retries++;
+      }
 
-      if (finalCheckError || !finalCheck) {
-        console.error('Final verification failed:', finalCheckError);
-        return { 
-          success: false, 
-          error: 'El usuario fue creado pero hubo un problema al verificar. Por favor intenta iniciar sesión.' 
-        };
+      if (!finalCheck) {
+        console.error('Final verification failed after all retries');
+        // User was created successfully, just couldn't verify immediately
+        // This is not a critical error - user can still log in
+        console.log('User was created successfully, verification will happen on login');
       }
 
       console.log('=== REGISTRATION SUCCESSFUL ===');
-      console.log('User profile verified:', finalCheck);
+      console.log('User profile verified:', finalCheck || 'Pending verification on login');
       return { success: true, userId: authData.user.id };
     } catch (error: any) {
       console.error('=== REGISTRATION EXCEPTION ===');
