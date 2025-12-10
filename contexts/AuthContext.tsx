@@ -610,6 +610,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           };
         }
         
+        // Handle user already registered
+        if (authError.message.toLowerCase().includes('already registered')) {
+          return {
+            success: false,
+            error: 'Este correo electrónico ya está registrado. Por favor intenta iniciar sesión o usa otro correo.'
+          };
+        }
+        
         return { success: false, error: authError.message };
       }
 
@@ -624,25 +632,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Waiting for database trigger to create profile...');
       await new Promise(resolve => setTimeout(resolve, 3000));
 
-      // Update the profile with real data (the trigger creates it with temporary data)
-      console.log('Updating profile with real user data...');
-      const { error: updateError } = await supabase
+      // Verify profile was created, if not create it manually
+      const { data: profileCheck, error: profileCheckError } = await supabase
         .from('users')
-        .update({
-          name: userData.name.trim(),
-          id_number: userData.idNumber.trim(),
-          address: userData.address.trim(),
-          referred_by: referrerId,
-          email_verified: false,
-        })
-        .eq('id', authData.user.id);
+        .select('id')
+        .eq('id', authData.user.id)
+        .maybeSingle();
 
-      if (updateError) {
-        console.error('Profile update error:', updateError);
-        // Don't fail registration if update fails - the trigger already created the profile
-        console.log('Profile update failed, but user was created. User can update profile later.');
+      if (profileCheckError) {
+        console.error('Error checking profile:', profileCheckError);
+      }
+
+      if (!profileCheck) {
+        console.log('Profile not created by trigger, creating manually...');
+        
+        // Generate referral code
+        let referralCode = 'MXI' + Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+        
+        // Insert profile manually
+        const { error: manualInsertError } = await supabase
+          .from('users')
+          .insert({
+            id: authData.user.id,
+            name: userData.name.trim(),
+            id_number: userData.idNumber.trim(),
+            address: userData.address.trim(),
+            email: userData.email.trim().toLowerCase(),
+            referral_code: referralCode,
+            referred_by: referrerId,
+            email_verified: false,
+            is_active_contributor: false,
+            kyc_status: 'not_submitted',
+          });
+
+        if (manualInsertError) {
+          console.error('Manual profile creation error:', manualInsertError);
+          return {
+            success: false,
+            error: 'El usuario fue creado pero hubo un problema al crear el perfil. Por favor contacta a soporte con tu correo electrónico.'
+          };
+        }
+        
+        console.log('Profile created manually');
       } else {
-        console.log('Profile updated successfully');
+        console.log('Profile exists, updating with real data...');
+        // Update the profile with real data (the trigger creates it with temporary data)
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({
+            name: userData.name.trim(),
+            id_number: userData.idNumber.trim(),
+            address: userData.address.trim(),
+            referred_by: referrerId,
+            email_verified: false,
+          })
+          .eq('id', authData.user.id);
+
+        if (updateError) {
+          console.error('Profile update error:', updateError);
+        } else {
+          console.log('Profile updated successfully');
+        }
       }
 
       // Create referral chain if applicable
@@ -651,14 +701,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await createReferralChain(authData.user.id, referrerId);
       }
 
-      // Final verification - wait a bit longer and retry if needed
+      // Final verification
       console.log('Performing final verification...');
       let finalCheck = null;
       let retries = 0;
       const maxRetries = 3;
       
       while (!finalCheck && retries < maxRetries) {
-        await new Promise(resolve => setTimeout(resolve, 1000 * (retries + 1))); // Exponential backoff
+        await new Promise(resolve => setTimeout(resolve, 1000 * (retries + 1)));
         
         const { data, error: finalCheckError } = await supabase
           .from('users')
@@ -678,13 +728,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (!finalCheck) {
         console.error('Final verification failed after all retries');
-        // User was created successfully, just couldn't verify immediately
-        // This is not a critical error - user can still log in
-        console.log('User was created successfully, verification will happen on login');
+        return {
+          success: false,
+          error: 'El usuario fue creado pero no se pudo verificar. Por favor intenta iniciar sesión. Si el problema persiste, contacta a soporte.'
+        };
       }
 
       console.log('=== REGISTRATION SUCCESSFUL ===');
-      console.log('User profile verified:', finalCheck || 'Pending verification on login');
+      console.log('User profile verified:', finalCheck);
       return { success: true, userId: authData.user.id };
     } catch (error: any) {
       console.error('=== REGISTRATION EXCEPTION ===');
@@ -1151,6 +1202,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) {
         console.error('Resend error:', error);
+        
+        // Handle rate limiting
+        if (error.message.includes('429') || error.message.toLowerCase().includes('rate limit')) {
+          return {
+            success: false,
+            error: 'Has solicitado demasiados correos de verificación. Por favor espera unos minutos e intenta de nuevo.'
+          };
+        }
+        
         return { success: false, error: error.message };
       }
 
