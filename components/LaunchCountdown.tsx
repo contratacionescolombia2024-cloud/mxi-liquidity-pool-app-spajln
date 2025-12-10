@@ -151,17 +151,6 @@ export function LaunchCountdown() {
               </View>
             )}
 
-            {/* Compact Date Display */}
-            <View style={styles.launchDateContainer}>
-              <IconSymbol 
-                ios_icon_name="calendar" 
-                android_material_icon_name="event" 
-                size={14} 
-                color="rgba(255, 255, 255, 0.85)" 
-              />
-              <Text style={styles.launchDateText}>{t('launchDate')}</Text>
-            </View>
-
             {/* Compact Countdown Display */}
             <View style={styles.countdownContainer}>
               {/* Days */}
@@ -334,23 +323,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(255, 255, 255, 0.95)',
     fontWeight: '700',
-  },
-  launchDateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginBottom: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    paddingVertical: 5,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    alignSelf: 'center',
-  },
-  launchDateText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.9)',
   },
   countdownContainer: {
     flexDirection: 'row',
