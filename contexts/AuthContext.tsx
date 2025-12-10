@@ -111,6 +111,13 @@ export const useAuth = () => {
   return context;
 };
 
+// Helper function to wait with exponential backoff
+const waitWithBackoff = (attempt: number) => {
+  const baseDelay = 1000; // 1 second
+  const delay = baseDelay * Math.pow(2, attempt); // Exponential backoff
+  return new Promise(resolve => setTimeout(resolve, delay));
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -526,10 +533,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (userData: RegisterData): Promise<{ success: boolean; error?: string; userId?: string }> => {
     try {
       console.log('=== REGISTRATION START ===');
+      console.log('Timestamp:', new Date().toISOString());
       console.log('Attempting registration for:', userData.email);
-      console.log('User data:', { name: userData.name, idNumber: userData.idNumber, address: userData.address });
+      console.log('User data:', { 
+        name: userData.name, 
+        idNumber: userData.idNumber, 
+        address: userData.address,
+        hasReferralCode: !!userData.referralCode 
+      });
 
-      // Check for existing email
+      // Step 1: Validate existing email
+      console.log('Step 1: Checking for existing email...');
       const { data: existingUser, error: emailCheckError } = await supabase
         .from('users')
         .select('email')
@@ -541,11 +555,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (existingUser) {
-        console.log('Email already exists');
-        return { success: false, error: 'El correo electrónico ya está registrado' };
+        console.log('❌ Email already exists');
+        return { success: false, error: 'El correo electrónico ya está registrado. Por favor usa otro correo o intenta iniciar sesión.' };
       }
 
-      // Check for existing ID number (excluding temporary IDs from trigger)
+      // Step 2: Validate existing ID number
+      console.log('Step 2: Checking for existing ID number...');
       const { data: existingId, error: idCheckError } = await supabase
         .from('users')
         .select('id_number')
@@ -558,14 +573,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (existingId) {
-        console.log('ID number already exists');
+        console.log('❌ ID number already exists');
         return { success: false, error: 'El número de identificación ya está registrado. Solo se permite una cuenta por persona.' };
       }
 
-      // Find referrer if referral code provided
+      // Step 3: Find referrer if referral code provided
       let referrerId: string | null = null;
       if (userData.referralCode) {
-        console.log('Looking up referrer with code:', userData.referralCode);
+        console.log('Step 3: Looking up referrer with code:', userData.referralCode);
         const { data: referrerData, error: referrerError } = await supabase
           .from('users')
           .select('id')
@@ -578,14 +593,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (referrerData) {
           referrerId = referrerData.id;
-          console.log('Found referrer:', referrerId);
+          console.log('✅ Found referrer:', referrerId);
         } else {
-          console.log('Referral code not found, proceeding without referrer');
+          console.log('⚠️ Referral code not found, proceeding without referrer');
         }
       }
 
-      // Create auth user with metadata
-      console.log('Creating auth user...');
+      // Step 4: Create auth user
+      console.log('Step 4: Creating auth user...');
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: userData.email.trim().toLowerCase(),
         password: userData.password,
@@ -600,7 +615,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (authError) {
-        console.error('Auth signup error:', authError);
+        console.error('❌ Auth signup error:', authError);
         
         // Handle rate limiting
         if (authError.message.includes('429') || authError.message.toLowerCase().includes('rate limit')) {
@@ -622,35 +637,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (!authData.user) {
-        console.error('No user returned from signup');
-        return { success: false, error: 'Error al crear usuario' };
+        console.error('❌ No user returned from signup');
+        return { success: false, error: 'Error al crear usuario en el sistema de autenticación' };
       }
 
-      console.log('Auth user created successfully:', authData.user.id);
+      console.log('✅ Auth user created successfully:', authData.user.id);
 
-      // Wait for trigger to fire and create profile
-      console.log('Waiting for database trigger to create profile...');
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Step 5: Wait for trigger and verify profile creation with retries
+      console.log('Step 5: Waiting for database trigger to create profile...');
+      let profileCreated = false;
+      let profileData = null;
+      const maxRetries = 5;
+      
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        console.log(`Profile check attempt ${attempt + 1}/${maxRetries}...`);
+        
+        // Wait with exponential backoff
+        await waitWithBackoff(attempt);
+        
+        const { data: checkData, error: checkError } = await supabase
+          .from('users')
+          .select('id, name, email, referral_code, id_number')
+          .eq('id', authData.user.id)
+          .maybeSingle();
 
-      // Verify profile was created, if not create it manually
-      const { data: profileCheck, error: profileCheckError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('id', authData.user.id)
-        .maybeSingle();
+        if (checkError) {
+          console.error(`Profile check error (attempt ${attempt + 1}):`, checkError);
+          continue;
+        }
 
-      if (profileCheckError) {
-        console.error('Error checking profile:', profileCheckError);
+        if (checkData) {
+          profileData = checkData;
+          profileCreated = true;
+          console.log('✅ Profile found:', checkData);
+          break;
+        }
       }
 
-      if (!profileCheck) {
-        console.log('Profile not created by trigger, creating manually...');
+      // Step 6: Create profile manually if trigger failed
+      if (!profileCreated) {
+        console.log('⚠️ Profile not created by trigger after retries, creating manually...');
         
         // Generate referral code
-        let referralCode = 'MXI' + Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+        const referralCode = 'MXI' + Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
         
         // Insert profile manually
-        const { error: manualInsertError } = await supabase
+        const { data: manualProfileData, error: manualInsertError } = await supabase
           .from('users')
           .insert({
             id: authData.user.id,
@@ -663,20 +695,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             email_verified: false,
             is_active_contributor: false,
             kyc_status: 'not_submitted',
-          });
+          })
+          .select()
+          .single();
 
         if (manualInsertError) {
-          console.error('Manual profile creation error:', manualInsertError);
+          console.error('❌ Manual profile creation error:', manualInsertError);
+          
+          // Try to delete the auth user to prevent orphaned accounts
+          try {
+            console.log('Attempting to clean up auth user...');
+            await supabase.auth.admin.deleteUser(authData.user.id);
+            console.log('Auth user cleaned up');
+          } catch (cleanupError) {
+            console.error('Failed to cleanup auth user:', cleanupError);
+          }
+          
           return {
             success: false,
-            error: 'El usuario fue creado pero hubo un problema al crear el perfil. Por favor contacta a soporte con tu correo electrónico.'
+            error: 'No se pudo crear el perfil de usuario. Por favor contacta a soporte con tu correo electrónico: ' + userData.email
           };
         }
         
-        console.log('Profile created manually');
+        profileData = manualProfileData;
+        console.log('✅ Profile created manually');
       } else {
-        console.log('Profile exists, updating with real data...');
-        // Update the profile with real data (the trigger creates it with temporary data)
+        // Step 7: Update profile with real data if it was created by trigger
+        console.log('Step 7: Updating profile with real data...');
         const { error: updateError } = await supabase
           .from('users')
           .update({
@@ -689,57 +734,72 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .eq('id', authData.user.id);
 
         if (updateError) {
-          console.error('Profile update error:', updateError);
+          console.error('⚠️ Profile update error:', updateError);
+          // Don't fail registration if update fails, profile exists
         } else {
-          console.log('Profile updated successfully');
+          console.log('✅ Profile updated successfully');
         }
       }
 
-      // Create referral chain if applicable
+      // Step 8: Create referral chain if applicable
       if (referrerId) {
-        console.log('Creating referral chain...');
-        await createReferralChain(authData.user.id, referrerId);
+        console.log('Step 8: Creating referral chain...');
+        try {
+          await createReferralChain(authData.user.id, referrerId);
+          console.log('✅ Referral chain created');
+        } catch (referralError) {
+          console.error('⚠️ Referral chain creation error:', referralError);
+          // Don't fail registration if referral chain fails
+        }
       }
 
-      // Final verification
-      console.log('Performing final verification...');
+      // Step 9: Final verification with retries
+      console.log('Step 9: Performing final verification...');
       let finalCheck = null;
-      let retries = 0;
-      const maxRetries = 3;
+      const finalMaxRetries = 3;
       
-      while (!finalCheck && retries < maxRetries) {
-        await new Promise(resolve => setTimeout(resolve, 1000 * (retries + 1)));
+      for (let attempt = 0; attempt < finalMaxRetries; attempt++) {
+        console.log(`Final verification attempt ${attempt + 1}/${finalMaxRetries}...`);
+        
+        await waitWithBackoff(attempt);
         
         const { data, error: finalCheckError } = await supabase
           .from('users')
-          .select('id, name, email, referral_code')
+          .select('id, name, email, referral_code, id_number')
           .eq('id', authData.user.id)
           .maybeSingle();
         
         if (finalCheckError) {
-          console.error(`Final verification attempt ${retries + 1} failed:`, finalCheckError);
-        } else if (data) {
-          finalCheck = data;
-          console.log('Final verification successful:', data);
+          console.error(`Final verification error (attempt ${attempt + 1}):`, finalCheckError);
+          continue;
         }
         
-        retries++;
+        if (data && data.name && data.email && data.referral_code && data.id_number) {
+          finalCheck = data;
+          console.log('✅ Final verification successful:', data);
+          break;
+        }
       }
 
       if (!finalCheck) {
-        console.error('Final verification failed after all retries');
+        console.error('❌ Final verification failed after all retries');
         return {
           success: false,
-          error: 'El usuario fue creado pero no se pudo verificar. Por favor intenta iniciar sesión. Si el problema persiste, contacta a soporte.'
+          error: 'El usuario fue creado pero no se pudo verificar completamente. Por favor intenta iniciar sesión. Si el problema persiste, contacta a soporte con tu correo: ' + userData.email
         };
       }
 
       console.log('=== REGISTRATION SUCCESSFUL ===');
-      console.log('User profile verified:', finalCheck);
+      console.log('User ID:', authData.user.id);
+      console.log('Email:', userData.email);
+      console.log('Referral Code:', finalCheck.referral_code);
+      console.log('Timestamp:', new Date().toISOString());
+      
       return { success: true, userId: authData.user.id };
     } catch (error: any) {
       console.error('=== REGISTRATION EXCEPTION ===');
       console.error('Registration exception:', error);
+      console.error('Error stack:', error.stack);
       
       // Handle specific errors
       if (error.message && error.message.includes('429')) {
@@ -749,7 +809,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       }
       
-      return { success: false, error: error.message || 'Error en el registro' };
+      return { 
+        success: false, 
+        error: 'Ocurrió un error inesperado durante el registro. Por favor intenta de nuevo o contacta a soporte si el problema persiste. Error: ' + (error.message || 'Desconocido')
+      };
     }
   };
 
@@ -794,6 +857,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Referral chain created successfully');
     } catch (error) {
       console.error('Error creating referral chain:', error);
+      throw error;
     }
   };
 
@@ -1183,6 +1247,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const resendVerificationEmail = async (email: string): Promise<{ success: boolean; error?: string }> => {
     try {
       console.log('=== RESEND VERIFICATION EMAIL ===');
+      console.log('Timestamp:', new Date().toISOString());
       console.log('Resending verification email to:', email);
       
       if (!email) {
@@ -1214,7 +1279,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: error.message };
       }
 
-      console.log('Verification email sent successfully');
+      console.log('✅ Verification email sent successfully');
+      console.log('Timestamp:', new Date().toISOString());
       return { success: true };
     } catch (error: any) {
       console.error('Resend exception:', error);

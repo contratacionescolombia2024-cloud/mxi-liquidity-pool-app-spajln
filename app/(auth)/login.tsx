@@ -22,6 +22,13 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { showAlert, showConfirm } from '@/utils/confirmDialog';
 import { supabase } from '@/lib/supabase';
+import {
+  showEmailVerificationReminder,
+  showPasswordResetSuccess,
+  showPasswordResetError,
+  showEmailResendSuccess,
+  showEmailResendError,
+} from '@/utils/registrationNotifications';
 
 const REMEMBER_EMAIL_KEY = '@mxi_remember_email';
 const REMEMBER_PASSWORD_KEY = '@mxi_remember_password';
@@ -81,6 +88,7 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     console.log('=== LOGIN ATTEMPT START ===');
     console.log('Email:', email);
+    console.log('Timestamp:', new Date().toISOString());
     
     if (!email || !password) {
       showAlert(t('error'), t('fillAllFields'), undefined, 'error');
@@ -103,15 +111,7 @@ export default function LoginScreen() {
       // Check if error is related to email verification
       const errorMessage = result.error?.toLowerCase() || '';
       if (errorMessage.includes('verif') || errorMessage.includes('email not confirmed')) {
-        showConfirm({
-          title: t('emailVerificationRequired'),
-          message: t('pleaseVerifyEmail'),
-          confirmText: t('resendEmail'),
-          cancelText: t('cancel'),
-          type: 'warning',
-          onConfirm: () => handleResendVerification(email),
-          onCancel: () => {},
-        });
+        showEmailVerificationReminder(email, () => handleResendVerification(email));
       } else if (errorMessage.includes('invalid') || errorMessage.includes('credentials')) {
         showAlert(
           t('loginError'),
@@ -125,10 +125,12 @@ export default function LoginScreen() {
     }
     
     console.log('=== LOGIN ATTEMPT END ===');
+    console.log('Timestamp:', new Date().toISOString());
   };
 
   const handleResendVerification = async (emailToResend: string) => {
     console.log('Resending verification email to:', emailToResend);
+    console.log('Timestamp:', new Date().toISOString());
     
     if (!emailToResend) {
       showAlert(t('error'), 'No se encontró el correo electrónico. Por favor intenta iniciar sesión nuevamente.', undefined, 'error');
@@ -140,14 +142,9 @@ export default function LoginScreen() {
     setLoading(false);
 
     if (result.success) {
-      showAlert(
-        t('success'), 
-        'Correo de verificación enviado exitosamente. Por favor revisa tu bandeja de entrada y carpeta de spam.',
-        undefined,
-        'success'
-      );
+      showEmailResendSuccess();
     } else {
-      showAlert(t('error'), result.error || t('errorResendingEmail'), undefined, 'error');
+      showEmailResendError(result.error || t('errorResendingEmail'));
     }
   };
 
@@ -173,6 +170,7 @@ export default function LoginScreen() {
     
     try {
       console.log('Sending password reset email to:', resetEmail);
+      console.log('Timestamp:', new Date().toISOString());
       
       // Use the app's deep link URL for password reset
       const redirectUrl = 'mxiliquiditypool://reset-password';
@@ -185,31 +183,17 @@ export default function LoginScreen() {
 
       if (error) {
         console.error('Password reset error:', error);
-        showAlert(
-          t('error'),
-          error.message || 'Error al enviar el correo de recuperación',
-          undefined,
-          'error'
-        );
+        showPasswordResetError(error.message || 'Error al enviar el correo de recuperación');
       } else {
         console.log('Password reset email sent successfully');
+        console.log('Timestamp:', new Date().toISOString());
         setShowPasswordResetModal(false);
-        showAlert(
-          t('success'),
-          'Se ha enviado un correo electrónico con instrucciones para restablecer tu contraseña. Por favor revisa tu bandeja de entrada y haz clic en el enlace para crear una nueva contraseña.',
-          undefined,
-          'success'
-        );
+        showPasswordResetSuccess(resetEmail);
       }
     } catch (error: any) {
       setSendingReset(false);
       console.error('Password reset exception:', error);
-      showAlert(
-        t('error'),
-        error.message || 'Error al enviar el correo de recuperación',
-        undefined,
-        'error'
-      );
+      showPasswordResetError(error.message || 'Error al enviar el correo de recuperación');
     }
   };
 

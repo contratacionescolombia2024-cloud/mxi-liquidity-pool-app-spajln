@@ -20,6 +20,10 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import { showAlert } from '@/utils/confirmDialog';
+import { 
+  showRegistrationSuccess, 
+  showRegistrationError 
+} from '@/utils/registrationNotifications';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -45,6 +49,7 @@ export default function RegisterScreen() {
 
     console.log('=== REGISTRATION ATTEMPT START ===');
     console.log('Platform:', Platform.OS);
+    console.log('Timestamp:', new Date().toISOString());
 
     // Validation
     if (!name || !idNumber || !address || !email || !password || !confirmPassword) {
@@ -151,47 +156,31 @@ export default function RegisterScreen() {
 
       if (result.success) {
         console.log('Showing success message and navigating to login');
-        showAlert(
-          t('success'),
-          '✅ ¡Cuenta creada exitosamente!\n\n📧 Por favor verifica tu correo electrónico antes de iniciar sesión.\n\nRevisa tu bandeja de entrada (y la carpeta de spam) para el enlace de verificación.',
-          () => {
-            console.log('User acknowledged success, navigating to login');
-            router.replace('/(auth)/login');
-          },
-          'success'
-        );
+        showRegistrationSuccess(email.trim().toLowerCase(), () => {
+          console.log('User acknowledged success, navigating to login');
+          router.replace('/(auth)/login');
+        });
       } else {
         console.log('Registration failed:', result.error);
-        // Provide more specific error messages
-        let errorMessage = result.error || t('failedToCreateAccount');
-        
-        if (errorMessage.includes('already registered') || errorMessage.includes('ya está registrado')) {
-          errorMessage = 'Este correo electrónico ya está registrado. Por favor usa otro correo o intenta iniciar sesión.';
-        } else if (errorMessage.includes('ID number') || errorMessage.includes('identificación')) {
-          errorMessage = 'Este número de identificación ya está registrado. Solo se permite una cuenta por persona.';
-        } else if (errorMessage.includes('referral') || errorMessage.includes('referido')) {
-          errorMessage = 'El código de referido ingresado no es válido. Por favor verifica el código o déjalo en blanco.';
-        } else if (errorMessage.includes('email') && errorMessage.includes('invalid')) {
-          errorMessage = 'El formato del correo electrónico no es válido. Por favor verifica e intenta de nuevo.';
-        }
-        
-        showAlert(t('error'), errorMessage, undefined, 'error');
+        showRegistrationError(result.error || t('failedToCreateAccount'), email.trim().toLowerCase());
       }
     } catch (error: any) {
       setLoading(false);
       console.error('=== REGISTRATION EXCEPTION ===');
       console.error('Registration exception:', error);
       console.error('Error stack:', error.stack);
+      console.error('Timestamp:', new Date().toISOString());
       
       showAlert(
         t('error'),
-        'Ocurrió un error inesperado durante el registro. Por favor intenta de nuevo o contacta a soporte si el problema persiste.',
+        'Ocurrió un error inesperado durante el registro. Por favor intenta de nuevo o contacta a soporte si el problema persiste.\n\nError: ' + (error.message || 'Desconocido'),
         undefined,
         'error'
       );
     }
     
     console.log('=== REGISTRATION ATTEMPT END ===');
+    console.log('Timestamp:', new Date().toISOString());
   };
 
   const updateField = (field: string, value: string) => {
