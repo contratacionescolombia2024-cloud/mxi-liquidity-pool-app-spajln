@@ -18,26 +18,35 @@ export function LaunchCountdown() {
   const { t } = useLanguage();
   const [countdown, setCountdown] = useState<CountdownTime>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [launchDate, setLaunchDate] = useState(new Date('2026-02-25T12:00:00Z'));
+  const [presaleStartDate, setPresaleStartDate] = useState<Date | null>(null);
+  const [presaleEndDate, setPresaleEndDate] = useState<Date | null>(null);
 
-  // Fetch launch date from database
+  // Fetch launch date and presale dates from database
   useEffect(() => {
-    const fetchLaunchDate = async () => {
+    const fetchDates = async () => {
       try {
         const { data, error } = await supabase
           .from('metrics')
-          .select('pool_close_date')
+          .select('pool_close_date, presale_start_date')
           .single();
 
-        if (!error && data?.pool_close_date) {
-          setLaunchDate(new Date(data.pool_close_date));
-          console.log('✅ Launch date loaded from database:', data.pool_close_date);
+        if (!error && data) {
+          if (data.pool_close_date) {
+            setLaunchDate(new Date(data.pool_close_date));
+            setPresaleEndDate(new Date(data.pool_close_date));
+            console.log('✅ Launch/End date loaded from database:', data.pool_close_date);
+          }
+          if (data.presale_start_date) {
+            setPresaleStartDate(new Date(data.presale_start_date));
+            console.log('✅ Presale start date loaded from database:', data.presale_start_date);
+          }
         }
       } catch (error) {
-        console.error('Error fetching launch date:', error);
+        console.error('Error fetching dates:', error);
       }
     };
 
-    fetchLaunchDate();
+    fetchDates();
   }, []);
 
   useEffect(() => {
@@ -96,15 +105,61 @@ export function LaunchCountdown() {
 
             <Text style={styles.subtitle}>{t('maxcoinMXI')}</Text>
 
+            {/* Presale Dates Display */}
+            {(presaleStartDate || presaleEndDate) && (
+              <View style={styles.datesContainer}>
+                {presaleStartDate && (
+                  <View style={styles.dateRow}>
+                    <IconSymbol 
+                      ios_icon_name="calendar.badge.clock" 
+                      android_material_icon_name="event_available" 
+                      size={16} 
+                      color="rgba(76, 175, 80, 0.9)" 
+                    />
+                    <View style={styles.dateTextContainer}>
+                      <Text style={styles.dateLabel}>{t('presaleStart')}:</Text>
+                      <Text style={styles.dateValue}>
+                        {presaleStartDate.toLocaleDateString('es-ES', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+                {presaleEndDate && (
+                  <View style={styles.dateRow}>
+                    <IconSymbol 
+                      ios_icon_name="calendar.badge.exclamationmark" 
+                      android_material_icon_name="event_busy" 
+                      size={16} 
+                      color="rgba(255, 215, 0, 0.9)" 
+                    />
+                    <View style={styles.dateTextContainer}>
+                      <Text style={styles.dateLabel}>{t('presaleEnd')}:</Text>
+                      <Text style={styles.dateValue}>
+                        {presaleEndDate.toLocaleDateString('es-ES', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
+
             {/* Compact Date Display */}
-            <View style={styles.dateContainer}>
+            <View style={styles.launchDateContainer}>
               <IconSymbol 
                 ios_icon_name="calendar" 
                 android_material_icon_name="event" 
                 size={14} 
                 color="rgba(255, 255, 255, 0.85)" 
               />
-              <Text style={styles.dateText}>{t('launchDate')}</Text>
+              <Text style={styles.launchDateText}>{t('launchDate')}</Text>
             </View>
 
             {/* Compact Countdown Display */}
@@ -248,9 +303,39 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: 'rgba(255, 255, 255, 0.9)',
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
-  dateContainer: {
+  datesContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  dateTextContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  dateLabel: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontWeight: '600',
+  },
+  dateValue: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.95)',
+    fontWeight: '700',
+  },
+  launchDateContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -262,7 +347,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignSelf: 'center',
   },
-  dateText: {
+  launchDateText: {
     fontSize: 11,
     fontWeight: '600',
     color: 'rgba(255, 255, 255, 0.9)',
