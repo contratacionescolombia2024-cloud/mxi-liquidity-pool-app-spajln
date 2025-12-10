@@ -363,12 +363,6 @@ export default function LoginScreen() {
           </View>
         </View>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            {t('presaleClosesOn')}
-          </Text>
-        </View>
-
         {/* Footer */}
         <Footer />
       </ScrollView>
