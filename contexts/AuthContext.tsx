@@ -114,8 +114,59 @@ export const useAuth = () => {
 // Helper function to wait with exponential backoff
 const waitWithBackoff = (attempt: number) => {
   const baseDelay = 1000; // 1 second
-  const delay = baseDelay * Math.pow(2, attempt); // Exponential backoff
+  const delay = baseDelay * Math.pow(2, attempt); // Exponential backoff: 1s, 2s, 4s, 8s, 16s
   return new Promise(resolve => setTimeout(resolve, delay));
+};
+
+// Helper function to check if profile exists
+const checkProfileExists = async (userId: string): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle();
+    
+    return !error && !!data;
+  } catch (error) {
+    console.error('Error checking profile:', error);
+    return false;
+  }
+};
+
+// Helper function to create profile manually
+const createProfileManually = async (
+  userId: string,
+  name: string,
+  idNumber: string,
+  address: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    console.log('🔧 Attempting manual profile creation...');
+    
+    const { data, error } = await supabase.rpc('create_missing_user_profile', {
+      p_user_id: userId,
+      p_name: name,
+      p_id_number: idNumber,
+      p_address: address,
+    });
+
+    if (error) {
+      console.error('❌ Manual profile creation RPC error:', error);
+      return { success: false, error: error.message };
+    }
+
+    if (data && data.success) {
+      console.log('✅ Manual profile creation successful:', data);
+      return { success: true };
+    } else {
+      console.error('❌ Manual profile creation failed:', data);
+      return { success: false, error: data?.error || 'Unknown error' };
+    }
+  } catch (error: any) {
+    console.error('❌ Manual profile creation exception:', error);
+    return { success: false, error: error.message };
+  }
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -643,34 +694,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       console.log('✅ Auth user created successfully:', authData.user.id);
 
-      // Step 5: Wait for trigger and verify profile creation with retries
+      // Step 5: Wait for trigger and verify profile creation with aggressive retries
       console.log('Step 5: Waiting for database trigger to create profile...');
       let profileCreated = false;
       let profileData = null;
-      const maxRetries = 5;
+      const maxRetries = 10; // Increased from 5 to 10
       
       for (let attempt = 0; attempt < maxRetries; attempt++) {
         console.log(`Profile check attempt ${attempt + 1}/${maxRetries}...`);
         
         // Wait with exponential backoff
-        await waitWithBackoff(attempt);
-        
-        const { data: checkData, error: checkError } = await supabase
-          .from('users')
-          .select('id, name, email, referral_code, id_number')
-          .eq('id', authData.user.id)
-          .maybeSingle();
-
-        if (checkError) {
-          console.error(`Profile check error (attempt ${attempt + 1}):`, checkError);
-          continue;
+        if (attempt > 0) {
+          await waitWithBackoff(attempt - 1);
+        } else {
+          // First check after 500ms
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
+        
+        const profileExists = await checkProfileExists(authData.user.id);
+        
+        if (profileExists) {
+          const { data: checkData, error: checkError } = await supabase
+            .from('users')
+            .select('id, name, email, referral_code, id_number')
+            .eq('id', authData.user.id)
+            .maybeSingle();
 
-        if (checkData) {
-          profileData = checkData;
-          profileCreated = true;
-          console.log('✅ Profile found:', checkData);
-          break;
+          if (!checkError && checkData) {
+            profileData = checkData;
+            profileCreated = true;
+            console.log('✅ Profile found:', checkData);
+            break;
+          }
         }
       }
 
@@ -678,66 +733,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!profileCreated) {
         console.log('⚠️ Profile not created by trigger after retries, creating manually...');
         
-        // Generate referral code
-        const referralCode = 'MXI' + Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
-        
-        // Insert profile manually
-        const { data: manualProfileData, error: manualInsertError } = await supabase
-          .from('users')
-          .insert({
-            id: authData.user.id,
-            name: userData.name.trim(),
-            id_number: userData.idNumber.trim(),
-            address: userData.address.trim(),
-            email: userData.email.trim().toLowerCase(),
-            referral_code: referralCode,
-            referred_by: referrerId,
-            email_verified: false,
-            is_active_contributor: false,
-            kyc_status: 'not_submitted',
-          })
-          .select()
-          .single();
+        const manualResult = await createProfileManually(
+          authData.user.id,
+          userData.name.trim(),
+          userData.idNumber.trim(),
+          userData.address.trim()
+        );
 
-        if (manualInsertError) {
-          console.error('❌ Manual profile creation error:', manualInsertError);
+        if (!manualResult.success) {
+          console.error('❌ Manual profile creation failed:', manualResult.error);
           
-          // Try to delete the auth user to prevent orphaned accounts
+          // Log the failure for admin review
           try {
-            console.log('Attempting to clean up auth user...');
-            await supabase.auth.admin.deleteUser(authData.user.id);
-            console.log('Auth user cleaned up');
-          } catch (cleanupError) {
-            console.error('Failed to cleanup auth user:', cleanupError);
+            await supabase
+              .from('user_creation_logs')
+              .insert({
+                user_id: authData.user.id,
+                event_type: 'manual_creation_failed',
+                success: false,
+                error_message: manualResult.error,
+                metadata: {
+                  email: userData.email,
+                  name: userData.name,
+                  timestamp: new Date().toISOString()
+                }
+              });
+          } catch (logError) {
+            console.error('Failed to log error:', logError);
           }
           
           return {
             success: false,
-            error: 'No se pudo crear el perfil de usuario. Por favor contacta a soporte con tu correo electrónico: ' + userData.email
+            error: 'No se pudo crear el perfil de usuario después de múltiples intentos. Por favor contacta a soporte con tu correo electrónico: ' + userData.email
           };
         }
         
-        profileData = manualProfileData;
         console.log('✅ Profile created manually');
-      } else {
-        // Step 7: Update profile with real data if it was created by trigger
-        console.log('Step 7: Updating profile with real data...');
+        profileCreated = true;
+      }
+
+      // Step 7: Update profile with referrer if applicable
+      if (referrerId && profileCreated) {
+        console.log('Step 7: Updating profile with referrer...');
         const { error: updateError } = await supabase
           .from('users')
           .update({
-            name: userData.name.trim(),
-            id_number: userData.idNumber.trim(),
-            address: userData.address.trim(),
             referred_by: referrerId,
-            email_verified: false,
           })
           .eq('id', authData.user.id);
 
         if (updateError) {
           console.error('⚠️ Profile update error:', updateError);
-          // Don't fail registration if update fails, profile exists
+          // Don't fail registration if update fails
         } else {
-          console.log('✅ Profile updated successfully');
+          console.log('✅ Profile updated with referrer');
         }
       }
 
@@ -756,12 +805,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Step 9: Final verification with retries
       console.log('Step 9: Performing final verification...');
       let finalCheck = null;
-      const finalMaxRetries = 3;
+      const finalMaxRetries = 5;
       
       for (let attempt = 0; attempt < finalMaxRetries; attempt++) {
         console.log(`Final verification attempt ${attempt + 1}/${finalMaxRetries}...`);
         
-        await waitWithBackoff(attempt);
+        if (attempt > 0) {
+          await waitWithBackoff(attempt - 1);
+        }
         
         const { data, error: finalCheckError } = await supabase
           .from('users')

@@ -53,12 +53,15 @@ export const showRegistrationError = (error: string, email?: string) => {
     message = `Has realizado demasiados intentos de registro.\n\n` +
               `Por favor espera 5-10 minutos e intenta de nuevo.\n\n` +
               `Esto es una medida de seguridad para proteger el sistema.`;
-  } else if (error.includes('perfil') || error.includes('profile')) {
+  } else if (error.includes('perfil') || error.includes('profile') || error.includes('crear')) {
     title = '⚠️ Error al Crear Perfil';
-    message = `Tu cuenta de autenticación fue creada, pero hubo un problema al crear tu perfil.\n\n` +
-              `Por favor contacta a soporte con la siguiente información:\n\n` +
+    message = `Hubo un problema al crear tu perfil de usuario.\n\n` +
               `📧 Correo: ${email || 'No proporcionado'}\n` +
               `🕐 Hora: ${new Date().toLocaleString('es-ES')}\n\n` +
+              `Por favor:\n` +
+              `1. Espera 2-3 minutos\n` +
+              `2. Intenta iniciar sesión con tu correo y contraseña\n` +
+              `3. Si no puedes iniciar sesión, contacta a soporte\n\n` +
               `Nuestro equipo resolverá el problema lo antes posible.`;
   }
   
