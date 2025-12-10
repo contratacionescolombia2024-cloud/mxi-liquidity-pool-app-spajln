@@ -526,7 +526,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Error code:', error.status);
         console.error('Error message:', error.message);
         
-        // Check if it's an email not confirmed error
+        // PRIORITY 1: Check for invalid credentials FIRST
+        // This includes wrong password or wrong email
+        if (
+          error.message.toLowerCase().includes('invalid login credentials') ||
+          error.message.toLowerCase().includes('invalid credentials') ||
+          error.message.toLowerCase().includes('email not found') ||
+          error.status === 400
+        ) {
+          console.log('Invalid credentials error detected');
+          return { 
+            success: false, 
+            error: 'Correo electrónico o contraseña incorrectos. Por favor verifica tus credenciales e intenta de nuevo.' 
+          };
+        }
+        
+        // PRIORITY 2: Check for email not confirmed error
+        // Only show this if credentials are correct but email is not verified
         if (error.message.toLowerCase().includes('email not confirmed')) {
           console.log('Email not confirmed error detected');
           
@@ -544,14 +560,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           };
         }
         
-        // Check if it's an invalid credentials error
-        if (error.message.toLowerCase().includes('invalid') || error.status === 400) {
-          return { 
-            success: false, 
-            error: 'Credenciales inválidas. Por favor verifica tu correo electrónico y contraseña.' 
-          };
-        }
-        
+        // PRIORITY 3: Other errors
         return { success: false, error: error.message };
       }
 
