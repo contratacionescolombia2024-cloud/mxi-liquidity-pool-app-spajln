@@ -529,47 +529,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Error message:', error.message);
         console.error('Error name:', error.name);
         
-        // CRITICAL FIX: Check error status code FIRST
-        // Status 400 with "Invalid login credentials" means wrong email OR wrong password
-        // This should ALWAYS show "incorrect credentials" message
-        if (error.status === 400) {
-          const errorMsg = error.message.toLowerCase();
-          
-          // Check if it's specifically an "invalid credentials" error
-          if (
-            errorMsg.includes('invalid login credentials') ||
-            errorMsg.includes('invalid credentials') ||
-            errorMsg.includes('email not found')
-          ) {
-            console.log('✅ DETECTED: Invalid credentials (wrong email or password)');
-            return { 
-              success: false, 
-              error: 'Correo electrónico o contraseña incorrectos. Por favor verifica tus credenciales e intenta de nuevo.' 
-            };
-          }
-          
-          // Only check for "email not confirmed" if credentials were valid
-          // This should be a separate error from invalid credentials
-          if (errorMsg.includes('email not confirmed')) {
-            console.log('✅ DETECTED: Email not confirmed (credentials were correct)');
-            
-            // Get the user ID from the database
-            const { data: userData } = await supabase
-              .from('users')
-              .select('id')
-              .eq('email', trimmedEmail)
-              .maybeSingle();
-            
-            return { 
-              success: false,
-              userId: userData?.id,
-              error: 'Por favor verifica tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada (y carpeta de spam) para el enlace de verificación.' 
-            };
-          }
+        // DRASTIC FIX: Check the error message FIRST to distinguish between error types
+        const errorMsg = error.message.toLowerCase();
+        
+        // Priority 1: Check for "Invalid login credentials" - This means WRONG PASSWORD OR EMAIL
+        if (
+          errorMsg.includes('invalid login credentials') ||
+          errorMsg.includes('invalid credentials')
+        ) {
+          console.log('✅ DETECTED: Invalid credentials (wrong email or password)');
+          return { 
+            success: false, 
+            error: 'Correo electrónico o contraseña incorrectos. Por favor verifica tus credenciales e intenta de nuevo.' 
+          };
         }
         
-        // Handle other error statuses
-        if (error.status === 429) {
+        // Priority 2: Check for "Email not confirmed" - This means credentials are CORRECT but email not verified
+        if (
+          errorMsg.includes('email not confirmed') ||
+          errorMsg.includes('email confirmation')
+        ) {
+          console.log('✅ DETECTED: Email not confirmed (credentials were correct)');
+          
+          // Get the user ID from the database
+          const { data: userData } = await supabase
+            .from('users')
+            .select('id')
+            .eq('email', trimmedEmail)
+            .maybeSingle();
+          
+          return { 
+            success: false,
+            userId: userData?.id,
+            error: 'Por favor verifica tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada (y carpeta de spam) para el enlace de verificación.' 
+          };
+        }
+        
+        // Priority 3: Check for rate limiting
+        if (error.status === 429 || errorMsg.includes('rate limit')) {
           console.log('✅ DETECTED: Rate limit error');
           return { 
             success: false, 
