@@ -952,9 +952,6 @@ export default function EmbajadoresMXIScreen() {
             <Text style={styles.infoItem}>
               • Solo compras en preventa pagadas en USDT
             </Text>
-            <Text style={[styles.infoItem, { fontWeight: '700', color: colors.primary }]}>
-              • Se incluyen: pagos automáticos, validaciones manuales aprobadas por el administrador, y pagos asignados por el administrador con comisión
-            </Text>
             <Text style={styles.infoItem}>
               • El administrador procesará tu retiro en 24-48 horas
             </Text>
