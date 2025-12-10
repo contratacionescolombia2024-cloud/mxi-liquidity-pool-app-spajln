@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { supabase } from '@/lib/supabase';
 
 interface CountdownTime {
   days: number;
@@ -16,7 +17,28 @@ interface CountdownTime {
 export function LaunchCountdown() {
   const { t } = useLanguage();
   const [countdown, setCountdown] = useState<CountdownTime>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-  const [launchDate] = useState(new Date('2026-02-15T12:00:00Z'));
+  const [launchDate, setLaunchDate] = useState(new Date('2026-02-25T12:00:00Z'));
+
+  // Fetch launch date from database
+  useEffect(() => {
+    const fetchLaunchDate = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('metrics')
+          .select('pool_close_date')
+          .single();
+
+        if (!error && data?.pool_close_date) {
+          setLaunchDate(new Date(data.pool_close_date));
+          console.log('✅ Launch date loaded from database:', data.pool_close_date);
+        }
+      } catch (error) {
+        console.error('Error fetching launch date:', error);
+      }
+    };
+
+    fetchLaunchDate();
+  }, []);
 
   useEffect(() => {
     const updateCountdown = () => {
@@ -39,7 +61,7 @@ export function LaunchCountdown() {
     const interval = setInterval(updateCountdown, 1000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [launchDate]);
 
   return (
     <View style={styles.container}>

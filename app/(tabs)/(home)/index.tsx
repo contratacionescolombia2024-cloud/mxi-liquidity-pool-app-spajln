@@ -335,7 +335,7 @@ export default function HomeScreen() {
     totalSold: 0,
     totalRemaining: 25000000,
     overallProgress: 0,
-    poolCloseDate: '2026-02-15T12:00:00Z',
+    poolCloseDate: '2026-02-25T12:00:00Z',
   });
   const [totalMxiDelivered, setTotalMxiDelivered] = useState(0);
 
@@ -479,7 +479,7 @@ export default function HomeScreen() {
           totalSold: totalMxiAllSources,
           totalRemaining: totalAllocation - totalMxiAllSources,
           overallProgress,
-          poolCloseDate: metricsData?.pool_close_date || '2026-02-15T12:00:00Z',
+          poolCloseDate: metricsData?.pool_close_date || '2026-02-25T12:00:00Z',
         });
       } else {
         console.error('❌ Error loading users data:', usersError);
