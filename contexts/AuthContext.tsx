@@ -512,6 +512,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('=== LOGIN FUNCTION START ===');
       console.log('Attempting login for:', email);
       console.log('Platform:', Platform.OS);
+      console.log('Timestamp:', new Date().toISOString());
       
       const trimmedEmail = email.trim().toLowerCase();
       
@@ -522,54 +523,73 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) {
-        console.error('Supabase auth error:', error);
-        console.error('Error code:', error.status);
+        console.error('=== SUPABASE AUTH ERROR ===');
+        console.error('Error object:', JSON.stringify(error, null, 2));
+        console.error('Error status:', error.status);
         console.error('Error message:', error.message);
+        console.error('Error name:', error.name);
         
-        // PRIORITY 1: Check for invalid credentials FIRST
-        // This includes wrong password or wrong email
-        if (
-          error.message.toLowerCase().includes('invalid login credentials') ||
-          error.message.toLowerCase().includes('invalid credentials') ||
-          error.message.toLowerCase().includes('email not found') ||
-          error.status === 400
-        ) {
-          console.log('Invalid credentials error detected');
+        // CRITICAL FIX: Check error status code FIRST
+        // Status 400 with "Invalid login credentials" means wrong email OR wrong password
+        // This should ALWAYS show "incorrect credentials" message
+        if (error.status === 400) {
+          const errorMsg = error.message.toLowerCase();
+          
+          // Check if it's specifically an "invalid credentials" error
+          if (
+            errorMsg.includes('invalid login credentials') ||
+            errorMsg.includes('invalid credentials') ||
+            errorMsg.includes('email not found')
+          ) {
+            console.log('✅ DETECTED: Invalid credentials (wrong email or password)');
+            return { 
+              success: false, 
+              error: 'Correo electrónico o contraseña incorrectos. Por favor verifica tus credenciales e intenta de nuevo.' 
+            };
+          }
+          
+          // Only check for "email not confirmed" if credentials were valid
+          // This should be a separate error from invalid credentials
+          if (errorMsg.includes('email not confirmed')) {
+            console.log('✅ DETECTED: Email not confirmed (credentials were correct)');
+            
+            // Get the user ID from the database
+            const { data: userData } = await supabase
+              .from('users')
+              .select('id')
+              .eq('email', trimmedEmail)
+              .maybeSingle();
+            
+            return { 
+              success: false,
+              userId: userData?.id,
+              error: 'Por favor verifica tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada (y carpeta de spam) para el enlace de verificación.' 
+            };
+          }
+        }
+        
+        // Handle other error statuses
+        if (error.status === 429) {
+          console.log('✅ DETECTED: Rate limit error');
           return { 
             success: false, 
-            error: 'Correo electrónico o contraseña incorrectos. Por favor verifica tus credenciales e intenta de nuevo.' 
+            error: 'Demasiados intentos de inicio de sesión. Por favor espera unos minutos e intenta de nuevo.' 
           };
         }
         
-        // PRIORITY 2: Check for email not confirmed error
-        // Only show this if credentials are correct but email is not verified
-        if (error.message.toLowerCase().includes('email not confirmed')) {
-          console.log('Email not confirmed error detected');
-          
-          // Get the user ID from the database
-          const { data: userData } = await supabase
-            .from('users')
-            .select('id')
-            .eq('email', trimmedEmail)
-            .maybeSingle();
-          
-          return { 
-            success: false,
-            userId: userData?.id,
-            error: 'Por favor verifica tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada (y carpeta de spam) para el enlace de verificación.' 
-          };
-        }
-        
-        // PRIORITY 3: Other errors
+        // Generic error fallback
+        console.log('⚠️ UNHANDLED ERROR TYPE:', error.message);
         return { success: false, error: error.message };
       }
 
       if (!data.session) {
-        console.error('No session created after login');
+        console.error('❌ No session created after login');
         return { success: false, error: 'No se pudo crear la sesión' };
       }
 
-      console.log('Auth login successful');
+      console.log('✅ Auth login successful');
+      console.log('User ID:', data.user.id);
+      console.log('Email confirmed at:', data.user.email_confirmed_at);
       
       // Sync email verification status after successful login
       if (data.user.email_confirmed_at) {
@@ -580,12 +600,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .eq('id', data.user.id);
       }
       
-      console.log('Login successful');
-      console.log('=== LOGIN FUNCTION END ===');
+      console.log('=== LOGIN FUNCTION END (SUCCESS) ===');
+      console.log('Timestamp:', new Date().toISOString());
       return { success: true, userId: data.user.id };
     } catch (error: any) {
       console.error('=== LOGIN EXCEPTION ===');
-      console.error('Login exception:', error);
+      console.error('Exception:', error);
+      console.error('Exception message:', error.message);
+      console.error('Exception stack:', error.stack);
       return { success: false, error: error.message || 'Error al iniciar sesión' };
     }
   };

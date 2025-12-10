@@ -86,7 +86,7 @@ export default function LoginScreen() {
   };
 
   const handleLogin = async () => {
-    console.log('=== LOGIN ATTEMPT START ===');
+    console.log('=== LOGIN ATTEMPT START (UI) ===');
     console.log('Email:', email);
     console.log('Timestamp:', new Date().toISOString());
     
@@ -102,29 +102,37 @@ export default function LoginScreen() {
     setLoading(false);
 
     if (result.success) {
-      console.log('Login successful, saving credentials and navigating to home');
+      console.log('✅ Login successful, saving credentials and navigating to home');
       await saveCredentials();
       router.replace('/(tabs)/(home)/');
     } else {
-      console.log('Login failed with error:', result.error);
+      console.log('❌ Login failed with error:', result.error);
       
       // Check if error is related to email verification
       const errorMessage = result.error?.toLowerCase() || '';
-      if (errorMessage.includes('verif') || errorMessage.includes('email not confirmed')) {
+      
+      // CRITICAL: Only show email verification message if the error explicitly mentions verification
+      // NOT if it's an invalid credentials error
+      if (
+        errorMessage.includes('verif') || 
+        errorMessage.includes('email not confirmed') ||
+        errorMessage.includes('correo electrónico antes de iniciar sesión')
+      ) {
+        console.log('Showing email verification reminder');
         showEmailVerificationReminder(email, () => handleResendVerification(email));
-      } else if (errorMessage.includes('invalid') || errorMessage.includes('credentials')) {
+      } else {
+        // For all other errors (including invalid credentials), show the error as-is
+        console.log('Showing error alert:', result.error);
         showAlert(
           t('loginError'),
-          t('invalidCredentials'),
+          result.error || t('errorLoggingIn'),
           undefined,
           'error'
         );
-      } else {
-        showAlert(t('error'), result.error || t('errorLoggingIn'), undefined, 'error');
       }
     }
     
-    console.log('=== LOGIN ATTEMPT END ===');
+    console.log('=== LOGIN ATTEMPT END (UI) ===');
     console.log('Timestamp:', new Date().toISOString());
   };
 
