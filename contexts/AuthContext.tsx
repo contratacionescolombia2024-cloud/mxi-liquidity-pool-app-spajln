@@ -593,8 +593,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         hasReferralCode: !!userData.referralCode 
       });
 
-      // Step 1: Validate existing email
-      console.log('Step 1: Checking for existing email...');
+      // Step 1: Client-side validation
+      console.log('Step 1: Performing client-side validation...');
+      
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(userData.email)) {
+        console.log('❌ Invalid email format');
+        return { success: false, error: 'El formato del correo electrónico no es válido. Por favor verifica e intenta de nuevo.' };
+      }
+
+      // Validate password length
+      if (userData.password.length < 6) {
+        console.log('❌ Password too short');
+        return { success: false, error: 'La contraseña debe tener al menos 6 caracteres.' };
+      }
+
+      // Validate name (at least 2 words)
+      const nameParts = userData.name.trim().split(' ').filter(part => part.length > 0);
+      if (nameParts.length < 2) {
+        console.log('❌ Name incomplete');
+        return { success: false, error: 'Por favor ingresa tu nombre completo (nombre y apellido).' };
+      }
+
+      // Validate ID number (at least 5 characters)
+      if (userData.idNumber.trim().length < 5) {
+        console.log('❌ ID number too short');
+        return { success: false, error: 'El número de identificación debe tener al menos 5 caracteres.' };
+      }
+
+      // Validate address (at least 10 characters)
+      if (userData.address.trim().length < 10) {
+        console.log('❌ Address too short');
+        return { success: false, error: 'Por favor ingresa una dirección completa (mínimo 10 caracteres).' };
+      }
+
+      // Step 2: Validate existing email
+      console.log('Step 2: Checking for existing email...');
       const { data: existingUser, error: emailCheckError } = await supabase
         .from('users')
         .select('email')
@@ -610,8 +645,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'El correo electrónico ya está registrado. Por favor usa otro correo o intenta iniciar sesión.' };
       }
 
-      // Step 2: Validate existing ID number
-      console.log('Step 2: Checking for existing ID number...');
+      // Step 3: Validate existing ID number
+      console.log('Step 3: Checking for existing ID number...');
       const { data: existingId, error: idCheckError } = await supabase
         .from('users')
         .select('id_number')
@@ -628,10 +663,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'El número de identificación ya está registrado. Solo se permite una cuenta por persona.' };
       }
 
-      // Step 3: Find referrer if referral code provided
+      // Step 4: Find referrer if referral code provided
       let referrerId: string | null = null;
       if (userData.referralCode) {
-        console.log('Step 3: Looking up referrer with code:', userData.referralCode);
+        console.log('Step 4: Looking up referrer with code:', userData.referralCode);
         const { data: referrerData, error: referrerError } = await supabase
           .from('users')
           .select('id')
@@ -650,8 +685,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // Step 4: Create auth user
-      console.log('Step 4: Creating auth user...');
+      // Step 5: Create auth user
+      console.log('Step 5: Creating auth user...');
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: userData.email.trim().toLowerCase(),
         password: userData.password,
@@ -667,6 +702,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (authError) {
         console.error('❌ Auth signup error:', authError);
+        console.error('Error code:', authError.status);
+        console.error('Error name:', authError.name);
         
         // Handle rate limiting
         if (authError.message.includes('429') || authError.message.toLowerCase().includes('rate limit')) {
@@ -677,25 +714,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         
         // Handle user already registered
-        if (authError.message.toLowerCase().includes('already registered')) {
+        if (authError.message.toLowerCase().includes('already registered') || authError.message.toLowerCase().includes('user already registered')) {
           return {
             success: false,
             error: 'Este correo electrónico ya está registrado. Por favor intenta iniciar sesión o usa otro correo.'
           };
         }
+
+        // Handle invalid email
+        if (authError.message.toLowerCase().includes('invalid') && authError.message.toLowerCase().includes('email')) {
+          return {
+            success: false,
+            error: 'El formato del correo electrónico no es válido. Por favor verifica e intenta de nuevo.'
+          };
+        }
+
+        // Handle weak password
+        if (authError.message.toLowerCase().includes('password') && (authError.message.toLowerCase().includes('weak') || authError.message.toLowerCase().includes('short'))) {
+          return {
+            success: false,
+            error: 'La contraseña es demasiado débil. Debe tener al menos 6 caracteres.'
+          };
+        }
         
-        return { success: false, error: authError.message };
+        // Generic auth error
+        return { success: false, error: 'Error al crear la cuenta: ' + authError.message };
       }
 
       if (!authData.user) {
         console.error('❌ No user returned from signup');
-        return { success: false, error: 'Error al crear usuario en el sistema de autenticación' };
+        return { success: false, error: 'Error al crear usuario en el sistema de autenticación. Por favor intenta de nuevo.' };
       }
 
       console.log('✅ Auth user created successfully:', authData.user.id);
 
-      // Step 5: Wait for trigger and verify profile creation with aggressive retries
-      console.log('Step 5: Waiting for database trigger to create profile...');
+      // Step 6: Wait for trigger and verify profile creation with aggressive retries
+      console.log('Step 6: Waiting for database trigger to create profile...');
       let profileCreated = false;
       let profileData = null;
       const maxRetries = 10; // Increased from 5 to 10
@@ -729,7 +783,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // Step 6: Create profile manually if trigger failed
+      // Step 7: Create profile manually if trigger failed
       if (!profileCreated) {
         console.log('⚠️ Profile not created by trigger after retries, creating manually...');
         
@@ -772,9 +826,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         profileCreated = true;
       }
 
-      // Step 7: Update profile with referrer if applicable
+      // Step 8: Update profile with referrer if applicable
       if (referrerId && profileCreated) {
-        console.log('Step 7: Updating profile with referrer...');
+        console.log('Step 8: Updating profile with referrer...');
         const { error: updateError } = await supabase
           .from('users')
           .update({
@@ -790,9 +844,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // Step 8: Create referral chain if applicable
+      // Step 9: Create referral chain if applicable
       if (referrerId) {
-        console.log('Step 8: Creating referral chain...');
+        console.log('Step 9: Creating referral chain...');
         try {
           await createReferralChain(authData.user.id, referrerId);
           console.log('✅ Referral chain created');
@@ -802,8 +856,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // Step 9: Final verification with retries
-      console.log('Step 9: Performing final verification...');
+      // Step 10: Final verification with retries
+      console.log('Step 10: Performing final verification...');
       let finalCheck = null;
       const finalMaxRetries = 5;
       

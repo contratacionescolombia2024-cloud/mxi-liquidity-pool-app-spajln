@@ -48,11 +48,32 @@ export const showRegistrationError = (error: string, email?: string) => {
               `- Verifica el código con quien te refirió\n` +
               `- Déjalo en blanco si no tienes código\n` +
               `- Contacta a soporte si necesitas ayuda`;
-  } else if (error.includes('rate limit') || error.includes('429')) {
+  } else if (error.includes('rate limit') || error.includes('429') || error.includes('Demasiados intentos')) {
     title = '⏱️ Demasiados Intentos';
     message = `Has realizado demasiados intentos de registro.\n\n` +
               `Por favor espera 5-10 minutos e intenta de nuevo.\n\n` +
               `Esto es una medida de seguridad para proteger el sistema.`;
+  } else if (error.includes('formato') && error.includes('correo')) {
+    title = '⚠️ Correo Electrónico Inválido';
+    message = `El formato del correo electrónico no es válido.\n\n` +
+              `Por favor verifica que:\n` +
+              `- El correo tenga un formato válido (ejemplo@dominio.com)\n` +
+              `- No contenga espacios\n` +
+              `- Tenga un dominio válido`;
+  } else if (error.includes('contraseña') && (error.includes('débil') || error.includes('corta') || error.includes('6 caracteres'))) {
+    title = '⚠️ Contraseña Inválida';
+    message = `La contraseña no cumple con los requisitos de seguridad.\n\n` +
+              `La contraseña debe:\n` +
+              `- Tener al menos 6 caracteres\n` +
+              `- Ser segura y difícil de adivinar\n\n` +
+              `Por favor elige una contraseña más fuerte.`;
+  } else if (error.includes('nombre completo')) {
+    title = '⚠️ Nombre Incompleto';
+    message = `Por favor ingresa tu nombre completo.\n\n` +
+              `Debes incluir:\n` +
+              `- Tu nombre\n` +
+              `- Tu apellido\n\n` +
+              `Ejemplo: Juan Pérez`;
   } else if (error.includes('perfil') || error.includes('profile') || error.includes('crear')) {
     title = '⚠️ Error al Crear Perfil';
     message = `Hubo un problema al crear tu perfil de usuario.\n\n` +

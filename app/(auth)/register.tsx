@@ -51,7 +51,7 @@ export default function RegisterScreen() {
     console.log('Platform:', Platform.OS);
     console.log('Timestamp:', new Date().toISOString());
 
-    // Validation
+    // Basic validation - detailed validation is done in AuthContext
     if (!name || !idNumber || !address || !email || !password || !confirmPassword) {
       showAlert(t('error'), t('fillAllFields'), undefined, 'error');
       return;
@@ -69,52 +69,6 @@ export default function RegisterScreen() {
 
     if (password !== confirmPassword) {
       showAlert(t('error'), t('passwordsDontMatch'), undefined, 'error');
-      return;
-    }
-
-    if (password.length < 6) {
-      showAlert(t('error'), t('passwordTooShort'), undefined, 'error');
-      return;
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      showAlert(t('error'), t('invalidEmail'), undefined, 'error');
-      return;
-    }
-
-    // Validate name (at least 2 words)
-    const nameParts = name.trim().split(' ').filter(part => part.length > 0);
-    if (nameParts.length < 2) {
-      showAlert(
-        t('error'),
-        'Por favor ingresa tu nombre completo (nombre y apellido)',
-        undefined,
-        'error'
-      );
-      return;
-    }
-
-    // Validate ID number (at least 5 characters)
-    if (idNumber.trim().length < 5) {
-      showAlert(
-        t('error'),
-        'El número de identificación debe tener al menos 5 caracteres',
-        undefined,
-        'error'
-      );
-      return;
-    }
-
-    // Validate address (at least 10 characters)
-    if (address.trim().length < 10) {
-      showAlert(
-        t('error'),
-        'Por favor ingresa una dirección completa (mínimo 10 caracteres)',
-        undefined,
-        'error'
-      );
       return;
     }
 
