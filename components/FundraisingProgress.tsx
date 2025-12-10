@@ -47,6 +47,8 @@ export function FundraisingProgress() {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [refreshCount, setRefreshCount] = useState(0);
   const [showMXIBreakdown, setShowMXIBreakdown] = useState(true); // Changed to true by default
+  const [presaleStartDate, setPresaleStartDate] = useState<Date | null>(null);
+  const [presaleEndDate, setPresaleEndDate] = useState<Date | null>(null);
   const [mxiDistribution, setMxiDistribution] = useState<MXIDistribution>({
     total_mxi_purchased: 0,
     total_mxi_commissions: 0,
@@ -200,6 +202,23 @@ export function FundraisingProgress() {
       console.log('═══════════════════════════════════════════════════════════');
       console.log('');
       
+      // Load presale dates from metrics table
+      const { data: metricsData, error: metricsError } = await supabase
+        .from('metrics')
+        .select('presale_start_date, pool_close_date')
+        .single();
+
+      if (!metricsError && metricsData) {
+        if (metricsData.presale_start_date) {
+          setPresaleStartDate(new Date(metricsData.presale_start_date));
+          console.log('📅 [FundraisingProgress] Presale start date:', metricsData.presale_start_date);
+        }
+        if (metricsData.pool_close_date) {
+          setPresaleEndDate(new Date(metricsData.pool_close_date));
+          console.log('📅 [FundraisingProgress] Presale end date:', metricsData.pool_close_date);
+        }
+      }
+      
       // Load USDT fundraising data
       const { data: breakdownData, error: breakdownError } = await supabase
         .rpc('get_fundraising_breakdown');
@@ -347,6 +366,52 @@ export function FundraisingProgress() {
             />
           </TouchableOpacity>
         </View>
+
+        {/* Presale Dates Display */}
+        {(presaleStartDate || presaleEndDate) && (
+          <View style={styles.datesContainer}>
+            {presaleStartDate && (
+              <View style={styles.dateItem}>
+                <IconSymbol 
+                  ios_icon_name="calendar.badge.clock" 
+                  android_material_icon_name="event_available" 
+                  size={20} 
+                  color="#00ff88" 
+                />
+                <View style={styles.dateTextContainer}>
+                  <Text style={styles.dateLabel}>Inicio de Preventa</Text>
+                  <Text style={styles.dateValue}>
+                    {presaleStartDate.toLocaleDateString('es-ES', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </Text>
+                </View>
+              </View>
+            )}
+            {presaleEndDate && (
+              <View style={styles.dateItem}>
+                <IconSymbol 
+                  ios_icon_name="calendar.badge.exclamationmark" 
+                  android_material_icon_name="event_busy" 
+                  size={20} 
+                  color="#ffdd00" 
+                />
+                <View style={styles.dateTextContainer}>
+                  <Text style={styles.dateLabel}>Finalización de Preventa</Text>
+                  <Text style={styles.dateValue}>
+                    {presaleEndDate.toLocaleDateString('es-ES', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Main Stats */}
         <View style={styles.statsContainer}>
@@ -681,6 +746,34 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(0, 255, 136, 0.3)',
+  },
+  datesContainer: {
+    backgroundColor: 'rgba(0, 255, 136, 0.05)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 136, 0.2)',
+  },
+  dateItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  dateTextContainer: {
+    flex: 1,
+  },
+  dateLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginBottom: 4,
+    fontWeight: '600',
+  },
+  dateValue: {
+    fontSize: 14,
+    color: '#00ff88',
+    fontWeight: '700',
   },
   statsContainer: {
     flexDirection: 'row',
