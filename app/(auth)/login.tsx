@@ -107,22 +107,34 @@ export default function LoginScreen() {
       router.replace('/(tabs)/(home)/');
     } else {
       console.log('❌ Login failed with error:', result.error);
+      console.log('Error type:', result.errorType);
       
-      // Check if error is related to email verification
-      const errorMessage = result.error?.toLowerCase() || '';
-      
-      // CRITICAL: Only show email verification message if the error explicitly mentions verification
-      // NOT if it's an invalid credentials error
-      if (
-        errorMessage.includes('verif') || 
-        errorMessage.includes('email not confirmed') ||
-        errorMessage.includes('correo electrónico antes de iniciar sesión')
-      ) {
+      // DRASTIC FIX: Use the errorType to determine which message to show
+      if (result.errorType === 'EMAIL_NOT_VERIFIED') {
+        // Only show email verification reminder if errorType is explicitly EMAIL_NOT_VERIFIED
         console.log('Showing email verification reminder');
         showEmailVerificationReminder(email, () => handleResendVerification(email));
+      } else if (result.errorType === 'INVALID_CREDENTIALS') {
+        // Show invalid credentials error
+        console.log('Showing invalid credentials error');
+        showAlert(
+          t('loginError'),
+          result.error || 'Correo electrónico o contraseña incorrectos.',
+          undefined,
+          'error'
+        );
+      } else if (result.errorType === 'RATE_LIMIT') {
+        // Show rate limit error
+        console.log('Showing rate limit error');
+        showAlert(
+          t('loginError'),
+          result.error || 'Demasiados intentos. Por favor espera unos minutos.',
+          undefined,
+          'error'
+        );
       } else {
-        // For all other errors (including invalid credentials), show the error as-is
-        console.log('Showing error alert:', result.error);
+        // Show generic error
+        console.log('Showing generic error');
         showAlert(
           t('loginError'),
           result.error || t('errorLoggingIn'),

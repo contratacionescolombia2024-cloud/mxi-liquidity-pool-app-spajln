@@ -72,7 +72,7 @@ interface AuthContextType {
   session: Session | null;
   isAuthenticated: boolean;
   loading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; userId?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; errorType?: 'INVALID_CREDENTIALS' | 'EMAIL_NOT_VERIFIED' | 'RATE_LIMIT' | 'OTHER'; userId?: string }>;
   register: (userData: RegisterData) => Promise<{ success: boolean; error?: string; userId?: string }>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => Promise<void>;
@@ -507,7 +507,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string; userId?: string }> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string; errorType?: 'INVALID_CREDENTIALS' | 'EMAIL_NOT_VERIFIED' | 'RATE_LIMIT' | 'OTHER'; userId?: string }> => {
     try {
       console.log('=== LOGIN FUNCTION START ===');
       console.log('Attempting login for:', email);
@@ -529,26 +529,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Error message:', error.message);
         console.error('Error name:', error.name);
         
-        // DRASTIC FIX: Check the error message FIRST to distinguish between error types
-        const errorMsg = error.message.toLowerCase();
+        // DRASTIC FIX: Use explicit string matching with exact error messages from Supabase
+        const errorMsg = error.message.toLowerCase().trim();
         
-        // Priority 1: Check for "Invalid login credentials" - This means WRONG PASSWORD OR EMAIL
-        if (
-          errorMsg.includes('invalid login credentials') ||
-          errorMsg.includes('invalid credentials')
-        ) {
+        // PRIORITY 1: Invalid credentials (wrong email or password)
+        // Supabase returns exactly: "Invalid login credentials"
+        if (errorMsg === 'invalid login credentials' || errorMsg.includes('invalid credentials')) {
           console.log('✅ DETECTED: Invalid credentials (wrong email or password)');
           return { 
-            success: false, 
+            success: false,
+            errorType: 'INVALID_CREDENTIALS',
             error: 'Correo electrónico o contraseña incorrectos. Por favor verifica tus credenciales e intenta de nuevo.' 
           };
         }
         
-        // Priority 2: Check for "Email not confirmed" - This means credentials are CORRECT but email not verified
-        if (
-          errorMsg.includes('email not confirmed') ||
-          errorMsg.includes('email confirmation')
-        ) {
+        // PRIORITY 2: Email not confirmed (credentials are correct but email not verified)
+        // Supabase returns exactly: "Email not confirmed"
+        if (errorMsg === 'email not confirmed' || errorMsg.includes('email confirmation')) {
           console.log('✅ DETECTED: Email not confirmed (credentials were correct)');
           
           // Get the user ID from the database
@@ -560,28 +557,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           return { 
             success: false,
+            errorType: 'EMAIL_NOT_VERIFIED',
             userId: userData?.id,
             error: 'Por favor verifica tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada (y carpeta de spam) para el enlace de verificación.' 
           };
         }
         
-        // Priority 3: Check for rate limiting
-        if (error.status === 429 || errorMsg.includes('rate limit')) {
+        // PRIORITY 3: Rate limiting
+        if (error.status === 429 || errorMsg.includes('rate limit') || errorMsg.includes('too many')) {
           console.log('✅ DETECTED: Rate limit error');
           return { 
-            success: false, 
+            success: false,
+            errorType: 'RATE_LIMIT',
             error: 'Demasiados intentos de inicio de sesión. Por favor espera unos minutos e intenta de nuevo.' 
           };
         }
         
         // Generic error fallback
         console.log('⚠️ UNHANDLED ERROR TYPE:', error.message);
-        return { success: false, error: error.message };
+        return { 
+          success: false,
+          errorType: 'OTHER',
+          error: error.message 
+        };
       }
 
       if (!data.session) {
         console.error('❌ No session created after login');
-        return { success: false, error: 'No se pudo crear la sesión' };
+        return { 
+          success: false,
+          errorType: 'OTHER',
+          error: 'No se pudo crear la sesión' 
+        };
       }
 
       console.log('✅ Auth login successful');
@@ -605,7 +612,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Exception:', error);
       console.error('Exception message:', error.message);
       console.error('Exception stack:', error.stack);
-      return { success: false, error: error.message || 'Error al iniciar sesión' };
+      return { 
+        success: false,
+        errorType: 'OTHER',
+        error: error.message || 'Error al iniciar sesión' 
+      };
     }
   };
 
