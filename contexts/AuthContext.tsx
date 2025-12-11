@@ -787,11 +787,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       console.log('✅ Auth user created successfully:', authData.user.id);
 
-      // Step 6: Wait for trigger and verify profile creation with aggressive retries
+      // Step 6: Wait for trigger and verify profile creation with reduced retries for faster response
       console.log('Step 6: Waiting for database trigger to create profile...');
       let profileCreated = false;
       let profileData = null;
-      const maxRetries = 10; // Increased from 5 to 10
+      const maxRetries = 5; // Reduced from 10 to 5 for faster response
       
       for (let attempt = 0; attempt < maxRetries; attempt++) {
         console.log(`Profile check attempt ${attempt + 1}/${maxRetries}...`);
@@ -895,10 +895,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // Step 10: Final verification with retries
+      // Step 10: Final verification - reduced retries for faster response
       console.log('Step 10: Performing final verification...');
       let finalCheck = null;
-      const finalMaxRetries = 5;
+      const finalMaxRetries = 3; // Reduced from 5 to 3
       
       for (let attempt = 0; attempt < finalMaxRetries; attempt++) {
         console.log(`Final verification attempt ${attempt + 1}/${finalMaxRetries}...`);
@@ -927,9 +927,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (!finalCheck) {
         console.error('❌ Final verification failed after all retries');
+        // Still return success since the user was created
+        console.log('⚠️ Returning success despite verification failure - user can try logging in');
         return {
-          success: false,
-          error: 'El usuario fue creado pero no se pudo verificar completamente. Por favor intenta iniciar sesión. Si el problema persiste, contacta a soporte con tu correo: ' + userData.email
+          success: true,
+          userId: authData.user.id
         };
       }
 

@@ -87,9 +87,12 @@ export default function RegisterScreen() {
 
       console.log('Registration result:', result);
 
+      // CRITICAL: Always reset loading state first
+      setLoading(false);
+
       if (result.success && result.userId) {
         console.log('Registration successful, saving terms acceptance...');
-        // Save terms acceptance timestamp
+        // Save terms acceptance timestamp (non-blocking)
         try {
           const { error: termsError } = await supabase
             .from('users')
@@ -104,14 +107,12 @@ export default function RegisterScreen() {
         } catch (termsErr) {
           console.error('Exception saving terms:', termsErr);
         }
-      }
 
-      setLoading(false);
-
-      if (result.success) {
-        console.log('Showing success message and navigating to login');
+        // Show success message with navigation callback
+        console.log('Showing success message and preparing navigation');
         showRegistrationSuccess(email.trim().toLowerCase(), () => {
           console.log('User acknowledged success, navigating to login');
+          // Use replace to prevent going back to registration
           router.replace('/(auth)/login');
         });
       } else {
@@ -119,7 +120,9 @@ export default function RegisterScreen() {
         showRegistrationError(result.error || t('failedToCreateAccount'), email.trim().toLowerCase());
       }
     } catch (error: any) {
+      // CRITICAL: Always reset loading state on error
       setLoading(false);
+      
       console.error('=== REGISTRATION EXCEPTION ===');
       console.error('Registration exception:', error);
       console.error('Error stack:', error.stack);
