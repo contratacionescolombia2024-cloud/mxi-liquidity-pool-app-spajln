@@ -1,7 +1,8 @@
+
 {
   "expo": {
-    "name": "MXI Liquidity Pool",
-    "slug": "MXI Liquidity Pool",
+    "name": "MXI Strategic-presale",
+    "slug": "mxi-strategic-presale",
     "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/04a4d9ac-4539-41d2-bafd-67dd75925bde.png",
@@ -79,7 +80,7 @@
       [
         "expo-av",
         {
-          "microphonePermission": "Allow MXI Liquidity Pool to access your microphone for the AirBall game."
+          "microphonePermission": "Allow MXI Strategic-presale to access your microphone for the AirBall game."
         }
       ]
     ],
