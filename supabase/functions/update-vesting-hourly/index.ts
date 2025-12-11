@@ -24,23 +24,26 @@ serve(async (req) => {
     currentHour.setMinutes(0, 0, 0);
 
     // Get all users with vesting balance
+    // FIXED: Only select users with mxi_purchased_directly > 0
+    // Commissions and tournament winnings do NOT generate vesting
     const { data: users, error: usersError } = await supabase
       .from('users')
-      .select('id, mxi_purchased_directly, mxi_from_unified_commissions, accumulated_yield, last_yield_update')
-      .or('mxi_purchased_directly.gt.0,mxi_from_unified_commissions.gt.0');
+      .select('id, mxi_purchased_directly, accumulated_yield, last_yield_update')
+      .gt('mxi_purchased_directly', 0);
 
     if (usersError) {
       throw usersError;
     }
 
-    console.log(`Processing ${users?.length || 0} users with vesting balance`);
+    console.log(`Processing ${users?.length || 0} users with vesting balance (purchased MXI only)`);
 
     const MONTHLY_YIELD_PERCENTAGE = 0.03;
     const SECONDS_IN_MONTH = 2592000;
 
     for (const user of users || []) {
-      const mxiInVesting = (parseFloat(user.mxi_purchased_directly) || 0) + 
-                           (parseFloat(user.mxi_from_unified_commissions) || 0);
+      // FIXED: Only use mxi_purchased_directly for vesting calculation
+      // Commissions (mxi_from_unified_commissions) and tournaments (mxi_from_challenges) do NOT generate vesting
+      const mxiInVesting = parseFloat(user.mxi_purchased_directly) || 0;
       
       if (mxiInVesting === 0) continue;
 
@@ -88,14 +91,14 @@ serve(async (req) => {
       if (insertError) {
         console.error(`Error updating vesting data for user ${user.id}:`, insertError);
       } else {
-        console.log(`Updated vesting data for user ${user.id}: ${currentYield.toFixed(8)} MXI`);
+        console.log(`Updated vesting data for user ${user.id}: ${currentYield.toFixed(8)} MXI (based on ${mxiInVesting.toFixed(2)} MXI purchased)`);
       }
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Updated vesting data for ${users?.length || 0} users`,
+        message: `Updated vesting data for ${users?.length || 0} users (only purchased MXI generates vesting)`,
         timestamp: new Date().toISOString(),
       }),
       {

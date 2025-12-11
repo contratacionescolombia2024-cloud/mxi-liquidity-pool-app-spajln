@@ -89,7 +89,11 @@ export default function VestingScreen() {
   const releaseCount = vestingData?.release_count || 0;
   const isLaunched = poolStatus?.is_mxi_launched || false;
   const daysUntilLaunch = poolStatus?.days_until_launch || 0;
+  
+  // FIXED: Only mxi_purchased_directly generates vesting
   const mxiPurchased = userData?.mxi_purchased_directly || 0;
+  const mxiCommissions = userData?.mxi_from_unified_commissions || 0;
+  const mxiTournaments = userData?.mxi_from_challenges || 0;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -115,16 +119,64 @@ export default function VestingScreen() {
               size={32}
               color={colors.primary}
             />
-            <Text style={styles.sourceTitle}>{t('vestingSourceTitle')}</Text>
+            <Text style={styles.sourceTitle}>Fuente del Vesting</Text>
           </View>
           <Text style={styles.sourceText}>
-            {t('vestingSourceDescriptionText')}
+            ✅ El vesting genera rendimiento SOLO sobre MXI comprados directamente o añadidos por el administrador.
           </Text>
           <View style={styles.sourceValueBox}>
-            <Text style={styles.sourceLabel}>{t('mxiPurchasedVestingBaseText')}</Text>
+            <Text style={styles.sourceLabel}>MXI Comprados (Genera Vesting)</Text>
             <Text style={styles.sourceValue}>{mxiPurchased.toFixed(2)} MXI</Text>
           </View>
         </View>
+
+        {/* Separate Balances - NOT generating vesting */}
+        {(mxiCommissions > 0 || mxiTournaments > 0) && (
+          <View style={[styles.transparentCard, styles.excludedCard]}>
+            <View style={styles.excludedHeader}>
+              <IconSymbol
+                ios_icon_name="xmark.circle.fill"
+                android_material_icon_name="cancel"
+                size={32}
+                color={colors.error}
+              />
+              <Text style={styles.excludedTitle}>Saldos Excluidos del Vesting</Text>
+            </View>
+            <Text style={styles.excludedText}>
+              ❌ Estos saldos NO generan rendimiento de vesting:
+            </Text>
+            
+            {mxiCommissions > 0 && (
+              <View style={styles.excludedValueBox}>
+                <View style={styles.excludedValueHeader}>
+                  <IconSymbol
+                    ios_icon_name="person.2.fill"
+                    android_material_icon_name="people"
+                    size={20}
+                    color={colors.textSecondary}
+                  />
+                  <Text style={styles.excludedLabel}>Comisiones</Text>
+                </View>
+                <Text style={styles.excludedValue}>{mxiCommissions.toFixed(2)} MXI</Text>
+              </View>
+            )}
+
+            {mxiTournaments > 0 && (
+              <View style={styles.excludedValueBox}>
+                <View style={styles.excludedValueHeader}>
+                  <IconSymbol
+                    ios_icon_name="trophy.fill"
+                    android_material_icon_name="emoji_events"
+                    size={20}
+                    color={colors.textSecondary}
+                  />
+                  <Text style={styles.excludedLabel}>Torneos</Text>
+                </View>
+                <Text style={styles.excludedValue}>{mxiTournaments.toFixed(2)} MXI</Text>
+              </View>
+            )}
+          </View>
+        )}
 
         <View style={[styles.transparentCard, styles.mainCard]}>
           <View style={styles.iconContainer}>
@@ -246,7 +298,7 @@ export default function VestingScreen() {
               : t('vestingReleaseInfoPreLaunchText', { percentage: releasePercentage })}
           </Text>
           <Text style={[styles.descriptionText, styles.importantNote]}>
-            ⚠️ Importante: El vesting se puede desbloquear al tener al menos 7 referidos activos. Solo el MXI comprado directamente genera vesting.
+            ⚠️ Importante: El vesting se puede desbloquear al tener al menos 7 referidos activos. Solo el MXI comprado directamente genera vesting del 3% mensual. Las comisiones y premios de torneos NO generan vesting.
           </Text>
         </View>
 
@@ -330,8 +382,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   sourceCard: {
-    backgroundColor: 'rgba(255, 215, 0, 0.08)',
-    borderColor: 'rgba(255, 215, 0, 0.3)',
+    backgroundColor: 'rgba(76, 175, 80, 0.08)',
+    borderColor: 'rgba(76, 175, 80, 0.3)',
     borderWidth: 2,
   },
   sourceHeader: {
@@ -343,7 +395,7 @@ const styles = StyleSheet.create({
   sourceTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.primary,
+    color: colors.success,
   },
   sourceText: {
     fontSize: 14,
@@ -366,7 +418,53 @@ const styles = StyleSheet.create({
   sourceValue: {
     fontSize: 24,
     fontWeight: '700',
-    color: colors.primary,
+    color: colors.success,
+  },
+  excludedCard: {
+    backgroundColor: 'rgba(244, 67, 54, 0.08)',
+    borderColor: 'rgba(244, 67, 54, 0.3)',
+    borderWidth: 2,
+  },
+  excludedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  excludedTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.error,
+  },
+  excludedText: {
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
+    marginBottom: 16,
+    fontWeight: '600',
+  },
+  excludedValueBox: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+  },
+  excludedValueHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  excludedLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  excludedValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    fontFamily: 'monospace',
   },
   mainCard: {
     alignItems: 'center',

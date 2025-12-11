@@ -22,7 +22,8 @@ export function VestingCounter() {
     }
 
     // Calculate the base for vesting - ONLY purchased MXI generates vesting
-    const mxiInVesting = (user.mxiPurchasedDirectly || 0) + (user.mxiFromUnifiedCommissions || 0);
+    // FIXED: Removed mxi_from_unified_commissions from vesting calculation
+    const mxiInVesting = user.mxiPurchasedDirectly || 0;
     
     if (mxiInVesting === 0) {
       setDisplayYield(0);
@@ -59,13 +60,14 @@ export function VestingCounter() {
     }, 1000); // Update every second
 
     return () => clearInterval(displayInterval);
-  }, [user, user?.mxiPurchasedDirectly, user?.mxiFromUnifiedCommissions, user?.lastYieldUpdate, user?.accumulatedYield]);
+  }, [user, user?.mxiPurchasedDirectly, user?.lastYieldUpdate, user?.accumulatedYield]);
 
   // Update database every 10 seconds to persist the yield
   useEffect(() => {
     if (!user) return;
 
-    const mxiInVesting = (user.mxiPurchasedDirectly || 0) + (user.mxiFromUnifiedCommissions || 0);
+    // FIXED: Only use mxi_purchased_directly for vesting calculation
+    const mxiInVesting = user.mxiPurchasedDirectly || 0;
     if (mxiInVesting === 0) return;
 
     const persistInterval = setInterval(async () => {
@@ -104,7 +106,7 @@ export function VestingCounter() {
     }, 10000); // Persist every 10 seconds
 
     return () => clearInterval(persistInterval);
-  }, [user, user?.mxiPurchasedDirectly, user?.mxiFromUnifiedCommissions]);
+  }, [user, user?.mxiPurchasedDirectly]);
 
   const handleViewDetails = () => {
     router.push('/(tabs)/(home)/vesting');
@@ -115,7 +117,8 @@ export function VestingCounter() {
   }
 
   // Calculate vesting amounts - ONLY purchased MXI generates vesting
-  const mxiInVesting = (user.mxiPurchasedDirectly || 0) + (user.mxiFromUnifiedCommissions || 0);
+  // FIXED: Removed mxi_from_unified_commissions from vesting calculation
+  const mxiInVesting = user.mxiPurchasedDirectly || 0;
   const maxMonthlyYield = mxiInVesting * MONTHLY_YIELD_PERCENTAGE;
   const yieldPerSecond = mxiInVesting > 0 ? maxMonthlyYield / SECONDS_IN_MONTH : 0;
   const yieldPerMinute = yieldPerSecond * 60;
@@ -131,6 +134,10 @@ export function VestingCounter() {
   // Ensure accumulated yield is never negative
   const safeAccumulatedYield = Math.max(0, user.accumulatedYield || 0);
   const sessionYield = Math.max(0, displayYield - safeAccumulatedYield);
+
+  // Calculate separate balances for display
+  const commissionsBalance = user.mxiFromUnifiedCommissions || 0;
+  const tournamentsBalance = user.mxiFromChallenges || 0;
 
   return (
     <View style={styles.container}>
@@ -180,10 +187,57 @@ export function VestingCounter() {
           </Text>
           <Text style={styles.vestingBalanceUnit}>MXI</Text>
           <Text style={styles.vestingBalanceNote}>
-            Solo MXI comprados generan vesting
+            ✅ Solo MXI comprados generan vesting
           </Text>
         </View>
       </View>
+
+      {/* Separate Balances Display - NOT generating vesting */}
+      {(commissionsBalance > 0 || tournamentsBalance > 0) && (
+        <View style={styles.separateBalancesSection}>
+          <Text style={styles.separateBalancesTitle}>Saldos Separados (No generan vesting)</Text>
+          
+          {commissionsBalance > 0 && (
+            <View style={styles.separateBalanceCard}>
+              <View style={styles.separateBalanceHeader}>
+                <IconSymbol 
+                  ios_icon_name="person.2.fill" 
+                  android_material_icon_name="people" 
+                  size={20} 
+                  color={colors.success} 
+                />
+                <Text style={styles.separateBalanceLabel}>Comisiones</Text>
+              </View>
+              <Text style={styles.separateBalanceValue}>
+                {commissionsBalance.toFixed(2)} MXI
+              </Text>
+              <Text style={styles.separateBalanceNote}>
+                ❌ No genera rendimiento de vesting
+              </Text>
+            </View>
+          )}
+
+          {tournamentsBalance > 0 && (
+            <View style={styles.separateBalanceCard}>
+              <View style={styles.separateBalanceHeader}>
+                <IconSymbol 
+                  ios_icon_name="trophy.fill" 
+                  android_material_icon_name="emoji_events" 
+                  size={20} 
+                  color={colors.warning} 
+                />
+                <Text style={styles.separateBalanceLabel}>Torneos</Text>
+              </View>
+              <Text style={styles.separateBalanceValue}>
+                {tournamentsBalance.toFixed(2)} MXI
+              </Text>
+              <Text style={styles.separateBalanceNote}>
+                ❌ No genera rendimiento de vesting
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
 
       {/* Progress Bar for Monthly Cap */}
       {hasBalance && (
@@ -281,7 +335,7 @@ export function VestingCounter() {
         <Text style={styles.infoText}>
           {!hasBalance
             ? 'Compra MXI para comenzar a generar rendimientos del 3% mensual.'
-            : 'El vesting genera un rendimiento del 3% mensual sobre tus MXI comprados. El contador se actualiza cada segundo y se recalcula automáticamente con cada compra o cambio de balance. Este saldo no se puede retirar hasta que se lance la moneda oficialmente.'}
+            : 'El vesting genera un rendimiento del 3% mensual SOLO sobre tus MXI comprados. Las comisiones y premios de torneos NO generan vesting. El contador se actualiza cada segundo y se recalcula automáticamente con cada compra. Este saldo no se puede retirar hasta que se lance la moneda oficialmente.'}
         </Text>
       </View>
     </View>
@@ -446,9 +500,55 @@ const styles = StyleSheet.create({
   },
   vestingBalanceNote: {
     fontSize: 11,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
+    color: colors.success,
+    fontWeight: '600',
     textAlign: 'center',
+  },
+  separateBalancesSection: {
+    marginBottom: 16,
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  separateBalancesTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  separateBalanceCard: {
+    backgroundColor: colors.card,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  separateBalanceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  separateBalanceLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  separateBalanceValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    fontFamily: 'monospace',
+    marginBottom: 4,
+  },
+  separateBalanceNote: {
+    fontSize: 10,
+    color: colors.error,
+    fontStyle: 'italic',
   },
   progressSection: {
     marginBottom: 16,
