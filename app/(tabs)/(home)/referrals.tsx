@@ -341,10 +341,11 @@ export default function ReferralsScreen() {
           )}
         </View>
 
-        {/* Referral Stats */}
+        {/* Referral Stats - Updated commission rates */}
         <View style={commonStyles.card}>
           <Text style={styles.sectionTitle}>👥 Tus Referidos</Text>
           <View style={styles.referralsList}>
+            {/* Level 1 - 5% Commission Rate */}
             <View style={styles.referralItem}>
               <View style={styles.referralLevel}>
                 <Text style={styles.referralLevelText}>Nivel 1</Text>
@@ -352,6 +353,7 @@ export default function ReferralsScreen() {
               </View>
               <Text style={styles.referralCount}>{user?.referrals.level1 || 0} referidos</Text>
             </View>
+            {/* Level 2 - 2% Commission Rate */}
             <View style={styles.referralItem}>
               <View style={styles.referralLevel}>
                 <Text style={styles.referralLevelText}>Nivel 2</Text>
@@ -359,6 +361,7 @@ export default function ReferralsScreen() {
               </View>
               <Text style={styles.referralCount}>{user?.referrals.level2 || 0} referidos</Text>
             </View>
+            {/* Level 3 - 1% Commission Rate */}
             <View style={styles.referralItem}>
               <View style={styles.referralLevel}>
                 <Text style={styles.referralLevelText}>Nivel 3</Text>
