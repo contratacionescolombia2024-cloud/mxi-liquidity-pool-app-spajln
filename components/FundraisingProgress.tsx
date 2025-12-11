@@ -453,7 +453,7 @@ export function FundraisingProgress() {
           </View>
         </View>
 
-        {/* Fundraising Breakdown */}
+        {/* Fundraising Breakdown - UNIFIED */}
         {(debugInfo.userTotal > 0 || debugInfo.adminTotal > 0) && (
           <View style={styles.breakdownSection}>
             <Text style={styles.breakdownTitle}>📊 Desglose de Recaudación</Text>
@@ -462,51 +462,24 @@ export function FundraisingProgress() {
               <View style={styles.breakdownRow}>
                 <View style={styles.breakdownIcon}>
                   <IconSymbol 
-                    ios_icon_name="person.3.fill" 
-                    android_material_icon_name="people" 
+                    ios_icon_name="cart.fill" 
+                    android_material_icon_name="shopping_cart" 
                     size={20} 
                     color="#00ff88" 
                   />
                 </View>
                 <View style={styles.breakdownContent}>
-                  <Text style={styles.breakdownLabel}>Compras de Usuarios</Text>
+                  <Text style={styles.breakdownLabel}>MXI Comprados</Text>
                   <Text style={styles.breakdownDescription}>
-                    Pagos confirmados vía NOWPayments
+                    Total de MXI vendidos (incluye pagos de usuarios y ventas manuales)
                   </Text>
                 </View>
                 <View style={styles.breakdownValue}>
                   <Text style={styles.breakdownAmount}>
-                    ${formatNumberWithCommas(debugInfo.userTotal, 2)}
+                    ${formatNumberWithCommas(totalRaised, 2)}
                   </Text>
                   <Text style={styles.breakdownCount}>
-                    {debugInfo.userCount} pago{debugInfo.userCount !== 1 ? 's' : ''}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.breakdownCard}>
-              <View style={styles.breakdownRow}>
-                <View style={styles.breakdownIcon}>
-                  <IconSymbol 
-                    ios_icon_name="person.badge.key.fill" 
-                    android_material_icon_name="admin_panel_settings" 
-                    size={20} 
-                    color="#ffdd00" 
-                  />
-                </View>
-                <View style={styles.breakdownContent}>
-                  <Text style={styles.breakdownLabel}>Adiciones de Administrador</Text>
-                  <Text style={styles.breakdownDescription}>
-                    Ventas manuales (valor en USDT al precio de fase actual)
-                  </Text>
-                </View>
-                <View style={styles.breakdownValue}>
-                  <Text style={styles.breakdownAmount}>
-                    ${formatNumberWithCommas(debugInfo.adminTotal, 2)}
-                  </Text>
-                  <Text style={styles.breakdownCount}>
-                    {debugInfo.adminCount} adición{debugInfo.adminCount !== 1 ? 'es' : ''}
+                    {debugInfo.totalCount} transacción{debugInfo.totalCount !== 1 ? 'es' : ''}
                   </Text>
                 </View>
               </View>
