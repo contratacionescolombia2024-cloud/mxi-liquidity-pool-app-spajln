@@ -174,6 +174,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [initializationAttempted, setInitializationAttempted] = useState(false);
 
   // Initialize notification service (only on native platforms)
   useEffect(() => {
@@ -295,14 +296,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user?.id]);
 
   useEffect(() => {
+    // Prevent multiple initialization attempts
+    if (initializationAttempted) {
+      console.log('⚠️ Initialization already attempted, skipping...');
+      return;
+    }
+
     console.log('=== AUTH CONTEXT INITIALIZATION ===');
     console.log('Platform:', Platform.OS);
     console.log('Supabase client available:', !!supabase);
     console.log('Timestamp:', new Date().toISOString());
     
-    // Reduced timeout to 10 seconds for faster feedback
+    setInitializationAttempted(true);
+    
+    // Reduced timeout to 8 seconds for faster feedback
     const loadingTimeout = setTimeout(() => {
-      console.warn('⚠️ Auth initialization timeout (10s) - forcing loading to false');
+      console.warn('⚠️ Auth initialization timeout (8s) - forcing loading to false');
       if (loading) {
         console.log('Setting loading to false due to timeout');
         setLoading(false);
@@ -310,16 +319,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(null);
         setSession(null);
       }
-    }, 10000);
+    }, 8000);
 
     const initializeAuth = async () => {
       try {
         console.log('🔄 Starting auth session check...');
         console.log('Timestamp:', new Date().toISOString());
         
-        // Create a promise that rejects after 8 seconds
+        // Create a promise that rejects after 6 seconds
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Session check timeout')), 8000);
+          setTimeout(() => reject(new Error('Session check timeout')), 6000);
         });
 
         // Race between getting session and timeout
@@ -406,7 +415,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       clearTimeout(loadingTimeout);
       subscription.unsubscribe();
     };
-  }, []);
+  }, []); // Empty dependency array - only run once
 
   const loadUserData = async (userId: string) => {
     try {
@@ -414,11 +423,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('User ID:', userId);
       console.log('Timestamp:', new Date().toISOString());
       
-      const { data: userData, error: userError } = await supabase
+      // Add timeout for user data loading
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('User data loading timeout')), 5000);
+      });
+
+      const userDataPromise = supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
+
+      const { data: userData, error: userError } = await Promise.race([
+        userDataPromise,
+        timeoutPromise
+      ]) as { data: any, error: any };
 
       if (userError) {
         console.error('Error loading user data:', userError);
@@ -525,11 +544,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const trimmedEmail = email.trim().toLowerCase();
       
-      // Attempt to sign in with Supabase Auth
-      const { data, error } = await supabase.auth.signInWithPassword({
+      // Add timeout for login attempt
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Login timeout')), 10000);
+      });
+
+      const loginPromise = supabase.auth.signInWithPassword({
         email: trimmedEmail,
         password,
       });
+
+      // Attempt to sign in with Supabase Auth
+      const { data, error } = await Promise.race([
+        loginPromise,
+        timeoutPromise
+      ]) as { data: any, error: any };
 
       if (error) {
         console.error('=== SUPABASE AUTH ERROR ===');
@@ -621,6 +650,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Exception:', error);
       console.error('Exception message:', error.message);
       console.error('Exception stack:', error.stack);
+      
+      // Handle timeout
+      if (error.message === 'Login timeout') {
+        return {
+          success: false,
+          errorType: 'OTHER',
+          error: 'El inicio de sesión está tardando demasiado. Por favor verifica tu conexión a internet e intenta de nuevo.'
+        };
+      }
+      
       return { 
         success: false,
         errorType: 'OTHER',
@@ -733,9 +772,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // Step 5: Create auth user
+      // Step 5: Create auth user with timeout
       console.log('Step 5: Creating auth user...');
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Registration timeout')), 15000);
+      });
+
+      const signUpPromise = supabase.auth.signUp({
         email: userData.email.trim().toLowerCase(),
         password: userData.password,
         options: {
@@ -747,6 +790,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           },
         },
       });
+
+      const { data: authData, error: authError } = await Promise.race([
+        signUpPromise,
+        timeoutPromise
+      ]) as { data: any, error: any };
 
       if (authError) {
         console.error('❌ Auth signup error:', authError);
@@ -955,6 +1003,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('=== REGISTRATION EXCEPTION ===');
       console.error('Registration exception:', error);
       console.error('Error stack:', error.stack);
+      
+      // Handle timeout
+      if (error.message === 'Registration timeout') {
+        return {
+          success: false,
+          error: 'El registro está tardando demasiado. Por favor verifica tu conexión a internet e intenta de nuevo.'
+        };
+      }
       
       // Handle specific errors
       if (error.message && error.message.includes('429')) {
