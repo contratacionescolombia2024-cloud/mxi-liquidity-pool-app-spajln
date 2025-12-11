@@ -49,7 +49,7 @@ export default function ReferralsScreen() {
   const handleCopyCode = async () => {
     if (!user?.referralCode) return;
     await Clipboard.setStringAsync(user.referralCode);
-    Alert.alert('Copied!', 'Referral code copied to clipboard');
+    Alert.alert('¡Copiado!', 'Código de referido copiado al portapapeles');
   };
 
   const handleShare = async () => {
@@ -57,7 +57,7 @@ export default function ReferralsScreen() {
 
     try {
       await Share.share({
-        message: `Join MXI Pool with my referral code: ${user.referralCode}\n\nEarn MXI tokens and get rewards!`,
+        message: `Únete al Pool MXI con mi código de referido: ${user.referralCode}\n\n¡Gana tokens MXI y obtén recompensas!`,
       });
     } catch (error) {
       console.error('Error sharing:', error);
@@ -155,7 +155,7 @@ export default function ReferralsScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Referrals</Text>
+        <Text style={styles.headerTitle}>Referidos</Text>
         <TouchableOpacity onPress={() => refreshUser()} style={styles.refreshButton}>
           <IconSymbol ios_icon_name="arrow.clockwise" android_material_icon_name="refresh" size={24} color={colors.primary} />
         </TouchableOpacity>
@@ -195,7 +195,7 @@ export default function ReferralsScreen() {
               size={32} 
               color={colors.primary} 
             />
-            <Text style={styles.codeTitle}>Your Referral Code</Text>
+            <Text style={styles.codeTitle}>Tu Código de Referido</Text>
           </View>
           <View style={styles.codeBox}>
             <Text style={styles.codeText}>{user?.referralCode || 'N/A'}</Text>
@@ -215,28 +215,28 @@ export default function ReferralsScreen() {
               size={20} 
               color="#fff" 
             />
-            <Text style={buttonStyles.primaryText}>Share Code</Text>
+            <Text style={buttonStyles.primaryText}>Compartir Código</Text>
           </TouchableOpacity>
         </View>
 
         {/* Commission Stats - All in MXI */}
         <View style={commonStyles.card}>
-          <Text style={styles.sectionTitle}>Commission Balance (MXI)</Text>
+          <Text style={styles.sectionTitle}>Balance de Comisiones (MXI)</Text>
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Total Earned</Text>
+              <Text style={styles.statLabel}>Total Ganado</Text>
               <Text style={styles.statValue}>{mxiFromCommissions.toFixed(4)} MXI</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Available</Text>
+              <Text style={styles.statLabel}>Disponible</Text>
               <Text style={[styles.statValue, { color: colors.success }]}>
                 {mxiFromCommissions.toFixed(4)} MXI
               </Text>
             </View>
           </View>
           <Text style={styles.infoNote}>
-            💡 All commissions are handled internally in MXI
+            💡 Todas las comisiones se manejan internamente en MXI
           </Text>
 
           {/* Withdraw to Balance Button */}
@@ -343,28 +343,28 @@ export default function ReferralsScreen() {
 
         {/* Referral Stats */}
         <View style={commonStyles.card}>
-          <Text style={styles.sectionTitle}>Your Referrals</Text>
+          <Text style={styles.sectionTitle}>👥 Tus Referidos</Text>
           <View style={styles.referralsList}>
             <View style={styles.referralItem}>
               <View style={styles.referralLevel}>
-                <Text style={styles.referralLevelText}>Level 1</Text>
+                <Text style={styles.referralLevelText}>Nivel 1</Text>
                 <Text style={styles.referralRate}>5%</Text>
               </View>
-              <Text style={styles.referralCount}>{user?.referrals.level1 || 0} referrals</Text>
+              <Text style={styles.referralCount}>{user?.referrals.level1 || 0} referidos</Text>
             </View>
             <View style={styles.referralItem}>
               <View style={styles.referralLevel}>
-                <Text style={styles.referralLevelText}>Level 2</Text>
+                <Text style={styles.referralLevelText}>Nivel 2</Text>
                 <Text style={styles.referralRate}>2%</Text>
               </View>
-              <Text style={styles.referralCount}>{user?.referrals.level2 || 0} referrals</Text>
+              <Text style={styles.referralCount}>{user?.referrals.level2 || 0} referidos</Text>
             </View>
             <View style={styles.referralItem}>
               <View style={styles.referralLevel}>
-                <Text style={styles.referralLevelText}>Level 3</Text>
+                <Text style={styles.referralLevelText}>Nivel 3</Text>
                 <Text style={styles.referralRate}>1%</Text>
               </View>
-              <Text style={styles.referralCount}>{user?.referrals.level3 || 0} referrals</Text>
+              <Text style={styles.referralCount}>{user?.referrals.level3 || 0} referidos</Text>
             </View>
           </View>
           <View style={styles.activeReferrals}>
@@ -385,16 +385,16 @@ export default function ReferralsScreen() {
               size={24} 
               color={colors.primary} 
             />
-            <Text style={styles.infoTitle}>How Referrals Work</Text>
+            <Text style={styles.infoTitle}>Cómo Funcionan los Referidos</Text>
           </View>
           <View style={styles.infoList}>
-            <Text style={styles.infoItem}>- Share your referral code with friends</Text>
-            <Text style={styles.infoItem}>- Earn 5% in MXI from Level 1 referrals</Text>
-            <Text style={styles.infoItem}>- Earn 2% in MXI from Level 2 referrals</Text>
-            <Text style={styles.infoItem}>- Earn 1% in MXI from Level 3 referrals</Text>
-            <Text style={styles.infoItem}>- All commissions are credited directly in MXI</Text>
-            <Text style={styles.infoItem}>- Need 5 active Level 1 referrals to withdraw</Text>
-            <Text style={styles.infoItem}>- Active referrals must have purchased at least 50 USDT</Text>
+            <Text style={styles.infoItem}>- Comparte tu código de referido con amigos</Text>
+            <Text style={styles.infoItem}>- Gana 5% en MXI de referidos de Nivel 1</Text>
+            <Text style={styles.infoItem}>- Gana 2% en MXI de referidos de Nivel 2</Text>
+            <Text style={styles.infoItem}>- Gana 1% en MXI de referidos de Nivel 3</Text>
+            <Text style={styles.infoItem}>- Todas las comisiones se acreditan directamente en MXI</Text>
+            <Text style={styles.infoItem}>- Necesitas 5 referidos activos de Nivel 1 para retirar</Text>
+            <Text style={styles.infoItem}>- Los referidos activos deben haber comprado al menos 50 USDT</Text>
           </View>
         </View>
       </ScrollView>

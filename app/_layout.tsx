@@ -34,30 +34,44 @@ export default function RootLayout() {
   // State for web confirm dialog
   const [confirmDialogConfig, setConfirmDialogConfig] = useState<ConfirmConfig | null>(null);
   const [initError, setInitError] = useState<Error | null>(null);
+  const [initComplete, setInitComplete] = useState(false);
 
   useEffect(() => {
+    console.log('=== ROOT LAYOUT INITIALIZATION ===');
+    console.log('Platform:', Platform.OS);
+    console.log('Fonts loaded:', loaded);
+    console.log('Font error:', error);
+    
     if (error) {
-      console.error('Font loading error:', error);
+      console.error('❌ Font loading error:', error);
       setInitError(error);
+      setInitComplete(true);
     }
     
     if (loaded) {
-      console.log('Fonts loaded successfully');
-      SplashScreen.hideAsync();
+      console.log('✅ Fonts loaded successfully');
+      SplashScreen.hideAsync().then(() => {
+        console.log('✅ Splash screen hidden');
+        setInitComplete(true);
+      }).catch((err) => {
+        console.error('❌ Error hiding splash screen:', err);
+        setInitComplete(true);
+      });
     }
   }, [loaded, error]);
 
   // Preload Material Icons font on web
   useEffect(() => {
     if (Platform.OS === 'web') {
+      console.log('🌐 Loading Material Icons font for web...');
       // Force load Material Icons font
       const loadFonts = async () => {
         try {
           // This ensures the Material Icons font is loaded
           await MaterialIcons.loadFont();
-          console.log('Material Icons font loaded successfully');
+          console.log('✅ Material Icons font loaded successfully');
         } catch (error) {
-          console.error('Error loading Material Icons font:', error);
+          console.error('❌ Error loading Material Icons font:', error);
         }
       };
       loadFonts();
@@ -67,7 +81,9 @@ export default function RootLayout() {
   // Register web confirm handler
   useEffect(() => {
     if (Platform.OS === 'web') {
+      console.log('🌐 Registering web confirm handler...');
       registerWebConfirmHandler((config: ConfirmConfig) => {
+        console.log('Web confirm dialog requested:', config.title);
         setConfirmDialogConfig(config);
       });
     }
@@ -75,6 +91,8 @@ export default function RootLayout() {
 
   // Show error screen if initialization failed
   if (initError) {
+    console.error('=== INITIALIZATION ERROR ===');
+    console.error('Error:', initError);
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorTitle}>Error de Inicialización</Text>
@@ -87,7 +105,8 @@ export default function RootLayout() {
   }
 
   // Show loading screen while fonts are loading
-  if (!loaded) {
+  if (!loaded || !initComplete) {
+    console.log('⏳ Waiting for initialization... loaded:', loaded, 'initComplete:', initComplete);
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -95,6 +114,8 @@ export default function RootLayout() {
       </View>
     );
   }
+
+  console.log('✅ Root layout initialized successfully');
 
   const handleConfirmDialogConfirm = () => {
     if (confirmDialogConfig?.onConfirm) {

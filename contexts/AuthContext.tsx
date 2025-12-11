@@ -298,25 +298,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('=== AUTH CONTEXT INITIALIZATION ===');
     console.log('Platform:', Platform.OS);
     console.log('Supabase client available:', !!supabase);
+    console.log('Timestamp:', new Date().toISOString());
     
-    // Increased timeout to 15 seconds for better reliability
+    // Reduced timeout to 10 seconds for faster feedback
     const loadingTimeout = setTimeout(() => {
-      console.warn('⚠️ Auth initialization timeout (15s) - forcing loading to false');
+      console.warn('⚠️ Auth initialization timeout (10s) - forcing loading to false');
       if (loading) {
+        console.log('Setting loading to false due to timeout');
         setLoading(false);
         setIsAuthenticated(false);
         setUser(null);
         setSession(null);
       }
-    }, 15000);
+    }, 10000);
 
     const initializeAuth = async () => {
       try {
         console.log('🔄 Starting auth session check...');
+        console.log('Timestamp:', new Date().toISOString());
         
-        // Create a promise that rejects after 10 seconds
+        // Create a promise that rejects after 8 seconds
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Session check timeout')), 10000);
+          setTimeout(() => reject(new Error('Session check timeout')), 8000);
         });
 
         // Race between getting session and timeout
@@ -333,7 +336,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return;
         }
         
-        console.log('✅ Initial session:', sessionResult.data.session ? 'Found' : 'Not found');
+        console.log('✅ Initial session check complete:', sessionResult.data.session ? 'Session found' : 'No session');
         setSession(sessionResult.data.session);
         
         if (sessionResult.data.session) {
@@ -346,6 +349,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (error) {
         clearTimeout(loadingTimeout);
         console.error('❌ Exception during auth initialization:', error);
+        console.error('Error details:', error instanceof Error ? error.message : String(error));
         setLoading(false);
         setIsAuthenticated(false);
         setUser(null);
@@ -359,6 +363,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('=== AUTH STATE CHANGE ===');
       console.log('Event:', _event);
       console.log('Session:', session ? 'Present' : 'Null');
+      console.log('Timestamp:', new Date().toISOString());
       
       setSession(session);
       
@@ -407,6 +412,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('=== LOADING USER DATA ===');
       console.log('User ID:', userId);
+      console.log('Timestamp:', new Date().toISOString());
       
       const { data: userData, error: userError } = await supabase
         .from('users')
@@ -489,7 +495,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         mxiFromChallenges: parseFloat(userData.mxi_from_challenges?.toString() || '0'),
       };
 
-      console.log('User data loaded successfully');
+      console.log('✅ User data loaded successfully');
       console.log('MXI Breakdown:', {
         purchased: mappedUser.mxiPurchasedDirectly,
         commissions: mappedUser.mxiFromUnifiedCommissions,
@@ -501,8 +507,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(mappedUser);
       setIsAuthenticated(true);
       setLoading(false);
+      console.log('=== USER DATA LOADING COMPLETE ===');
+      console.log('Timestamp:', new Date().toISOString());
     } catch (error) {
-      console.error('Error in loadUserData:', error);
+      console.error('❌ Error in loadUserData:', error);
+      console.error('Error details:', error instanceof Error ? error.message : String(error));
       setLoading(false);
     }
   };
