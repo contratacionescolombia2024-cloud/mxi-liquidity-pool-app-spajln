@@ -44,13 +44,17 @@ export function VestingCounter() {
       // Calculate current session yield
       const sessionYield = yieldPerSecond * secondsElapsed;
 
+      // Ensure accumulated yield is never negative
+      const safeAccumulatedYield = Math.max(0, user.accumulatedYield || 0);
+
       // Calculate total yield (accumulated + session)
-      const totalYield = user.accumulatedYield + sessionYield;
+      const totalYield = safeAccumulatedYield + sessionYield;
 
       // Cap at 3% monthly maximum
       const cappedTotalYield = Math.min(totalYield, maxMonthlyYield);
 
-      setDisplayYield(cappedTotalYield);
+      // Ensure final display value is never negative
+      setDisplayYield(Math.max(0, cappedTotalYield));
       setLastUpdateTime(now);
     }, 1000); // Update every second
 
@@ -74,19 +78,26 @@ export function VestingCounter() {
         const secondsElapsed = (now - lastUpdate.getTime()) / 1000;
         
         const sessionYield = yieldPerSecond * secondsElapsed;
-        const totalYield = user.accumulatedYield + sessionYield;
+        
+        // Ensure accumulated yield is never negative
+        const safeAccumulatedYield = Math.max(0, user.accumulatedYield || 0);
+        
+        const totalYield = safeAccumulatedYield + sessionYield;
         const cappedTotalYield = Math.min(totalYield, maxMonthlyYield);
+
+        // Ensure final value is never negative before saving
+        const finalYield = Math.max(0, cappedTotalYield);
 
         // Update database with current accumulated yield
         await supabase
           .from('users')
           .update({
-            accumulated_yield: cappedTotalYield,
+            accumulated_yield: finalYield,
             last_yield_update: new Date().toISOString(),
           })
           .eq('id', user.id);
 
-        console.log('Vesting yield persisted:', cappedTotalYield.toFixed(8), 'MXI');
+        console.log('Vesting yield persisted:', finalYield.toFixed(8), 'MXI');
       } catch (error) {
         console.error('Error persisting vesting yield:', error);
       }
@@ -117,7 +128,9 @@ export function VestingCounter() {
   const isNearCap = progressPercentage >= 95;
 
   // Calculate session yield (current accumulation since last update)
-  const sessionYield = Math.max(0, displayYield - user.accumulatedYield);
+  // Ensure accumulated yield is never negative
+  const safeAccumulatedYield = Math.max(0, user.accumulatedYield || 0);
+  const sessionYield = Math.max(0, displayYield - safeAccumulatedYield);
 
   return (
     <View style={styles.container}>
@@ -143,12 +156,12 @@ export function VestingCounter() {
         </TouchableOpacity>
       </View>
 
-      {/* Real-time Counter Display - PROMINENT */}
+      {/* Real-time Counter Display - PROMINENT - Always positive */}
       <View style={styles.counterSection}>
         <View style={styles.counterCard}>
           <Text style={styles.counterLabel}>Rendimiento Acumulado Total</Text>
           <Text style={styles.counterValue}>
-            {displayYield.toFixed(8)}
+            +{Math.max(0, displayYield).toFixed(8)}
           </Text>
           <Text style={styles.counterUnit}>MXI</Text>
           <View style={styles.liveIndicator}>
@@ -183,7 +196,7 @@ export function VestingCounter() {
             <View style={[styles.progressBar, { width: `${Math.min(progressPercentage, 100)}%` }]} />
           </View>
           <View style={styles.progressFooter}>
-            <Text style={styles.progressText}>{displayYield.toFixed(4)} MXI</Text>
+            <Text style={styles.progressText}>{Math.max(0, displayYield).toFixed(4)} MXI</Text>
             <Text style={styles.progressText}>{maxMonthlyYield.toFixed(4)} MXI</Text>
           </View>
           {isNearCap && (
@@ -207,12 +220,12 @@ export function VestingCounter() {
         <View style={styles.yieldBreakdownSection}>
           <View style={styles.breakdownRow}>
             <Text style={styles.breakdownLabel}>Sesión Actual</Text>
-            <Text style={styles.breakdownValue}>{sessionYield.toFixed(8)} MXI</Text>
+            <Text style={styles.breakdownValue}>+{Math.max(0, sessionYield).toFixed(8)} MXI</Text>
           </View>
           <View style={styles.breakdownDivider} />
           <View style={styles.breakdownRow}>
             <Text style={styles.breakdownLabel}>Acumulado Previo</Text>
-            <Text style={styles.breakdownValue}>{user.accumulatedYield.toFixed(8)} MXI</Text>
+            <Text style={styles.breakdownValue}>+{Math.max(0, safeAccumulatedYield).toFixed(8)} MXI</Text>
           </View>
         </View>
       )}
@@ -222,17 +235,17 @@ export function VestingCounter() {
         <View style={styles.rateSection}>
           <View style={styles.rateItem}>
             <Text style={styles.rateLabel}>Por Segundo</Text>
-            <Text style={styles.rateValue}>{yieldPerSecond.toFixed(8)}</Text>
+            <Text style={styles.rateValue}>+{yieldPerSecond.toFixed(8)}</Text>
           </View>
           <View style={styles.rateDivider} />
           <View style={styles.rateItem}>
             <Text style={styles.rateLabel}>Por Minuto</Text>
-            <Text style={styles.rateValue}>{yieldPerMinute.toFixed(8)}</Text>
+            <Text style={styles.rateValue}>+{yieldPerMinute.toFixed(8)}</Text>
           </View>
           <View style={styles.rateDivider} />
           <View style={styles.rateItem}>
             <Text style={styles.rateLabel}>Por Hora</Text>
-            <Text style={styles.rateValue}>{yieldPerHour.toFixed(6)}</Text>
+            <Text style={styles.rateValue}>+{yieldPerHour.toFixed(6)}</Text>
           </View>
         </View>
       )}
@@ -242,7 +255,7 @@ export function VestingCounter() {
         <View style={styles.dailyRate}>
           <Text style={styles.dailyRateLabel}>Rendimiento Diario</Text>
           <Text style={styles.dailyRateValue}>
-            {yieldPerDay.toFixed(4)} MXI
+            +{yieldPerDay.toFixed(4)} MXI
           </Text>
         </View>
       )}
@@ -253,7 +266,7 @@ export function VestingCounter() {
           <View style={styles.monthlyMaxCard}>
             <Text style={styles.monthlyMaxLabel}>Máximo Mensual (3%)</Text>
             <Text style={styles.monthlyMaxValue}>
-              {maxMonthlyYield.toFixed(4)} MXI
+              +{maxMonthlyYield.toFixed(4)} MXI
             </Text>
             <Text style={styles.monthlyMaxNote}>
               Basado en {mxiInVesting.toFixed(2)} MXI comprados
