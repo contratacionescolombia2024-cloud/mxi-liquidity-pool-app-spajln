@@ -254,13 +254,14 @@ export function FundraisingProgress() {
       console.log('═══════════════════════════════════════════════════════════');
       console.log(`  🎯 TOTAL RAISED: ${totalRaisedValue.toFixed(2)} USDT`);
       console.log(`  👥 User Purchases: ${userTotalValue.toFixed(2)} USDT (${userCountValue} payments)`);
-      console.log(`  🔧 Admin Additions: ${adminTotalValue.toFixed(2)} USDT (${adminCountValue} payments)`);
+      console.log(`  🔧 Admin Additions: ${adminTotalValue.toFixed(2)} USDT (${adminCountValue} additions)`);
       console.log(`  ✅ Finished Payments: ${finishedTotalValue.toFixed(2)} USDT`);
       console.log(`  ✓ Confirmed Payments: ${confirmedTotalValue.toFixed(2)} USDT`);
-      console.log(`  📊 Total Payments: ${totalCountValue}`);
+      console.log(`  📊 Total Transactions: ${totalCountValue}`);
       console.log(`  📈 Progress: ${((totalRaisedValue / MAX_FUNDRAISING_GOAL) * 100).toFixed(4)}%`);
       console.log(`  🔍 Verification: userTotal + adminTotal = ${(userTotalValue + adminTotalValue).toFixed(2)} USDT`);
       console.log(`  🔍 Verification: finishedTotal + confirmedTotal = ${(finishedTotalValue + confirmedTotalValue).toFixed(2)} USDT`);
+      console.log(`  💎 Admin additions are calculated from MXI balance * current phase price`);
       console.log(`  ⏰ Timestamp: ${new Date().toISOString()}`);
       console.log('═══════════════════════════════════════════════════════════');
       console.log('');
@@ -451,6 +452,74 @@ export function FundraisingProgress() {
             </Text>
           </View>
         </View>
+
+        {/* Fundraising Breakdown */}
+        {(debugInfo.userTotal > 0 || debugInfo.adminTotal > 0) && (
+          <View style={styles.breakdownSection}>
+            <Text style={styles.breakdownTitle}>📊 Desglose de Recaudación</Text>
+            
+            <View style={styles.breakdownCard}>
+              <View style={styles.breakdownRow}>
+                <View style={styles.breakdownIcon}>
+                  <IconSymbol 
+                    ios_icon_name="person.3.fill" 
+                    android_material_icon_name="people" 
+                    size={20} 
+                    color="#00ff88" 
+                  />
+                </View>
+                <View style={styles.breakdownContent}>
+                  <Text style={styles.breakdownLabel}>Compras de Usuarios</Text>
+                  <Text style={styles.breakdownDescription}>
+                    Pagos confirmados vía NOWPayments
+                  </Text>
+                </View>
+                <View style={styles.breakdownValue}>
+                  <Text style={styles.breakdownAmount}>
+                    ${formatNumberWithCommas(debugInfo.userTotal, 2)}
+                  </Text>
+                  <Text style={styles.breakdownCount}>
+                    {debugInfo.userCount} pago{debugInfo.userCount !== 1 ? 's' : ''}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.breakdownCard}>
+              <View style={styles.breakdownRow}>
+                <View style={styles.breakdownIcon}>
+                  <IconSymbol 
+                    ios_icon_name="person.badge.key.fill" 
+                    android_material_icon_name="admin_panel_settings" 
+                    size={20} 
+                    color="#ffdd00" 
+                  />
+                </View>
+                <View style={styles.breakdownContent}>
+                  <Text style={styles.breakdownLabel}>Adiciones de Administrador</Text>
+                  <Text style={styles.breakdownDescription}>
+                    Ventas manuales (valor en USDT al precio de fase actual)
+                  </Text>
+                </View>
+                <View style={styles.breakdownValue}>
+                  <Text style={styles.breakdownAmount}>
+                    ${formatNumberWithCommas(debugInfo.adminTotal, 2)}
+                  </Text>
+                  <Text style={styles.breakdownCount}>
+                    {debugInfo.adminCount} adición{debugInfo.adminCount !== 1 ? 'es' : ''}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.breakdownTotal}>
+              <Text style={styles.breakdownTotalLabel}>Total Recaudado</Text>
+              <Text style={styles.breakdownTotalAmount}>
+                ${formatNumberWithCommas(totalRaised, 2)} USDT
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Progress Bar */}
         <View style={styles.progressSection}>
@@ -1029,5 +1098,88 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     flex: 1,
+  },
+  breakdownSection: {
+    backgroundColor: 'rgba(0, 20, 20, 0.8)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: 'rgba(0, 255, 136, 0.3)',
+  },
+  breakdownTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#00ff88',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  breakdownCard: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  breakdownIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 255, 136, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  breakdownContent: {
+    flex: 1,
+  },
+  breakdownLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  breakdownDescription: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    lineHeight: 14,
+  },
+  breakdownValue: {
+    alignItems: 'flex-end',
+  },
+  breakdownAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#00ff88',
+    marginBottom: 2,
+  },
+  breakdownCount: {
+    fontSize: 10,
+    color: colors.textSecondary,
+  },
+  breakdownTotal: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 16,
+    marginTop: 4,
+    borderTopWidth: 2,
+    borderTopColor: 'rgba(0, 255, 136, 0.3)',
+  },
+  breakdownTotalLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  breakdownTotalAmount: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#00ff88',
+    fontFamily: 'monospace',
   },
 });
