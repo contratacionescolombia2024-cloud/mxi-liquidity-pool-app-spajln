@@ -380,57 +380,56 @@ const styles = StyleSheet.create({
   },
 });
 
-// ✅ ULTRA-ROBUST PARSING: Handle all possible numeric formats
-const safeParseFloat = (value: any, defaultValue: number = 0, fieldName: string = 'unknown'): number => {
-  console.log(`[Admin] 🔍 Parsing ${fieldName}:`, {
-    value,
+// ✅ DRASTIC FIX: Ultra-robust numeric parsing with extensive logging
+const parseNumericValue = (value: any, fieldName: string = 'unknown'): number => {
+  console.log(`[Admin] 🔍 PARSING ${fieldName}:`, {
+    rawValue: value,
     type: typeof value,
     isNull: value === null,
     isUndefined: value === undefined,
+    stringValue: String(value),
   });
 
-  // Handle null/undefined/empty
-  if (value === null || value === undefined || value === '') {
-    console.log(`[Admin] ⚠️ ${fieldName}: NULL/UNDEFINED/EMPTY → ${defaultValue}`);
-    return defaultValue;
+  // Handle null/undefined
+  if (value === null || value === undefined) {
+    console.log(`[Admin] ⚠️ ${fieldName}: NULL/UNDEFINED → 0`);
+    return 0;
   }
-  
-  // Already a valid number
-  if (typeof value === 'number' && !isNaN(value) && isFinite(value)) {
+
+  // If already a valid number
+  if (typeof value === 'number') {
+    if (isNaN(value) || !isFinite(value)) {
+      console.log(`[Admin] ⚠️ ${fieldName}: Invalid number (NaN/Infinity) → 0`);
+      return 0;
+    }
     console.log(`[Admin] ✅ ${fieldName}: Valid number → ${value}`);
     return value;
   }
+
+  // Convert to string and clean
+  const stringValue = String(value).trim();
   
-  // String or number conversion
-  if (typeof value === 'string' || typeof value === 'number') {
-    const stringValue = String(value).trim();
-    
-    if (stringValue === '' || stringValue === 'null' || stringValue === 'undefined') {
-      console.log(`[Admin] ⚠️ ${fieldName}: Empty string → ${defaultValue}`);
-      return defaultValue;
-    }
-    
-    // Try parseFloat
-    const parsed = parseFloat(stringValue);
-    if (!isNaN(parsed) && isFinite(parsed)) {
-      console.log(`[Admin] ✅ ${fieldName}: Parsed "${stringValue}" → ${parsed}`);
-      return parsed;
-    }
+  if (stringValue === '' || stringValue === 'null' || stringValue === 'undefined') {
+    console.log(`[Admin] ⚠️ ${fieldName}: Empty/null string → 0`);
+    return 0;
   }
-  
-  // Try Number() constructor
-  try {
-    const numValue = Number(value);
-    if (!isNaN(numValue) && isFinite(numValue)) {
-      console.log(`[Admin] ✅ ${fieldName}: Number() → ${numValue}`);
-      return numValue;
-    }
-  } catch (e) {
-    console.log(`[Admin] ⚠️ ${fieldName}: Number() failed`);
+
+  // Try parseFloat
+  const parsed = parseFloat(stringValue);
+  if (!isNaN(parsed) && isFinite(parsed)) {
+    console.log(`[Admin] ✅ ${fieldName}: Parsed "${stringValue}" → ${parsed}`);
+    return parsed;
   }
-  
-  console.log(`[Admin] ❌ ${fieldName}: ALL PARSING FAILED → ${defaultValue}`);
-  return defaultValue;
+
+  // Last resort: try Number()
+  const numValue = Number(stringValue);
+  if (!isNaN(numValue) && isFinite(numValue)) {
+    console.log(`[Admin] ✅ ${fieldName}: Number() "${stringValue}" → ${numValue}`);
+    return numValue;
+  }
+
+  console.log(`[Admin] ❌ ${fieldName}: ALL PARSING FAILED → 0`);
+  return 0;
 };
 
 export default function ManualVerificationRequestsScreen() {
@@ -464,29 +463,16 @@ export default function ManualVerificationRequestsScreen() {
       if (!skipLoadingState) {
         setError(null);
       }
-      console.log(`[Admin] ========== LOADING VERIFICATION REQUESTS ==========`);
+      console.log(`[Admin] ========================================`);
+      console.log(`[Admin] === LOADING VERIFICATION REQUESTS ===`);
+      console.log(`[Admin] ========================================`);
       console.log(`[Admin] Tab: ${activeTab}`);
       console.log(`[Admin] Timestamp:`, new Date().toISOString());
       
-      // ✅ DRASTIC FIX: Simplified query with proper column selection
+      // ✅ STEP 1: Load manual verification requests
       let query = supabase
         .from('manual_verification_requests')
-        .select(`
-          id,
-          payment_id,
-          user_id,
-          order_id,
-          status,
-          admin_notes,
-          reviewed_by,
-          reviewed_at,
-          created_at,
-          updated_at,
-          user_response,
-          user_response_at,
-          admin_request_info,
-          admin_request_info_at
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (activeTab === 'pending') {
@@ -505,82 +491,112 @@ export default function ManualVerificationRequestsScreen() {
         throw requestsError;
       }
 
-      console.log(`[Admin] ✅ Loaded ${requestsData?.length || 0} requests`);
+      console.log(`[Admin] ✅ Loaded ${requestsData?.length || 0} verification requests`);
 
-      // ✅ DRASTIC FIX: Fetch payment and user data separately for each request
-      const enrichedRequests = await Promise.all(
-        (requestsData || []).map(async (request: any, index: number) => {
-          console.log(`[Admin] ========== Processing Request ${index + 1} ==========`);
-          console.log(`[Admin] Request ID: ${request.id}`);
-          console.log(`[Admin] Payment ID: ${request.payment_id}`);
-          console.log(`[Admin] Order ID: ${request.order_id}`);
+      if (!requestsData || requestsData.length === 0) {
+        console.log('[Admin] No requests found');
+        setRequests([]);
+        return;
+      }
 
-          // Fetch payment data
-          const { data: paymentData, error: paymentError } = await supabase
-            .from('payments')
-            .select('*')
-            .eq('id', request.payment_id)
-            .single();
+      // ✅ STEP 2: Extract payment IDs and user IDs
+      const paymentIds = requestsData.map(r => r.payment_id).filter(Boolean);
+      const userIds = requestsData.map(r => r.user_id).filter(Boolean);
 
-          if (paymentError) {
-            console.error(`[Admin] ❌ Error loading payment for request ${request.id}:`, paymentError);
-          } else {
-            console.log(`[Admin] ✅ Payment data loaded:`, {
-              id: paymentData?.id,
-              order_id: paymentData?.order_id,
-              price_amount: paymentData?.price_amount,
-              mxi_amount: paymentData?.mxi_amount,
-              price_amount_type: typeof paymentData?.price_amount,
-              mxi_amount_type: typeof paymentData?.mxi_amount,
-            });
-          }
+      console.log(`[Admin] Payment IDs to fetch: ${paymentIds.length}`);
+      console.log(`[Admin] User IDs to fetch: ${userIds.length}`);
 
-          // Fetch user data
-          const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('id, email, name, mxi_balance')
-            .eq('id', request.user_id)
-            .single();
+      // ✅ STEP 3: Fetch all payments in one query
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from('payments')
+        .select('*')
+        .in('id', paymentIds);
 
-          if (userError) {
-            console.error(`[Admin] ❌ Error loading user for request ${request.id}:`, userError);
-          } else {
-            console.log(`[Admin] ✅ User data loaded:`, {
-              id: userData?.id,
-              email: userData?.email,
-              name: userData?.name,
-              mxi_balance: userData?.mxi_balance,
-              mxi_balance_type: typeof userData?.mxi_balance,
-            });
-          }
+      if (paymentsError) {
+        console.error('[Admin] ❌ Error loading payments:', paymentsError);
+      } else {
+        console.log(`[Admin] ✅ Loaded ${paymentsData?.length || 0} payments`);
+        if (paymentsData && paymentsData.length > 0) {
+          console.log('[Admin] Sample payment data:', JSON.stringify(paymentsData[0], null, 2));
+        }
+      }
 
-          // Parse numeric values with ultra-robust parsing
-          const priceAmount = safeParseFloat(paymentData?.price_amount, 0, `request_${index}_price_amount`);
-          const mxiAmount = safeParseFloat(paymentData?.mxi_amount, 0, `request_${index}_mxi_amount`);
-          const userBalance = safeParseFloat(userData?.mxi_balance, 0, `request_${index}_user_balance`);
-          
-          console.log(`[Admin] ✅ Parsed values:`, {
-            priceAmount,
-            mxiAmount,
-            userBalance,
-          });
-          
-          return {
-            ...request,
-            payment: paymentData || {},
-            user: userData || {},
-            // Store parsed values for easy access
-            _price_amount: priceAmount,
-            _mxi_amount: mxiAmount,
-            _user_balance: userBalance,
-          };
-        })
-      );
+      // ✅ STEP 4: Fetch all users in one query
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('id, email, name, mxi_balance')
+        .in('id', userIds);
+
+      if (usersError) {
+        console.error('[Admin] ❌ Error loading users:', usersError);
+      } else {
+        console.log(`[Admin] ✅ Loaded ${usersData?.length || 0} users`);
+      }
+
+      // ✅ STEP 5: Create lookup maps
+      const paymentsMap = new Map();
+      (paymentsData || []).forEach(payment => {
+        paymentsMap.set(payment.id, payment);
+      });
+
+      const usersMap = new Map();
+      (usersData || []).forEach(user => {
+        usersMap.set(user.id, user);
+      });
+
+      // ✅ STEP 6: Enrich requests with payment and user data
+      const enrichedRequests = requestsData.map((request, index) => {
+        console.log(`[Admin] ========================================`);
+        console.log(`[Admin] === Processing Request ${index + 1} ===`);
+        console.log(`[Admin] Request ID: ${request.id}`);
+        console.log(`[Admin] Payment ID: ${request.payment_id}`);
+        console.log(`[Admin] User ID: ${request.user_id}`);
+        console.log(`[Admin] Order ID: ${request.order_id}`);
+
+        const payment = paymentsMap.get(request.payment_id) || {};
+        const user = usersMap.get(request.user_id) || {};
+
+        console.log(`[Admin] Raw payment data:`, {
+          price_amount: payment.price_amount,
+          price_amount_type: typeof payment.price_amount,
+          mxi_amount: payment.mxi_amount,
+          mxi_amount_type: typeof payment.mxi_amount,
+        });
+
+        console.log(`[Admin] Raw user data:`, {
+          mxi_balance: user.mxi_balance,
+          mxi_balance_type: typeof user.mxi_balance,
+        });
+
+        // ✅ DRASTIC FIX: Parse numeric values with ultra-robust parsing
+        const priceAmount = parseNumericValue(payment.price_amount, `request_${index}_price_amount`);
+        const mxiAmount = parseNumericValue(payment.mxi_amount, `request_${index}_mxi_amount`);
+        const userBalance = parseNumericValue(user.mxi_balance, `request_${index}_user_balance`);
+        
+        console.log(`[Admin] ✅ Parsed values:`, {
+          priceAmount,
+          mxiAmount,
+          userBalance,
+        });
+
+        console.log(`[Admin] ========================================`);
+        
+        return {
+          ...request,
+          payment: payment,
+          user: user,
+          // Store parsed values for easy access
+          _price_amount: priceAmount,
+          _mxi_amount: mxiAmount,
+          _user_balance: userBalance,
+        };
+      });
       
-      console.log(`[Admin] ✅ All requests enriched with payment and user data`);
+      console.log(`[Admin] ✅ All ${enrichedRequests.length} requests enriched successfully`);
       setRequests(enrichedRequests);
     } catch (error: any) {
-      console.error('[Admin] ❌ Error loading verification requests:', error);
+      console.error('[Admin] ❌ CRITICAL ERROR loading verification requests:', error);
+      console.error('[Admin] Error message:', error.message);
       console.error('[Admin] Error stack:', error.stack);
       if (!skipLoadingState) {
         setError(error.message || 'Error al cargar las solicitudes');
@@ -630,7 +646,8 @@ export default function ManualVerificationRequestsScreen() {
   }, [loadRequests]);
 
   const openApproveModal = (request: any) => {
-    console.log('[Admin] ========== OPENING APPROVE MODAL ==========');
+    console.log('[Admin] ========================================');
+    console.log('[Admin] === OPENING APPROVE MODAL ===');
     console.log('[Admin] Request:', JSON.stringify(request, null, 2));
     console.log('[Admin] Payment data:', JSON.stringify(request.payment, null, 2));
     console.log('[Admin] Parsed price_amount:', request._price_amount);
@@ -1164,12 +1181,6 @@ export default function ManualVerificationRequestsScreen() {
             const priceAmount = request._price_amount || 0;
             const mxiAmount = request._mxi_amount || 0;
             const userBalance = request._user_balance || 0;
-
-            console.log(`[Admin] Rendering request ${index + 1}:`, {
-              priceAmount,
-              mxiAmount,
-              userBalance,
-            });
 
             return (
               <View key={index} style={styles.requestCard}>
