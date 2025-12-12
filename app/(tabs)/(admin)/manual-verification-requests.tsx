@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -377,10 +377,23 @@ export default function ManualVerificationRequestsScreen() {
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [approvedUsdtAmount, setApprovedUsdtAmount] = useState('');
   const [error, setError] = useState<string | null>(null);
+  
+  // Use ref to prevent multiple simultaneous loads
+  const loadingRef = useRef(false);
 
-  const loadRequests = useCallback(async () => {
+  const loadRequests = useCallback(async (skipLoadingState = false) => {
+    // Prevent multiple simultaneous loads
+    if (loadingRef.current) {
+      console.log('[Admin] Already loading, skipping duplicate load');
+      return;
+    }
+    
+    loadingRef.current = true;
+    
     try {
-      setError(null);
+      if (!skipLoadingState) {
+        setError(null);
+      }
       console.log(`[Admin] Loading verification requests for tab: ${activeTab}`);
       
       let query = supabase
@@ -425,12 +438,15 @@ export default function ManualVerificationRequestsScreen() {
         throw queryError;
       }
       
-      console.log(`[Admin] Loaded ${data?.length || 0} verification requests`);
+      console.log(`[Admin] Loaded ${data?.length || 0} verification requests for tab ${activeTab}`);
       setRequests(data || []);
     } catch (error: any) {
       console.error('[Admin] Error loading verification requests:', error);
-      setError(error.message || 'Error al cargar las solicitudes');
+      if (!skipLoadingState) {
+        setError(error.message || 'Error al cargar las solicitudes');
+      }
     } finally {
+      loadingRef.current = false;
       setLoading(false);
       setRefreshing(false);
     }
@@ -440,8 +456,9 @@ export default function ManualVerificationRequestsScreen() {
     console.log('[Admin] Setting up verification requests screen');
     loadRequests();
 
+    // Subscribe to changes in manual_verification_requests
     const channel = supabase
-      .channel('admin-verification-requests')
+      .channel('admin-verification-requests-updates')
       .on(
         'postgres_changes',
         {
@@ -450,11 +467,21 @@ export default function ManualVerificationRequestsScreen() {
           table: 'manual_verification_requests',
         },
         (payload) => {
-          console.log('[Admin] Verification request update:', payload);
-          loadRequests();
+          console.log('[Admin] Verification request update received:', payload);
+          console.log('[Admin] Event type:', payload.eventType);
+          console.log('[Admin] New record:', payload.new);
+          console.log('[Admin] Old record:', payload.old);
+          
+          // Reload requests with a small delay to ensure database consistency
+          setTimeout(() => {
+            console.log('[Admin] Reloading requests after real-time update...');
+            loadRequests(true);
+          }, 500);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[Admin] Subscription status:', status);
+      });
 
     return () => {
       console.log('[Admin] Cleaning up verification requests screen');
@@ -504,7 +531,13 @@ export default function ManualVerificationRequestsScreen() {
     setProcessingRequests(prev => new Set(prev).add(request.id));
 
     try {
-      console.log(`[Admin] Approving request ${request.id} with amount ${approvedUsdtAmount}`);
+      console.log(`[Admin] ========================================`);
+      console.log(`[Admin] === APPROVING REQUEST ${request.id} ===`);
+      console.log(`[Admin] ========================================`);
+      console.log(`[Admin] Approved amount: ${approvedUsdtAmount} USDT`);
+      console.log(`[Admin] Order ID: ${request.payments.order_id}`);
+      console.log(`[Admin] Payment ID: ${request.payments.payment_id || 'N/A'}`);
+      console.log(`[Admin] TX Hash: ${request.payments.tx_hash || 'N/A'}`);
 
       const requestBody: any = {
         order_id: request.payments.order_id,
@@ -529,82 +562,77 @@ export default function ManualVerificationRequestsScreen() {
       console.log('[Admin] Verification response:', data);
 
       if (data.success) {
+        // Always update the request status to approved when the edge function succeeds
+        console.log('[Admin] Edge function succeeded, updating request status to approved...');
+        
+        const updateData = {
+          status: 'approved',
+          reviewed_by: user?.id,
+          reviewed_at: new Date().toISOString(),
+          admin_notes: data.credited 
+            ? `Pago verificado y acreditado exitosamente. Monto aprobado: ${approvedUsdtAmount} USDT`
+            : data.already_credited
+            ? 'Pago ya había sido acreditado anteriormente'
+            : `Estado del pago: ${data.payment?.status}. Aprobado manualmente.`,
+          updated_at: new Date().toISOString(),
+        };
+        
+        console.log('[Admin] Updating manual_verification_requests with:', updateData);
+        
+        const { error: updateError } = await supabase
+          .from('manual_verification_requests')
+          .update(updateData)
+          .eq('id', request.id);
+
+        if (updateError) {
+          console.error('[Admin] Error updating request status:', updateError);
+          console.error('[Admin] Update error details:', JSON.stringify(updateError, null, 2));
+        } else {
+          console.log('[Admin] ✅ Request status updated to approved successfully');
+        }
+
+        // Show appropriate message
         if (data.credited) {
-          const { error: updateError } = await supabase
-            .from('manual_verification_requests')
-            .update({
-              status: 'approved',
-              reviewed_by: user?.id,
-              reviewed_at: new Date().toISOString(),
-              admin_notes: `Pago verificado y acreditado exitosamente. Monto aprobado: ${approvedUsdtAmount} USDT`,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', request.id);
-
-          if (updateError) {
-            console.error('[Admin] Error updating request status:', updateError);
-          } else {
-            console.log('[Admin] ✅ Request status updated to approved');
-          }
-
           showAlert(
-            '✅ Pago Aprobado',
+            '✅ Pago Aprobado y Acreditado',
             `El pago ha sido verificado y acreditado exitosamente.\n\n` +
             `${data.payment.mxi_amount} MXI han sido agregados a la cuenta del usuario.\n` +
-            `\nMonto USDT aprobado: ${approvedUsdtAmount}`,
+            `\nMonto USDT aprobado: ${approvedUsdtAmount}\n` +
+            `Nuevo saldo del usuario: ${data.payment.new_balance} MXI`,
             () => {
+              console.log('[Admin] Reloading requests after approval...');
               loadRequests();
             },
             'success'
           );
         } else if (data.already_credited) {
-          const { error: updateError } = await supabase
-            .from('manual_verification_requests')
-            .update({
-              status: 'approved',
-              reviewed_by: user?.id,
-              reviewed_at: new Date().toISOString(),
-              admin_notes: 'Pago ya había sido acreditado anteriormente',
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', request.id);
-
-          if (updateError) {
-            console.error('[Admin] Error updating request status:', updateError);
-          } else {
-            console.log('[Admin] ✅ Request status updated to approved (already credited)');
-          }
-
           showAlert(
             'ℹ️ Ya Acreditado',
-            'Este pago ya había sido acreditado anteriormente.',
+            'Este pago ya había sido acreditado anteriormente. La solicitud ha sido marcada como aprobada.',
             () => {
+              console.log('[Admin] Reloading requests after marking as approved...');
               loadRequests();
             },
             'info'
           );
         } else {
-          await supabase
-            .from('manual_verification_requests')
-            .update({
-              status: 'pending',
-              admin_notes: `Estado del pago: ${data.payment.status}. Aún no confirmado.`,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', request.id);
-
           showAlert(
-            'ℹ️ Pago No Confirmado',
-            `El pago aún no ha sido confirmado.\n\n` +
-            `Estado actual: ${data.payment.status}\n\n` +
-            `Por favor, espera a que el pago sea confirmado antes de aprobarlo.`,
+            '✅ Solicitud Aprobada',
+            `La solicitud ha sido aprobada.\n\n` +
+            `Estado del pago: ${data.payment?.status}\n` +
+            `Monto aprobado: ${approvedUsdtAmount} USDT`,
             () => {
+              console.log('[Admin] Reloading requests after approval...');
               loadRequests();
             },
-            'info'
+            'success'
           );
         }
       } else {
+        // Edge function failed
+        console.error('[Admin] Edge function failed:', data.error);
+        
+        // Update request with error note but keep as pending
         await supabase
           .from('manual_verification_requests')
           .update({
@@ -624,8 +652,14 @@ export default function ManualVerificationRequestsScreen() {
         );
       }
     } catch (error: any) {
-      console.error('[Admin] Error approving request:', error);
+      console.error('[Admin] ========================================');
+      console.error('[Admin] === ERROR APPROVING REQUEST ===');
+      console.error('[Admin] ========================================');
+      console.error('[Admin] Error:', error);
+      console.error('[Admin] Error message:', error.message);
+      console.error('[Admin] Error stack:', error.stack);
       
+      // Update request with error note
       await supabase
         .from('manual_verification_requests')
         .update({
@@ -670,20 +704,29 @@ export default function ManualVerificationRequestsScreen() {
     setProcessingRequests(prev => new Set(prev).add(selectedRequest.id));
 
     try {
-      console.log(`[Admin] Rejecting request ${selectedRequest.id}`);
+      console.log(`[Admin] ========================================`);
+      console.log(`[Admin] === REJECTING REQUEST ${selectedRequest.id} ===`);
+      console.log(`[Admin] ========================================`);
+      console.log(`[Admin] Rejection reason:`, rejectReason);
+
+      const updateData = {
+        status: 'rejected',
+        reviewed_by: user?.id,
+        reviewed_at: new Date().toISOString(),
+        admin_notes: rejectReason.trim(),
+        updated_at: new Date().toISOString(),
+      };
+      
+      console.log('[Admin] Updating manual_verification_requests with:', updateData);
 
       const { error: updateError } = await supabase
         .from('manual_verification_requests')
-        .update({
-          status: 'rejected',
-          reviewed_by: user?.id,
-          reviewed_at: new Date().toISOString(),
-          admin_notes: rejectReason.trim(),
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', selectedRequest.id);
 
       if (updateError) {
+        console.error('[Admin] Error rejecting request:', updateError);
+        console.error('[Admin] Update error details:', JSON.stringify(updateError, null, 2));
         throw updateError;
       }
 
@@ -693,6 +736,7 @@ export default function ManualVerificationRequestsScreen() {
         '✅ Solicitud Rechazada',
         'La solicitud ha sido rechazada exitosamente. El usuario recibirá una notificación con el motivo.',
         () => {
+          console.log('[Admin] Reloading requests after rejection...');
           loadRequests();
         },
         'success'
@@ -732,20 +776,29 @@ export default function ManualVerificationRequestsScreen() {
     setProcessingRequests(prev => new Set(prev).add(selectedRequest.id));
 
     try {
-      console.log(`[Admin] Requesting more info for request ${selectedRequest.id}`);
+      console.log(`[Admin] ========================================`);
+      console.log(`[Admin] === REQUESTING MORE INFO ${selectedRequest.id} ===`);
+      console.log(`[Admin] ========================================`);
+      console.log(`[Admin] Info request:`, moreInfoText);
+
+      const updateData = {
+        status: 'more_info_requested',
+        admin_request_info: moreInfoText.trim(),
+        admin_request_info_at: new Date().toISOString(),
+        reviewed_by: user?.id,
+        updated_at: new Date().toISOString(),
+      };
+      
+      console.log('[Admin] Updating manual_verification_requests with:', updateData);
 
       const { error: updateError } = await supabase
         .from('manual_verification_requests')
-        .update({
-          status: 'more_info_requested',
-          admin_request_info: moreInfoText.trim(),
-          admin_request_info_at: new Date().toISOString(),
-          reviewed_by: user?.id,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', selectedRequest.id);
 
       if (updateError) {
+        console.error('[Admin] Error requesting more info:', updateError);
+        console.error('[Admin] Update error details:', JSON.stringify(updateError, null, 2));
         throw updateError;
       }
 
@@ -755,6 +808,7 @@ export default function ManualVerificationRequestsScreen() {
         '✅ Información Solicitada',
         'Se ha solicitado más información al usuario. El usuario recibirá una notificación.',
         () => {
+          console.log('[Admin] Reloading requests after info request...');
           loadRequests();
         },
         'success'
@@ -798,15 +852,15 @@ export default function ManualVerificationRequestsScreen() {
   const getStatusText = (status: string) => {
     switch (status) {
       case 'approved':
-        return 'Aprobado';
+        return 'Aprobado ✅';
       case 'pending':
-        return 'Pendiente';
+        return 'Pendiente 🔄';
       case 'reviewing':
-        return 'Revisando';
+        return 'Revisando 👀';
       case 'rejected':
-        return 'Rechazado';
+        return 'Rechazado ❌';
       case 'more_info_requested':
-        return 'Info Solicitada';
+        return 'Info Solicitada 📋';
       default:
         return status;
     }
@@ -895,7 +949,11 @@ export default function ManualVerificationRequestsScreen() {
       <View style={styles.tabContainer}>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'pending' && styles.tabActive]}
-          onPress={() => setActiveTab('pending')}
+          onPress={() => {
+            console.log('[Admin] Switching to pending tab');
+            setActiveTab('pending');
+            setLoading(true);
+          }}
         >
           <Text style={[styles.tabText, activeTab === 'pending' && styles.tabTextActive]}>
             Pendientes
@@ -903,7 +961,11 @@ export default function ManualVerificationRequestsScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'approved' && styles.tabActive]}
-          onPress={() => setActiveTab('approved')}
+          onPress={() => {
+            console.log('[Admin] Switching to approved tab');
+            setActiveTab('approved');
+            setLoading(true);
+          }}
         >
           <Text style={[styles.tabText, activeTab === 'approved' && styles.tabTextActive]}>
             Aprobadas
@@ -911,7 +973,11 @@ export default function ManualVerificationRequestsScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'rejected' && styles.tabActive]}
-          onPress={() => setActiveTab('rejected')}
+          onPress={() => {
+            console.log('[Admin] Switching to rejected tab');
+            setActiveTab('rejected');
+            setLoading(true);
+          }}
         >
           <Text style={[styles.tabText, activeTab === 'rejected' && styles.tabTextActive]}>
             Rechazadas
@@ -919,7 +985,11 @@ export default function ManualVerificationRequestsScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'all' && styles.tabActive]}
-          onPress={() => setActiveTab('all')}
+          onPress={() => {
+            console.log('[Admin] Switching to all tab');
+            setActiveTab('all');
+            setLoading(true);
+          }}
         >
           <Text style={[styles.tabText, activeTab === 'all' && styles.tabTextActive]}>
             Todas
@@ -1004,7 +1074,7 @@ export default function ManualVerificationRequestsScreen() {
                 </View>
 
                 <View style={styles.requestRow}>
-                  <Text style={styles.requestLabel}>Balance Actual:</Text>
+                  <Text style={styles.requestLabel}>Saldo Actual:</Text>
                   <Text style={styles.requestValue}>
                     {parseFloat(request.users?.mxi_balance || 0).toFixed(2)} MXI
                   </Text>

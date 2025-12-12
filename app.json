@@ -94,5 +94,6 @@
     "assetBundlePatterns": [
       "**/*"
     ]
-  }
+  },
+  "scheme": "MXI Liquidity Pool"
 }

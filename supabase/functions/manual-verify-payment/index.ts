@@ -427,6 +427,7 @@ Deno.serve(async (req) => {
           mxi: actualMxiAmount,
           estado: 'confirmado',
           status: 'confirmed',
+          payment_status: 'finished',
           updated_at: new Date().toISOString(),
         })
         .eq('id', payment.id);
@@ -462,7 +463,7 @@ Deno.serve(async (req) => {
     await supabase
       .from('transaction_history')
       .update({
-        status: paymentStatus,
+        status: paymentStatus === 'confirmed' ? 'finished' : paymentStatus,
         updated_at: new Date().toISOString(),
       })
       .eq('order_id', order_id);
@@ -490,13 +491,18 @@ Deno.serve(async (req) => {
       // Update user balance
       const newMxiBalance = parseFloat(userData.mxi_balance) + actualMxiAmount;
       const newUsdtContributed = parseFloat(userData.usdt_contributed) + actualUsdtAmount;
+      const newMxiPurchasedDirectly = parseFloat(userData.mxi_purchased_directly || 0) + actualMxiAmount;
+
+      console.log(`[${requestId}] New MXI balance: ${newMxiBalance}`);
+      console.log(`[${requestId}] New USDT contributed: ${newUsdtContributed}`);
+      console.log(`[${requestId}] New MXI purchased directly: ${newMxiPurchasedDirectly}`);
 
       const { error: userUpdateError } = await supabase
         .from('users')
         .update({
           mxi_balance: newMxiBalance,
           usdt_contributed: newUsdtContributed,
-          mxi_purchased_directly: parseFloat(userData.mxi_purchased_directly || 0) + actualMxiAmount,
+          mxi_purchased_directly: newMxiPurchasedDirectly,
           is_active_contributor: true,
           updated_at: new Date().toISOString(),
         })
@@ -533,12 +539,16 @@ Deno.serve(async (req) => {
         console.log(`[${requestId}] ✅ Metrics updated`);
       }
 
-      // Mark payment as confirmed
+      // Mark payment as confirmed with timestamp
+      const confirmTimestamp = new Date().toISOString();
       await supabase
         .from('payments')
         .update({
           status: 'confirmed',
-          confirmed_at: new Date().toISOString(),
+          estado: 'confirmado',
+          payment_status: 'finished',
+          confirmed_at: confirmTimestamp,
+          updated_at: confirmTimestamp,
         })
         .eq('id', payment.id);
 
@@ -547,11 +557,12 @@ Deno.serve(async (req) => {
         .from('transaction_history')
         .update({
           status: 'finished',
-          completed_at: new Date().toISOString(),
+          completed_at: confirmTimestamp,
+          updated_at: confirmTimestamp,
         })
         .eq('order_id', order_id);
 
-      console.log(`[${requestId}] ✅ Payment marked as confirmed`);
+      console.log(`[${requestId}] ✅ Payment marked as confirmed at ${confirmTimestamp}`);
 
       console.log(`[${requestId}] ========== SUCCESS - PAYMENT CREDITED ==========\n`);
 

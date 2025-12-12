@@ -20,7 +20,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 type DocumentType = 'passport' | 'national_id' | 'drivers_license';
 
@@ -127,7 +127,7 @@ export default function KYCVerificationScreen() {
 
       console.log(`[${timestamp}] Image picker result:`, result);
 
-      if (!result.canceled && result.assets[0]) {
+      if (!result.canceled && result.assets && result.assets[0]) {
         const asset = result.assets[0];
         console.log(`[${timestamp}] Image selected for ${side}:`, asset.uri);
         console.log(`[${timestamp}] Image size:`, asset.width, 'x', asset.height);
@@ -166,6 +166,7 @@ export default function KYCVerificationScreen() {
       console.log(`[${timestamp}] === UPLOADING ${side.toUpperCase()} IMAGE ===`);
       console.log(`[${timestamp}] URI:`, uri);
       console.log(`[${timestamp}] User ID:`, user.id);
+      console.log(`[${timestamp}] Platform:`, Platform.OS);
       
       // Get file extension
       const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
@@ -173,7 +174,7 @@ export default function KYCVerificationScreen() {
       console.log(`[${timestamp}] Target filename:`, fileName);
 
       let fileData: any;
-      let contentType = `image/${fileExt}`;
+      let contentType = `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`;
 
       if (Platform.OS === 'web') {
         // Web platform: use fetch and blob
@@ -192,14 +193,27 @@ export default function KYCVerificationScreen() {
         // Native platform: use FileSystem to read as base64 and convert to ArrayBuffer
         console.log(`[${timestamp}] Native platform: Reading file with FileSystem...`);
         
-        const base64 = await FileSystem.readAsStringAsync(uri, {
+        // Check if file exists
+        const fileInfo = await FileSystem.getInfoAsync(uri);
+        console.log(`[${timestamp}] File info:`, fileInfo);
+        
+        if (!fileInfo.exists) {
+          throw new Error('File does not exist');
+        }
+        
+        // Read file as base64
+        const base64Data = await FileSystem.readAsStringAsync(uri, {
           encoding: FileSystem.EncodingType.Base64,
         });
         
-        console.log(`[${timestamp}] File read as base64, length:`, base64.length);
+        if (!base64Data) {
+          throw new Error('Failed to read file as base64 - result is empty');
+        }
+        
+        console.log(`[${timestamp}] File read as base64, length:`, base64Data.length);
         
         // Convert base64 to ArrayBuffer
-        const binaryString = atob(base64);
+        const binaryString = atob(base64Data);
         const bytes = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
           bytes[i] = binaryString.charCodeAt(i);

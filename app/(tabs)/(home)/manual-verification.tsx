@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -69,61 +69,24 @@ export default function ManualVerificationScreen() {
   
   // Tab state
   const [activeTab, setActiveTab] = useState<'nowpayments' | 'usdt'>('nowpayments');
+  
+  // Use ref to prevent multiple simultaneous loads
+  const loadingPaymentsRef = useRef(false);
+  const loadingVerificationsRef = useRef(false);
 
-  useEffect(() => {
-    if (user) {
-      console.log('🔵 [ManualVerification] User logged in:', user.id);
-      loadPayments();
-      loadVerificationRequests();
-
-      // Subscribe to payment updates
-      const paymentsChannel = supabase
-        .channel('manual-verification-payments')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'payments',
-            filter: `user_id=eq.${user.id}`,
-          },
-          () => {
-            console.log('🔵 [ManualVerification] Payment update received, reloading...');
-            loadPayments();
-          }
-        )
-        .subscribe();
-
-      // Subscribe to verification request updates
-      const verificationsChannel = supabase
-        .channel('manual-verification-requests')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'manual_verification_requests',
-            filter: `user_id=eq.${user.id}`,
-          },
-          () => {
-            console.log('🔵 [ManualVerification] Verification request update received, reloading...');
-            loadVerificationRequests();
-          }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(paymentsChannel);
-        supabase.removeChannel(verificationsChannel);
-      };
-    }
-  }, [user]);
-
-  const loadPayments = async () => {
+  const loadPayments = useCallback(async (skipLoadingState = false) => {
     if (!user) {
       console.log('⚠️ [ManualVerification] No user found, skipping payment load');
       return;
     }
+    
+    // Prevent multiple simultaneous loads
+    if (loadingPaymentsRef.current) {
+      console.log('[ManualVerification] Already loading payments, skipping duplicate load');
+      return;
+    }
+    
+    loadingPaymentsRef.current = true;
     
     try {
       console.log('🔵 [ManualVerification] Loading payments for user:', user.id);
@@ -143,18 +106,31 @@ export default function ManualVerificationScreen() {
       setPayments(data || []);
     } catch (error) {
       console.error('❌ [ManualVerification] Error loading payments:', error);
-      showAlert(t('error'), t('couldNotLoadVestingInfo'), undefined, 'error');
+      if (!skipLoadingState) {
+        showAlert(t('error'), t('couldNotLoadVestingInfo'), undefined, 'error');
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      loadingPaymentsRef.current = false;
+      if (!skipLoadingState) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
-  };
+  }, [user, t]);
 
-  const loadVerificationRequests = async () => {
+  const loadVerificationRequests = useCallback(async (skipLoadingState = false) => {
     if (!user) {
       console.log('⚠️ [ManualVerification] No user found, skipping verification requests load');
       return;
     }
+    
+    // Prevent multiple simultaneous loads
+    if (loadingVerificationsRef.current) {
+      console.log('[ManualVerification] Already loading verifications, skipping duplicate load');
+      return;
+    }
+    
+    loadingVerificationsRef.current = true;
     
     try {
       console.log('🔵 [ManualVerification] Loading verification requests for user:', user.id);
@@ -176,15 +152,77 @@ export default function ManualVerificationScreen() {
       setVerificationRequests(requestsMap);
     } catch (error) {
       console.error('❌ [ManualVerification] Error loading verification requests:', error);
+    } finally {
+      loadingVerificationsRef.current = false;
     }
-  };
+  }, [user]);
 
-  const onRefresh = () => {
+  useEffect(() => {
+    if (user) {
+      console.log('🔵 [ManualVerification] User logged in:', user.id);
+      loadPayments();
+      loadVerificationRequests();
+
+      // Subscribe to payment updates
+      const paymentsChannel = supabase
+        .channel('manual-verification-payments-channel')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'payments',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            console.log('🔵 [ManualVerification] Payment update received:', payload.eventType);
+            // Reload with a small delay to ensure database consistency
+            setTimeout(() => {
+              loadPayments(true);
+            }, 500);
+          }
+        )
+        .subscribe((status) => {
+          console.log('🔵 [ManualVerification] Payments subscription status:', status);
+        });
+
+      // Subscribe to verification request updates
+      const verificationsChannel = supabase
+        .channel('manual-verification-requests-channel')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'manual_verification_requests',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            console.log('🔵 [ManualVerification] Verification request update received:', payload.eventType);
+            // Reload with a small delay to ensure database consistency
+            setTimeout(() => {
+              loadVerificationRequests(true);
+            }, 500);
+          }
+        )
+        .subscribe((status) => {
+          console.log('🔵 [ManualVerification] Verifications subscription status:', status);
+        });
+
+      return () => {
+        console.log('🔵 [ManualVerification] Cleaning up subscriptions');
+        supabase.removeChannel(paymentsChannel);
+        supabase.removeChannel(verificationsChannel);
+      };
+    }
+  }, [user, loadPayments, loadVerificationRequests]);
+
+  const onRefresh = useCallback(() => {
     console.log('🔵 [ManualVerification] Refreshing data...');
     setRefreshing(true);
     loadPayments();
     loadVerificationRequests();
-  };
+  }, [loadPayments, loadVerificationRequests]);
 
   const copyToClipboard = async (text: string, label: string) => {
     try {
