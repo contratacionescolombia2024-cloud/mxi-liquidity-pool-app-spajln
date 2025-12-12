@@ -38,6 +38,8 @@ export default function ConfirmDialog({
   type = 'info',
   icon,
 }: ConfirmDialogProps) {
+  console.log('ConfirmDialog rendered:', { visible, title, type });
+
   const getTypeColor = () => {
     switch (type) {
       case 'warning':
@@ -70,15 +72,33 @@ export default function ConfirmDialog({
   // For single-button alerts (when cancelText is empty)
   const isSingleButton = !cancelText || cancelText === '';
 
+  const handleConfirm = () => {
+    console.log('ConfirmDialog: Confirm button pressed');
+    try {
+      onConfirm();
+    } catch (error) {
+      console.error('Error in onConfirm callback:', error);
+    }
+  };
+
+  const handleCancel = () => {
+    console.log('ConfirmDialog: Cancel button pressed');
+    try {
+      onCancel();
+    } catch (error) {
+      console.error('Error in onCancel callback:', error);
+    }
+  };
+
   return (
     <Modal
       visible={visible}
       transparent={true}
       animationType="fade"
-      onRequestClose={onCancel}
+      onRequestClose={handleCancel}
       statusBarTranslucent={true}
     >
-      <Pressable style={styles.overlay} onPress={onCancel}>
+      <Pressable style={styles.overlay} onPress={handleCancel}>
         <Pressable style={styles.dialog} onPress={(e) => e.stopPropagation()}>
           <View style={[styles.iconContainer, { backgroundColor: typeColor + '20' }]}>
             <IconSymbol
@@ -96,7 +116,7 @@ export default function ConfirmDialog({
             {!isSingleButton && (
               <TouchableOpacity
                 style={[styles.button, styles.cancelButton]}
-                onPress={onCancel}
+                onPress={handleCancel}
                 activeOpacity={0.7}
               >
                 <Text style={styles.cancelButtonText}>{cancelText}</Text>
@@ -110,7 +130,7 @@ export default function ConfirmDialog({
                 { backgroundColor: typeColor },
                 isSingleButton && styles.singleButton
               ]}
-              onPress={onConfirm}
+              onPress={handleConfirm}
               activeOpacity={0.7}
             >
               <Text style={styles.confirmButtonText}>{confirmText}</Text>

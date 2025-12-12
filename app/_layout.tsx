@@ -83,9 +83,10 @@ export default function RootLayout() {
     if (Platform.OS === 'web') {
       console.log('🌐 Registering web confirm handler...');
       registerWebConfirmHandler((config: ConfirmConfig) => {
-        console.log('Web confirm dialog requested:', config.title);
+        console.log('Web confirm dialog requested:', config.title, config);
         setConfirmDialogConfig(config);
       });
+      console.log('✅ Web confirm handler registered successfully');
     }
   }, []);
 

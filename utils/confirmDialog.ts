@@ -42,13 +42,23 @@ export function showConfirm(config: ConfirmConfig) {
     onCancel,
   } = config;
 
-  console.log('showConfirm called:', { title, platform: Platform.OS });
+  console.log('showConfirm called:', { title, platform: Platform.OS, hasWebCallback: !!webConfirmCallback });
 
   if (Platform.OS === 'web') {
     // Use custom dialog on web
     if (webConfirmCallback) {
       console.log('Using web confirm callback');
-      webConfirmCallback(config);
+      try {
+        webConfirmCallback(config);
+      } catch (error) {
+        console.error('Error calling web confirm callback:', error);
+        // Fallback to browser confirm
+        if (window.confirm(`${title}\n\n${message}`)) {
+          onConfirm();
+        } else if (onCancel) {
+          onCancel();
+        }
+      }
     } else {
       console.warn('Web confirm callback not registered, using fallback');
       // Fallback to browser confirm
