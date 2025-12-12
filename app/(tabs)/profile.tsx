@@ -6,7 +6,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -15,6 +14,7 @@ import { colors, commonStyles } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { IconSymbol } from '@/components/IconSymbol';
+import { showConfirm } from '@/utils/confirmDialog';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -36,22 +36,33 @@ export default function ProfileScreen() {
   }, [user]);
 
   const handleLogout = () => {
-    Alert.alert(
-      t('logout'),
-      t('areYouSureLogout'),
-      [
-        { text: t('cancel'), style: 'cancel' },
-        {
-          text: t('logout'),
-          style: 'destructive',
-          onPress: async () => {
-            setLoggingOut(true);
-            await logout();
-            setLoggingOut(false);
-          },
-        },
-      ]
-    );
+    console.log('Logout button pressed, showing confirmation dialog');
+    showConfirm({
+      title: t('logout'),
+      message: t('areYouSureLogout'),
+      confirmText: t('logout'),
+      cancelText: t('cancel'),
+      type: 'warning',
+      icon: {
+        ios: 'rectangle.portrait.and.arrow.right',
+        android: 'logout',
+      },
+      onConfirm: async () => {
+        console.log('Logout confirmed');
+        setLoggingOut(true);
+        try {
+          await logout();
+          console.log('Logout successful');
+        } catch (error) {
+          console.error('Error during logout:', error);
+        } finally {
+          setLoggingOut(false);
+        }
+      },
+      onCancel: () => {
+        console.log('Logout cancelled');
+      },
+    });
   };
 
   if (!user) {
