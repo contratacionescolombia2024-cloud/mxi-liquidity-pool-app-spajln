@@ -7,10 +7,10 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
   RefreshControl,
   TextInput,
   Modal,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,7 +19,6 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { supabase } from '@/lib/supabase';
 import { UniversalMXICounter } from '@/components/UniversalMXICounter';
-import { showAlert, showConfirm } from '@/utils/confirmDialog';
 
 interface AdminStats {
   pendingKYC: number;
@@ -420,29 +419,6 @@ const styles = StyleSheet.create({
   disabledButton: {
     opacity: 0.5,
   },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorText: {
-    fontSize: 16,
-    color: colors.error,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  retryButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  retryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000',
-  },
 });
 
 export default function AdminDashboard() {
@@ -456,142 +432,76 @@ export default function AdminDashboard() {
   const [resetModalVisible, setResetModalVisible] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
   const [resetting, setResetting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log('[AdminDashboard] Component mounted');
-    console.log('[AdminDashboard] User:', user?.id, user?.email);
-    
     if (user) {
       checkAdminAccess();
-    } else {
-      console.log('[AdminDashboard] No user found, redirecting to home');
-      router.replace('/(tabs)/(home)');
     }
   }, [user]);
 
   const checkAdminAccess = async () => {
     try {
-      console.log('[AdminDashboard] Checking admin access for user:', user?.id);
-      
-      if (!user?.id) {
-        console.log('[AdminDashboard] No user ID, redirecting');
-        router.replace('/(tabs)/(home)');
-        return;
-      }
-
       const { data, error } = await supabase
         .from('admin_users')
         .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
+        .eq('user_id', user?.id)
+        .single();
 
-      console.log('[AdminDashboard] Admin check result:', { data, error });
-
-      if (error) {
-        console.error('[AdminDashboard] Error checking admin access:', error);
-        setError('Error al verificar permisos de administrador');
-        showAlert({
-          title: 'Acceso Denegado',
-          message: 'No tienes permisos de administrador',
-          confirmText: 'OK',
-        });
+      if (error || !data) {
+        Alert.alert('Acceso Denegado', 'No tienes permisos de administrador');
         router.replace('/(tabs)/(home)');
         return;
       }
 
-      if (!data) {
-        console.log('[AdminDashboard] User is not an admin');
-        showAlert({
-          title: 'Acceso Denegado',
-          message: 'No tienes permisos de administrador',
-          confirmText: 'OK',
-        });
-        router.replace('/(tabs)/(home)');
-        return;
-      }
-
-      console.log('[AdminDashboard] User is admin, loading stats');
       setIsAdmin(true);
       await loadStats();
     } catch (error) {
-      console.error('[AdminDashboard] Exception checking admin access:', error);
-      setError('Error inesperado al verificar permisos');
+      console.error('Error checking admin access:', error);
       router.replace('/(tabs)/(home)');
     }
   };
 
   const loadStats = useCallback(async () => {
     try {
-      console.log('[AdminDashboard] Loading stats...');
       setLoading(true);
-      setError(null);
 
       // Load KYC stats
-      const { data: kycData, error: kycError } = await supabase
+      const { data: kycData } = await supabase
         .from('kyc_verifications')
         .select('status');
 
-      if (kycError) {
-        console.error('[AdminDashboard] KYC error:', kycError);
-      }
-
       // Load withdrawal stats
-      const { data: withdrawalData, error: withdrawalError } = await supabase
+      const { data: withdrawalData } = await supabase
         .from('withdrawals')
         .select('status');
 
-      if (withdrawalError) {
-        console.error('[AdminDashboard] Withdrawal error:', withdrawalError);
-      }
-
       // Load message stats
-      const { data: messageData, error: messageError } = await supabase
+      const { data: messageData } = await supabase
         .from('messages')
         .select('status');
 
-      if (messageError) {
-        console.error('[AdminDashboard] Message error:', messageError);
-      }
-
       // Load user stats
-      const { data: userData, error: userError } = await supabase
+      const { data: userData } = await supabase
         .from('users')
         .select('mxi_purchased_directly, mxi_from_unified_commissions, mxi_from_challenges, mxi_vesting_locked, usdt_contributed, is_active_contributor, accumulated_yield');
 
-      if (userError) {
-        console.error('[AdminDashboard] User error:', userError);
-      }
-
       // Load commission stats
-      const { data: commissionData, error: commissionError } = await supabase
+      const { data: commissionData } = await supabase
         .from('commissions')
         .select('amount');
 
-      if (commissionError) {
-        console.error('[AdminDashboard] Commission error:', commissionError);
-      }
-
       // Load phase metrics
-      const { data: metricsData, error: metricsError } = await supabase
+      const { data: metricsData } = await supabase
         .from('metrics')
         .select('*')
-        .maybeSingle();
-
-      if (metricsError) {
-        console.error('[AdminDashboard] Metrics error:', metricsError);
-      }
+        .single();
 
       // Load manual verification requests
-      const { data: verificationData, error: verificationError } = await supabase
+      const { data: verificationData } = await supabase
         .from('manual_verification_requests')
         .select('status');
 
-      if (verificationError) {
-        console.error('[AdminDashboard] Verification error:', verificationError);
-      }
-
-      // Calculate stats with safe defaults
+      // Calculate stats
       const pendingKYC = kycData?.filter((k) => k.status === 'pending').length || 0;
       const approvedKYC = kycData?.filter((k) => k.status === 'approved').length || 0;
       const rejectedKYC = kycData?.filter((k) => k.status === 'rejected').length || 0;
@@ -645,11 +555,8 @@ export default function AdminDashboard() {
           totalMembers: metricsData.total_members || 0,
         });
       }
-
-      console.log('[AdminDashboard] Stats loaded successfully');
     } catch (error) {
-      console.error('[AdminDashboard] Error loading stats:', error);
-      setError('Error al cargar estadísticas');
+      console.error('Error loading stats:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -663,11 +570,7 @@ export default function AdminDashboard() {
 
   const handleResetAllUsers = async () => {
     if (confirmationText !== 'RESETEAR') {
-      showAlert({
-        title: 'Error',
-        message: 'Debes escribir "RESETEAR" para confirmar',
-        confirmText: 'OK',
-      });
+      Alert.alert('Error', 'Debes escribir "RESETEAR" para confirmar');
       return;
     }
 
@@ -681,47 +584,43 @@ export default function AdminDashboard() {
       if (error) throw error;
 
       if (data?.success) {
-        showAlert({
-          title: '✅ Sistema Reiniciado',
-          message: data.message + '\n\nLa página se recargará para actualizar los datos.',
-          confirmText: 'OK',
-          onConfirm: async () => {
-            setResetModalVisible(false);
-            setConfirmationText('');
-            
-            if (user?.id) {
-              const { data: freshUserData } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', user.id)
-                .maybeSingle();
-              
-              console.log('Fresh user data after reset:', freshUserData);
-            }
-            
-            await loadStats();
-            
-            showAlert({
-              title: '✅ Actualización Completa',
-              message: 'Todos los datos han sido actualizados. El balance del administrador ahora es 0.',
-              confirmText: 'OK',
-            });
-          },
-        });
+        Alert.alert(
+          '✅ Sistema Reiniciado',
+          data.message + '\n\nLa página se recargará para actualizar los datos.',
+          [
+            {
+              text: 'OK',
+              onPress: async () => {
+                setResetModalVisible(false);
+                setConfirmationText('');
+                
+                if (user?.id) {
+                  const { data: freshUserData } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', user.id)
+                    .single();
+                  
+                  console.log('Fresh user data after reset:', freshUserData);
+                }
+                
+                await loadStats();
+                
+                Alert.alert(
+                  '✅ Actualización Completa',
+                  'Todos los datos han sido actualizados. El balance del administrador ahora es 0.',
+                  [{ text: 'OK' }]
+                );
+              },
+            },
+          ]
+        );
       } else {
-        showAlert({
-          title: '❌ Error',
-          message: data?.error || 'Error al reiniciar el sistema',
-          confirmText: 'OK',
-        });
+        Alert.alert('❌ Error', data?.error || 'Error al reiniciar el sistema');
       }
     } catch (error: any) {
       console.error('Error resetting users:', error);
-      showAlert({
-        title: '❌ Error',
-        message: error.message || 'Error al reiniciar el sistema',
-        confirmText: 'OK',
-      });
+      Alert.alert('❌ Error', error.message || 'Error al reiniciar el sistema');
     } finally {
       setResetting(false);
     }
@@ -740,41 +639,11 @@ export default function AdminDashboard() {
     return ((phaseMetrics.totalTokensSold / total) * 100).toFixed(2);
   };
 
-  // Error state
-  if (error && !loading) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.errorContainer}>
-          <IconSymbol 
-            ios_icon_name="exclamationmark.triangle.fill" 
-            android_material_icon_name="error" 
-            size={64} 
-            color={colors.error} 
-          />
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity 
-            style={styles.retryButton}
-            onPress={() => {
-              setError(null);
-              checkAdminAccess();
-            }}
-          >
-            <Text style={styles.retryButtonText}>Reintentar</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // Loading state
   if (loading && !stats) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={{ marginTop: 16, fontSize: 16, color: colors.text }}>
-            Cargando panel de administración...
-          </Text>
         </View>
       </SafeAreaView>
     );
@@ -802,7 +671,7 @@ export default function AdminDashboard() {
 
           <View style={styles.header}>
             <Text style={styles.welcomeText}>Panel de Administración</Text>
-            <Text style={styles.subtitleText}>Bienvenido, {user?.name || 'Admin'}</Text>
+            <Text style={styles.subtitleText}>Bienvenido, {user?.name}</Text>
           </View>
         </View>
 
