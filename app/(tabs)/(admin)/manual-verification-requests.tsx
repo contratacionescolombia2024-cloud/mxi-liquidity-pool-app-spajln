@@ -380,10 +380,18 @@ const styles = StyleSheet.create({
   },
 });
 
-// ✅ FIX: Helper function to safely parse numeric values
-const safeParseFloat = (value: any, defaultValue: number = 0): number => {
+// ✅ ENHANCED: Helper function to safely parse numeric values with extensive logging
+const safeParseFloat = (value: any, defaultValue: number = 0, fieldName: string = 'unknown'): number => {
+  console.log(`[Admin] safeParseFloat called for ${fieldName}:`, {
+    value,
+    type: typeof value,
+    isNull: value === null,
+    isUndefined: value === undefined,
+    isEmpty: value === '',
+  });
+
   if (value === null || value === undefined || value === '') {
-    console.log(`[Admin] safeParseFloat: value is null/undefined/empty, returning default ${defaultValue}`);
+    console.log(`[Admin] ${fieldName}: value is null/undefined/empty, returning default ${defaultValue}`);
     return defaultValue;
   }
   
@@ -391,33 +399,36 @@ const safeParseFloat = (value: any, defaultValue: number = 0): number => {
   if (typeof value === 'string') {
     const trimmed = value.trim();
     if (trimmed === '') {
-      console.log(`[Admin] safeParseFloat: string is empty after trim, returning default ${defaultValue}`);
+      console.log(`[Admin] ${fieldName}: string is empty after trim, returning default ${defaultValue}`);
       return defaultValue;
     }
     const parsed = parseFloat(trimmed);
     if (isNaN(parsed)) {
-      console.log(`[Admin] safeParseFloat: parsed string is NaN, returning default ${defaultValue}`);
+      console.log(`[Admin] ${fieldName}: parsed string is NaN, returning default ${defaultValue}`);
       return defaultValue;
     }
+    console.log(`[Admin] ${fieldName}: successfully parsed string "${trimmed}" to ${parsed}`);
     return parsed;
   }
   
   // Handle numeric values
   if (typeof value === 'number') {
     if (isNaN(value)) {
-      console.log(`[Admin] safeParseFloat: number is NaN, returning default ${defaultValue}`);
+      console.log(`[Admin] ${fieldName}: number is NaN, returning default ${defaultValue}`);
       return defaultValue;
     }
+    console.log(`[Admin] ${fieldName}: number value ${value}`);
     return value;
   }
   
   // Try to parse as number
   const parsed = parseFloat(value);
   if (isNaN(parsed)) {
-    console.log(`[Admin] safeParseFloat: final parse is NaN, returning default ${defaultValue}`);
+    console.log(`[Admin] ${fieldName}: final parse is NaN, returning default ${defaultValue}`);
     return defaultValue;
   }
   
+  console.log(`[Admin] ${fieldName}: successfully parsed to ${parsed}`);
   return parsed;
 };
 
@@ -458,30 +469,10 @@ export default function ManualVerificationRequestsScreen() {
       console.log(`[Admin] Tab: ${activeTab}`);
       console.log(`[Admin] Timestamp:`, new Date().toISOString());
       
+      // ✅ FIX: Use separate queries to ensure we get all data correctly
       let query = supabase
         .from('manual_verification_requests')
-        .select(`
-          *,
-          payments (
-            id,
-            order_id,
-            payment_id,
-            price_amount,
-            mxi_amount,
-            price_per_mxi,
-            phase,
-            pay_currency,
-            status,
-            tx_hash,
-            created_at
-          ),
-          users (
-            id,
-            email,
-            name,
-            mxi_balance
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (activeTab === 'pending') {
@@ -492,7 +483,7 @@ export default function ManualVerificationRequestsScreen() {
         query = query.eq('status', 'rejected');
       }
 
-      const { data, error: queryError } = await query;
+      const { data: requestsData, error: queryError } = await query;
 
       if (queryError) {
         console.error('[Admin] ❌ Error loading verification requests:', queryError);
@@ -501,43 +492,70 @@ export default function ManualVerificationRequestsScreen() {
         throw queryError;
       }
       
-      console.log(`[Admin] ✅ Loaded ${data?.length || 0} verification requests for tab ${activeTab}`);
+      console.log(`[Admin] ✅ Loaded ${requestsData?.length || 0} verification requests for tab ${activeTab}`);
       
-      // ✅ FIX: Enhanced logging to debug data issues
-      if (data && data.length > 0) {
-        data.forEach((request, index) => {
-          console.log(`[Admin] ========== Request ${index + 1} ==========`);
-          console.log(`[Admin] Request ID: ${request.id}`);
-          console.log(`[Admin] Order ID: ${request.order_id}`);
-          console.log(`[Admin] Status: ${request.status}`);
-          console.log(`[Admin] Payment ID (FK): ${request.payment_id}`);
-          
-          if (request.payments) {
-            console.log(`[Admin] ✅ Payment data found:`);
-            console.log(`[Admin]   - price_amount: ${request.payments.price_amount} (type: ${typeof request.payments.price_amount})`);
-            console.log(`[Admin]   - payment_id: ${request.payments.payment_id}`);
-            console.log(`[Admin]   - tx_hash: ${request.payments.tx_hash || 'N/A'}`);
-            console.log(`[Admin]   - mxi_amount: ${request.payments.mxi_amount} (type: ${typeof request.payments.mxi_amount})`);
-            console.log(`[Admin]   - pay_currency: ${request.payments.pay_currency}`);
-            console.log(`[Admin]   - status: ${request.payments.status}`);
-          } else {
-            console.error(`[Admin] ❌ NO PAYMENTS DATA for request ${request.id}`);
-          }
-          
-          if (request.users) {
-            console.log(`[Admin] ✅ User data found:`);
-            console.log(`[Admin]   - email: ${request.users.email}`);
-            console.log(`[Admin]   - name: ${request.users.name}`);
-            console.log(`[Admin]   - mxi_balance: ${request.users.mxi_balance} (type: ${typeof request.users.mxi_balance})`);
-          } else {
-            console.error(`[Admin] ❌ NO USER DATA for request ${request.id}`);
-          }
-          
-          console.log(`[Admin] ========================================`);
-        });
+      // ✅ FIX: Fetch payment and user data separately for each request
+      if (requestsData && requestsData.length > 0) {
+        const enrichedRequests = await Promise.all(
+          requestsData.map(async (request) => {
+            console.log(`[Admin] ========== Processing Request ${request.id} ==========`);
+            console.log(`[Admin] Request order_id: ${request.order_id}`);
+            console.log(`[Admin] Request payment_id (FK): ${request.payment_id}`);
+            console.log(`[Admin] Request user_id: ${request.user_id}`);
+            
+            // Fetch payment data
+            const { data: paymentData, error: paymentError } = await supabase
+              .from('payments')
+              .select('*')
+              .eq('id', request.payment_id)
+              .single();
+            
+            if (paymentError) {
+              console.error(`[Admin] ❌ Error fetching payment for request ${request.id}:`, paymentError);
+            } else if (paymentData) {
+              console.log(`[Admin] ✅ Payment data found for request ${request.id}:`);
+              console.log(`[Admin]   - price_amount: ${paymentData.price_amount} (type: ${typeof paymentData.price_amount})`);
+              console.log(`[Admin]   - payment_id: ${paymentData.payment_id}`);
+              console.log(`[Admin]   - tx_hash: ${paymentData.tx_hash || 'N/A'}`);
+              console.log(`[Admin]   - mxi_amount: ${paymentData.mxi_amount} (type: ${typeof paymentData.mxi_amount})`);
+              console.log(`[Admin]   - pay_currency: ${paymentData.pay_currency}`);
+              console.log(`[Admin]   - status: ${paymentData.status}`);
+            } else {
+              console.error(`[Admin] ❌ NO PAYMENT DATA for request ${request.id}`);
+            }
+            
+            // Fetch user data
+            const { data: userData, error: userError } = await supabase
+              .from('users')
+              .select('id, email, name, mxi_balance')
+              .eq('id', request.user_id)
+              .single();
+            
+            if (userError) {
+              console.error(`[Admin] ❌ Error fetching user for request ${request.id}:`, userError);
+            } else if (userData) {
+              console.log(`[Admin] ✅ User data found for request ${request.id}:`);
+              console.log(`[Admin]   - email: ${userData.email}`);
+              console.log(`[Admin]   - name: ${userData.name}`);
+              console.log(`[Admin]   - mxi_balance: ${userData.mxi_balance} (type: ${typeof userData.mxi_balance})`);
+            } else {
+              console.error(`[Admin] ❌ NO USER DATA for request ${request.id}`);
+            }
+            
+            console.log(`[Admin] ========================================`);
+            
+            return {
+              ...request,
+              payments: paymentData || null,
+              users: userData || null,
+            };
+          })
+        );
+        
+        setRequests(enrichedRequests);
+      } else {
+        setRequests([]);
       }
-      
-      setRequests(data || []);
     } catch (error: any) {
       console.error('[Admin] ❌ Error loading verification requests:', error);
       console.error('[Admin] Error stack:', error.stack);
@@ -601,12 +619,12 @@ export default function ManualVerificationRequestsScreen() {
     
     setSelectedRequest(request);
     
-    // ✅ FIX: Use safeParseFloat to ensure we get a valid number
+    // ✅ FIX: Use safeParseFloat with field name for better logging
     const priceAmount = request?.payments?.price_amount;
     console.log('[Admin] Raw price_amount:', priceAmount);
     console.log('[Admin] Type of price_amount:', typeof priceAmount);
     
-    const parsedAmount = safeParseFloat(priceAmount, 0);
+    const parsedAmount = safeParseFloat(priceAmount, 0, 'price_amount');
     console.log('[Admin] Parsed amount:', parsedAmount);
     
     const formattedAmount = parsedAmount.toFixed(2);
@@ -1140,10 +1158,10 @@ export default function ManualVerificationRequestsScreen() {
             const isPending = ['pending', 'reviewing', 'more_info_requested'].includes(request.status);
             const isDirectUSDT = request.payments?.tx_hash && !request.payments?.payment_id;
 
-            // ✅ FIX: Use safeParseFloat for all numeric values
-            const priceAmount = safeParseFloat(request.payments?.price_amount, 0);
-            const mxiAmount = safeParseFloat(request.payments?.mxi_amount, 0);
-            const userBalance = safeParseFloat(request.users?.mxi_balance, 0);
+            // ✅ FIX: Use safeParseFloat with field names for all numeric values
+            const priceAmount = safeParseFloat(request.payments?.price_amount, 0, `request_${index}_price_amount`);
+            const mxiAmount = safeParseFloat(request.payments?.mxi_amount, 0, `request_${index}_mxi_amount`);
+            const userBalance = safeParseFloat(request.users?.mxi_balance, 0, `request_${index}_user_balance`);
 
             console.log(`[Admin] Rendering request ${index + 1}:`);
             console.log(`[Admin]   - priceAmount: ${priceAmount}`);
