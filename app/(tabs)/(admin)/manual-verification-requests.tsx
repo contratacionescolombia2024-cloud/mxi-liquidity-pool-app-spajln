@@ -463,8 +463,13 @@ export default function ManualVerificationRequestsScreen() {
   const openApproveModal = (request: any) => {
     setSelectedRequest(request);
     
-    // Pre-fill with the payment amount
-    setApprovedUsdtAmount(parseFloat(request.payments.price_amount || 0).toFixed(2));
+    // Pre-fill with the payment amount - with null checks
+    const priceAmount = request?.payments?.price_amount;
+    if (priceAmount !== null && priceAmount !== undefined) {
+      setApprovedUsdtAmount(parseFloat(priceAmount).toFixed(2));
+    } else {
+      setApprovedUsdtAmount('0.00');
+    }
     
     setShowApproveModal(true);
   };
@@ -476,6 +481,13 @@ export default function ManualVerificationRequestsScreen() {
     }
 
     const request = selectedRequest;
+    
+    // Additional null checks
+    if (!request || !request.payments) {
+      showAlert('Error', 'Datos de pago no disponibles', undefined, 'error');
+      return;
+    }
+
     const isDirectUSDT = request.payments.tx_hash && !request.payments.payment_id;
     const isNowPayments = !!request.payments.payment_id;
 
