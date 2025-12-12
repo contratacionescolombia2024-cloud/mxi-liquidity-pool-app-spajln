@@ -7,7 +7,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,6 +16,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { showConfirm, showAlert } from '@/utils/confirmDialog';
 
 const MXI_TO_USDT_RATE = 0.4;
 
@@ -144,12 +144,12 @@ export default function RetirosScreen() {
 
   const handleWithdrawal = async () => {
     if (!amount || parseFloat(amount) <= 0) {
-      Alert.alert(t('invalidAmount'), t('enterValidAmount'));
+      showAlert('Error', t('enterValidAmount'), undefined, 'error');
       return;
     }
 
     if (!walletAddress) {
-      Alert.alert(t('missingInformation'), t('enterWalletAddress'));
+      showAlert('Error', t('enterWalletAddress'), undefined, 'error');
       return;
     }
 
@@ -157,12 +157,14 @@ export default function RetirosScreen() {
     const availableBalance = getBalanceForType(selectedType);
 
     if (mxiAmount > availableBalance) {
-      Alert.alert(
-        t('insufficientBalance'),
+      showAlert(
+        'Error',
         t('insufficientBalanceNeed', {
           needed: mxiAmount.toFixed(2),
           available: availableBalance.toFixed(2),
-        })
+        }),
+        undefined,
+        'error'
       );
       return;
     }
@@ -170,30 +172,35 @@ export default function RetirosScreen() {
     // Check if withdrawal is available for this type
     if (!isTypeAvailable(selectedType)) {
       if ((selectedType === 'purchased' || selectedType === 'vesting') && !poolStatus?.is_mxi_launched) {
-        Alert.alert(
-          t('withdrawalNotAvailable'),
+        showAlert(
+          'Error',
           t('withdrawalsAvailableAfterLaunch', {
             label: getTypeLabel(selectedType),
             days: poolStatus?.days_until_launch || 0,
-          })
+          }),
+          undefined,
+          'error'
         );
         return;
       }
 
       if (selectedType === 'vesting' && user.activeReferrals < 7) {
-        Alert.alert(
-          t('requirementNotMet'),
+        showAlert(
+          'Error',
           `Los retiros de vesting requieren 7 referidos activos. Actualmente tienes ${user.activeReferrals}.`,
-          [{ text: t('understood') }]
+          undefined,
+          'error'
         );
         return;
       }
 
       if ((selectedType === 'commissions' || selectedType === 'tournaments') && 
           (user.activeReferrals < 5 || user.kycStatus !== 'approved')) {
-        Alert.alert(
-          t('notEligible'),
-          t('need5ActiveReferralsAndKYC')
+        showAlert(
+          'Error',
+          t('need5ActiveReferralsAndKYC'),
+          undefined,
+          'error'
         );
         return;
       }
@@ -201,89 +208,82 @@ export default function RetirosScreen() {
 
     const usdtAmount = mxiAmount * MXI_TO_USDT_RATE;
 
-    Alert.alert(
-      t('confirmWithdrawal'),
-      t('confirmWithdrawalMessage', {
+    showConfirm({
+      title: '⚠️ Confirmar Retiro',
+      message: t('confirmWithdrawalMessage', {
         mxi: mxiAmount.toFixed(2),
         label: getTypeLabel(selectedType),
         usdt: usdtAmount.toFixed(2),
       }),
-      [
-        { text: t('cancel'), style: 'cancel' },
-        {
-          text: t('confirm'),
-          onPress: async () => {
-            setSubmitting(true);
-            try {
-              const { data, error } = await supabase
-                .from('withdrawals')
-                .insert({
-                  user_id: user.id,
-                  mxi_amount: mxiAmount,
-                  usdt_amount: usdtAmount,
-                  wallet_address: walletAddress,
-                  withdrawal_type: selectedType,
-                  status: 'pending',
-                  created_at: new Date().toISOString(),
-                })
-                .select()
-                .single();
+      confirmText: t('confirm'),
+      cancelText: t('cancel'),
+      type: 'warning',
+      onConfirm: async () => {
+        setSubmitting(true);
+        try {
+          const { data, error } = await supabase
+            .from('withdrawals')
+            .insert({
+              user_id: user.id,
+              mxi_amount: mxiAmount,
+              usdt_amount: usdtAmount,
+              wallet_address: walletAddress,
+              withdrawal_type: selectedType,
+              status: 'pending',
+              created_at: new Date().toISOString(),
+            })
+            .select()
+            .single();
 
-              if (error) throw error;
+          if (error) throw error;
 
-              // Update user balance based on type
-              const updates: any = {};
-              switch (selectedType) {
-                case 'purchased':
-                  updates.mxi_purchased_directly = (user.mxiPurchasedDirectly || 0) - mxiAmount;
-                  break;
-                case 'commissions':
-                  updates.mxi_commissions = (user.mxiCommissions || 0) - mxiAmount;
-                  break;
-                case 'vesting':
-                  updates.accumulated_yield = 0;
-                  updates.last_yield_claim = new Date().toISOString();
-                  break;
-                case 'tournaments':
-                  updates.mxi_tournaments = (user.mxiTournaments || 0) - mxiAmount;
-                  break;
-              }
+          // Update user balance based on type
+          const updates: any = {};
+          switch (selectedType) {
+            case 'purchased':
+              updates.mxi_purchased_directly = (user.mxiPurchasedDirectly || 0) - mxiAmount;
+              break;
+            case 'commissions':
+              updates.mxi_commissions = (user.mxiCommissions || 0) - mxiAmount;
+              break;
+            case 'vesting':
+              updates.accumulated_yield = 0;
+              updates.last_yield_claim = new Date().toISOString();
+              break;
+            case 'tournaments':
+              updates.mxi_tournaments = (user.mxiTournaments || 0) - mxiAmount;
+              break;
+          }
 
-              const { error: updateError } = await supabase
-                .from('users')
-                .update(updates)
-                .eq('id', user.id);
+          const { error: updateError } = await supabase
+            .from('users')
+            .update(updates)
+            .eq('id', user.id);
 
-              if (updateError) throw updateError;
+          if (updateError) throw updateError;
 
-              Alert.alert(
-                t('requestSent'),
-                t('withdrawalRequestSent', {
-                  mxi: mxiAmount.toFixed(2),
-                  label: getTypeLabel(selectedType),
-                  usdt: usdtAmount.toFixed(2),
-                }),
-                [
-                  {
-                    text: t('ok'),
-                    onPress: () => {
-                      setAmount('');
-                      setWalletAddress('');
-                      router.back();
-                    },
-                  },
-                ]
-              );
-            } catch (error: any) {
-              console.error('Error processing withdrawal:', error);
-              Alert.alert(t('error'), t('errorProcessingWithdrawal'));
-            } finally {
-              setSubmitting(false);
-            }
-          },
-        },
-      ]
-    );
+          showAlert(
+            '✅ Solicitud Enviada',
+            t('withdrawalRequestSent', {
+              mxi: mxiAmount.toFixed(2),
+              label: getTypeLabel(selectedType),
+              usdt: usdtAmount.toFixed(2),
+            }),
+            () => {
+              setAmount('');
+              setWalletAddress('');
+              router.back();
+            },
+            'success'
+          );
+        } catch (error: any) {
+          console.error('Error processing withdrawal:', error);
+          showAlert('Error', t('errorProcessingWithdrawal'), undefined, 'error');
+        } finally {
+          setSubmitting(false);
+        }
+      }
+    });
   };
 
   const totalMXI = (user.mxiPurchasedDirectly || 0) + 
@@ -509,7 +509,7 @@ export default function RetirosScreen() {
           {isTypeAvailable(selectedType) && (
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>{t('withdrawalDetails')}</Text>
-              <Text style={styles.sectionSubtitle}>{t('withdrawalsInUSDT')}</Text>
+              <Text style={styles.sectionSubtitle}>Los retiros se procesarán en USDT por la red TRC20 (Tron)</Text>
 
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>{t('amountMXI')}</Text>
@@ -542,10 +542,10 @@ export default function RetirosScreen() {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>{t('walletAddressETH')}</Text>
+                <Text style={styles.inputLabel}>Dirección de Billetera USDT (TRC20)</Text>
                 <TextInput
                   style={[styles.input, styles.addressInput]}
-                  placeholder={t('enterYourETHWalletAddress')}
+                  placeholder="Ingresa tu dirección de billetera USDT TRC20 (Tron)"
                   placeholderTextColor={colors.textSecondary}
                   value={walletAddress}
                   onChangeText={setWalletAddress}
@@ -623,7 +623,7 @@ export default function RetirosScreen() {
             <Text style={styles.infoTitle}>{t('importantInformation')}</Text>
             
             <View style={styles.infoItem}>
-              <Text style={styles.infoText}>• {t('withdrawalsInUSDTETHInfo')}</Text>
+              <Text style={styles.infoText}>• Los retiros se procesarán en USDT por la red TRC20 (Tron)</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoText}>• {t('conversionInfo')}</Text>
@@ -647,7 +647,7 @@ export default function RetirosScreen() {
               <Text style={styles.infoText}>• {t('processingTimeInfo')}</Text>
             </View>
             <View style={styles.infoItem}>
-              <Text style={styles.infoText}>• {t('verifyWalletAddressInfo')}</Text>
+              <Text style={styles.infoText}>• Verifica que tu dirección de billetera sea correcta y compatible con la red TRC20 (Tron)</Text>
             </View>
           </View>
 

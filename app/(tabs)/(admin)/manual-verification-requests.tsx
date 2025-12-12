@@ -368,7 +368,7 @@ export default function ManualVerificationRequestsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [processingRequests, setProcessingRequests] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState<'pending' | 'all'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'all' | 'approved' | 'rejected'>('pending');
   const [showMoreInfoModal, setShowMoreInfoModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   const [moreInfoText, setMoreInfoText] = useState('');
@@ -435,6 +435,10 @@ export default function ManualVerificationRequestsScreen() {
 
       if (activeTab === 'pending') {
         query = query.in('status', ['pending', 'reviewing', 'more_info_requested']);
+      } else if (activeTab === 'approved') {
+        query = query.eq('status', 'approved');
+      } else if (activeTab === 'rejected') {
+        query = query.eq('status', 'rejected');
       }
 
       const { data, error: queryError } = await query;
@@ -872,6 +876,22 @@ export default function ManualVerificationRequestsScreen() {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
+          style={[styles.tab, activeTab === 'approved' && styles.tabActive]}
+          onPress={() => setActiveTab('approved')}
+        >
+          <Text style={[styles.tabText, activeTab === 'approved' && styles.tabTextActive]}>
+            Aprobadas
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'rejected' && styles.tabActive]}
+          onPress={() => setActiveTab('rejected')}
+        >
+          <Text style={[styles.tabText, activeTab === 'rejected' && styles.tabTextActive]}>
+            Rechazadas
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           style={[styles.tab, activeTab === 'all' && styles.tabActive]}
           onPress={() => setActiveTab('all')}
         >
@@ -892,6 +912,10 @@ export default function ManualVerificationRequestsScreen() {
           <Text style={styles.emptyText}>
             {activeTab === 'pending'
               ? 'No hay solicitudes de verificación pendientes.'
+              : activeTab === 'approved'
+              ? 'No hay solicitudes aprobadas.'
+              : activeTab === 'rejected'
+              ? 'No hay solicitudes rechazadas.'
               : 'No hay solicitudes de verificación.'}
           </Text>
         </View>
