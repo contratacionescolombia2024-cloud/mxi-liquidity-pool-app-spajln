@@ -380,7 +380,8 @@ const styles = StyleSheet.create({
   },
 });
 
-// ✅ ULTRA-ROBUST NUMERIC PARSING - Handles PostgreSQL numeric type returned as string
+// ✅ CRITICAL FIX: Ultra-robust numeric parsing for PostgreSQL numeric type
+// PostgreSQL numeric type is ALWAYS returned as STRING by Supabase JavaScript client
 const safeParseNumeric = (value: any, fieldName: string = 'unknown'): number => {
   console.log(`[Admin] 🔍 PARSING ${fieldName}:`, {
     rawValue: value,
@@ -605,19 +606,20 @@ export default function ManualVerificationRequestsScreen() {
           ...request,
           payment: payment || {},
           user: user || {},
-          // Store parsed values for easy access in UI
-          _price_amount: priceAmount,
-          _mxi_amount: mxiAmount,
-          _user_balance: userBalance,
+          // ✅ CRITICAL: Store parsed values directly on the request object
+          // These will be used for display in the UI
+          price_amount_parsed: priceAmount,
+          mxi_amount_parsed: mxiAmount,
+          user_balance_parsed: userBalance,
         };
       });
       
       console.log(`[Admin] ✅ Successfully enriched ${enrichedRequests.length} requests`);
       console.log(`[Admin] 📊 Sample enriched request:`, {
         id: enrichedRequests[0]?.id,
-        _price_amount: enrichedRequests[0]?._price_amount,
-        _mxi_amount: enrichedRequests[0]?._mxi_amount,
-        _user_balance: enrichedRequests[0]?._user_balance,
+        price_amount_parsed: enrichedRequests[0]?.price_amount_parsed,
+        mxi_amount_parsed: enrichedRequests[0]?.mxi_amount_parsed,
+        user_balance_parsed: enrichedRequests[0]?.user_balance_parsed,
       });
       
       setRequests(enrichedRequests);
@@ -676,12 +678,12 @@ export default function ManualVerificationRequestsScreen() {
     console.log('[Admin] ========================================');
     console.log('[Admin] === OPENING APPROVE MODAL ===');
     console.log('[Admin] Request ID:', request.id);
-    console.log('[Admin] Pre-parsed price_amount:', request._price_amount);
+    console.log('[Admin] Pre-parsed price_amount:', request.price_amount_parsed);
     
     setSelectedRequest(request);
     
-    // Use the pre-parsed value
-    const parsedAmount = request._price_amount || 0;
+    // ✅ CRITICAL FIX: Use the pre-parsed value stored on the request object
+    const parsedAmount = request.price_amount_parsed || 0;
     console.log('[Admin] Using parsed amount for modal:', parsedAmount);
     
     const formattedAmount = parsedAmount.toFixed(2);
@@ -1203,10 +1205,10 @@ export default function ManualVerificationRequestsScreen() {
             const isPending = ['pending', 'reviewing', 'more_info_requested'].includes(request.status);
             const isDirectUSDT = request.payment?.tx_hash && !request.payment?.payment_id;
 
-            // ✅ Use pre-parsed values from enrichment step
-            const priceAmount = request._price_amount || 0;
-            const mxiAmount = request._mxi_amount || 0;
-            const userBalance = request._user_balance || 0;
+            // ✅ CRITICAL FIX: Use the pre-parsed values stored on the request object
+            const priceAmount = request.price_amount_parsed || 0;
+            const mxiAmount = request.mxi_amount_parsed || 0;
+            const userBalance = request.user_balance_parsed || 0;
 
             return (
               <View key={index} style={styles.requestCard}>
