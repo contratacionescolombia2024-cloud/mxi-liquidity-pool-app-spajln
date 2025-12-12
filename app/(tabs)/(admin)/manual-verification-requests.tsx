@@ -359,6 +359,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 16,
   },
+  debugBox: {
+    backgroundColor: '#FFF3CD',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#FFC107',
+  },
+  debugLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#856404',
+    marginBottom: 4,
+  },
+  debugText: {
+    fontSize: 11,
+    color: '#856404',
+    fontFamily: 'monospace',
+  },
 });
 
 export default function ManualVerificationRequestsScreen() {
@@ -394,7 +413,9 @@ export default function ManualVerificationRequestsScreen() {
       if (!skipLoadingState) {
         setError(null);
       }
-      console.log(`[Admin] Loading verification requests for tab: ${activeTab}`);
+      console.log(`[Admin] ========== LOADING VERIFICATION REQUESTS ==========`);
+      console.log(`[Admin] Tab: ${activeTab}`);
+      console.log(`[Admin] Timestamp:`, new Date().toISOString());
       
       let query = supabase
         .from('manual_verification_requests')
@@ -433,15 +454,38 @@ export default function ManualVerificationRequestsScreen() {
       const { data, error: queryError } = await query;
 
       if (queryError) {
-        console.error('[Admin] Error loading verification requests:', queryError);
+        console.error('[Admin] ❌ Error loading verification requests:', queryError);
+        console.error('[Admin] Error details:', JSON.stringify(queryError, null, 2));
         setError(queryError.message);
         throw queryError;
       }
       
-      console.log(`[Admin] Loaded ${data?.length || 0} verification requests for tab ${activeTab}`);
+      console.log(`[Admin] ✅ Loaded ${data?.length || 0} verification requests for tab ${activeTab}`);
+      
+      // ✅ FIX: Log each request to debug data issues
+      if (data && data.length > 0) {
+        data.forEach((request, index) => {
+          console.log(`[Admin] Request ${index + 1}:`, {
+            id: request.id,
+            order_id: request.order_id,
+            status: request.status,
+            payment_id: request.payment_id,
+            payments_data: request.payments ? {
+              price_amount: request.payments.price_amount,
+              payment_id: request.payments.payment_id,
+              tx_hash: request.payments.tx_hash,
+              mxi_amount: request.payments.mxi_amount,
+              pay_currency: request.payments.pay_currency,
+            } : 'NO PAYMENTS DATA',
+            user_email: request.users?.email || 'NO USER DATA',
+          });
+        });
+      }
+      
       setRequests(data || []);
     } catch (error: any) {
-      console.error('[Admin] Error loading verification requests:', error);
+      console.error('[Admin] ❌ Error loading verification requests:', error);
+      console.error('[Admin] Error stack:', error.stack);
       if (!skipLoadingState) {
         setError(error.message || 'Error al cargar las solicitudes');
       }
@@ -496,12 +540,23 @@ export default function ManualVerificationRequestsScreen() {
   }, [loadRequests]);
 
   const openApproveModal = (request: any) => {
+    console.log('[Admin] ========== OPENING APPROVE MODAL ==========');
+    console.log('[Admin] Request:', JSON.stringify(request, null, 2));
+    console.log('[Admin] Payment data:', JSON.stringify(request.payments, null, 2));
+    
     setSelectedRequest(request);
     
+    // ✅ FIX: Ensure we're getting the price_amount correctly
     const priceAmount = request?.payments?.price_amount;
+    console.log('[Admin] Price amount from request.payments.price_amount:', priceAmount);
+    console.log('[Admin] Type of price_amount:', typeof priceAmount);
+    
     if (priceAmount !== null && priceAmount !== undefined) {
-      setApprovedUsdtAmount(parseFloat(priceAmount).toFixed(2));
+      const formattedAmount = parseFloat(priceAmount).toFixed(2);
+      console.log('[Admin] Setting approved amount to:', formattedAmount);
+      setApprovedUsdtAmount(formattedAmount);
     } else {
+      console.warn('[Admin] ⚠️ Price amount is null or undefined, setting to 0.00');
       setApprovedUsdtAmount('0.00');
     }
     
@@ -866,6 +921,13 @@ export default function ManualVerificationRequestsScreen() {
     }
   };
 
+  // ✅ FIX: Helper function to safely get numeric value
+  const safeParseFloat = (value: any, defaultValue: number = 0): number => {
+    if (value === null || value === undefined) return defaultValue;
+    const parsed = parseFloat(value);
+    return isNaN(parsed) ? defaultValue : parsed;
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -1032,11 +1094,16 @@ export default function ManualVerificationRequestsScreen() {
             const isPending = ['pending', 'reviewing', 'more_info_requested'].includes(request.status);
             const isDirectUSDT = request.payments?.tx_hash && !request.payments?.payment_id;
 
+            // ✅ FIX: Safely parse all numeric values
+            const priceAmount = safeParseFloat(request.payments?.price_amount, 0);
+            const mxiAmount = safeParseFloat(request.payments?.mxi_amount, 0);
+            const userBalance = safeParseFloat(request.users?.mxi_balance, 0);
+
             return (
               <View key={index} style={styles.requestCard}>
                 <View style={styles.requestHeader}>
                   <Text style={styles.requestAmount}>
-                    {parseFloat(request.payments?.price_amount || 0).toFixed(2)} USDT
+                    {priceAmount.toFixed(2)} USDT
                   </Text>
                   <View
                     style={[
@@ -1069,14 +1136,14 @@ export default function ManualVerificationRequestsScreen() {
                 <View style={styles.requestRow}>
                   <Text style={styles.requestLabel}>MXI a Acreditar:</Text>
                   <Text style={styles.requestValue}>
-                    {parseFloat(request.payments?.mxi_amount || 0).toFixed(2)} MXI
+                    {mxiAmount.toFixed(2)} MXI
                   </Text>
                 </View>
 
                 <View style={styles.requestRow}>
                   <Text style={styles.requestLabel}>Saldo Actual:</Text>
                   <Text style={styles.requestValue}>
-                    {parseFloat(request.users?.mxi_balance || 0).toFixed(2)} MXI
+                    {userBalance.toFixed(2)} MXI
                   </Text>
                 </View>
 
@@ -1112,7 +1179,7 @@ export default function ManualVerificationRequestsScreen() {
 
                 <View style={styles.orderIdContainer}>
                   <Text style={styles.orderIdLabel}>ID de Orden:</Text>
-                  <Text style={styles.orderIdText}>{request.payments?.order_id || 'N/A'}</Text>
+                  <Text style={styles.orderIdText}>{request.payments?.order_id || request.order_id || 'N/A'}</Text>
                 </View>
 
                 {request.payments?.payment_id && (
