@@ -380,6 +380,47 @@ const styles = StyleSheet.create({
   },
 });
 
+// ✅ FIX: Helper function to safely parse numeric values
+const safeParseFloat = (value: any, defaultValue: number = 0): number => {
+  if (value === null || value === undefined || value === '') {
+    console.log(`[Admin] safeParseFloat: value is null/undefined/empty, returning default ${defaultValue}`);
+    return defaultValue;
+  }
+  
+  // Handle string values
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed === '') {
+      console.log(`[Admin] safeParseFloat: string is empty after trim, returning default ${defaultValue}`);
+      return defaultValue;
+    }
+    const parsed = parseFloat(trimmed);
+    if (isNaN(parsed)) {
+      console.log(`[Admin] safeParseFloat: parsed string is NaN, returning default ${defaultValue}`);
+      return defaultValue;
+    }
+    return parsed;
+  }
+  
+  // Handle numeric values
+  if (typeof value === 'number') {
+    if (isNaN(value)) {
+      console.log(`[Admin] safeParseFloat: number is NaN, returning default ${defaultValue}`);
+      return defaultValue;
+    }
+    return value;
+  }
+  
+  // Try to parse as number
+  const parsed = parseFloat(value);
+  if (isNaN(parsed)) {
+    console.log(`[Admin] safeParseFloat: final parse is NaN, returning default ${defaultValue}`);
+    return defaultValue;
+  }
+  
+  return parsed;
+};
+
 export default function ManualVerificationRequestsScreen() {
   const router = useRouter();
   const { user, session } = useAuth();
@@ -462,23 +503,37 @@ export default function ManualVerificationRequestsScreen() {
       
       console.log(`[Admin] ✅ Loaded ${data?.length || 0} verification requests for tab ${activeTab}`);
       
-      // ✅ FIX: Log each request to debug data issues
+      // ✅ FIX: Enhanced logging to debug data issues
       if (data && data.length > 0) {
         data.forEach((request, index) => {
-          console.log(`[Admin] Request ${index + 1}:`, {
-            id: request.id,
-            order_id: request.order_id,
-            status: request.status,
-            payment_id: request.payment_id,
-            payments_data: request.payments ? {
-              price_amount: request.payments.price_amount,
-              payment_id: request.payments.payment_id,
-              tx_hash: request.payments.tx_hash,
-              mxi_amount: request.payments.mxi_amount,
-              pay_currency: request.payments.pay_currency,
-            } : 'NO PAYMENTS DATA',
-            user_email: request.users?.email || 'NO USER DATA',
-          });
+          console.log(`[Admin] ========== Request ${index + 1} ==========`);
+          console.log(`[Admin] Request ID: ${request.id}`);
+          console.log(`[Admin] Order ID: ${request.order_id}`);
+          console.log(`[Admin] Status: ${request.status}`);
+          console.log(`[Admin] Payment ID (FK): ${request.payment_id}`);
+          
+          if (request.payments) {
+            console.log(`[Admin] ✅ Payment data found:`);
+            console.log(`[Admin]   - price_amount: ${request.payments.price_amount} (type: ${typeof request.payments.price_amount})`);
+            console.log(`[Admin]   - payment_id: ${request.payments.payment_id}`);
+            console.log(`[Admin]   - tx_hash: ${request.payments.tx_hash || 'N/A'}`);
+            console.log(`[Admin]   - mxi_amount: ${request.payments.mxi_amount} (type: ${typeof request.payments.mxi_amount})`);
+            console.log(`[Admin]   - pay_currency: ${request.payments.pay_currency}`);
+            console.log(`[Admin]   - status: ${request.payments.status}`);
+          } else {
+            console.error(`[Admin] ❌ NO PAYMENTS DATA for request ${request.id}`);
+          }
+          
+          if (request.users) {
+            console.log(`[Admin] ✅ User data found:`);
+            console.log(`[Admin]   - email: ${request.users.email}`);
+            console.log(`[Admin]   - name: ${request.users.name}`);
+            console.log(`[Admin]   - mxi_balance: ${request.users.mxi_balance} (type: ${typeof request.users.mxi_balance})`);
+          } else {
+            console.error(`[Admin] ❌ NO USER DATA for request ${request.id}`);
+          }
+          
+          console.log(`[Admin] ========================================`);
         });
       }
       
@@ -546,19 +601,17 @@ export default function ManualVerificationRequestsScreen() {
     
     setSelectedRequest(request);
     
-    // ✅ FIX: Ensure we're getting the price_amount correctly
+    // ✅ FIX: Use safeParseFloat to ensure we get a valid number
     const priceAmount = request?.payments?.price_amount;
-    console.log('[Admin] Price amount from request.payments.price_amount:', priceAmount);
+    console.log('[Admin] Raw price_amount:', priceAmount);
     console.log('[Admin] Type of price_amount:', typeof priceAmount);
     
-    if (priceAmount !== null && priceAmount !== undefined) {
-      const formattedAmount = parseFloat(priceAmount).toFixed(2);
-      console.log('[Admin] Setting approved amount to:', formattedAmount);
-      setApprovedUsdtAmount(formattedAmount);
-    } else {
-      console.warn('[Admin] ⚠️ Price amount is null or undefined, setting to 0.00');
-      setApprovedUsdtAmount('0.00');
-    }
+    const parsedAmount = safeParseFloat(priceAmount, 0);
+    console.log('[Admin] Parsed amount:', parsedAmount);
+    
+    const formattedAmount = parsedAmount.toFixed(2);
+    console.log('[Admin] Setting approved amount to:', formattedAmount);
+    setApprovedUsdtAmount(formattedAmount);
     
     setShowApproveModal(true);
   };
@@ -921,13 +974,6 @@ export default function ManualVerificationRequestsScreen() {
     }
   };
 
-  // ✅ FIX: Helper function to safely get numeric value
-  const safeParseFloat = (value: any, defaultValue: number = 0): number => {
-    if (value === null || value === undefined) return defaultValue;
-    const parsed = parseFloat(value);
-    return isNaN(parsed) ? defaultValue : parsed;
-  };
-
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -1094,10 +1140,15 @@ export default function ManualVerificationRequestsScreen() {
             const isPending = ['pending', 'reviewing', 'more_info_requested'].includes(request.status);
             const isDirectUSDT = request.payments?.tx_hash && !request.payments?.payment_id;
 
-            // ✅ FIX: Safely parse all numeric values
+            // ✅ FIX: Use safeParseFloat for all numeric values
             const priceAmount = safeParseFloat(request.payments?.price_amount, 0);
             const mxiAmount = safeParseFloat(request.payments?.mxi_amount, 0);
             const userBalance = safeParseFloat(request.users?.mxi_balance, 0);
+
+            console.log(`[Admin] Rendering request ${index + 1}:`);
+            console.log(`[Admin]   - priceAmount: ${priceAmount}`);
+            console.log(`[Admin]   - mxiAmount: ${mxiAmount}`);
+            console.log(`[Admin]   - userBalance: ${userBalance}`);
 
             return (
               <View key={index} style={styles.requestCard}>
