@@ -380,69 +380,56 @@ const styles = StyleSheet.create({
   },
 });
 
-// ✅ DRASTIC FIX: Ultra-robust numeric parsing with multiple fallback strategies
+// ✅ ULTRA-ROBUST PARSING: Handle all possible numeric formats
 const safeParseFloat = (value: any, defaultValue: number = 0, fieldName: string = 'unknown'): number => {
-  console.log(`[Admin] 🔍 safeParseFloat for ${fieldName}:`, {
+  console.log(`[Admin] 🔍 Parsing ${fieldName}:`, {
     value,
     type: typeof value,
     isNull: value === null,
     isUndefined: value === undefined,
-    isEmpty: value === '',
-    stringValue: String(value),
   });
 
-  // Strategy 1: Handle null/undefined/empty
+  // Handle null/undefined/empty
   if (value === null || value === undefined || value === '') {
-    console.log(`[Admin] ⚠️ ${fieldName}: NULL/UNDEFINED/EMPTY → returning default ${defaultValue}`);
+    console.log(`[Admin] ⚠️ ${fieldName}: NULL/UNDEFINED/EMPTY → ${defaultValue}`);
     return defaultValue;
   }
   
-  // Strategy 2: Already a valid number
+  // Already a valid number
   if (typeof value === 'number' && !isNaN(value) && isFinite(value)) {
     console.log(`[Admin] ✅ ${fieldName}: Valid number → ${value}`);
     return value;
   }
   
-  // Strategy 3: String conversion with multiple attempts
+  // String or number conversion
   if (typeof value === 'string' || typeof value === 'number') {
     const stringValue = String(value).trim();
     
     if (stringValue === '' || stringValue === 'null' || stringValue === 'undefined') {
-      console.log(`[Admin] ⚠️ ${fieldName}: Empty/null string → returning default ${defaultValue}`);
+      console.log(`[Admin] ⚠️ ${fieldName}: Empty string → ${defaultValue}`);
       return defaultValue;
     }
     
-    // Try direct parseFloat
+    // Try parseFloat
     const parsed = parseFloat(stringValue);
     if (!isNaN(parsed) && isFinite(parsed)) {
-      console.log(`[Admin] ✅ ${fieldName}: Parsed string "${stringValue}" → ${parsed}`);
+      console.log(`[Admin] ✅ ${fieldName}: Parsed "${stringValue}" → ${parsed}`);
       return parsed;
-    }
-    
-    // Try removing non-numeric characters except decimal point and minus
-    const cleaned = stringValue.replace(/[^\d.-]/g, '');
-    if (cleaned) {
-      const cleanedParsed = parseFloat(cleaned);
-      if (!isNaN(cleanedParsed) && isFinite(cleanedParsed)) {
-        console.log(`[Admin] ✅ ${fieldName}: Cleaned and parsed "${stringValue}" → ${cleanedParsed}`);
-        return cleanedParsed;
-      }
     }
   }
   
-  // Strategy 4: Try Number() constructor
+  // Try Number() constructor
   try {
     const numValue = Number(value);
     if (!isNaN(numValue) && isFinite(numValue)) {
-      console.log(`[Admin] ✅ ${fieldName}: Number() conversion → ${numValue}`);
+      console.log(`[Admin] ✅ ${fieldName}: Number() → ${numValue}`);
       return numValue;
     }
   } catch (e) {
     console.log(`[Admin] ⚠️ ${fieldName}: Number() failed`);
   }
   
-  // Strategy 5: Last resort - return default
-  console.log(`[Admin] ❌ ${fieldName}: ALL PARSING FAILED → returning default ${defaultValue}`);
+  console.log(`[Admin] ❌ ${fieldName}: ALL PARSING FAILED → ${defaultValue}`);
   return defaultValue;
 };
 
@@ -463,11 +450,9 @@ export default function ManualVerificationRequestsScreen() {
   const [approvedUsdtAmount, setApprovedUsdtAmount] = useState('');
   const [error, setError] = useState<string | null>(null);
   
-  // Use ref to prevent multiple simultaneous loads
   const loadingRef = useRef(false);
 
   const loadRequests = useCallback(async (skipLoadingState = false) => {
-    // Prevent multiple simultaneous loads
     if (loadingRef.current) {
       console.log('[Admin] Already loading, skipping duplicate load');
       return;
@@ -483,131 +468,98 @@ export default function ManualVerificationRequestsScreen() {
       console.log(`[Admin] Tab: ${activeTab}`);
       console.log(`[Admin] Timestamp:`, new Date().toISOString());
       
-      // ✅ DRASTIC FIX: Use raw SQL query with explicit column selection and type casting
-      let sqlQuery = `
-        SELECT 
-          mvr.id,
-          mvr.payment_id,
-          mvr.user_id,
-          mvr.order_id,
-          mvr.status,
-          mvr.admin_notes,
-          mvr.reviewed_by,
-          mvr.reviewed_at,
-          mvr.created_at,
-          mvr.updated_at,
-          mvr.user_response,
-          mvr.user_response_at,
-          mvr.admin_request_info,
-          mvr.admin_request_info_at,
-          -- Payment data with explicit casting
-          p.id as payment_table_id,
-          p.order_id as payment_order_id,
-          CAST(p.price_amount AS TEXT) as price_amount_text,
-          CAST(p.price_amount AS NUMERIC) as price_amount_numeric,
-          p.price_amount as price_amount_raw,
-          CAST(p.mxi_amount AS TEXT) as mxi_amount_text,
-          CAST(p.mxi_amount AS NUMERIC) as mxi_amount_numeric,
-          p.mxi_amount as mxi_amount_raw,
-          p.payment_id as nowpayments_payment_id,
-          p.tx_hash,
-          p.pay_currency,
-          p.status as payment_status,
-          p.phase,
-          CAST(p.price_per_mxi AS NUMERIC) as price_per_mxi,
-          -- User data with explicit casting
-          u.id as user_table_id,
-          u.email,
-          u.name,
-          CAST(u.mxi_balance AS TEXT) as mxi_balance_text,
-          CAST(u.mxi_balance AS NUMERIC) as mxi_balance_numeric,
-          u.mxi_balance as mxi_balance_raw
-        FROM manual_verification_requests mvr
-        LEFT JOIN payments p ON mvr.payment_id = p.id
-        LEFT JOIN users u ON mvr.user_id = u.id
-      `;
+      // ✅ DRASTIC FIX: Simplified query with proper column selection
+      let query = supabase
+        .from('manual_verification_requests')
+        .select(`
+          id,
+          payment_id,
+          user_id,
+          order_id,
+          status,
+          admin_notes,
+          reviewed_by,
+          reviewed_at,
+          created_at,
+          updated_at,
+          user_response,
+          user_response_at,
+          admin_request_info,
+          admin_request_info_at
+        `)
+        .order('created_at', { ascending: false });
 
       if (activeTab === 'pending') {
-        sqlQuery += ` WHERE mvr.status IN ('pending', 'reviewing', 'more_info_requested')`;
+        query = query.in('status', ['pending', 'reviewing', 'more_info_requested']);
       } else if (activeTab === 'approved') {
-        sqlQuery += ` WHERE mvr.status = 'approved'`;
+        query = query.eq('status', 'approved');
       } else if (activeTab === 'rejected') {
-        sqlQuery += ` WHERE mvr.status = 'rejected'`;
+        query = query.eq('status', 'rejected');
       }
 
-      sqlQuery += ` ORDER BY mvr.created_at DESC`;
+      const { data: requestsData, error: requestsError } = await query;
 
-      console.log('[Admin] Executing SQL query:', sqlQuery);
+      if (requestsError) {
+        console.error('[Admin] ❌ Error loading requests:', requestsError);
+        setError(requestsError.message);
+        throw requestsError;
+      }
 
-      const { data: rawData, error: queryError } = await supabase.rpc('exec_sql', {
-        query: sqlQuery
-      }).single();
+      console.log(`[Admin] ✅ Loaded ${requestsData?.length || 0} requests`);
 
-      if (queryError) {
-        console.error('[Admin] ❌ RPC error:', queryError);
-        // Fallback to regular query if RPC fails
-        console.log('[Admin] Falling back to regular query...');
-        
-        let query = supabase
-          .from('manual_verification_requests')
-          .select(`
-            *,
-            payments:payment_id (
-              id,
-              order_id,
-              price_amount,
-              mxi_amount,
-              payment_id,
-              tx_hash,
-              pay_currency,
-              status,
-              phase,
-              price_per_mxi
-            ),
-            users:user_id (
-              id,
-              email,
-              name,
-              mxi_balance
-            )
-          `)
-          .order('created_at', { ascending: false });
+      // ✅ DRASTIC FIX: Fetch payment and user data separately for each request
+      const enrichedRequests = await Promise.all(
+        (requestsData || []).map(async (request: any, index: number) => {
+          console.log(`[Admin] ========== Processing Request ${index + 1} ==========`);
+          console.log(`[Admin] Request ID: ${request.id}`);
+          console.log(`[Admin] Payment ID: ${request.payment_id}`);
+          console.log(`[Admin] Order ID: ${request.order_id}`);
 
-        if (activeTab === 'pending') {
-          query = query.in('status', ['pending', 'reviewing', 'more_info_requested']);
-        } else if (activeTab === 'approved') {
-          query = query.eq('status', 'approved');
-        } else if (activeTab === 'rejected') {
-          query = query.eq('status', 'rejected');
-        }
+          // Fetch payment data
+          const { data: paymentData, error: paymentError } = await supabase
+            .from('payments')
+            .select('*')
+            .eq('id', request.payment_id)
+            .single();
 
-        const { data: fallbackData, error: fallbackError } = await query;
+          if (paymentError) {
+            console.error(`[Admin] ❌ Error loading payment for request ${request.id}:`, paymentError);
+          } else {
+            console.log(`[Admin] ✅ Payment data loaded:`, {
+              id: paymentData?.id,
+              order_id: paymentData?.order_id,
+              price_amount: paymentData?.price_amount,
+              mxi_amount: paymentData?.mxi_amount,
+              price_amount_type: typeof paymentData?.price_amount,
+              mxi_amount_type: typeof paymentData?.mxi_amount,
+            });
+          }
 
-        if (fallbackError) {
-          console.error('[Admin] ❌ Fallback query error:', fallbackError);
-          setError(fallbackError.message);
-          throw fallbackError;
-        }
+          // Fetch user data
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('id, email, name, mxi_balance')
+            .eq('id', request.user_id)
+            .single();
 
-        console.log(`[Admin] ✅ Loaded ${fallbackData?.length || 0} requests (fallback)`);
-        
-        // Process fallback data
-        const processedData = (fallbackData || []).map((request: any, index: number) => {
-          console.log(`[Admin] ========== Processing Request ${index + 1} (Fallback) ==========`);
-          console.log(`[Admin] Raw request:`, JSON.stringify(request, null, 2));
-          
-          const payment = request.payments;
-          const user = request.users;
-          
-          console.log(`[Admin] Payment data:`, JSON.stringify(payment, null, 2));
-          console.log(`[Admin] User data:`, JSON.stringify(user, null, 2));
-          
+          if (userError) {
+            console.error(`[Admin] ❌ Error loading user for request ${request.id}:`, userError);
+          } else {
+            console.log(`[Admin] ✅ User data loaded:`, {
+              id: userData?.id,
+              email: userData?.email,
+              name: userData?.name,
+              mxi_balance: userData?.mxi_balance,
+              mxi_balance_type: typeof userData?.mxi_balance,
+            });
+          }
+
           // Parse numeric values with ultra-robust parsing
-          const priceAmount = safeParseFloat(payment?.price_amount, 0, `request_${index}_price_amount`);
-          const mxiAmount = safeParseFloat(payment?.mxi_amount, 0, `request_${index}_mxi_amount`);
-          const userBalance = safeParseFloat(user?.mxi_balance, 0, `request_${index}_user_balance`);
+          const priceAmount = safeParseFloat(paymentData?.price_amount, 0, `request_${index}_price_amount`);
+          const mxiAmount = safeParseFloat(paymentData?.mxi_amount, 0, `request_${index}_mxi_amount`);
+          const userBalance = safeParseFloat(userData?.mxi_balance, 0, `request_${index}_user_balance`);
           
-          console.log(`[Admin] Parsed values:`, {
+          console.log(`[Admin] ✅ Parsed values:`, {
             priceAmount,
             mxiAmount,
             userBalance,
@@ -615,98 +567,18 @@ export default function ManualVerificationRequestsScreen() {
           
           return {
             ...request,
-            // Store both raw and parsed values for debugging
-            _raw_payment: payment,
-            _raw_user: user,
-            _parsed_price_amount: priceAmount,
-            _parsed_mxi_amount: mxiAmount,
-            _parsed_user_balance: userBalance,
+            payment: paymentData || {},
+            user: userData || {},
+            // Store parsed values for easy access
+            _price_amount: priceAmount,
+            _mxi_amount: mxiAmount,
+            _user_balance: userBalance,
           };
-        });
-        
-        setRequests(processedData);
-      } else {
-        // Process RPC data
-        console.log(`[Admin] ✅ RPC query successful, processing ${rawData?.length || 0} rows`);
-        
-        const processedData = (rawData || []).map((row: any, index: number) => {
-          console.log(`[Admin] ========== Processing Row ${index + 1} (RPC) ==========`);
-          console.log(`[Admin] Raw row:`, JSON.stringify(row, null, 2));
-          
-          // Try all three versions of the numeric values
-          const priceAmount = safeParseFloat(
-            row.price_amount_numeric || row.price_amount_text || row.price_amount_raw,
-            0,
-            `row_${index}_price_amount`
-          );
-          
-          const mxiAmount = safeParseFloat(
-            row.mxi_amount_numeric || row.mxi_amount_text || row.mxi_amount_raw,
-            0,
-            `row_${index}_mxi_amount`
-          );
-          
-          const userBalance = safeParseFloat(
-            row.mxi_balance_numeric || row.mxi_balance_text || row.mxi_balance_raw,
-            0,
-            `row_${index}_user_balance`
-          );
-          
-          console.log(`[Admin] Parsed values:`, {
-            priceAmount,
-            mxiAmount,
-            userBalance,
-          });
-          
-          // Reconstruct the nested structure
-          return {
-            id: row.id,
-            payment_id: row.payment_id,
-            user_id: row.user_id,
-            order_id: row.order_id,
-            status: row.status,
-            admin_notes: row.admin_notes,
-            reviewed_by: row.reviewed_by,
-            reviewed_at: row.reviewed_at,
-            created_at: row.created_at,
-            updated_at: row.updated_at,
-            user_response: row.user_response,
-            user_response_at: row.user_response_at,
-            admin_request_info: row.admin_request_info,
-            admin_request_info_at: row.admin_request_info_at,
-            payments: {
-              id: row.payment_table_id,
-              order_id: row.payment_order_id,
-              price_amount: priceAmount,
-              mxi_amount: mxiAmount,
-              payment_id: row.nowpayments_payment_id,
-              tx_hash: row.tx_hash,
-              pay_currency: row.pay_currency,
-              status: row.payment_status,
-              phase: row.phase,
-              price_per_mxi: row.price_per_mxi,
-            },
-            users: {
-              id: row.user_table_id,
-              email: row.email,
-              name: row.name,
-              mxi_balance: userBalance,
-            },
-            // Store raw values for debugging
-            _raw_price_amount_text: row.price_amount_text,
-            _raw_price_amount_numeric: row.price_amount_numeric,
-            _raw_price_amount_raw: row.price_amount_raw,
-            _raw_mxi_amount_text: row.mxi_amount_text,
-            _raw_mxi_amount_numeric: row.mxi_amount_numeric,
-            _raw_mxi_amount_raw: row.mxi_amount_raw,
-            _parsed_price_amount: priceAmount,
-            _parsed_mxi_amount: mxiAmount,
-            _parsed_user_balance: userBalance,
-          };
-        });
-        
-        setRequests(processedData);
-      }
+        })
+      );
+      
+      console.log(`[Admin] ✅ All requests enriched with payment and user data`);
+      setRequests(enrichedRequests);
     } catch (error: any) {
       console.error('[Admin] ❌ Error loading verification requests:', error);
       console.error('[Admin] Error stack:', error.stack);
@@ -724,7 +596,6 @@ export default function ManualVerificationRequestsScreen() {
     console.log('[Admin] Setting up verification requests screen');
     loadRequests();
 
-    // Subscribe to changes in manual_verification_requests
     const channel = supabase
       .channel('admin-verification-requests-updates')
       .on(
@@ -736,11 +607,6 @@ export default function ManualVerificationRequestsScreen() {
         },
         (payload) => {
           console.log('[Admin] Verification request update received:', payload);
-          console.log('[Admin] Event type:', payload.eventType);
-          console.log('[Admin] New record:', payload.new);
-          console.log('[Admin] Old record:', payload.old);
-          
-          // Reload requests with a small delay to ensure database consistency
           setTimeout(() => {
             console.log('[Admin] Reloading requests after real-time update...');
             loadRequests(true);
@@ -766,13 +632,13 @@ export default function ManualVerificationRequestsScreen() {
   const openApproveModal = (request: any) => {
     console.log('[Admin] ========== OPENING APPROVE MODAL ==========');
     console.log('[Admin] Request:', JSON.stringify(request, null, 2));
-    console.log('[Admin] Payment data:', JSON.stringify(request.payments, null, 2));
-    console.log('[Admin] Parsed price_amount:', request._parsed_price_amount);
+    console.log('[Admin] Payment data:', JSON.stringify(request.payment, null, 2));
+    console.log('[Admin] Parsed price_amount:', request._price_amount);
     
     setSelectedRequest(request);
     
-    // ✅ DRASTIC FIX: Use the pre-parsed value directly
-    const parsedAmount = request._parsed_price_amount || safeParseFloat(request.payments?.price_amount, 0, 'modal_price_amount');
+    // Use the pre-parsed value
+    const parsedAmount = request._price_amount || 0;
     console.log('[Admin] Using parsed amount for modal:', parsedAmount);
     
     const formattedAmount = parsedAmount.toFixed(2);
@@ -790,7 +656,7 @@ export default function ManualVerificationRequestsScreen() {
 
     const request = selectedRequest;
     
-    if (!request || !request.payments) {
+    if (!request || !request.payment) {
       showAlert('Error', 'Datos de pago no disponibles', undefined, 'error');
       return;
     }
@@ -809,12 +675,10 @@ export default function ManualVerificationRequestsScreen() {
       console.log(`[Admin] === APPROVING REQUEST ${request.id} ===`);
       console.log(`[Admin] ========================================`);
       console.log(`[Admin] Approved amount: ${approvedUsdtAmount} USDT`);
-      console.log(`[Admin] Order ID: ${request.payments.order_id}`);
-      console.log(`[Admin] Payment ID: ${request.payments.payment_id || 'N/A'}`);
-      console.log(`[Admin] TX Hash: ${request.payments.tx_hash || 'N/A'}`);
+      console.log(`[Admin] Order ID: ${request.payment.order_id}`);
 
       const requestBody: any = {
-        order_id: request.payments.order_id,
+        order_id: request.payment.order_id,
         approved_usdt_amount: parseFloat(approvedUsdtAmount),
       };
 
@@ -836,7 +700,6 @@ export default function ManualVerificationRequestsScreen() {
       console.log('[Admin] Verification response:', data);
 
       if (data.success) {
-        // Always update the request status to approved when the edge function succeeds
         console.log('[Admin] Edge function succeeded, updating request status to approved...');
         
         const updateData = {
@@ -860,12 +723,10 @@ export default function ManualVerificationRequestsScreen() {
 
         if (updateError) {
           console.error('[Admin] Error updating request status:', updateError);
-          console.error('[Admin] Update error details:', JSON.stringify(updateError, null, 2));
         } else {
           console.log('[Admin] ✅ Request status updated to approved successfully');
         }
 
-        // Show appropriate message
         if (data.credited) {
           showAlert(
             '✅ Pago Aprobado y Acreditado',
@@ -903,10 +764,8 @@ export default function ManualVerificationRequestsScreen() {
           );
         }
       } else {
-        // Edge function failed
         console.error('[Admin] Edge function failed:', data.error);
         
-        // Update request with error note but keep as pending
         await supabase
           .from('manual_verification_requests')
           .update({
@@ -930,10 +789,7 @@ export default function ManualVerificationRequestsScreen() {
       console.error('[Admin] === ERROR APPROVING REQUEST ===');
       console.error('[Admin] ========================================');
       console.error('[Admin] Error:', error);
-      console.error('[Admin] Error message:', error.message);
-      console.error('[Admin] Error stack:', error.stack);
       
-      // Update request with error note
       await supabase
         .from('manual_verification_requests')
         .update({
@@ -1000,7 +856,6 @@ export default function ManualVerificationRequestsScreen() {
 
       if (updateError) {
         console.error('[Admin] Error rejecting request:', updateError);
-        console.error('[Admin] Update error details:', JSON.stringify(updateError, null, 2));
         throw updateError;
       }
 
@@ -1072,7 +927,6 @@ export default function ManualVerificationRequestsScreen() {
 
       if (updateError) {
         console.error('[Admin] Error requesting more info:', updateError);
-        console.error('[Admin] Update error details:', JSON.stringify(updateError, null, 2));
         throw updateError;
       }
 
@@ -1304,19 +1158,17 @@ export default function ManualVerificationRequestsScreen() {
           {requests.map((request, index) => {
             const isProcessing = processingRequests.has(request.id);
             const isPending = ['pending', 'reviewing', 'more_info_requested'].includes(request.status);
-            const isDirectUSDT = request.payments?.tx_hash && !request.payments?.payment_id;
+            const isDirectUSDT = request.payment?.tx_hash && !request.payment?.payment_id;
 
-            // ✅ DRASTIC FIX: Use pre-parsed values directly
-            const priceAmount = request._parsed_price_amount || 0;
-            const mxiAmount = request._parsed_mxi_amount || 0;
-            const userBalance = request._parsed_user_balance || 0;
+            // ✅ Use pre-parsed values
+            const priceAmount = request._price_amount || 0;
+            const mxiAmount = request._mxi_amount || 0;
+            const userBalance = request._user_balance || 0;
 
             console.log(`[Admin] Rendering request ${index + 1}:`, {
               priceAmount,
               mxiAmount,
               userBalance,
-              rawPriceText: request._raw_price_amount_text,
-              rawPriceNumeric: request._raw_price_amount_numeric,
             });
 
             return (
@@ -1345,12 +1197,12 @@ export default function ManualVerificationRequestsScreen() {
 
                 <View style={styles.requestRow}>
                   <Text style={styles.requestLabel}>Usuario:</Text>
-                  <Text style={styles.requestValue}>{request.users?.email || 'N/A'}</Text>
+                  <Text style={styles.requestValue}>{request.user?.email || 'N/A'}</Text>
                 </View>
 
                 <View style={styles.requestRow}>
                   <Text style={styles.requestLabel}>Nombre:</Text>
-                  <Text style={styles.requestValue}>{request.users?.name || 'N/A'}</Text>
+                  <Text style={styles.requestValue}>{request.user?.name || 'N/A'}</Text>
                 </View>
 
                 <View style={styles.requestRow}>
@@ -1369,13 +1221,13 @@ export default function ManualVerificationRequestsScreen() {
 
                 <View style={styles.requestRow}>
                   <Text style={styles.requestLabel}>Fase:</Text>
-                  <Text style={styles.requestValue}>Fase {request.payments?.phase || 1}</Text>
+                  <Text style={styles.requestValue}>Fase {request.payment?.phase || 1}</Text>
                 </View>
 
                 <View style={styles.requestRow}>
                   <Text style={styles.requestLabel}>Moneda:</Text>
                   <Text style={styles.requestValue}>
-                    {(request.payments?.pay_currency || 'usdt').toUpperCase()}
+                    {(request.payment?.pay_currency || 'usdt').toUpperCase()}
                   </Text>
                 </View>
 
@@ -1399,33 +1251,20 @@ export default function ManualVerificationRequestsScreen() {
 
                 <View style={styles.orderIdContainer}>
                   <Text style={styles.orderIdLabel}>ID de Orden:</Text>
-                  <Text style={styles.orderIdText}>{request.payments?.order_id || request.order_id || 'N/A'}</Text>
+                  <Text style={styles.orderIdText}>{request.payment?.order_id || request.order_id || 'N/A'}</Text>
                 </View>
 
-                {request.payments?.payment_id && (
+                {request.payment?.payment_id && (
                   <View style={styles.orderIdContainer}>
                     <Text style={styles.orderIdLabel}>Payment ID:</Text>
-                    <Text style={styles.orderIdText}>{request.payments.payment_id}</Text>
+                    <Text style={styles.orderIdText}>{request.payment.payment_id}</Text>
                   </View>
                 )}
 
-                {request.payments?.tx_hash && (
+                {request.payment?.tx_hash && (
                   <View style={styles.orderIdContainer}>
                     <Text style={styles.orderIdLabel}>Transaction Hash:</Text>
-                    <Text style={styles.orderIdText}>{request.payments.tx_hash}</Text>
-                  </View>
-                )}
-
-                {/* Debug Box - Remove after confirming fix */}
-                {__DEV__ && (
-                  <View style={styles.debugBox}>
-                    <Text style={styles.debugLabel}>🔍 Debug Info:</Text>
-                    <Text style={styles.debugText}>
-                      Raw Text: {request._raw_price_amount_text || 'null'}{'\n'}
-                      Raw Numeric: {request._raw_price_amount_numeric || 'null'}{'\n'}
-                      Raw Raw: {request._raw_price_amount_raw || 'null'}{'\n'}
-                      Parsed: {request._parsed_price_amount}
-                    </Text>
+                    <Text style={styles.orderIdText}>{request.payment.tx_hash}</Text>
                   </View>
                 )}
 
@@ -1552,7 +1391,7 @@ export default function ManualVerificationRequestsScreen() {
             
             <View style={styles.warningBox}>
               <Text style={styles.warningText}>
-                {selectedRequest && selectedRequest.payments?.tx_hash && !selectedRequest.payments?.payment_id
+                {selectedRequest && selectedRequest.payment?.tx_hash && !selectedRequest.payment?.payment_id
                   ? '⚠️ Este es un pago USDT directo. Verifica la transacción en la blockchain y ajusta el monto si es necesario.'
                   : '⚠️ Este es un pago de NowPayments. Puedes aprobar manualmente sin verificar con la API de NowPayments. Ajusta el monto si es necesario.'}
               </Text>
