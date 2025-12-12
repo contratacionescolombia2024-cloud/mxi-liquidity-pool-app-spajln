@@ -7,8 +7,8 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -18,6 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import * as Clipboard2 from 'expo-clipboard';
 import { supabase } from '@/lib/supabase';
+import { showConfirm, showAlert } from '@/utils/confirmDialog';
 
 const RECIPIENT_ADDRESS = '0x68F0d7c607617DA0b1a0dC7b72885E11ddFec623';
 const MIN_USDT = 30;
@@ -61,7 +62,7 @@ export default function PagarUSDTScreen() {
   const copyAddress = async () => {
     try {
       await Clipboard2.setStringAsync(RECIPIENT_ADDRESS);
-      Alert.alert(t('copied2'), t('addressCopiedToClipboard'));
+      showAlert(t('copied2'), t('addressCopiedToClipboard'), undefined, 'success');
     } catch (error) {
       console.error('Error copying:', error);
     }
@@ -75,15 +76,17 @@ export default function PagarUSDTScreen() {
 
     if (!txHash.trim()) {
       console.error('❌ [VERIFICAR] Error: Hash vacío');
-      Alert.alert(t('error'), t('pleaseEnterTransactionHash'));
+      showAlert(t('error'), t('pleaseEnterTransactionHash'), undefined, 'error');
       return;
     }
 
     if (!txHash.startsWith('0x') || txHash.length !== 66) {
       console.error('❌ [VERIFICAR] Error: Hash inválido - longitud:', txHash.length);
-      Alert.alert(
+      showAlert(
         t('invalidHash'),
-        t('hashMustStartWith0x', { count: txHash.length })
+        t('hashMustStartWith0x', { count: txHash.length }),
+        undefined,
+        'error'
       );
       return;
     }
@@ -91,21 +94,19 @@ export default function PagarUSDTScreen() {
     const selectedNetworkData = NETWORKS.find(n => n.id === selectedNetwork);
     console.log('🔍 [VERIFICAR] Datos de red:', selectedNetworkData);
 
-    Alert.alert(
-      t('confirmNetworkTitle'),
-      t('areYouSureTransaction', { network: selectedNetworkData?.name, label: selectedNetworkData?.label }),
-      [
-        {
-          text: t('cancel'),
-          style: 'cancel',
-          onPress: () => console.log('🔍 [VERIFICAR] Verificación cancelada por el usuario')
-        },
-        {
-          text: t('yesVerifyButton'),
-          onPress: () => performVerification()
-        }
-      ]
-    );
+    showConfirm({
+      title: t('confirmNetworkTitle'),
+      message: t('areYouSureTransaction', { network: selectedNetworkData?.name, label: selectedNetworkData?.label }),
+      confirmText: t('yesVerifyButton'),
+      cancelText: t('cancel'),
+      onConfirm: () => performVerification(),
+      onCancel: () => console.log('🔍 [VERIFICAR] Verificación cancelada por el usuario'),
+      type: 'warning',
+      icon: {
+        ios: 'exclamationmark.triangle.fill',
+        android: 'warning'
+      }
+    });
   };
 
   const performVerification = async () => {
@@ -138,10 +139,11 @@ export default function PagarUSDTScreen() {
         const existingPayment = existingPayments[0];
         console.error(`❌ [${requestId}] Hash duplicado encontrado:`, existingPayment);
         
-        Alert.alert(
+        showAlert(
           t('hashDuplicateTitle'),
           t('hashAlreadyRegisteredText', { order: existingPayment.order_id, status: existingPayment.estado }),
-          [{ text: t('ok') }]
+          undefined,
+          'error'
         );
         setLoading(false);
         setVerificationStatus('');
@@ -193,23 +195,22 @@ export default function PagarUSDTScreen() {
         console.log(`✅ [${requestId}] MXI:`, data.mxi);
         console.log(`✅ [${requestId}] Red:`, data.network);
 
-        Alert.alert(
-          t('paymentConfirmedTitle'),
-          t('paymentConfirmedText', { amount: data.mxi.toFixed(2), network: data.network, usdt: data.usdt.toFixed(2) }),
-          [
-            {
-              text: t('viewBalance'),
-              onPress: () => router.push('/(tabs)/(home)/saldo-mxi'),
-            },
-            {
-              text: t('ok'),
-              onPress: () => {
-                setTxHash('');
-                router.back();
-              },
-            },
-          ]
-        );
+        showConfirm({
+          title: t('paymentConfirmedTitle'),
+          message: t('paymentConfirmedText', { amount: data.mxi.toFixed(2), network: data.network, usdt: data.usdt.toFixed(2) }),
+          confirmText: t('viewBalance'),
+          cancelText: t('ok'),
+          onConfirm: () => router.push('/(tabs)/(home)/saldo-mxi'),
+          onCancel: () => {
+            setTxHash('');
+            router.back();
+          },
+          type: 'success',
+          icon: {
+            ios: 'checkmark.circle.fill',
+            android: 'check_circle'
+          }
+        });
       } else {
         console.error(`❌ [${requestId}] ========== VERIFICACIÓN FALLIDA ==========`);
         console.error(`❌ [${requestId}] Error code:`, data.error);
@@ -295,7 +296,7 @@ export default function PagarUSDTScreen() {
         }
 
         console.error(`❌ [${requestId}] Mostrando error al usuario:`, errorTitle);
-        Alert.alert(errorTitle, errorMessage);
+        showAlert(errorTitle, errorMessage, undefined, 'error');
       }
     } catch (error: any) {
       console.error(`❌ [${requestId}] ========== ERROR DE CONEXIÓN ==========`);
@@ -303,9 +304,11 @@ export default function PagarUSDTScreen() {
       console.error(`❌ [${requestId}] Error message:`, error.message);
       console.error(`❌ [${requestId}] Error stack:`, error.stack);
 
-      Alert.alert(
+      showAlert(
         t('connectionError'),
-        t('connectionErrorText', { message: error.message })
+        t('connectionErrorText', { message: error.message }),
+        undefined,
+        'error'
       );
     } finally {
       setLoading(false);
@@ -323,39 +326,39 @@ export default function PagarUSDTScreen() {
 
     if (!txHash.trim()) {
       console.error('❌ [MANUAL] Error: Hash vacío');
-      Alert.alert(t('error'), t('pleaseEnterTransactionHash'));
+      showAlert(t('error'), t('pleaseEnterTransactionHash'), undefined, 'error');
       return;
     }
 
     if (!txHash.startsWith('0x') || txHash.length !== 66) {
       console.error('❌ [MANUAL] Error: Hash inválido - longitud:', txHash.length);
-      Alert.alert(
+      showAlert(
         t('invalidHash'),
-        t('hashMustStartWith0x', { count: txHash.length })
+        t('hashMustStartWith0x', { count: txHash.length }),
+        undefined,
+        'error'
       );
       return;
     }
 
     const selectedNetworkData = NETWORKS.find(n => n.id === selectedNetwork);
 
-    Alert.alert(
-      t('requestManualVerificationTitle'),
-      t('doYouWantToSendManualRequest', { 
+    showConfirm({
+      title: t('requestManualVerificationTitle'),
+      message: t('doYouWantToSendManualRequest', { 
         network: selectedNetworkData?.name, 
         label: selectedNetworkData?.label,
         hash: `${txHash.substring(0, 10)}...${txHash.substring(txHash.length - 8)}`
       }),
-      [
-        {
-          text: t('cancel'),
-          style: 'cancel',
-        },
-        {
-          text: t('sendRequest'),
-          onPress: () => performManualVerificationRequest(),
-        },
-      ]
-    );
+      confirmText: t('sendRequest'),
+      cancelText: t('cancel'),
+      onConfirm: () => performManualVerificationRequest(),
+      type: 'info',
+      icon: {
+        ios: 'info.circle.fill',
+        android: 'info'
+      }
+    });
   };
 
   const performManualVerificationRequest = async () => {
@@ -386,10 +389,11 @@ export default function PagarUSDTScreen() {
         const existingPayment = existingPayments[0];
         console.error(`❌ [${requestId}] Hash duplicado encontrado:`, existingPayment);
         
-        Alert.alert(
+        showAlert(
           t('hashDuplicateTitle'),
           t('hashAlreadyRegisteredText', { order: existingPayment.order_id, status: existingPayment.estado }),
-          [{ text: t('ok') }]
+          undefined,
+          'error'
         );
         setRequestingManualVerification(false);
         return;
@@ -450,36 +454,36 @@ export default function PagarUSDTScreen() {
       console.log(`✅ [${requestId}] Solicitud creada:`, verificationData);
       console.log(`✅ [${requestId}] ========== SOLICITUD MANUAL EXITOSA ==========`);
 
-      Alert.alert(
-        t('requestSentSuccessfullyTitle'),
-        t('manualVerificationRequestSentText', {
+      showConfirm({
+        title: t('requestSentSuccessfullyTitle'),
+        message: t('manualVerificationRequestSentText', {
           order: orderId,
           network: selectedNetworkData?.name,
           hash: `${txHash.substring(0, 10)}...${txHash.substring(txHash.length - 8)}`
         }),
-        [
-          {
-            text: t('viewTransactions'),
-            onPress: () => router.push('/(tabs)/(home)/payment-history'),
-          },
-          {
-            text: t('ok'),
-            onPress: () => {
-              setTxHash('');
-              router.back();
-            },
-          },
-        ]
-      );
+        confirmText: t('viewTransactions'),
+        cancelText: t('ok'),
+        onConfirm: () => router.push('/(tabs)/(home)/payment-history'),
+        onCancel: () => {
+          setTxHash('');
+          router.back();
+        },
+        type: 'success',
+        icon: {
+          ios: 'checkmark.circle.fill',
+          android: 'check_circle'
+        }
+      });
     } catch (error: any) {
       console.error(`❌ [${requestId}] ========== ERROR EN SOLICITUD MANUAL ==========`);
       console.error(`❌ [${requestId}] Error:`, error);
       console.error(`❌ [${requestId}] Error message:`, error.message);
 
-      Alert.alert(
+      showAlert(
         t('errorSendingRequestTitle'),
         t('couldNotSendVerificationRequestText', { error: error.message, code: error.code || 'N/A' }),
-        [{ text: t('ok') }]
+        undefined,
+        'error'
       );
     } finally {
       setRequestingManualVerification(false);

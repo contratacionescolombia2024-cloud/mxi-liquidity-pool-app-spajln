@@ -6,7 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
@@ -14,6 +13,7 @@ import { supabase } from '@/lib/supabase';
 import { colors } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
+import { showConfirm, showAlert } from '@/utils/confirmDialog';
 
 export default function ManualPaymentCredit() {
   const { session } = useAuth();
@@ -24,7 +24,7 @@ export default function ManualPaymentCredit() {
 
   const searchPayment = async () => {
     if (!orderId.trim()) {
-      Alert.alert('Error', 'Por favor ingresa un Order ID');
+      showAlert('Error', 'Por favor ingresa un Order ID', undefined, 'error');
       return;
     }
 
@@ -49,14 +49,14 @@ export default function ManualPaymentCredit() {
         .single();
 
       if (paymentError || !payment) {
-        Alert.alert('Error', 'Pago no encontrado');
+        showAlert('Error', 'Pago no encontrado', undefined, 'error');
         return;
       }
 
       setPaymentDetails(payment);
     } catch (error: any) {
       console.error('Error searching payment:', error);
-      Alert.alert('Error', error.message || 'Error al buscar el pago');
+      showAlert('Error', error.message || 'Error al buscar el pago', undefined, 'error');
     } finally {
       setSearchLoading(false);
     }
@@ -65,91 +65,84 @@ export default function ManualPaymentCredit() {
   const verifyAndCreditPayment = async () => {
     if (!paymentDetails || !session) return;
 
-    Alert.alert(
-      'Confirmar Verificación y Acreditación',
-      `¿Estás seguro de que deseas verificar y acreditar este pago?\n\n` +
-      `Usuario: ${paymentDetails.users.email}\n` +
-      `Monto: ${paymentDetails.mxi_amount} MXI\n\n` +
-      `Esta acción verificará el estado del pago con NOWPayments y lo acreditará si está confirmado.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Verificar y Acreditar',
-          style: 'destructive',
-          onPress: async () => {
-            setLoading(true);
-            try {
-              console.log('🔍 Admin verifying payment:', orderId.trim());
+    showConfirm({
+      title: 'Confirmar Verificación y Acreditación',
+      message: `¿Estás seguro de que deseas verificar y acreditar este pago?\n\n` +
+        `Usuario: ${paymentDetails.users.email}\n` +
+        `Monto: ${paymentDetails.mxi_amount} MXI\n\n` +
+        `Esta acción verificará el estado del pago con NOWPayments y lo acreditará si está confirmado.`,
+      confirmText: 'Verificar y Acreditar',
+      cancelText: 'Cancelar',
+      onConfirm: async () => {
+        setLoading(true);
+        try {
+          console.log('🔍 Admin verifying payment:', orderId.trim());
 
-              const response = await fetch(
-                'https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/manual-verify-payment',
-                {
-                  method: 'POST',
-                  headers: {
-                    'Authorization': `Bearer ${session.access_token}`,
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    order_id: orderId.trim(),
-                  }),
-                }
-              );
-
-              const data = await response.json();
-              console.log('✅ Verification response:', data);
-
-              if (data.success) {
-                if (data.credited) {
-                  Alert.alert(
-                    '✅ Pago Acreditado',
-                    `El pago ha sido verificado y acreditado exitosamente.\n\n` +
-                    `${data.payment.mxi_amount} MXI han sido agregados a la cuenta del usuario.\n\n` +
-                    `Nuevo balance: ${data.payment.new_balance} MXI`,
-                    [
-                      {
-                        text: 'OK',
-                        onPress: () => {
-                          setOrderId('');
-                          setPaymentDetails(null);
-                        },
-                      },
-                    ]
-                  );
-                } else if (data.already_credited) {
-                  Alert.alert(
-                    'ℹ️ Ya Acreditado',
-                    'Este pago ya ha sido acreditado anteriormente.',
-                    [
-                      {
-                        text: 'OK',
-                        onPress: () => {
-                          setOrderId('');
-                          setPaymentDetails(null);
-                        },
-                      },
-                    ]
-                  );
-                } else {
-                  Alert.alert(
-                    'ℹ️ Estado Actualizado',
-                    `Estado del pago: ${data.payment.status}\n\n` +
-                    `El pago aún no ha sido confirmado por NOWPayments. No se puede acreditar en este momento.`,
-                    [{ text: 'OK' }]
-                  );
-                }
-              } else {
-                Alert.alert('Error', data.error || 'Error al verificar el pago');
-              }
-            } catch (error: any) {
-              console.error('❌ Error verifying payment:', error);
-              Alert.alert('Error', error.message || 'Error al verificar el pago');
-            } finally {
-              setLoading(false);
+          const response = await fetch(
+            'https://aeyfnjuatbtcauiumbhn.supabase.co/functions/v1/manual-verify-payment',
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                order_id: orderId.trim(),
+              }),
             }
-          },
-        },
-      ]
-    );
+          );
+
+          const data = await response.json();
+          console.log('✅ Verification response:', data);
+
+          if (data.success) {
+            if (data.credited) {
+              showAlert(
+                '✅ Pago Acreditado',
+                `El pago ha sido verificado y acreditado exitosamente.\n\n` +
+                `${data.payment.mxi_amount} MXI han sido agregados a la cuenta del usuario.\n\n` +
+                `Nuevo balance: ${data.payment.new_balance} MXI`,
+                () => {
+                  setOrderId('');
+                  setPaymentDetails(null);
+                },
+                'success'
+              );
+            } else if (data.already_credited) {
+              showAlert(
+                'ℹ️ Ya Acreditado',
+                'Este pago ya ha sido acreditado anteriormente.',
+                () => {
+                  setOrderId('');
+                  setPaymentDetails(null);
+                },
+                'info'
+              );
+            } else {
+              showAlert(
+                'ℹ️ Estado Actualizado',
+                `Estado del pago: ${data.payment.status}\n\n` +
+                `El pago aún no ha sido confirmado por NOWPayments. No se puede acreditar en este momento.`,
+                undefined,
+                'info'
+              );
+            }
+          } else {
+            showAlert('Error', data.error || 'Error al verificar el pago', undefined, 'error');
+          }
+        } catch (error: any) {
+          console.error('❌ Error verifying payment:', error);
+          showAlert('Error', error.message || 'Error al verificar el pago', undefined, 'error');
+        } finally {
+          setLoading(false);
+        }
+      },
+      type: 'warning',
+      icon: {
+        ios: 'exclamationmark.triangle.fill',
+        android: 'warning'
+      }
+    });
   };
 
   const getStatusColor = (status: string) => {
@@ -206,7 +199,7 @@ export default function ManualPaymentCredit() {
           disabled={searchLoading}
         >
           {searchLoading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color="#000000" />
           ) : (
             <>
               <IconSymbol

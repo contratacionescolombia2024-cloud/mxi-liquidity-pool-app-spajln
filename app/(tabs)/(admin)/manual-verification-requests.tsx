@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
-  Alert,
   TextInput,
   Modal,
 } from 'react-native';
@@ -18,6 +17,7 @@ import { useRouter } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { showConfirm, showAlert } from '@/utils/confirmDialog';
 
 const styles = StyleSheet.create({
   container: {
@@ -347,6 +347,18 @@ const styles = StyleSheet.create({
     color: '#FF9800',
     lineHeight: 18,
   },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  errorText: {
+    fontSize: 16,
+    color: colors.error,
+    textAlign: 'center',
+    marginTop: 16,
+  },
 });
 
 export default function ManualVerificationRequestsScreen() {
@@ -364,6 +376,7 @@ export default function ManualVerificationRequestsScreen() {
   const [rejectReason, setRejectReason] = useState('');
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [approvedUsdtAmount, setApprovedUsdtAmount] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadRequests();
@@ -392,6 +405,8 @@ export default function ManualVerificationRequestsScreen() {
 
   const loadRequests = async () => {
     try {
+      setError(null);
+      
       let query = supabase
         .from('manual_verification_requests')
         .select(`
@@ -422,12 +437,18 @@ export default function ManualVerificationRequestsScreen() {
         query = query.in('status', ['pending', 'reviewing', 'more_info_requested']);
       }
 
-      const { data, error } = await query;
+      const { data, error: queryError } = await query;
 
-      if (error) throw error;
+      if (queryError) {
+        console.error('Error loading verification requests:', queryError);
+        setError(queryError.message);
+        throw queryError;
+      }
+      
       setRequests(data || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading verification requests:', error);
+      setError(error.message || 'Error al cargar las solicitudes');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -443,14 +464,14 @@ export default function ManualVerificationRequestsScreen() {
     setSelectedRequest(request);
     
     // Pre-fill with the payment amount
-    setApprovedUsdtAmount(parseFloat(request.payments.price_amount).toFixed(2));
+    setApprovedUsdtAmount(parseFloat(request.payments.price_amount || 0).toFixed(2));
     
     setShowApproveModal(true);
   };
 
   const approveRequest = async () => {
     if (!session) {
-      Alert.alert('Error', 'Sesión no válida');
+      showAlert('Error', 'Sesión no válida', undefined, 'error');
       return;
     }
 
@@ -461,7 +482,7 @@ export default function ManualVerificationRequestsScreen() {
     // Validate approved amount
     const amount = parseFloat(approvedUsdtAmount);
     if (!approvedUsdtAmount || isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Por favor ingresa una cantidad válida de USDT aprobada');
+      showAlert('Error', 'Por favor ingresa una cantidad válida de USDT aprobada', undefined, 'error');
       return;
     }
 
@@ -516,17 +537,13 @@ export default function ManualVerificationRequestsScreen() {
             })
             .eq('id', request.id);
 
-          Alert.alert(
+          showAlert(
             '✅ Pago Aprobado',
             `El pago ha sido verificado y acreditado exitosamente.\n\n` +
             `${data.payment.mxi_amount} MXI han sido agregados a la cuenta del usuario.\n` +
             `\nMonto USDT aprobado: ${approvedUsdtAmount}`,
-            [
-              {
-                text: 'OK',
-                onPress: () => loadRequests(),
-              },
-            ]
+            () => loadRequests(),
+            'success'
           );
         } else if (data.already_credited) {
           // Update request status to approved
@@ -541,15 +558,11 @@ export default function ManualVerificationRequestsScreen() {
             })
             .eq('id', request.id);
 
-          Alert.alert(
+          showAlert(
             'ℹ️ Ya Acreditado',
             'Este pago ya había sido acreditado anteriormente.',
-            [
-              {
-                text: 'OK',
-                onPress: () => loadRequests(),
-              },
-            ]
+            () => loadRequests(),
+            'info'
           );
         } else {
           // Payment not confirmed yet, update status back to pending
@@ -562,12 +575,13 @@ export default function ManualVerificationRequestsScreen() {
             })
             .eq('id', request.id);
 
-          Alert.alert(
+          showAlert(
             'ℹ️ Pago No Confirmado',
             `El pago aún no ha sido confirmado.\n\n` +
             `Estado actual: ${data.payment.status}\n\n` +
             `Por favor, espera a que el pago sea confirmado antes de aprobarlo.`,
-            [{ text: 'OK', onPress: () => loadRequests() }]
+            () => loadRequests(),
+            'info'
           );
         }
       } else {
@@ -581,10 +595,11 @@ export default function ManualVerificationRequestsScreen() {
           })
           .eq('id', request.id);
 
-        Alert.alert(
+        showAlert(
           'Error',
           data.error || 'Error al verificar el pago',
-          [{ text: 'OK', onPress: () => loadRequests() }]
+          () => loadRequests(),
+          'error'
         );
       }
     } catch (error: any) {
@@ -600,10 +615,11 @@ export default function ManualVerificationRequestsScreen() {
         })
         .eq('id', request.id);
 
-      Alert.alert(
+      showAlert(
         'Error',
         error.message || 'Error al aprobar la solicitud',
-        [{ text: 'OK', onPress: () => loadRequests() }]
+        () => loadRequests(),
+        'error'
       );
     } finally {
       setProcessingRequests(prev => {
@@ -624,7 +640,7 @@ export default function ManualVerificationRequestsScreen() {
 
   const rejectRequest = async () => {
     if (!rejectReason.trim()) {
-      Alert.alert('Error', 'Por favor ingresa un motivo de rechazo');
+      showAlert('Error', 'Por favor ingresa un motivo de rechazo', undefined, 'error');
       return;
     }
 
@@ -643,22 +659,19 @@ export default function ManualVerificationRequestsScreen() {
         })
         .eq('id', selectedRequest.id);
 
-      Alert.alert(
+      showAlert(
         '✅ Solicitud Rechazada',
         'La solicitud ha sido rechazada exitosamente. El usuario recibirá una notificación con el motivo.',
-        [
-          {
-            text: 'OK',
-            onPress: () => loadRequests(),
-          },
-        ]
+        () => loadRequests(),
+        'success'
       );
     } catch (error: any) {
       console.error('Error rejecting request:', error);
-      Alert.alert(
+      showAlert(
         'Error',
         error.message || 'Error al rechazar la solicitud',
-        [{ text: 'OK' }]
+        undefined,
+        'error'
       );
     } finally {
       setProcessingRequests(prev => {
@@ -679,7 +692,7 @@ export default function ManualVerificationRequestsScreen() {
 
   const requestMoreInfo = async () => {
     if (!moreInfoText.trim()) {
-      Alert.alert('Error', 'Por favor ingresa la información que necesitas');
+      showAlert('Error', 'Por favor ingresa la información que necesitas', undefined, 'error');
       return;
     }
 
@@ -698,22 +711,19 @@ export default function ManualVerificationRequestsScreen() {
         })
         .eq('id', selectedRequest.id);
 
-      Alert.alert(
+      showAlert(
         '✅ Información Solicitada',
         'Se ha solicitado más información al usuario. El usuario recibirá una notificación.',
-        [
-          {
-            text: 'OK',
-            onPress: () => loadRequests(),
-          },
-        ]
+        () => loadRequests(),
+        'success'
       );
     } catch (error: any) {
       console.error('Error requesting more info:', error);
-      Alert.alert(
+      showAlert(
         'Error',
         error.message || 'Error al solicitar más información',
-        [{ text: 'OK' }]
+        undefined,
+        'error'
       );
     } finally {
       setProcessingRequests(prev => {
@@ -784,6 +794,45 @@ export default function ManualVerificationRequestsScreen() {
     );
   }
 
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <IconSymbol
+              ios_icon_name="chevron.left"
+              android_material_icon_name="arrow_back"
+              size={24}
+              color={colors.text}
+            />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Verificaciones Manuales</Text>
+        </View>
+        <View style={styles.errorContainer}>
+          <IconSymbol
+            ios_icon_name="exclamationmark.triangle"
+            android_material_icon_name="error"
+            size={64}
+            color={colors.error}
+          />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity
+            style={[styles.approveButton, { marginTop: 20 }]}
+            onPress={() => {
+              setLoading(true);
+              loadRequests();
+            }}
+          >
+            <Text style={styles.buttonText}>Reintentar</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -849,14 +898,14 @@ export default function ManualVerificationRequestsScreen() {
           {requests.map((request, index) => {
             const isProcessing = processingRequests.has(request.id);
             const isPending = ['pending', 'reviewing', 'more_info_requested'].includes(request.status);
-            const isDirectUSDT = request.payments.tx_hash && !request.payments.payment_id;
-            const isNowPayments = !!request.payments.payment_id;
+            const isDirectUSDT = request.payments?.tx_hash && !request.payments?.payment_id;
+            const isNowPayments = !!request.payments?.payment_id;
 
             return (
               <View key={index} style={styles.requestCard}>
                 <View style={styles.requestHeader}>
                   <Text style={styles.requestAmount}>
-                    {parseFloat(request.payments.price_amount).toFixed(2)} USDT
+                    {parseFloat(request.payments?.price_amount || 0).toFixed(2)} USDT
                   </Text>
                   <View
                     style={[
@@ -879,37 +928,37 @@ export default function ManualVerificationRequestsScreen() {
 
                 <View style={styles.requestRow}>
                   <Text style={styles.requestLabel}>Usuario:</Text>
-                  <Text style={styles.requestValue}>{request.users.email}</Text>
+                  <Text style={styles.requestValue}>{request.users?.email || 'N/A'}</Text>
                 </View>
 
                 <View style={styles.requestRow}>
                   <Text style={styles.requestLabel}>Nombre:</Text>
-                  <Text style={styles.requestValue}>{request.users.name}</Text>
+                  <Text style={styles.requestValue}>{request.users?.name || 'N/A'}</Text>
                 </View>
 
                 <View style={styles.requestRow}>
                   <Text style={styles.requestLabel}>MXI a Acreditar:</Text>
                   <Text style={styles.requestValue}>
-                    {parseFloat(request.payments.mxi_amount).toFixed(2)} MXI
+                    {parseFloat(request.payments?.mxi_amount || 0).toFixed(2)} MXI
                   </Text>
                 </View>
 
                 <View style={styles.requestRow}>
                   <Text style={styles.requestLabel}>Balance Actual:</Text>
                   <Text style={styles.requestValue}>
-                    {parseFloat(request.users.mxi_balance).toFixed(2)} MXI
+                    {parseFloat(request.users?.mxi_balance || 0).toFixed(2)} MXI
                   </Text>
                 </View>
 
                 <View style={styles.requestRow}>
                   <Text style={styles.requestLabel}>Fase:</Text>
-                  <Text style={styles.requestValue}>Fase {request.payments.phase}</Text>
+                  <Text style={styles.requestValue}>Fase {request.payments?.phase || 1}</Text>
                 </View>
 
                 <View style={styles.requestRow}>
                   <Text style={styles.requestLabel}>Moneda:</Text>
                   <Text style={styles.requestValue}>
-                    {request.payments.pay_currency.toUpperCase()}
+                    {(request.payments?.pay_currency || 'usdt').toUpperCase()}
                   </Text>
                 </View>
 
@@ -933,17 +982,17 @@ export default function ManualVerificationRequestsScreen() {
 
                 <View style={styles.orderIdContainer}>
                   <Text style={styles.orderIdLabel}>ID de Orden:</Text>
-                  <Text style={styles.orderIdText}>{request.payments.order_id}</Text>
+                  <Text style={styles.orderIdText}>{request.payments?.order_id || 'N/A'}</Text>
                 </View>
 
-                {request.payments.payment_id && (
+                {request.payments?.payment_id && (
                   <View style={styles.orderIdContainer}>
                     <Text style={styles.orderIdLabel}>Payment ID:</Text>
                     <Text style={styles.orderIdText}>{request.payments.payment_id}</Text>
                   </View>
                 )}
 
-                {request.payments.tx_hash && (
+                {request.payments?.tx_hash && (
                   <View style={styles.orderIdContainer}>
                     <Text style={styles.orderIdLabel}>Transaction Hash:</Text>
                     <Text style={styles.orderIdText}>{request.payments.tx_hash}</Text>
@@ -1074,7 +1123,7 @@ export default function ManualVerificationRequestsScreen() {
             
             <View style={styles.warningBox}>
               <Text style={styles.warningText}>
-                {selectedRequest && selectedRequest.payments.tx_hash && !selectedRequest.payments.payment_id
+                {selectedRequest && selectedRequest.payments?.tx_hash && !selectedRequest.payments?.payment_id
                   ? '⚠️ Este es un pago USDT directo. Verifica la transacción en la blockchain y ajusta el monto si es necesario.'
                   : '⚠️ Este es un pago de NowPayments. Puedes aprobar manualmente sin verificar con la API de NowPayments. Ajusta el monto si es necesario.'}
               </Text>
