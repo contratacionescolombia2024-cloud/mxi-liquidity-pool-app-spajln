@@ -24,7 +24,7 @@ serve(async (req) => {
     currentHour.setMinutes(0, 0, 0);
 
     // Get all users with vesting balance
-    // FIXED: Only select users with mxi_purchased_directly > 0
+    // ✅ FIXED: Only select users with mxi_purchased_directly > 0
     // Commissions and tournament winnings do NOT generate vesting
     const { data: users, error: usersError } = await supabase
       .from('users')
@@ -37,13 +37,14 @@ serve(async (req) => {
 
     console.log(`Processing ${users?.length || 0} users with vesting balance (purchased MXI only)`);
 
+    // ✅ FIXED: 3% monthly yield (0.03)
     const MONTHLY_YIELD_PERCENTAGE = 0.03;
-    const SECONDS_IN_MONTH = 2592000;
+    const SECONDS_IN_MONTH = 2592000; // 30 days
 
     for (const user of users || []) {
-      // FIXED: Only use mxi_purchased_directly for vesting calculation
+      // ✅ FIXED: Only use mxi_purchased_directly for vesting calculation
       // Commissions (mxi_from_unified_commissions) and tournaments (mxi_from_challenges) do NOT generate vesting
-      const mxiInVesting = parseFloat(user.mxi_purchased_directly) || 0;
+      const mxiInVesting = Math.max(0, parseFloat(user.mxi_purchased_directly) || 0);
       
       if (mxiInVesting === 0) continue;
 
@@ -53,11 +54,14 @@ serve(async (req) => {
       
       const now = new Date();
       const lastUpdate = new Date(user.last_yield_update);
-      const secondsElapsed = (now.getTime() - lastUpdate.getTime()) / 1000;
+      const secondsElapsed = Math.max(0, (now.getTime() - lastUpdate.getTime()) / 1000);
       
-      const sessionYield = yieldPerSecond * secondsElapsed;
+      const sessionYield = Math.max(0, yieldPerSecond * secondsElapsed);
+      
+      // ✅ CRITICAL FIX: Ensure accumulated_yield is never negative
+      const previousYield = Math.max(0, parseFloat(user.accumulated_yield) || 0);
       const currentYield = Math.min(
-        (parseFloat(user.accumulated_yield) || 0) + sessionYield,
+        Math.max(0, previousYield + sessionYield),
         maxMonthlyYield
       );
 
@@ -70,7 +74,14 @@ serve(async (req) => {
         .limit(1)
         .single();
 
-      const lastClose = lastCandle ? parseFloat(lastCandle.close_value) : 0;
+      const lastClose = Math.max(0, lastCandle ? parseFloat(lastCandle.close_value) : 0);
+
+      // ✅ CRITICAL FIX: Ensure all vesting values are non-negative
+      const openValue = Math.max(0, lastClose);
+      const closeValue = Math.max(0, currentYield);
+      const highValue = Math.max(openValue, closeValue);
+      const lowValue = Math.min(openValue, closeValue);
+      const volume = Math.max(0, closeValue - openValue);
 
       // Insert or update hourly data
       const { error: insertError } = await supabase
@@ -78,11 +89,11 @@ serve(async (req) => {
         .upsert({
           user_id: user.id,
           timestamp: currentHour.toISOString(),
-          open_value: lastClose,
-          high_value: Math.max(lastClose, currentYield),
-          low_value: Math.min(lastClose, currentYield),
-          close_value: currentYield,
-          volume: currentYield - lastClose,
+          open_value: openValue,
+          high_value: highValue,
+          low_value: lowValue,
+          close_value: closeValue,
+          volume: volume,
           updated_at: new Date().toISOString(),
         }, {
           onConflict: 'user_id,timestamp',
@@ -91,14 +102,27 @@ serve(async (req) => {
       if (insertError) {
         console.error(`Error updating vesting data for user ${user.id}:`, insertError);
       } else {
-        console.log(`Updated vesting data for user ${user.id}: ${currentYield.toFixed(8)} MXI (based on ${mxiInVesting.toFixed(2)} MXI purchased)`);
+        console.log(`✅ Updated vesting data for user ${user.id}: ${closeValue.toFixed(8)} MXI (based on ${mxiInVesting.toFixed(2)} MXI purchased, 3% monthly yield)`);
+      }
+
+      // ✅ CRITICAL FIX: Update user's accumulated_yield to ensure it's never negative
+      const { error: updateUserError } = await supabase
+        .from('users')
+        .update({
+          accumulated_yield: Math.max(0, currentYield),
+          last_yield_update: now.toISOString(),
+        })
+        .eq('id', user.id);
+
+      if (updateUserError) {
+        console.error(`Error updating user ${user.id} accumulated_yield:`, updateUserError);
       }
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Updated vesting data for ${users?.length || 0} users (only purchased MXI generates vesting)`,
+        message: `✅ Updated vesting data for ${users?.length || 0} users (only purchased MXI generates 3% monthly vesting, all values non-negative)`,
         timestamp: new Date().toISOString(),
       }),
       {

@@ -359,51 +359,34 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 16,
   },
-  debugBox: {
-    backgroundColor: '#FFF3CD',
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: '#FFC107',
-  },
-  debugLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#856404',
-    marginBottom: 4,
-  },
-  debugText: {
-    fontSize: 11,
-    color: '#856404',
-    fontFamily: 'monospace',
-  },
 });
 
-// ✅ CRITICAL FIX: Ultra-robust numeric parsing for PostgreSQL numeric type
-// PostgreSQL numeric type is ALWAYS returned as STRING by Supabase JavaScript client
-const safeParseNumeric = (value: any, fieldName: string = 'unknown'): number => {
-  console.log(`[Admin] 🔍 PARSING ${fieldName}:`, {
-    rawValue: value,
+/**
+ * ✅ ULTRA-ROBUST NUMERIC PARSER
+ * PostgreSQL numeric type is ALWAYS returned as STRING by Supabase JavaScript client
+ * This function handles ALL edge cases and ensures we ALWAYS get a valid number
+ */
+const parseNumericValue = (value: any, fieldName: string = 'unknown'): number => {
+  console.log(`[PARSE] ${fieldName}:`, {
+    value,
     type: typeof value,
     isNull: value === null,
     isUndefined: value === undefined,
-    stringValue: String(value),
   });
 
   // Handle null/undefined
   if (value === null || value === undefined) {
-    console.log(`[Admin] ⚠️ ${fieldName}: NULL/UNDEFINED → 0`);
+    console.log(`[PARSE] ${fieldName}: NULL/UNDEFINED → 0`);
     return 0;
   }
 
   // If already a valid number
   if (typeof value === 'number') {
     if (isNaN(value) || !isFinite(value)) {
-      console.log(`[Admin] ⚠️ ${fieldName}: Invalid number (NaN/Infinity) → 0`);
+      console.log(`[PARSE] ${fieldName}: Invalid number (NaN/Infinity) → 0`);
       return 0;
     }
-    console.log(`[Admin] ✅ ${fieldName}: Valid number → ${value}`);
+    console.log(`[PARSE] ${fieldName}: Valid number → ${value}`);
     return value;
   }
 
@@ -411,18 +394,18 @@ const safeParseNumeric = (value: any, fieldName: string = 'unknown'): number => 
   const stringValue = String(value).trim();
   
   if (stringValue === '' || stringValue === 'null' || stringValue === 'undefined') {
-    console.log(`[Admin] ⚠️ ${fieldName}: Empty/null string → 0`);
+    console.log(`[PARSE] ${fieldName}: Empty/null string → 0`);
     return 0;
   }
 
   // Try parseFloat (this handles PostgreSQL numeric strings like "30" or "30.50")
   const parsed = parseFloat(stringValue);
   if (!isNaN(parsed) && isFinite(parsed)) {
-    console.log(`[Admin] ✅ ${fieldName}: Parsed "${stringValue}" → ${parsed}`);
+    console.log(`[PARSE] ${fieldName}: Parsed "${stringValue}" → ${parsed}`);
     return parsed;
   }
 
-  console.log(`[Admin] ❌ ${fieldName}: PARSING FAILED → 0`);
+  console.log(`[PARSE] ${fieldName}: PARSING FAILED → 0`);
   return 0;
 };
 
@@ -510,16 +493,6 @@ export default function ManualVerificationRequestsScreen() {
         console.error('[Admin] ❌ Error loading payments:', paymentsError);
       } else {
         console.log(`[Admin] ✅ Loaded ${paymentsData?.length || 0} payments`);
-        if (paymentsData && paymentsData.length > 0) {
-          console.log('[Admin] 📊 Sample payment data (first record):', {
-            id: paymentsData[0].id,
-            order_id: paymentsData[0].order_id,
-            price_amount: paymentsData[0].price_amount,
-            price_amount_type: typeof paymentsData[0].price_amount,
-            mxi_amount: paymentsData[0].mxi_amount,
-            mxi_amount_type: typeof paymentsData[0].mxi_amount,
-          });
-        }
       }
 
       // ✅ STEP 4: Fetch all users in one query
@@ -532,14 +505,6 @@ export default function ManualVerificationRequestsScreen() {
         console.error('[Admin] ❌ Error loading users:', usersError);
       } else {
         console.log(`[Admin] ✅ Loaded ${usersData?.length || 0} users`);
-        if (usersData && usersData.length > 0) {
-          console.log('[Admin] 📊 Sample user data (first record):', {
-            id: usersData[0].id,
-            email: usersData[0].email,
-            mxi_balance: usersData[0].mxi_balance,
-            mxi_balance_type: typeof usersData[0].mxi_balance,
-          });
-        }
       }
 
       // ✅ STEP 5: Create lookup maps for O(1) access
@@ -560,9 +525,6 @@ export default function ManualVerificationRequestsScreen() {
         console.log(`[Admin] ========================================`);
         console.log(`[Admin] === Processing Request ${index + 1}/${requestsData.length} ===`);
         console.log(`[Admin] Request ID: ${request.id}`);
-        console.log(`[Admin] Payment ID: ${request.payment_id}`);
-        console.log(`[Admin] User ID: ${request.user_id}`);
-        console.log(`[Admin] Order ID: ${request.order_id}`);
 
         // Get payment and user from maps
         const payment = paymentsMap.get(request.payment_id);
@@ -575,24 +537,10 @@ export default function ManualVerificationRequestsScreen() {
           console.warn(`[Admin] ⚠️ User not found for request ${request.id}`);
         }
 
-        console.log(`[Admin] 📦 Raw payment data:`, {
-          price_amount: payment?.price_amount,
-          price_amount_type: typeof payment?.price_amount,
-          mxi_amount: payment?.mxi_amount,
-          mxi_amount_type: typeof payment?.mxi_amount,
-        });
-
-        console.log(`[Admin] 👤 Raw user data:`, {
-          email: user?.email,
-          mxi_balance: user?.mxi_balance,
-          mxi_balance_type: typeof user?.mxi_balance,
-        });
-
-        // ✅ CRITICAL FIX: Parse numeric values from payment and user objects
-        // PostgreSQL numeric type is returned as STRING by Supabase client
-        const priceAmount = safeParseNumeric(payment?.price_amount, `request_${index}_price_amount`);
-        const mxiAmount = safeParseNumeric(payment?.mxi_amount, `request_${index}_mxi_amount`);
-        const userBalance = safeParseNumeric(user?.mxi_balance, `request_${index}_user_balance`);
+        // ✅ CRITICAL FIX: Parse numeric values using ultra-robust parser
+        const priceAmount = parseNumericValue(payment?.price_amount, `request_${index}_price_amount`);
+        const mxiAmount = parseNumericValue(payment?.mxi_amount, `request_${index}_mxi_amount`);
+        const userBalance = parseNumericValue(user?.mxi_balance, `request_${index}_user_balance`);
         
         console.log(`[Admin] ✅ Parsed numeric values:`, {
           priceAmount,
@@ -607,7 +555,6 @@ export default function ManualVerificationRequestsScreen() {
           payment: payment || {},
           user: user || {},
           // ✅ CRITICAL: Store parsed values directly on the request object
-          // These will be used for display in the UI
           price_amount_parsed: priceAmount,
           mxi_amount_parsed: mxiAmount,
           user_balance_parsed: userBalance,
@@ -615,18 +562,10 @@ export default function ManualVerificationRequestsScreen() {
       });
       
       console.log(`[Admin] ✅ Successfully enriched ${enrichedRequests.length} requests`);
-      console.log(`[Admin] 📊 Sample enriched request:`, {
-        id: enrichedRequests[0]?.id,
-        price_amount_parsed: enrichedRequests[0]?.price_amount_parsed,
-        mxi_amount_parsed: enrichedRequests[0]?.mxi_amount_parsed,
-        user_balance_parsed: enrichedRequests[0]?.user_balance_parsed,
-      });
       
       setRequests(enrichedRequests);
     } catch (error: any) {
       console.error('[Admin] ❌ CRITICAL ERROR loading verification requests:', error);
-      console.error('[Admin] Error message:', error.message);
-      console.error('[Admin] Error stack:', error.stack);
       if (!skipLoadingState) {
         setError(error.message || 'Error al cargar las solicitudes');
       }
