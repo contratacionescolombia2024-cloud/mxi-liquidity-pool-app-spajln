@@ -1,83 +1,55 @@
 
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useRouter } from 'expo-router';
+import { useVestingData } from '@/hooks/useVestingData';
+import { formatVestingValue } from '@/utils/safeNumericParse';
 
 export function YieldDisplay() {
-  const { user, getCurrentYield, claimYield } = useAuth();
+  const { user } = useAuth();
   const { t } = useLanguage();
-  const [currentYield, setCurrentYield] = useState(0);
-  const [claiming, setClaiming] = useState(false);
+  const router = useRouter();
+  const { vestingData, loading } = useVestingData();
 
-  useEffect(() => {
-    if (!user || user.yieldRatePerMinute === 0) {
-      setCurrentYield(0);
-      return;
-    }
-
-    // Update yield display every second
-    const interval = setInterval(() => {
-      const yield_amount = getCurrentYield();
-      setCurrentYield(yield_amount);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [user, getCurrentYield]);
-
-  const handleClaimYield = async () => {
-    if (currentYield < 0.000001) {
-      Alert.alert(t('noYield'), t('needMoreYield'));
-      return;
-    }
-
-    // Check eligibility before claiming - SAME AS WITHDRAWAL CONDITIONS
-    if (!user.canWithdraw) {
-      Alert.alert(
-        t('requirementsNotMet'),
-        t('claimRequirements', { count: user.activeReferrals }),
-        [{ text: t('ok') }]
-      );
-      return;
-    }
-
-    if (user.kycStatus !== 'approved') {
-      Alert.alert(
-        t('kycRequired'),
-        t('kycRequiredMessage'),
-        [{ text: t('ok') }]
-      );
-      return;
-    }
-
-    setClaiming(true);
-    const result = await claimYield();
-    setClaiming(false);
-
-    if (result.success) {
-      Alert.alert(
-        t('yieldClaimed'),
-        t('yieldClaimedMessage', { amount: result.yieldEarned?.toFixed(8) }),
-        [{ text: t('ok') }]
-      );
-      setCurrentYield(0);
-    } else {
-      Alert.alert(t('claimFailed'), result.error || t('claimFailed'));
-    }
-  };
-
-  if (!user || !user.isActiveContributor || user.yieldRatePerMinute === 0) {
+  // Don't show if no user or loading
+  if (!user || loading || !vestingData) {
     return null;
   }
 
-  const yieldPerSecond = user.yieldRatePerMinute / 60;
-  const totalYield = user.accumulatedYield + currentYield;
-  const mxiPurchased = user.mxiPurchasedDirectly || 0;
+  const {
+    currentYield,
+    sessionYield,
+    mxiPurchased,
+    yieldPerSecond,
+    yieldPerMinute,
+    yieldPerHour,
+    yieldPerDay,
+    hasBalance,
+  } = vestingData;
+
+  // Don't show if no balance
+  if (!hasBalance) {
+    return null;
+  }
+
+  // Ensure all values are non-negative
+  const safeCurrentYield = Math.max(0, currentYield);
+  const safeSessionYield = Math.max(0, sessionYield);
+  const safeYieldPerSecond = Math.max(0, yieldPerSecond);
+  const safeYieldPerMinute = Math.max(0, yieldPerMinute);
+  const safeYieldPerHour = Math.max(0, yieldPerHour);
+  const safeYieldPerDay = Math.max(0, yieldPerDay);
 
   // Check if button should be enabled - SAME AS WITHDRAWAL CONDITIONS
-  const canClaim = user.canWithdraw && user.kycStatus === 'approved' && currentYield >= 0.000001;
+  const canClaim = user.canWithdraw && user.kycStatus === 'approved';
+
+  const handleViewDetails = () => {
+    router.push('/(tabs)/(home)/vesting');
+  };
 
   return (
     <View style={styles.container}>
@@ -88,7 +60,7 @@ export function YieldDisplay() {
         <View style={styles.headerText}>
           <Text style={styles.title}>{t('vestingMXI')}</Text>
           <Text style={styles.subtitle}>
-            {t('generatingPerSecond', { rate: yieldPerSecond.toFixed(8) })}
+            {t('generatingPerSecond', { rate: formatVestingValue(safeYieldPerSecond, 8) })}
           </Text>
         </View>
       </View>
@@ -96,7 +68,7 @@ export function YieldDisplay() {
       <View style={styles.sourceInfo}>
         <View style={styles.sourceRow}>
           <Text style={styles.sourceLabel}>{t('mxiPurchasedVestingBase')}</Text>
-          <Text style={styles.sourceValue}>{mxiPurchased.toFixed(2)} MXI</Text>
+          <Text style={styles.sourceValue}>{formatVestingValue(mxiPurchased, 2)} MXI</Text>
         </View>
         <Text style={styles.sourceNote}>
           {t('onlyPurchasedMXIGeneratesVesting')}
@@ -106,51 +78,50 @@ export function YieldDisplay() {
       <View style={styles.yieldSection}>
         <View style={styles.yieldRow}>
           <Text style={styles.yieldLabel}>{t('currentSession')}</Text>
-          <Text style={styles.yieldValue}>{currentYield.toFixed(8)} MXI</Text>
+          <Text style={styles.yieldValue}>{formatVestingValue(safeSessionYield, 8)} MXI</Text>
         </View>
         <View style={styles.yieldRow}>
           <Text style={styles.yieldLabel}>{t('totalAccumulated')}</Text>
-          <Text style={styles.yieldValueTotal}>{totalYield.toFixed(8)} MXI</Text>
+          <Text style={styles.yieldValueTotal}>{formatVestingValue(safeCurrentYield, 8)} MXI</Text>
         </View>
       </View>
 
       <View style={styles.rateSection}>
         <View style={styles.rateItem}>
           <Text style={styles.rateLabel}>{t('perSecond')}</Text>
-          <Text style={styles.rateValue}>{yieldPerSecond.toFixed(8)}</Text>
+          <Text style={styles.rateValue}>{formatVestingValue(safeYieldPerSecond, 8)}</Text>
         </View>
         <View style={styles.rateDivider} />
         <View style={styles.rateItem}>
           <Text style={styles.rateLabel}>{t('perMinute')}</Text>
-          <Text style={styles.rateValue}>{user.yieldRatePerMinute.toFixed(8)}</Text>
+          <Text style={styles.rateValue}>{formatVestingValue(safeYieldPerMinute, 5)}</Text>
         </View>
         <View style={styles.rateDivider} />
         <View style={styles.rateItem}>
           <Text style={styles.rateLabel}>{t('perHour')}</Text>
-          <Text style={styles.rateValue}>{(user.yieldRatePerMinute * 60).toFixed(6)}</Text>
+          <Text style={styles.rateValue}>{formatVestingValue(safeYieldPerHour, 6)}</Text>
         </View>
       </View>
 
       <View style={styles.dailyRate}>
         <Text style={styles.dailyRateLabel}>{t('dailyYield')}</Text>
         <Text style={styles.dailyRateValue}>
-          {(user.yieldRatePerMinute * 60 * 24).toFixed(4)} MXI
+          {formatVestingValue(safeYieldPerDay, 4)} MXI
         </Text>
       </View>
 
       <TouchableOpacity
-        style={[styles.claimButton, !canClaim && styles.claimButtonDisabled]}
-        onPress={handleClaimYield}
-        disabled={!canClaim || claiming}
+        style={styles.viewDetailsButton}
+        onPress={handleViewDetails}
       >
         <IconSymbol 
-          ios_icon_name="arrow.down.circle.fill" 
-          android_material_icon_name="arrow_circle_down"
+          ios_icon_name="arrow.right.circle.fill" 
+          android_material_icon_name="arrow_circle_right"
           size={20} 
-          color={canClaim && !claiming ? '#fff' : colors.textSecondary} 
+          color="#fff" 
         />
-        <Text style={[styles.claimButtonText, !canClaim && styles.claimButtonTextDisabled]}>
-          {claiming ? t('claiming') : t('claimYield')}
+        <Text style={styles.viewDetailsButtonText}>
+          {t('claimYield')}
         </Text>
       </TouchableOpacity>
 
@@ -198,6 +169,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
+    marginHorizontal: 8,
     borderWidth: 1,
     borderColor: 'rgba(76, 175, 80, 0.3)',
     shadowColor: colors.success,
@@ -355,7 +327,7 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontFamily: 'monospace',
   },
-  claimButton: {
+  viewDetailsButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -370,17 +342,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  claimButtonDisabled: {
-    backgroundColor: colors.border,
-    shadowOpacity: 0,
-  },
-  claimButtonText: {
+  viewDetailsButtonText: {
     fontSize: 16,
     fontWeight: '700',
     color: '#fff',
-  },
-  claimButtonTextDisabled: {
-    color: colors.textSecondary,
   },
   infoBox: {
     flexDirection: 'row',

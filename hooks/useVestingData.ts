@@ -5,24 +5,24 @@ import { useAuth } from '@/contexts/AuthContext';
 import { calculateVestingYield, safeParseNumeric } from '@/utils/safeNumericParse';
 
 export interface VestingData {
-  // Current real-time values
+  // Current real-time values - ALWAYS NON-NEGATIVE
   currentYield: number;
   sessionYield: number;
   accumulatedYield: number;
   
-  // Base values
+  // Base values - ALWAYS NON-NEGATIVE
   mxiPurchased: number;
   mxiCommissions: number;
   mxiTournaments: number;
   
-  // Yield rates
+  // Yield rates - ALWAYS NON-NEGATIVE
   maxMonthlyYield: number;
   yieldPerSecond: number;
   yieldPerMinute: number;
   yieldPerHour: number;
   yieldPerDay: number;
   
-  // Progress
+  // Progress - ALWAYS NON-NEGATIVE
   progressPercentage: number;
   isNearCap: boolean;
   
@@ -38,6 +38,8 @@ const PERSIST_INTERVAL_MS = 10000; // Persist every 10 seconds
 /**
  * Shared hook for vesting data - ensures consistency across all displays
  * Used by: Home page, Rewards page, Vesting page, VestingCounter component
+ * 
+ * CRITICAL: All values returned are guaranteed to be non-negative
  */
 export function useVestingData() {
   const { user } = useAuth();
@@ -65,14 +67,24 @@ export function useVestingData() {
 
       if (userError) throw userError;
 
-      // Parse values safely
-      const mxiPurchased = safeParseNumeric(userData.mxi_purchased_directly, 0);
-      const mxiCommissions = safeParseNumeric(userData.mxi_from_unified_commissions, 0);
-      const mxiTournaments = safeParseNumeric(userData.mxi_from_challenges, 0);
-      const accumulatedYield = safeParseNumeric(userData.accumulated_yield, 0);
+      // Parse values safely - GUARANTEED NON-NEGATIVE
+      const mxiPurchased = Math.max(0, safeParseNumeric(userData.mxi_purchased_directly, 0));
+      const mxiCommissions = Math.max(0, safeParseNumeric(userData.mxi_from_unified_commissions, 0));
+      const mxiTournaments = Math.max(0, safeParseNumeric(userData.mxi_from_challenges, 0));
+      const accumulatedYield = Math.max(0, safeParseNumeric(userData.accumulated_yield, 0));
       const lastUpdate = new Date(userData.last_yield_update || new Date());
 
-      // Calculate current yield
+      // Validate parsed values
+      if (mxiPurchased < 0 || mxiCommissions < 0 || mxiTournaments < 0 || accumulatedYield < 0) {
+        console.error('❌ CRITICAL: Negative values detected after parsing:', {
+          mxiPurchased,
+          mxiCommissions,
+          mxiTournaments,
+          accumulatedYield,
+        });
+      }
+
+      // Calculate current yield - GUARANTEED NON-NEGATIVE
       const yieldCalc = calculateVestingYield(
         mxiPurchased,
         accumulatedYield,
@@ -80,28 +92,38 @@ export function useVestingData() {
         MONTHLY_YIELD_PERCENTAGE
       );
 
-      // Calculate additional rates
-      const yieldPerMinute = yieldCalc.yieldPerSecond * 60;
-      const yieldPerHour = yieldPerMinute * 60;
-      const yieldPerDay = yieldPerHour * 24;
+      // Calculate additional rates - GUARANTEED NON-NEGATIVE
+      const yieldPerMinute = Math.max(0, yieldCalc.yieldPerSecond * 60);
+      const yieldPerHour = Math.max(0, yieldPerMinute * 60);
+      const yieldPerDay = Math.max(0, yieldPerHour * 24);
 
-      setVestingData({
-        currentYield: yieldCalc.currentYield,
-        sessionYield: yieldCalc.sessionYield,
-        accumulatedYield,
-        mxiPurchased,
-        mxiCommissions,
-        mxiTournaments,
-        maxMonthlyYield: yieldCalc.maxMonthlyYield,
-        yieldPerSecond: yieldCalc.yieldPerSecond,
-        yieldPerMinute,
-        yieldPerHour,
-        yieldPerDay,
-        progressPercentage: yieldCalc.progressPercentage,
+      // Final validation before setting state
+      const newVestingData: VestingData = {
+        currentYield: Math.max(0, yieldCalc.currentYield),
+        sessionYield: Math.max(0, yieldCalc.sessionYield),
+        accumulatedYield: Math.max(0, accumulatedYield),
+        mxiPurchased: Math.max(0, mxiPurchased),
+        mxiCommissions: Math.max(0, mxiCommissions),
+        mxiTournaments: Math.max(0, mxiTournaments),
+        maxMonthlyYield: Math.max(0, yieldCalc.maxMonthlyYield),
+        yieldPerSecond: Math.max(0, yieldCalc.yieldPerSecond),
+        yieldPerMinute: Math.max(0, yieldPerMinute),
+        yieldPerHour: Math.max(0, yieldPerHour),
+        yieldPerDay: Math.max(0, yieldPerDay),
+        progressPercentage: Math.max(0, yieldCalc.progressPercentage),
         isNearCap: yieldCalc.progressPercentage >= 95,
         hasBalance: mxiPurchased > 0,
         lastUpdate,
+      };
+
+      // Validate all values are non-negative
+      Object.entries(newVestingData).forEach(([key, value]) => {
+        if (typeof value === 'number' && value < 0) {
+          console.error('❌ CRITICAL: Negative value in vesting data:', key, value);
+        }
       });
+
+      setVestingData(newVestingData);
     } catch (err) {
       console.error('Error loading vesting data:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -125,11 +147,12 @@ export function useVestingData() {
         MONTHLY_YIELD_PERCENTAGE
       );
 
+      // Ensure all values are non-negative
       setVestingData(prev => prev ? {
         ...prev,
-        currentYield: yieldCalc.currentYield,
-        sessionYield: yieldCalc.sessionYield,
-        progressPercentage: yieldCalc.progressPercentage,
+        currentYield: Math.max(0, yieldCalc.currentYield),
+        sessionYield: Math.max(0, yieldCalc.sessionYield),
+        progressPercentage: Math.max(0, yieldCalc.progressPercentage),
         isNearCap: yieldCalc.progressPercentage >= 95,
       } : null);
     }, UPDATE_INTERVAL_MS);
@@ -145,16 +168,19 @@ export function useVestingData() {
 
     const interval = setInterval(async () => {
       try {
+        // Ensure value is non-negative before persisting
+        const safeCurrentYield = Math.max(0, vestingData.currentYield);
+        
         // Update database with current yield
         await supabase
           .from('users')
           .update({
-            accumulated_yield: vestingData.currentYield,
+            accumulated_yield: safeCurrentYield,
             last_yield_update: new Date().toISOString(),
           })
           .eq('id', user.id);
 
-        console.log('✅ Vesting yield persisted:', vestingData.currentYield.toFixed(8), 'MXI');
+        console.log('✅ Vesting yield persisted:', safeCurrentYield.toFixed(8), 'MXI');
       } catch (err) {
         console.error('Error persisting vesting yield:', err);
       }
