@@ -298,7 +298,7 @@ export default function VestingScreen() {
               : t('vestingReleaseInfoPreLaunchText', { percentage: releasePercentage })}
           </Text>
           <Text style={[styles.descriptionText, styles.importantNote]}>
-            ⚠️ Importante: El vesting se puede desbloquear al tener al menos 7 referidos activos. Solo el MXI comprado directamente genera vesting del 3% mensual. Las comisiones y premios de torneos NO generan vesting.
+            ⚠️ Importante: El vesting se puede desbloquear al tener al menos 7 referidos activos (con compras). Solo el MXI comprado directamente o añadido por el administrador con comisión genera vesting del 3% mensual. Las comisiones y premios de torneos NO generan vesting.
           </Text>
         </View>
 

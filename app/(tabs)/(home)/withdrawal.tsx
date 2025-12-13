@@ -106,77 +106,103 @@ export default function WithdrawalScreen() {
 
     const amountNum = parseFloat(amount);
     if (isNaN(amountNum) || amountNum <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid amount');
+      Alert.alert('Monto Inválido', 'Por favor ingresa un monto válido');
       return;
     }
 
     if (!walletAddress.trim()) {
-      Alert.alert('Missing Information', 'Please enter your wallet address');
+      Alert.alert('Información Faltante', 'Por favor ingresa tu dirección de billetera');
       return;
     }
 
     if (withdrawalType === 'commission') {
       if (amountNum > balanceBreakdown.commissionsAvailable) {
-        Alert.alert('Insufficient Balance', 'You don&apos;t have enough available commissions');
+        Alert.alert('Saldo Insuficiente', 'No tienes suficientes comisiones disponibles');
         return;
       }
 
       if (!canWithdrawCommission) {
         Alert.alert(
-          'Not Eligible',
-          'You need at least 5 active referrals and approved KYC to withdraw commissions'
+          'No Elegible',
+          'Necesitas al menos 7 referidos activos (con compras) y KYC aprobado para retirar comisiones'
         );
         return;
       }
 
-      setLoading(true);
-      const result = await withdrawCommission(amountNum, walletAddress);
-      setLoading(false);
+      // ✅ FIX 4: Show confirmation dialog before withdrawal
+      Alert.alert(
+        'Confirmar Retiro',
+        `¿Estás seguro de que deseas retirar ${amountNum.toFixed(2)} USDT en comisiones a:\n\n${walletAddress}\n\nEsta acción no se puede deshacer.`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Confirmar',
+            onPress: async () => {
+              setLoading(true);
+              const result = await withdrawCommission(amountNum, walletAddress);
+              setLoading(false);
 
-      if (result.success) {
-        Alert.alert('Success', 'Withdrawal request submitted successfully!');
-        setAmount('');
-        setWalletAddress('');
-        loadData();
-      } else {
-        Alert.alert('Error', result.error || 'Failed to submit withdrawal request');
-      }
+              if (result.success) {
+                Alert.alert('Éxito', 'Solicitud de retiro enviada exitosamente!');
+                setAmount('');
+                setWalletAddress('');
+                loadData();
+              } else {
+                Alert.alert('Error', result.error || 'Error al enviar solicitud de retiro');
+              }
+            },
+          },
+        ]
+      );
     } else {
       const availableMXI = balanceBreakdown.mxiFromUnifiedCommissions + balanceBreakdown.mxiFromChallenges;
 
       if (!poolStatus?.isPoolClosed) {
         Alert.alert(
-          'Not Available',
-          'MXI withdrawals will be available after the pool closes and MXI launches'
+          'No Disponible',
+          'Los retiros de MXI estarán disponibles después de que se cierre el pool y se lance MXI'
         );
         return;
       }
 
       if (amountNum > availableMXI) {
-        Alert.alert('Insufficient Balance', 'You don&apos;t have enough withdrawable MXI');
+        Alert.alert('Saldo Insuficiente', 'No tienes suficiente MXI retirable');
         return;
       }
 
       if (!canWithdrawMXI) {
         Alert.alert(
-          'Not Eligible',
-          'You need at least 5 active referrals and approved KYC to withdraw MXI'
+          'No Elegible',
+          'Necesitas al menos 7 referidos activos (con compras) y KYC aprobado para retirar MXI'
         );
         return;
       }
 
-      setLoading(true);
-      const result = await withdrawMXI(amountNum, walletAddress);
-      setLoading(false);
+      // ✅ FIX 4: Show confirmation dialog before withdrawal
+      Alert.alert(
+        'Confirmar Retiro de MXI',
+        `¿Estás seguro de que deseas retirar ${amountNum.toFixed(2)} MXI a:\n\n${walletAddress}\n\nEsta acción no se puede deshacer.`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Confirmar',
+            onPress: async () => {
+              setLoading(true);
+              const result = await withdrawMXI(amountNum, walletAddress);
+              setLoading(false);
 
-      if (result.success) {
-        Alert.alert('Success', 'MXI withdrawal request submitted successfully!');
-        setAmount('');
-        setWalletAddress('');
-        loadData();
-      } else {
-        Alert.alert('Error', result.error || 'Failed to submit withdrawal request');
-      }
+              if (result.success) {
+                Alert.alert('Éxito', 'Solicitud de retiro de MXI enviada exitosamente!');
+                setAmount('');
+                setWalletAddress('');
+                loadData();
+              } else {
+                Alert.alert('Error', result.error || 'Error al enviar solicitud de retiro');
+              }
+            },
+          },
+        ]
+      );
     }
   };
 
@@ -275,12 +301,12 @@ export default function WithdrawalScreen() {
 
           <View style={styles.requirementItem}>
             <IconSymbol 
-              ios_icon_name={user && user.activeReferrals >= 5 ? 'checkmark.circle.fill' : 'xmark.circle.fill'} 
-              android_material_icon_name={user && user.activeReferrals >= 5 ? 'check_circle' : 'cancel'} 
+              ios_icon_name={user && user.activeReferrals >= 7 ? 'checkmark.circle.fill' : 'xmark.circle.fill'} 
+              android_material_icon_name={user && user.activeReferrals >= 7 ? 'check_circle' : 'cancel'} 
               size={20} 
-              color={user && user.activeReferrals >= 5 ? colors.success : colors.error} 
+              color={user && user.activeReferrals >= 7 ? colors.success : colors.error} 
             />
-            <Text style={styles.requirementText}>5 Active Referrals ({user?.activeReferrals || 0}/5)</Text>
+            <Text style={styles.requirementText}>7 Referidos Activos (con compras) ({user?.activeReferrals || 0}/7)</Text>
           </View>
 
           {!poolStatus?.isPoolClosed && (
@@ -379,11 +405,11 @@ export default function WithdrawalScreen() {
             <Text style={styles.infoTitle}>Important Information</Text>
           </View>
           <View style={styles.infoList}>
-            <Text style={styles.infoItem}>- Commission withdrawals require 5 active referrals and approved KYC</Text>
-            <Text style={styles.infoItem}>- MXI from USDT purchases is locked until launch</Text>
-            <Text style={styles.infoItem}>- MXI from commissions and challenges can be withdrawn after launch</Text>
-            <Text style={styles.infoItem}>- Vesting yield MXI is locked until launch</Text>
-            <Text style={styles.infoItem}>- All withdrawals are processed within 24-48 hours</Text>
+            <Text style={styles.infoItem}>- Los retiros de comisiones requieren 7 referidos activos (con compras) y KYC aprobado</Text>
+            <Text style={styles.infoItem}>- El MXI de compras USDT está bloqueado hasta el lanzamiento</Text>
+            <Text style={styles.infoItem}>- El MXI de comisiones y retos se puede retirar después del lanzamiento</Text>
+            <Text style={styles.infoItem}>- El MXI de vesting está bloqueado hasta el lanzamiento</Text>
+            <Text style={styles.infoItem}>- Todos los retiros se procesan en 24-48 horas</Text>
           </View>
         </View>
       </ScrollView>

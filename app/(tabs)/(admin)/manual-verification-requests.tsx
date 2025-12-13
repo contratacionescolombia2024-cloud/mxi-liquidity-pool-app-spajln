@@ -732,9 +732,22 @@ export default function ManualVerificationRequestsScreen() {
       if (data.success) {
         console.log('[Admin] Edge function succeeded, updating request status to approved...');
         
+        // ✅ FIX 2: Get admin_user ID instead of user ID
+        const { data: adminData, error: adminError } = await supabase
+          .from('admin_users')
+          .select('id')
+          .eq('user_id', user?.id)
+          .single();
+
+        if (adminError || !adminData) {
+          console.error('[Admin] Error getting admin user:', adminError);
+          // Continue anyway, but log the error
+          console.warn('[Admin] Could not get admin user ID, continuing without reviewed_by');
+        }
+
         const updateData = {
           status: 'approved',
-          reviewed_by: user?.id,
+          reviewed_by: adminData?.id || null, // ✅ CRITICAL FIX: Use admin_users.id instead of users.id
           reviewed_at: new Date().toISOString(),
           admin_notes: data.credited 
             ? `Pago verificado y acreditado exitosamente. Monto aprobado: ${approvedUsdtAmount} USDT`
@@ -869,9 +882,24 @@ export default function ManualVerificationRequestsScreen() {
       console.log(`[Admin] ========================================`);
       console.log(`[Admin] Rejection reason:`, rejectReason);
 
+      // ✅ FIX 2: Get admin_user ID instead of user ID
+      // The reviewed_by column references admin_users.id, not users.id
+      const { data: adminData, error: adminError } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('user_id', user?.id)
+        .single();
+
+      if (adminError || !adminData) {
+        console.error('[Admin] Error getting admin user:', adminError);
+        throw new Error('No se pudo obtener el ID de administrador');
+      }
+
+      console.log('[Admin] Admin user ID:', adminData.id);
+
       const updateData = {
         status: 'rejected',
-        reviewed_by: user?.id,
+        reviewed_by: adminData.id, // ✅ CRITICAL FIX: Use admin_users.id instead of users.id
         reviewed_at: new Date().toISOString(),
         admin_notes: rejectReason.trim(),
         updated_at: new Date().toISOString(),
@@ -940,11 +968,23 @@ export default function ManualVerificationRequestsScreen() {
       console.log(`[Admin] ========================================`);
       console.log(`[Admin] Info request:`, moreInfoText);
 
+      // ✅ FIX 2: Get admin_user ID instead of user ID
+      const { data: adminData, error: adminError } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('user_id', user?.id)
+        .single();
+
+      if (adminError || !adminData) {
+        console.error('[Admin] Error getting admin user:', adminError);
+        throw new Error('No se pudo obtener el ID de administrador');
+      }
+
       const updateData = {
         status: 'more_info_requested',
         admin_request_info: moreInfoText.trim(),
         admin_request_info_at: new Date().toISOString(),
-        reviewed_by: user?.id,
+        reviewed_by: adminData.id, // ✅ CRITICAL FIX: Use admin_users.id instead of users.id
         updated_at: new Date().toISOString(),
       };
       

@@ -122,8 +122,8 @@ export default function WithdrawMXIScreen() {
     );
   }
 
-  const activeReferralsProgress = Math.min((user.activeReferrals / 5) * 100, 100);
-  const referralsNeeded = Math.max(0, 5 - user.activeReferrals);
+  const activeReferralsProgress = Math.min((user.activeReferrals / 7) * 100, 100);
+  const referralsNeeded = Math.max(0, 7 - user.activeReferrals);
   const releaseProgress = user.mxiBalance > 0 ? (availableMXI / user.mxiBalance) * 100 : 0;
 
   return (
@@ -211,12 +211,12 @@ export default function WithdrawMXIScreen() {
               <View style={styles.requirementItem}>
                 <View style={styles.requirementHeader}>
                   <IconSymbol
-                    name={user.activeReferrals >= 5 ? 'checkmark.circle.fill' : 'circle'}
+                    name={user.activeReferrals >= 7 ? 'checkmark.circle.fill' : 'circle'}
                     size={24}
-                    color={user.activeReferrals >= 5 ? colors.success : colors.textSecondary}
+                    color={user.activeReferrals >= 7 ? colors.success : colors.textSecondary}
                   />
                   <Text style={styles.requirementText}>
-                    {user.activeReferrals}/5 Active Referrals
+                    {user.activeReferrals}/7 Referidos Activos (con compras)
                   </Text>
                 </View>
                 <View style={styles.progressBar}>
@@ -226,14 +226,14 @@ export default function WithdrawMXIScreen() {
                       {
                         width: `${activeReferralsProgress}%`,
                         backgroundColor:
-                          user.activeReferrals >= 5 ? colors.success : colors.warning,
+                          user.activeReferrals >= 7 ? colors.success : colors.warning,
                       },
                     ]}
                   />
                 </View>
                 {referralsNeeded > 0 && (
                   <Text style={styles.requirementNote}>
-                    You need {referralsNeeded} more active referral{referralsNeeded > 1 ? 's' : ''}
+                    Necesitas {referralsNeeded} referido{referralsNeeded > 1 ? 's' : ''} activo{referralsNeeded > 1 ? 's' : ''} más (con compras)
                   </Text>
                 )}
               </View>
@@ -373,7 +373,7 @@ export default function WithdrawMXIScreen() {
           <View style={styles.warningContent}>
             <Text style={styles.warningTitle}>Información Importante:</Text>
             <Text style={styles.warningText}>
-              - Los retiros de MXI requieren 5 referidos activos{'\n'}
+              - Los retiros de MXI requieren 7 referidos activos (con compras){'\n'}
               - La verificación KYC es obligatoria{'\n'}
               - Solo se puede retirar el MXI disponible{'\n'}
               - El saldo restante se libera cada 7 días{'\n'}
@@ -394,9 +394,9 @@ export default function WithdrawMXIScreen() {
             <View style={styles.promotionContent}>
               <IconSymbol name="person.3.fill" size={32} color={colors.primary} />
               <View style={styles.promotionText}>
-                <Text style={styles.promotionTitle}>Invite Friends to Unlock</Text>
+                <Text style={styles.promotionTitle}>Invita Amigos para Desbloquear</Text>
                 <Text style={styles.promotionSubtitle}>
-                  Share your referral code to reach 5 active referrals
+                  Comparte tu código de referido para alcanzar 7 referidos activos (con compras)
                 </Text>
               </View>
               <IconSymbol name="chevron.right" size={24} color={colors.textSecondary} />
