@@ -1,12 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
@@ -15,130 +14,20 @@ import { useRouter } from 'expo-router';
 import { colors, commonStyles } from '@/styles/commonStyles';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { IconSymbol } from '@/components/IconSymbol';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-
-interface RewardStats {
-  totalMxiEarned: number;
-  fromCommissions: number;
-  fromVesting: number;
-  fromBonus: number;
-  activeReferrals: number;
-  totalReferrals: number;
-  mxiPurchased: number;
-}
-
-const MONTHLY_YIELD_PERCENTAGE = 0.03; // 3% monthly
-const SECONDS_IN_MONTH = 2592000; // 30 days
+import { useVestingData } from '@/hooks/useVestingData';
+import { formatVestingValue } from '@/utils/safeNumericParse';
 
 export default function RewardsScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { t } = useLanguage();
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [stats, setStats] = useState<RewardStats | null>(null);
-  const [realTimeVesting, setRealTimeVesting] = useState(0);
-
-  useEffect(() => {
-    if (user) {
-      loadRewardStats();
-    }
-  }, [user]);
-
-  // Real-time vesting counter - synchronized with VestingCounter component
-  useEffect(() => {
-    if (!user || !stats) return;
-
-    const mxiInVesting = stats.mxiPurchased || 0;
-    if (mxiInVesting === 0) {
-      setRealTimeVesting(0);
-      return;
-    }
-
-    const maxMonthlyYield = mxiInVesting * MONTHLY_YIELD_PERCENTAGE;
-    const yieldPerSecond = maxMonthlyYield / SECONDS_IN_MONTH;
-
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const lastUpdate = new Date(user.lastYieldUpdate);
-      const secondsElapsed = Math.max(0, (now - lastUpdate.getTime()) / 1000);
-
-      // ✅ CRITICAL FIX: Calculate session yield - ensure non-negative
-      const sessionYield = Math.max(0, yieldPerSecond * secondsElapsed);
-
-      // ✅ CRITICAL FIX: Ensure accumulated yield is never negative
-      const safeAccumulatedYield = Math.max(0, user.accumulatedYield || 0);
-
-      // ✅ CRITICAL FIX: Calculate total yield - ensure non-negative
-      const totalYield = Math.max(0, safeAccumulatedYield + sessionYield);
-
-      // Cap at 3% monthly maximum
-      const cappedTotalYield = Math.min(totalYield, maxMonthlyYield);
-
-      // ✅ CRITICAL FIX: Ensure final display value is never negative
-      setRealTimeVesting(Math.max(0, cappedTotalYield));
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [user, stats, user?.lastYieldUpdate, user?.accumulatedYield]);
-
-  const loadRewardStats = async () => {
-    try {
-      setLoading(true);
-
-      // Get user data - SAME SOURCE as VestingCounter
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user?.id)
-        .single();
-
-      if (userError) throw userError;
-
-      // Get commissions
-      const { data: commissionsData, error: commissionsError } = await supabase
-        .from('commissions')
-        .select('amount')
-        .eq('user_id', user?.id);
-
-      if (commissionsError) throw commissionsError;
-
-      const totalCommissions = commissionsData?.reduce((sum, c) => sum + parseFloat(c.amount || '0'), 0) || 0;
-
-      // Get referrals count
-      const { data: referralsData, error: referralsError } = await supabase
-        .from('referrals')
-        .select('id')
-        .eq('referrer_id', user?.id);
-
-      if (referralsError) throw referralsError;
-
-      // ✅ CRITICAL FIX: Calculate vesting from purchased MXI only (3% monthly)
-      // Ensure accumulated yield is never negative
-      const mxiPurchased = Math.max(0, parseFloat(userData.mxi_purchased_directly || '0'));
-      const accumulatedYield = Math.max(0, parseFloat(userData.accumulated_yield || '0'));
-
-      setStats({
-        totalMxiEarned: parseFloat(userData.mxi_balance || '0'),
-        fromCommissions: parseFloat(userData.mxi_from_unified_commissions || '0'),
-        fromVesting: accumulatedYield, // Real-time vesting yield - always non-negative
-        fromBonus: 0, // TODO: Add bonus winnings tracking
-        activeReferrals: userData.active_referrals || 0,
-        totalReferrals: referralsData?.length || 0,
-        mxiPurchased: mxiPurchased,
-      });
-    } catch (error) {
-      console.error('Error loading reward stats:', error);
-      Alert.alert(t('error'), t('loadingRewards'));
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { vestingData, loading, refresh } = useVestingData();
+  const [refreshing, setRefreshing] = React.useState(false);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadRewardStats();
+    await refresh();
     setRefreshing(false);
   };
 
@@ -146,7 +35,7 @@ export default function RewardsScreen() {
     return new Intl.NumberFormat('en-US', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
-    }).format(Math.max(0, num)); // ✅ Ensure formatted number is never negative
+    }).format(Math.max(0, num));
   };
 
   if (loading) {
@@ -160,8 +49,27 @@ export default function RewardsScreen() {
     );
   }
 
-  // ✅ Calculate max monthly yield for display
-  const maxMonthlyYield = (stats?.mxiPurchased || 0) * MONTHLY_YIELD_PERCENTAGE;
+  if (!vestingData) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>No se pudieron cargar los datos de vesting</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const {
+    currentYield,
+    mxiPurchased,
+    mxiCommissions,
+    mxiTournaments,
+    maxMonthlyYield,
+    progressPercentage,
+  } = vestingData;
+
+  // Calculate total MXI earned from all sources
+  const totalMxiEarned = mxiPurchased + mxiCommissions + mxiTournaments;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -187,7 +95,7 @@ export default function RewardsScreen() {
             />
             <View style={styles.summaryTextContainer}>
               <Text style={styles.summaryLabel}>{t('totalMXIEarned')}</Text>
-              <Text style={styles.summaryValue}>{formatNumber(stats?.totalMxiEarned || 0)} MXI</Text>
+              <Text style={styles.summaryValue}>{formatNumber(totalMxiEarned)} MXI</Text>
             </View>
           </View>
 
@@ -200,7 +108,7 @@ export default function RewardsScreen() {
                 color={colors.warning} 
               />
               <Text style={styles.breakdownLabel}>{t('commissions')}</Text>
-              <Text style={styles.breakdownValue}>{formatNumber(stats?.fromCommissions || 0)}</Text>
+              <Text style={styles.breakdownValue}>{formatNumber(mxiCommissions)}</Text>
             </View>
 
             <View style={styles.breakdownItem}>
@@ -211,7 +119,7 @@ export default function RewardsScreen() {
                 color={colors.success} 
               />
               <Text style={styles.breakdownLabel}>{t('vesting')}</Text>
-              <Text style={styles.breakdownValue}>{formatNumber(realTimeVesting)}</Text>
+              <Text style={styles.breakdownValue}>{formatVestingValue(currentYield, 2)}</Text>
             </View>
 
             <View style={styles.breakdownItem}>
@@ -222,7 +130,7 @@ export default function RewardsScreen() {
                 color={colors.accent} 
               />
               <Text style={styles.breakdownLabel}>{t('bonus')}</Text>
-              <Text style={styles.breakdownValue}>{formatNumber(stats?.fromBonus || 0)}</Text>
+              <Text style={styles.breakdownValue}>{formatNumber(mxiTournaments)}</Text>
             </View>
           </View>
         </View>
@@ -243,7 +151,7 @@ export default function RewardsScreen() {
           <View style={styles.realTimeVestingCard}>
             <Text style={styles.realTimeVestingLabel}>Rendimiento Acumulado</Text>
             <Text style={styles.realTimeVestingValue}>
-              {Math.max(0, realTimeVesting).toFixed(8)} MXI
+              {formatVestingValue(currentYield, 8)} MXI
             </Text>
             <View style={styles.liveIndicator}>
               <View style={styles.liveDot} />
@@ -254,23 +162,23 @@ export default function RewardsScreen() {
           <View style={styles.vestingInfoContent}>
             <View style={styles.vestingInfoRow}>
               <Text style={styles.vestingInfoLabel}>MXI Comprados (Genera Vesting)</Text>
-              <Text style={styles.vestingInfoValue}>{formatNumber(stats?.mxiPurchased || 0)} MXI</Text>
+              <Text style={styles.vestingInfoValue}>{formatNumber(mxiPurchased)} MXI</Text>
             </View>
             <View style={styles.vestingInfoRow}>
               <Text style={styles.vestingInfoLabel}>Máximo Mensual (3%)</Text>
               <Text style={styles.vestingInfoValue}>
-                {formatNumber(maxMonthlyYield)} MXI
+                {formatVestingValue(maxMonthlyYield, 4)} MXI
               </Text>
             </View>
             <View style={styles.vestingInfoRow}>
               <Text style={styles.vestingInfoLabel}>Progreso</Text>
               <Text style={styles.vestingInfoValue}>
-                {maxMonthlyYield > 0 ? ((realTimeVesting / maxMonthlyYield) * 100).toFixed(2) : '0.00'}%
+                {progressPercentage.toFixed(2)}%
               </Text>
             </View>
           </View>
           <Text style={styles.vestingInfoNote}>
-            ℹ️ El vesting genera un 3% mensual SOLO sobre MXI comprados. Los datos están sincronizados con la página de vesting.
+            ℹ️ El vesting genera un 3% mensual SOLO sobre MXI comprados. Los datos están sincronizados con la página de vesting y el display en Home.
           </Text>
         </View>
 
@@ -352,7 +260,7 @@ export default function RewardsScreen() {
               <Text style={styles.rewardDescription}>{t('earnCommissionsFrom3Levels')}</Text>
               <View style={styles.referralStats}>
                 <Text style={styles.referralStatsText}>
-                  {stats?.activeReferrals || 0} {t('actives')} / {stats?.totalReferrals || 0} {t('total')}
+                  {user?.active_referrals || 0} {t('actives')}
                 </Text>
               </View>
             </View>

@@ -1,144 +1,49 @@
 
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
-import { supabase } from '@/lib/supabase';
-
-const MONTHLY_YIELD_PERCENTAGE = 0.03; // 3% monthly
-const SECONDS_IN_MONTH = 2592000; // 30 days * 24 hours * 60 minutes * 60 seconds
+import { useVestingData } from '@/hooks/useVestingData';
+import { formatVestingValue } from '@/utils/safeNumericParse';
 
 export function VestingCounter() {
   const router = useRouter();
-  const { user } = useAuth();
-  const [displayYield, setDisplayYield] = useState(0);
-  const [lastUpdateTime, setLastUpdateTime] = useState(Date.now());
-
-  useEffect(() => {
-    if (!user) {
-      return;
-    }
-
-    // Calculate the base for vesting - ONLY purchased MXI generates vesting
-    // FIXED: Removed mxi_from_unified_commissions from vesting calculation
-    const mxiInVesting = user.mxiPurchasedDirectly || 0;
-    
-    if (mxiInVesting === 0) {
-      setDisplayYield(0);
-      return;
-    }
-
-    // Calculate the maximum monthly yield (3% of purchased MXI)
-    const maxMonthlyYield = mxiInVesting * MONTHLY_YIELD_PERCENTAGE;
-    
-    // Calculate yield per second
-    const yieldPerSecond = maxMonthlyYield / SECONDS_IN_MONTH;
-
-    // Update display every second for smooth real-time animation
-    const displayInterval = setInterval(() => {
-      const now = Date.now();
-      const lastUpdate = new Date(user.lastYieldUpdate);
-      const secondsElapsed = Math.max(0, (now - lastUpdate.getTime()) / 1000);
-
-      // ✅ CRITICAL FIX: Calculate current session yield - ensure non-negative
-      const sessionYield = Math.max(0, yieldPerSecond * secondsElapsed);
-
-      // ✅ CRITICAL FIX: Ensure accumulated yield is never negative
-      const safeAccumulatedYield = Math.max(0, user.accumulatedYield || 0);
-
-      // ✅ CRITICAL FIX: Calculate total yield (accumulated + session) - ensure non-negative
-      const totalYield = Math.max(0, safeAccumulatedYield + sessionYield);
-
-      // Cap at 3% monthly maximum
-      const cappedTotalYield = Math.min(totalYield, maxMonthlyYield);
-
-      // ✅ CRITICAL FIX: Ensure final display value is never negative
-      setDisplayYield(Math.max(0, cappedTotalYield));
-      setLastUpdateTime(now);
-    }, 1000); // Update every second
-
-    return () => clearInterval(displayInterval);
-  }, [user, user?.mxiPurchasedDirectly, user?.lastYieldUpdate, user?.accumulatedYield]);
-
-  // Update database every 10 seconds to persist the yield
-  useEffect(() => {
-    if (!user) return;
-
-    // FIXED: Only use mxi_purchased_directly for vesting calculation
-    const mxiInVesting = user.mxiPurchasedDirectly || 0;
-    if (mxiInVesting === 0) return;
-
-    const persistInterval = setInterval(async () => {
-      try {
-        const maxMonthlyYield = mxiInVesting * MONTHLY_YIELD_PERCENTAGE;
-        const yieldPerSecond = maxMonthlyYield / SECONDS_IN_MONTH;
-        
-        const now = Date.now();
-        const lastUpdate = new Date(user.lastYieldUpdate);
-        const secondsElapsed = Math.max(0, (now - lastUpdate.getTime()) / 1000);
-        
-        // ✅ CRITICAL FIX: Ensure session yield is non-negative
-        const sessionYield = Math.max(0, yieldPerSecond * secondsElapsed);
-        
-        // ✅ CRITICAL FIX: Ensure accumulated yield is never negative
-        const safeAccumulatedYield = Math.max(0, user.accumulatedYield || 0);
-        
-        // ✅ CRITICAL FIX: Calculate total yield - ensure non-negative
-        const totalYield = Math.max(0, safeAccumulatedYield + sessionYield);
-        const cappedTotalYield = Math.min(totalYield, maxMonthlyYield);
-
-        // ✅ CRITICAL FIX: Ensure final value is never negative before saving
-        const finalYield = Math.max(0, cappedTotalYield);
-
-        // Update database with current accumulated yield
-        await supabase
-          .from('users')
-          .update({
-            accumulated_yield: finalYield,
-            last_yield_update: new Date().toISOString(),
-          })
-          .eq('id', user.id);
-
-        console.log('✅ Vesting yield persisted (non-negative):', finalYield.toFixed(8), 'MXI');
-      } catch (error) {
-        console.error('Error persisting vesting yield:', error);
-      }
-    }, 10000); // Persist every 10 seconds
-
-    return () => clearInterval(persistInterval);
-  }, [user, user?.mxiPurchasedDirectly]);
+  const { vestingData, loading } = useVestingData();
 
   const handleViewDetails = () => {
     router.push('/(tabs)/(home)/vesting');
   };
 
-  if (!user) {
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color={colors.accent} />
+        <Text style={styles.loadingText}>Cargando datos de vesting...</Text>
+      </View>
+    );
+  }
+
+  if (!vestingData) {
     return null;
   }
 
-  // Calculate vesting amounts - ONLY purchased MXI generates vesting
-  // FIXED: Removed mxi_from_unified_commissions from vesting calculation
-  const mxiInVesting = user.mxiPurchasedDirectly || 0;
-  const maxMonthlyYield = mxiInVesting * MONTHLY_YIELD_PERCENTAGE;
-  const yieldPerSecond = mxiInVesting > 0 ? maxMonthlyYield / SECONDS_IN_MONTH : 0;
-  const yieldPerMinute = yieldPerSecond * 60;
-  const yieldPerHour = yieldPerMinute * 60;
-  const yieldPerDay = yieldPerHour * 24;
-  const hasBalance = mxiInVesting > 0;
-
-  // Calculate progress towards monthly cap
-  const progressPercentage = maxMonthlyYield > 0 ? (displayYield / maxMonthlyYield) * 100 : 0;
-  const isNearCap = progressPercentage >= 95;
-
-  // ✅ CRITICAL FIX: Calculate session yield (current accumulation since last update) - ensure non-negative
-  const safeAccumulatedYield = Math.max(0, user.accumulatedYield || 0);
-  const sessionYield = Math.max(0, displayYield - safeAccumulatedYield);
-
-  // Calculate separate balances for display
-  const commissionsBalance = user.mxiFromUnifiedCommissions || 0;
-  const tournamentsBalance = user.mxiFromChallenges || 0;
+  const {
+    currentYield,
+    sessionYield,
+    accumulatedYield,
+    mxiPurchased,
+    mxiCommissions,
+    mxiTournaments,
+    yieldPerSecond,
+    yieldPerMinute,
+    yieldPerHour,
+    yieldPerDay,
+    maxMonthlyYield,
+    progressPercentage,
+    isNearCap,
+    hasBalance,
+  } = vestingData;
 
   return (
     <View style={styles.container}>
@@ -150,7 +55,7 @@ export function VestingCounter() {
           <View style={styles.headerText}>
             <Text style={styles.title}>Vesting Activo</Text>
             <Text style={styles.subtitle}>
-              {hasBalance ? `${yieldPerSecond.toFixed(8)} MXI/seg` : 'Sin balance en vesting'}
+              {hasBalance ? `${formatVestingValue(yieldPerSecond, 8)} MXI/seg` : 'Sin balance en vesting'}
             </Text>
           </View>
         </View>
@@ -169,7 +74,7 @@ export function VestingCounter() {
         <View style={styles.counterCard}>
           <Text style={styles.counterLabel}>Rendimiento Acumulado Total</Text>
           <Text style={styles.counterValue}>
-            {Math.max(0, displayYield).toFixed(8)}
+            {formatVestingValue(currentYield, 8)}
           </Text>
           <Text style={styles.counterUnit}>MXI</Text>
           <View style={styles.liveIndicator}>
@@ -184,7 +89,7 @@ export function VestingCounter() {
         <View style={styles.vestingBalanceCard}>
           <Text style={styles.vestingBalanceLabel}>Balance en Vesting</Text>
           <Text style={styles.vestingBalanceValue}>
-            {mxiInVesting.toFixed(2)}
+            {formatVestingValue(mxiPurchased, 2)}
           </Text>
           <Text style={styles.vestingBalanceUnit}>MXI</Text>
           <Text style={styles.vestingBalanceNote}>
@@ -194,11 +99,11 @@ export function VestingCounter() {
       </View>
 
       {/* Separate Balances Display - NOT generating vesting */}
-      {(commissionsBalance > 0 || tournamentsBalance > 0) && (
+      {(mxiCommissions > 0 || mxiTournaments > 0) && (
         <View style={styles.separateBalancesSection}>
           <Text style={styles.separateBalancesTitle}>Saldos Separados (No generan vesting)</Text>
           
-          {commissionsBalance > 0 && (
+          {mxiCommissions > 0 && (
             <View style={styles.separateBalanceCard}>
               <View style={styles.separateBalanceHeader}>
                 <IconSymbol 
@@ -210,7 +115,7 @@ export function VestingCounter() {
                 <Text style={styles.separateBalanceLabel}>Comisiones</Text>
               </View>
               <Text style={styles.separateBalanceValue}>
-                {commissionsBalance.toFixed(2)} MXI
+                {formatVestingValue(mxiCommissions, 2)} MXI
               </Text>
               <Text style={styles.separateBalanceNote}>
                 ❌ No genera rendimiento de vesting
@@ -218,7 +123,7 @@ export function VestingCounter() {
             </View>
           )}
 
-          {tournamentsBalance > 0 && (
+          {mxiTournaments > 0 && (
             <View style={styles.separateBalanceCard}>
               <View style={styles.separateBalanceHeader}>
                 <IconSymbol 
@@ -230,7 +135,7 @@ export function VestingCounter() {
                 <Text style={styles.separateBalanceLabel}>Torneos</Text>
               </View>
               <Text style={styles.separateBalanceValue}>
-                {tournamentsBalance.toFixed(2)} MXI
+                {formatVestingValue(mxiTournaments, 2)} MXI
               </Text>
               <Text style={styles.separateBalanceNote}>
                 ❌ No genera rendimiento de vesting
@@ -251,8 +156,8 @@ export function VestingCounter() {
             <View style={[styles.progressBar, { width: `${Math.min(progressPercentage, 100)}%` }]} />
           </View>
           <View style={styles.progressFooter}>
-            <Text style={styles.progressText}>{Math.max(0, displayYield).toFixed(4)} MXI</Text>
-            <Text style={styles.progressText}>{maxMonthlyYield.toFixed(4)} MXI</Text>
+            <Text style={styles.progressText}>{formatVestingValue(currentYield, 4)} MXI</Text>
+            <Text style={styles.progressText}>{formatVestingValue(maxMonthlyYield, 4)} MXI</Text>
           </View>
           {isNearCap && (
             <View style={styles.capWarning}>
@@ -275,12 +180,12 @@ export function VestingCounter() {
         <View style={styles.yieldBreakdownSection}>
           <View style={styles.breakdownRow}>
             <Text style={styles.breakdownLabel}>Sesión Actual</Text>
-            <Text style={styles.breakdownValue}>{Math.max(0, sessionYield).toFixed(8)} MXI</Text>
+            <Text style={styles.breakdownValue}>{formatVestingValue(sessionYield, 8)} MXI</Text>
           </View>
           <View style={styles.breakdownDivider} />
           <View style={styles.breakdownRow}>
             <Text style={styles.breakdownLabel}>Acumulado Previo</Text>
-            <Text style={styles.breakdownValue}>{Math.max(0, safeAccumulatedYield).toFixed(8)} MXI</Text>
+            <Text style={styles.breakdownValue}>{formatVestingValue(accumulatedYield, 8)} MXI</Text>
           </View>
         </View>
       )}
@@ -290,17 +195,17 @@ export function VestingCounter() {
         <View style={styles.rateSection}>
           <View style={styles.rateItem}>
             <Text style={styles.rateLabel}>Por Segundo</Text>
-            <Text style={styles.rateValue}>{yieldPerSecond.toFixed(8)}</Text>
+            <Text style={styles.rateValue}>{formatVestingValue(yieldPerSecond, 8)}</Text>
           </View>
           <View style={styles.rateDivider} />
           <View style={styles.rateItem}>
             <Text style={styles.rateLabel}>Por Minuto</Text>
-            <Text style={styles.rateValue}>{yieldPerMinute.toFixed(8)}</Text>
+            <Text style={styles.rateValue}>{formatVestingValue(yieldPerMinute, 8)}</Text>
           </View>
           <View style={styles.rateDivider} />
           <View style={styles.rateItem}>
             <Text style={styles.rateLabel}>Por Hora</Text>
-            <Text style={styles.rateValue}>{yieldPerHour.toFixed(6)}</Text>
+            <Text style={styles.rateValue}>{formatVestingValue(yieldPerHour, 6)}</Text>
           </View>
         </View>
       )}
@@ -310,7 +215,7 @@ export function VestingCounter() {
         <View style={styles.dailyRate}>
           <Text style={styles.dailyRateLabel}>Rendimiento Diario</Text>
           <Text style={styles.dailyRateValue}>
-            {yieldPerDay.toFixed(4)} MXI
+            {formatVestingValue(yieldPerDay, 4)} MXI
           </Text>
         </View>
       )}
@@ -321,10 +226,10 @@ export function VestingCounter() {
           <View style={styles.monthlyMaxCard}>
             <Text style={styles.monthlyMaxLabel}>Máximo Mensual (3%)</Text>
             <Text style={styles.monthlyMaxValue}>
-              {maxMonthlyYield.toFixed(4)} MXI
+              {formatVestingValue(maxMonthlyYield, 4)} MXI
             </Text>
             <Text style={styles.monthlyMaxNote}>
-              Basado en {mxiInVesting.toFixed(2)} MXI comprados
+              Basado en {formatVestingValue(mxiPurchased, 2)} MXI comprados
             </Text>
           </View>
         </View>
@@ -356,6 +261,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 5,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 12,
+    textAlign: 'center',
   },
   header: {
     flexDirection: 'row',
