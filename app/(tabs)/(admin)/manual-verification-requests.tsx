@@ -382,34 +382,24 @@ const styles = StyleSheet.create({
 });
 
 /**
- * ✅ ULTRA-ROBUST NUMERIC PARSER V2
+ * ✅ ULTRA-ROBUST NUMERIC PARSER V3 - FINAL FIX
  * PostgreSQL numeric type is ALWAYS returned as STRING by Supabase JavaScript client
  * This function handles ALL edge cases and ensures we ALWAYS get a valid number
  * 
- * CRITICAL FIX: This parser is now used at EVERY point where numeric data is accessed
+ * CRITICAL: PostgreSQL stores numeric as strings like "30", "50.00", "166.66666666666669"
+ * We must parse these strings to numbers for display and calculations
  */
-const safeParseNumeric = (value: any, fieldName: string = 'unknown', defaultValue: number = 0): number => {
-  console.log(`[PARSE] ${fieldName}:`, {
-    value,
-    type: typeof value,
-    isNull: value === null,
-    isUndefined: value === undefined,
-    raw: JSON.stringify(value),
-  });
-
+const safeParseNumeric = (value: any, defaultValue: number = 0): number => {
   // Handle null/undefined
   if (value === null || value === undefined) {
-    console.log(`[PARSE] ${fieldName}: NULL/UNDEFINED → ${defaultValue}`);
     return defaultValue;
   }
 
   // If already a valid number
   if (typeof value === 'number') {
     if (isNaN(value) || !isFinite(value)) {
-      console.log(`[PARSE] ${fieldName}: Invalid number (NaN/Infinity) → ${defaultValue}`);
       return defaultValue;
     }
-    console.log(`[PARSE] ${fieldName}: Valid number → ${value}`);
     return value;
   }
 
@@ -417,18 +407,15 @@ const safeParseNumeric = (value: any, fieldName: string = 'unknown', defaultValu
   const stringValue = String(value).trim();
   
   if (stringValue === '' || stringValue === 'null' || stringValue === 'undefined') {
-    console.log(`[PARSE] ${fieldName}: Empty/null string → ${defaultValue}`);
     return defaultValue;
   }
 
-  // Try parseFloat (this handles PostgreSQL numeric strings like "30" or "30.50")
+  // Try parseFloat (this handles PostgreSQL numeric strings like "30" or "50.00")
   const parsed = parseFloat(stringValue);
   if (!isNaN(parsed) && isFinite(parsed)) {
-    console.log(`[PARSE] ${fieldName}: Parsed "${stringValue}" → ${parsed}`);
     return parsed;
   }
 
-  console.log(`[PARSE] ${fieldName}: PARSING FAILED → ${defaultValue}`);
   return defaultValue;
 };
 
@@ -518,7 +505,9 @@ export default function ManualVerificationRequestsScreen() {
         console.log(`[Admin] ✅ Loaded ${paymentsData?.length || 0} payments`);
         // Log raw payment data to debug
         if (paymentsData && paymentsData.length > 0) {
-          console.log('[Admin] Sample payment data (first payment):', JSON.stringify(paymentsData[0], null, 2));
+          console.log('[Admin] 🔍 RAW PAYMENT DATA (first payment):');
+          console.log('[Admin] price_amount:', paymentsData[0].price_amount, 'type:', typeof paymentsData[0].price_amount);
+          console.log('[Admin] mxi_amount:', paymentsData[0].mxi_amount, 'type:', typeof paymentsData[0].mxi_amount);
         }
       }
 
@@ -553,6 +542,7 @@ export default function ManualVerificationRequestsScreen() {
         console.log(`[Admin] === Processing Request ${index + 1}/${requestsData.length} ===`);
         console.log(`[Admin] Request ID: ${request.id}`);
         console.log(`[Admin] Order ID: ${request.order_id}`);
+        console.log(`[Admin] Payment ID: ${request.payment_id}`);
 
         // Get payment and user from maps
         const payment = paymentsMap.get(request.payment_id);
@@ -560,8 +550,10 @@ export default function ManualVerificationRequestsScreen() {
 
         if (!payment) {
           console.warn(`[Admin] ⚠️ Payment not found for request ${request.id}`);
+          console.warn(`[Admin] ⚠️ Looking for payment_id: ${request.payment_id}`);
+          console.warn(`[Admin] ⚠️ Available payment IDs:`, Array.from(paymentsMap.keys()));
         } else {
-          console.log(`[Admin] Payment found:`, {
+          console.log(`[Admin] ✅ Payment found:`, {
             id: payment.id,
             order_id: payment.order_id,
             price_amount_raw: payment.price_amount,
@@ -576,10 +568,10 @@ export default function ManualVerificationRequestsScreen() {
         }
 
         // ✅ CRITICAL FIX: Parse numeric values using ultra-robust parser
-        // These values come from PostgreSQL as STRINGS, not numbers!
-        const priceAmount = safeParseNumeric(payment?.price_amount, `request_${index}_price_amount`, 0);
-        const mxiAmount = safeParseNumeric(payment?.mxi_amount, `request_${index}_mxi_amount`, 0);
-        const userBalance = safeParseNumeric(user?.mxi_balance, `request_${index}_user_balance`, 0);
+        // PostgreSQL numeric type comes as STRING (e.g., "30", "50.00", "166.66666666666669")
+        const priceAmount = safeParseNumeric(payment?.price_amount, 0);
+        const mxiAmount = safeParseNumeric(payment?.mxi_amount, 0);
+        const userBalance = safeParseNumeric(user?.mxi_balance, 0);
         
         console.log(`[Admin] ✅ Parsed numeric values:`, {
           priceAmount,
@@ -603,7 +595,16 @@ export default function ManualVerificationRequestsScreen() {
       });
       
       console.log(`[Admin] ✅ Successfully enriched ${enrichedRequests.length} requests`);
-      console.log(`[Admin] Sample enriched request:`, JSON.stringify(enrichedRequests[0], null, 2));
+      if (enrichedRequests.length > 0) {
+        console.log(`[Admin] 🔍 Sample enriched request (first):`, {
+          id: enrichedRequests[0].id,
+          order_id: enrichedRequests[0].order_id,
+          price_amount_parsed: enrichedRequests[0].price_amount_parsed,
+          mxi_amount_parsed: enrichedRequests[0].mxi_amount_parsed,
+          has_payment: !!enrichedRequests[0].payment,
+          has_user: !!enrichedRequests[0].user,
+        });
+      }
       
       setRequests(enrichedRequests);
     } catch (error: any) {
@@ -660,23 +661,16 @@ export default function ManualVerificationRequestsScreen() {
     console.log('[Admin] === OPENING APPROVE MODAL ===');
     console.log('[Admin] Request ID:', request.id);
     console.log('[Admin] Order ID:', request.order_id);
-    console.log('[Admin] Full request object:', JSON.stringify(request, null, 2));
+    console.log('[Admin] Pre-parsed price_amount:', request.price_amount_parsed);
+    console.log('[Admin] Raw payment price_amount:', request.payment?.price_amount);
     
     // ✅ CRITICAL FIX: Use the pre-parsed value stored on the request object
     const parsedAmount = request.price_amount_parsed || 0;
-    console.log('[Admin] Pre-parsed price_amount:', parsedAmount);
-    
-    // Double-check by parsing again from raw payment data
-    const doubleCheckAmount = safeParseNumeric(request.payment?.price_amount, 'modal_double_check', 0);
-    console.log('[Admin] Double-check parsed amount:', doubleCheckAmount);
-    
-    // Use the higher of the two (in case one failed)
-    const finalAmount = Math.max(parsedAmount, doubleCheckAmount);
-    console.log('[Admin] Final amount to use:', finalAmount);
+    console.log('[Admin] Using parsed amount:', parsedAmount);
     
     setSelectedRequest(request);
     
-    const formattedAmount = finalAmount.toFixed(2);
+    const formattedAmount = parsedAmount.toFixed(2);
     console.log('[Admin] Setting approved amount input to:', formattedAmount);
     setApprovedUsdtAmount(formattedAmount);
     
@@ -1298,17 +1292,6 @@ export default function ManualVerificationRequestsScreen() {
                   </View>
                 )}
 
-                {/* Debug box to show raw values */}
-                <View style={styles.debugBox}>
-                  <Text style={styles.debugLabel}>🔍 Debug Info (Raw Values):</Text>
-                  <Text style={styles.debugText}>
-                    price_amount (raw): {JSON.stringify(request.payment?.price_amount)}{'\n'}
-                    price_amount (parsed): {priceAmount}{'\n'}
-                    mxi_amount (raw): {JSON.stringify(request.payment?.mxi_amount)}{'\n'}
-                    mxi_amount (parsed): {mxiAmount}
-                  </Text>
-                </View>
-
                 {request.admin_request_info && (
                   <View style={styles.adminRequestBox}>
                     <Text style={styles.adminRequestLabel}>
@@ -1447,17 +1430,6 @@ export default function ManualVerificationRequestsScreen() {
               onChangeText={setApprovedUsdtAmount}
               keyboardType="decimal-pad"
             />
-
-            {selectedRequest && (
-              <View style={styles.debugBox}>
-                <Text style={styles.debugLabel}>🔍 Debug - Modal Values:</Text>
-                <Text style={styles.debugText}>
-                  Input value: {approvedUsdtAmount}{'\n'}
-                  Parsed amount: {selectedRequest.price_amount_parsed}{'\n'}
-                  Raw payment amount: {JSON.stringify(selectedRequest.payment?.price_amount)}
-                </Text>
-              </View>
-            )}
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
