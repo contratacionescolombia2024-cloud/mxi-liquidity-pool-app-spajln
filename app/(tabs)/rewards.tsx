@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -27,18 +28,60 @@ interface RewardStats {
   mxiPurchased: number;
 }
 
+const MONTHLY_YIELD_PERCENTAGE = 0.03; // 3% monthly
+const SECONDS_IN_MONTH = 2592000; // 30 days
+
 export default function RewardsScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<RewardStats | null>(null);
+  const [realTimeVesting, setRealTimeVesting] = useState(0);
 
   useEffect(() => {
     if (user) {
       loadRewardStats();
     }
   }, [user]);
+
+  // Real-time vesting counter - synchronized with VestingCounter component
+  useEffect(() => {
+    if (!user || !stats) return;
+
+    const mxiInVesting = stats.mxiPurchased || 0;
+    if (mxiInVesting === 0) {
+      setRealTimeVesting(0);
+      return;
+    }
+
+    const maxMonthlyYield = mxiInVesting * MONTHLY_YIELD_PERCENTAGE;
+    const yieldPerSecond = maxMonthlyYield / SECONDS_IN_MONTH;
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const lastUpdate = new Date(user.lastYieldUpdate);
+      const secondsElapsed = Math.max(0, (now - lastUpdate.getTime()) / 1000);
+
+      // ✅ CRITICAL FIX: Calculate session yield - ensure non-negative
+      const sessionYield = Math.max(0, yieldPerSecond * secondsElapsed);
+
+      // ✅ CRITICAL FIX: Ensure accumulated yield is never negative
+      const safeAccumulatedYield = Math.max(0, user.accumulatedYield || 0);
+
+      // ✅ CRITICAL FIX: Calculate total yield - ensure non-negative
+      const totalYield = Math.max(0, safeAccumulatedYield + sessionYield);
+
+      // Cap at 3% monthly maximum
+      const cappedTotalYield = Math.min(totalYield, maxMonthlyYield);
+
+      // ✅ CRITICAL FIX: Ensure final display value is never negative
+      setRealTimeVesting(Math.max(0, cappedTotalYield));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [user, stats, user?.lastYieldUpdate, user?.accumulatedYield]);
 
   const loadRewardStats = async () => {
     try {
@@ -71,14 +114,15 @@ export default function RewardsScreen() {
 
       if (referralsError) throw referralsError;
 
-      // Calculate vesting from purchased MXI only (3% monthly)
-      const mxiPurchased = parseFloat(userData.mxi_purchased_directly || '0');
-      const accumulatedYield = parseFloat(userData.accumulated_yield || '0');
+      // ✅ CRITICAL FIX: Calculate vesting from purchased MXI only (3% monthly)
+      // Ensure accumulated yield is never negative
+      const mxiPurchased = Math.max(0, parseFloat(userData.mxi_purchased_directly || '0'));
+      const accumulatedYield = Math.max(0, parseFloat(userData.accumulated_yield || '0'));
 
       setStats({
         totalMxiEarned: parseFloat(userData.mxi_balance || '0'),
         fromCommissions: parseFloat(userData.mxi_from_unified_commissions || '0'),
-        fromVesting: accumulatedYield, // Real-time vesting yield
+        fromVesting: accumulatedYield, // Real-time vesting yield - always non-negative
         fromBonus: 0, // TODO: Add bonus winnings tracking
         activeReferrals: userData.active_referrals || 0,
         totalReferrals: referralsData?.length || 0,
@@ -92,11 +136,17 @@ export default function RewardsScreen() {
     }
   };
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadRewardStats();
+    setRefreshing(false);
+  };
+
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat('en-US', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
-    }).format(num);
+    }).format(Math.max(0, num)); // ✅ Ensure formatted number is never negative
   };
 
   if (loading) {
@@ -110,6 +160,9 @@ export default function RewardsScreen() {
     );
   }
 
+  // ✅ Calculate max monthly yield for display
+  const maxMonthlyYield = (stats?.mxiPurchased || 0) * MONTHLY_YIELD_PERCENTAGE;
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -117,7 +170,12 @@ export default function RewardsScreen() {
         <Text style={styles.headerSubtitle}>{t('earnMXIMultipleWays')}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+        }
+      >
         {/* Total Rewards Summary */}
         <View style={[commonStyles.card, styles.summaryCard]}>
           <View style={styles.summaryHeader}>
@@ -153,7 +211,7 @@ export default function RewardsScreen() {
                 color={colors.success} 
               />
               <Text style={styles.breakdownLabel}>{t('vesting')}</Text>
-              <Text style={styles.breakdownValue}>{formatNumber(stats?.fromVesting || 0)}</Text>
+              <Text style={styles.breakdownValue}>{formatNumber(realTimeVesting)}</Text>
             </View>
 
             <View style={styles.breakdownItem}>
@@ -169,7 +227,7 @@ export default function RewardsScreen() {
           </View>
         </View>
 
-        {/* Vesting Info Card - Interconnected with Home Page */}
+        {/* Vesting Info Card - Interconnected with Home Page and Vesting Page */}
         <View style={[commonStyles.card, styles.vestingInfoCard]}>
           <View style={styles.vestingInfoHeader}>
             <IconSymbol 
@@ -178,26 +236,41 @@ export default function RewardsScreen() {
               size={24} 
               color={colors.success} 
             />
-            <Text style={styles.vestingInfoTitle}>Información de Vesting</Text>
+            <Text style={styles.vestingInfoTitle}>Vesting en Tiempo Real</Text>
           </View>
+          
+          {/* Real-time vesting display */}
+          <View style={styles.realTimeVestingCard}>
+            <Text style={styles.realTimeVestingLabel}>Rendimiento Acumulado</Text>
+            <Text style={styles.realTimeVestingValue}>
+              {Math.max(0, realTimeVesting).toFixed(8)} MXI
+            </Text>
+            <View style={styles.liveIndicator}>
+              <View style={styles.liveDot} />
+              <Text style={styles.liveText}>Actualizando cada segundo</Text>
+            </View>
+          </View>
+
           <View style={styles.vestingInfoContent}>
             <View style={styles.vestingInfoRow}>
               <Text style={styles.vestingInfoLabel}>MXI Comprados (Genera Vesting)</Text>
               <Text style={styles.vestingInfoValue}>{formatNumber(stats?.mxiPurchased || 0)} MXI</Text>
             </View>
             <View style={styles.vestingInfoRow}>
-              <Text style={styles.vestingInfoLabel}>Rendimiento Acumulado (3% mensual)</Text>
-              <Text style={styles.vestingInfoValue}>{formatNumber(stats?.fromVesting || 0)} MXI</Text>
+              <Text style={styles.vestingInfoLabel}>Máximo Mensual (3%)</Text>
+              <Text style={styles.vestingInfoValue}>
+                {formatNumber(maxMonthlyYield)} MXI
+              </Text>
             </View>
             <View style={styles.vestingInfoRow}>
-              <Text style={styles.vestingInfoLabel}>Máximo Mensual</Text>
+              <Text style={styles.vestingInfoLabel}>Progreso</Text>
               <Text style={styles.vestingInfoValue}>
-                {formatNumber((stats?.mxiPurchased || 0) * 0.03)} MXI
+                {maxMonthlyYield > 0 ? ((realTimeVesting / maxMonthlyYield) * 100).toFixed(2) : '0.00'}%
               </Text>
             </View>
           </View>
           <Text style={styles.vestingInfoNote}>
-            ℹ️ El vesting genera un 3% mensual SOLO sobre MXI comprados. Los datos son los mismos que en la página principal.
+            ℹ️ El vesting genera un 3% mensual SOLO sobre MXI comprados. Los datos están sincronizados con la página de vesting.
           </Text>
         </View>
 
@@ -489,6 +562,54 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.text,
+  },
+  realTimeVestingCard: {
+    backgroundColor: `${colors.accent}20`,
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: colors.accent,
+  },
+  realTimeVestingLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  realTimeVestingValue: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: colors.accent,
+    fontFamily: 'monospace',
+    marginBottom: 12,
+  },
+  liveIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: `${colors.success}20`,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.success,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.success,
+  },
+  liveText: {
+    fontSize: 11,
+    color: colors.success,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   vestingInfoContent: {
     gap: 12,

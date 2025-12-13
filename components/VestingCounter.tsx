@@ -40,21 +40,21 @@ export function VestingCounter() {
     const displayInterval = setInterval(() => {
       const now = Date.now();
       const lastUpdate = new Date(user.lastYieldUpdate);
-      const secondsElapsed = (now - lastUpdate.getTime()) / 1000;
+      const secondsElapsed = Math.max(0, (now - lastUpdate.getTime()) / 1000);
 
-      // Calculate current session yield
-      const sessionYield = yieldPerSecond * secondsElapsed;
+      // ✅ CRITICAL FIX: Calculate current session yield - ensure non-negative
+      const sessionYield = Math.max(0, yieldPerSecond * secondsElapsed);
 
-      // Ensure accumulated yield is never negative
+      // ✅ CRITICAL FIX: Ensure accumulated yield is never negative
       const safeAccumulatedYield = Math.max(0, user.accumulatedYield || 0);
 
-      // Calculate total yield (accumulated + session)
-      const totalYield = safeAccumulatedYield + sessionYield;
+      // ✅ CRITICAL FIX: Calculate total yield (accumulated + session) - ensure non-negative
+      const totalYield = Math.max(0, safeAccumulatedYield + sessionYield);
 
       // Cap at 3% monthly maximum
       const cappedTotalYield = Math.min(totalYield, maxMonthlyYield);
 
-      // Ensure final display value is never negative
+      // ✅ CRITICAL FIX: Ensure final display value is never negative
       setDisplayYield(Math.max(0, cappedTotalYield));
       setLastUpdateTime(now);
     }, 1000); // Update every second
@@ -77,17 +77,19 @@ export function VestingCounter() {
         
         const now = Date.now();
         const lastUpdate = new Date(user.lastYieldUpdate);
-        const secondsElapsed = (now - lastUpdate.getTime()) / 1000;
+        const secondsElapsed = Math.max(0, (now - lastUpdate.getTime()) / 1000);
         
-        const sessionYield = yieldPerSecond * secondsElapsed;
+        // ✅ CRITICAL FIX: Ensure session yield is non-negative
+        const sessionYield = Math.max(0, yieldPerSecond * secondsElapsed);
         
-        // Ensure accumulated yield is never negative
+        // ✅ CRITICAL FIX: Ensure accumulated yield is never negative
         const safeAccumulatedYield = Math.max(0, user.accumulatedYield || 0);
         
-        const totalYield = safeAccumulatedYield + sessionYield;
+        // ✅ CRITICAL FIX: Calculate total yield - ensure non-negative
+        const totalYield = Math.max(0, safeAccumulatedYield + sessionYield);
         const cappedTotalYield = Math.min(totalYield, maxMonthlyYield);
 
-        // Ensure final value is never negative before saving
+        // ✅ CRITICAL FIX: Ensure final value is never negative before saving
         const finalYield = Math.max(0, cappedTotalYield);
 
         // Update database with current accumulated yield
@@ -99,7 +101,7 @@ export function VestingCounter() {
           })
           .eq('id', user.id);
 
-        console.log('Vesting yield persisted:', finalYield.toFixed(8), 'MXI');
+        console.log('✅ Vesting yield persisted (non-negative):', finalYield.toFixed(8), 'MXI');
       } catch (error) {
         console.error('Error persisting vesting yield:', error);
       }
@@ -130,8 +132,7 @@ export function VestingCounter() {
   const progressPercentage = maxMonthlyYield > 0 ? (displayYield / maxMonthlyYield) * 100 : 0;
   const isNearCap = progressPercentage >= 95;
 
-  // Calculate session yield (current accumulation since last update)
-  // Ensure accumulated yield is never negative
+  // ✅ CRITICAL FIX: Calculate session yield (current accumulation since last update) - ensure non-negative
   const safeAccumulatedYield = Math.max(0, user.accumulatedYield || 0);
   const sessionYield = Math.max(0, displayYield - safeAccumulatedYield);
 
@@ -168,7 +169,7 @@ export function VestingCounter() {
         <View style={styles.counterCard}>
           <Text style={styles.counterLabel}>Rendimiento Acumulado Total</Text>
           <Text style={styles.counterValue}>
-            +{Math.max(0, displayYield).toFixed(8)}
+            {Math.max(0, displayYield).toFixed(8)}
           </Text>
           <Text style={styles.counterUnit}>MXI</Text>
           <View style={styles.liveIndicator}>
@@ -274,12 +275,12 @@ export function VestingCounter() {
         <View style={styles.yieldBreakdownSection}>
           <View style={styles.breakdownRow}>
             <Text style={styles.breakdownLabel}>Sesión Actual</Text>
-            <Text style={styles.breakdownValue}>+{Math.max(0, sessionYield).toFixed(8)} MXI</Text>
+            <Text style={styles.breakdownValue}>{Math.max(0, sessionYield).toFixed(8)} MXI</Text>
           </View>
           <View style={styles.breakdownDivider} />
           <View style={styles.breakdownRow}>
             <Text style={styles.breakdownLabel}>Acumulado Previo</Text>
-            <Text style={styles.breakdownValue}>+{Math.max(0, safeAccumulatedYield).toFixed(8)} MXI</Text>
+            <Text style={styles.breakdownValue}>{Math.max(0, safeAccumulatedYield).toFixed(8)} MXI</Text>
           </View>
         </View>
       )}
@@ -289,17 +290,17 @@ export function VestingCounter() {
         <View style={styles.rateSection}>
           <View style={styles.rateItem}>
             <Text style={styles.rateLabel}>Por Segundo</Text>
-            <Text style={styles.rateValue}>+{yieldPerSecond.toFixed(8)}</Text>
+            <Text style={styles.rateValue}>{yieldPerSecond.toFixed(8)}</Text>
           </View>
           <View style={styles.rateDivider} />
           <View style={styles.rateItem}>
             <Text style={styles.rateLabel}>Por Minuto</Text>
-            <Text style={styles.rateValue}>+{yieldPerMinute.toFixed(8)}</Text>
+            <Text style={styles.rateValue}>{yieldPerMinute.toFixed(8)}</Text>
           </View>
           <View style={styles.rateDivider} />
           <View style={styles.rateItem}>
             <Text style={styles.rateLabel}>Por Hora</Text>
-            <Text style={styles.rateValue}>+{yieldPerHour.toFixed(6)}</Text>
+            <Text style={styles.rateValue}>{yieldPerHour.toFixed(6)}</Text>
           </View>
         </View>
       )}
@@ -309,7 +310,7 @@ export function VestingCounter() {
         <View style={styles.dailyRate}>
           <Text style={styles.dailyRateLabel}>Rendimiento Diario</Text>
           <Text style={styles.dailyRateValue}>
-            +{yieldPerDay.toFixed(4)} MXI
+            {yieldPerDay.toFixed(4)} MXI
           </Text>
         </View>
       )}
@@ -320,7 +321,7 @@ export function VestingCounter() {
           <View style={styles.monthlyMaxCard}>
             <Text style={styles.monthlyMaxLabel}>Máximo Mensual (3%)</Text>
             <Text style={styles.monthlyMaxValue}>
-              +{maxMonthlyYield.toFixed(4)} MXI
+              {maxMonthlyYield.toFixed(4)} MXI
             </Text>
             <Text style={styles.monthlyMaxNote}>
               Basado en {mxiInVesting.toFixed(2)} MXI comprados

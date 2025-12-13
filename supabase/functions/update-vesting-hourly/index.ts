@@ -56,14 +56,14 @@ serve(async (req) => {
       const lastUpdate = new Date(user.last_yield_update);
       const secondsElapsed = Math.max(0, (now.getTime() - lastUpdate.getTime()) / 1000);
       
+      // ✅ CRITICAL FIX: Calculate session yield and ensure it's non-negative
       const sessionYield = Math.max(0, yieldPerSecond * secondsElapsed);
       
       // ✅ CRITICAL FIX: Ensure accumulated_yield is never negative
       const previousYield = Math.max(0, parseFloat(user.accumulated_yield) || 0);
-      const currentYield = Math.min(
-        Math.max(0, previousYield + sessionYield),
-        maxMonthlyYield
-      );
+      
+      // ✅ CRITICAL FIX: Add session yield to previous yield, cap at monthly max, ensure non-negative
+      const currentYield = Math.max(0, Math.min(previousYield + sessionYield, maxMonthlyYield));
 
       // Get last close value for this user
       const { data: lastCandle } = await supabase
@@ -80,7 +80,7 @@ serve(async (req) => {
       const openValue = Math.max(0, lastClose);
       const closeValue = Math.max(0, currentYield);
       const highValue = Math.max(openValue, closeValue);
-      const lowValue = Math.min(openValue, closeValue);
+      const lowValue = Math.max(0, Math.min(openValue, closeValue));
       const volume = Math.max(0, closeValue - openValue);
 
       // Insert or update hourly data
@@ -122,7 +122,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: `✅ Updated vesting data for ${users?.length || 0} users (only purchased MXI generates 3% monthly vesting, all values non-negative)`,
+        message: `✅ Updated vesting data for ${users?.length || 0} users (only purchased MXI generates 3% monthly vesting, all values guaranteed non-negative)`,
         timestamp: new Date().toISOString(),
       }),
       {
