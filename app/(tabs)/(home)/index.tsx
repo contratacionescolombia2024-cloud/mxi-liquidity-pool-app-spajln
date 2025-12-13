@@ -22,7 +22,6 @@ import { FundraisingProgress } from '@/components/FundraisingProgress';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import VersionDisplay from '@/components/VersionDisplay';
 import Footer from '@/components/Footer';
-import { VestingCounter } from '@/components/VestingCounter';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
 
@@ -563,9 +562,6 @@ export default function HomeScreen() {
 
         {/* NEW: Total MXI Balance Chart with Timeframe Options */}
         <TotalMXIBalanceChart />
-
-        {/* UNIFIED Vesting Counter - Only "Vesting Activo" display */}
-        <VestingCounter />
 
         {/* Enhanced Phases and Progress Card */}
         {phaseInfo && phaseInfo.phase1 && phaseInfo.phase2 && phaseInfo.phase3 && (
