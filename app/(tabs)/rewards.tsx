@@ -24,6 +24,7 @@ interface RewardStats {
   fromBonus: number;
   activeReferrals: number;
   totalReferrals: number;
+  mxiPurchased: number;
 }
 
 export default function RewardsScreen() {
@@ -43,7 +44,7 @@ export default function RewardsScreen() {
     try {
       setLoading(true);
 
-      // Get user data
+      // Get user data - SAME SOURCE as VestingCounter
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
@@ -70,13 +71,18 @@ export default function RewardsScreen() {
 
       if (referralsError) throw referralsError;
 
+      // Calculate vesting from purchased MXI only (3% monthly)
+      const mxiPurchased = parseFloat(userData.mxi_purchased_directly || '0');
+      const accumulatedYield = parseFloat(userData.accumulated_yield || '0');
+
       setStats({
         totalMxiEarned: parseFloat(userData.mxi_balance || '0'),
         fromCommissions: parseFloat(userData.mxi_from_unified_commissions || '0'),
-        fromVesting: parseFloat(userData.accumulated_yield || '0'),
+        fromVesting: accumulatedYield, // Real-time vesting yield
         fromBonus: 0, // TODO: Add bonus winnings tracking
         activeReferrals: userData.active_referrals || 0,
         totalReferrals: referralsData?.length || 0,
+        mxiPurchased: mxiPurchased,
       });
     } catch (error) {
       console.error('Error loading reward stats:', error);
@@ -163,6 +169,38 @@ export default function RewardsScreen() {
           </View>
         </View>
 
+        {/* Vesting Info Card - Interconnected with Home Page */}
+        <View style={[commonStyles.card, styles.vestingInfoCard]}>
+          <View style={styles.vestingInfoHeader}>
+            <IconSymbol 
+              ios_icon_name="chart.line.uptrend.xyaxis" 
+              android_material_icon_name="trending_up" 
+              size={24} 
+              color={colors.success} 
+            />
+            <Text style={styles.vestingInfoTitle}>Información de Vesting</Text>
+          </View>
+          <View style={styles.vestingInfoContent}>
+            <View style={styles.vestingInfoRow}>
+              <Text style={styles.vestingInfoLabel}>MXI Comprados (Genera Vesting)</Text>
+              <Text style={styles.vestingInfoValue}>{formatNumber(stats?.mxiPurchased || 0)} MXI</Text>
+            </View>
+            <View style={styles.vestingInfoRow}>
+              <Text style={styles.vestingInfoLabel}>Rendimiento Acumulado (3% mensual)</Text>
+              <Text style={styles.vestingInfoValue}>{formatNumber(stats?.fromVesting || 0)} MXI</Text>
+            </View>
+            <View style={styles.vestingInfoRow}>
+              <Text style={styles.vestingInfoLabel}>Máximo Mensual</Text>
+              <Text style={styles.vestingInfoValue}>
+                {formatNumber((stats?.mxiPurchased || 0) * 0.03)} MXI
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.vestingInfoNote}>
+            ℹ️ El vesting genera un 3% mensual SOLO sobre MXI comprados. Los datos son los mismos que en la página principal.
+          </Text>
+        </View>
+
         {/* Reward Programs */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('rewardPrograms')}</Text>
@@ -195,7 +233,7 @@ export default function RewardsScreen() {
             />
           </TouchableOpacity>
 
-          {/* Vesting */}
+          {/* Vesting - Interconnected with Home Page */}
           <TouchableOpacity
             style={styles.rewardCard}
             onPress={() => router.push('/(tabs)/(home)/vesting')}
@@ -325,7 +363,7 @@ export default function RewardsScreen() {
               <View style={styles.tipNumber}>
                 <Text style={styles.tipNumberText}>1</Text>
               </View>
-              <Text style={styles.tipText}>{t('keepAtLeast5ActiveReferrals')}</Text>
+              <Text style={styles.tipText}>Mantén al menos 7 referidos activos para desbloquear retiros de vesting</Text>
             </View>
             <View style={styles.tipItem}>
               <View style={styles.tipNumber}>
@@ -337,7 +375,7 @@ export default function RewardsScreen() {
               <View style={styles.tipNumber}>
                 <Text style={styles.tipNumberText}>3</Text>
               </View>
-              <Text style={styles.tipText}>{t('activateVestingForPassiveIncome')}</Text>
+              <Text style={styles.tipText}>Compra MXI para activar el vesting del 3% mensual</Text>
             </View>
             <View style={styles.tipItem}>
               <View style={styles.tipNumber}>
@@ -434,6 +472,52 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: colors.text,
+  },
+  vestingInfoCard: {
+    backgroundColor: colors.success + '10',
+    borderWidth: 2,
+    borderColor: colors.success + '30',
+    marginBottom: 24,
+  },
+  vestingInfoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  vestingInfoTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  vestingInfoContent: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  vestingInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  vestingInfoLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    flex: 1,
+  },
+  vestingInfoValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+    fontFamily: 'monospace',
+  },
+  vestingInfoNote: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+    lineHeight: 18,
   },
   section: {
     marginBottom: 24,

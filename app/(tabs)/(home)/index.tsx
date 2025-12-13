@@ -564,7 +564,7 @@ export default function HomeScreen() {
         {/* NEW: Total MXI Balance Chart with Timeframe Options */}
         <TotalMXIBalanceChart />
 
-        {/* Vesting Counter - Re-enabled with real-time updates */}
+        {/* UNIFIED Vesting Counter - Only "Vesting Activo" display */}
         <VestingCounter />
 
         {/* Enhanced Phases and Progress Card */}
