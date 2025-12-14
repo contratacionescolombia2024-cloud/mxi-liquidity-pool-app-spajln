@@ -21,6 +21,20 @@ export interface VestingData {
   yieldPerMinute: number;
   yieldPerHour: number;
   yieldPerDay: number;
+  yieldPer7Days: number;
+  yieldPerMonth: number;
+  yieldUntilLaunch: number;
+  
+  // USDT values based on current phase
+  yieldPerHourUsdt: number;
+  yieldPer7DaysUsdt: number;
+  yieldPerMonthUsdt: number;
+  yieldUntilLaunchUsdt: number;
+  
+  // Current phase info
+  currentPhase: number;
+  currentPriceUsdt: number;
+  daysUntilLaunch: number;
   
   // Progress - ALWAYS NON-NEGATIVE
   progressPercentage: number;
@@ -42,6 +56,7 @@ const PERSIST_INTERVAL_MS = 10000; // Persist every 10 seconds
  * CRITICAL: All values returned are guaranteed to be non-negative
  * FIXED: Real-time updates now work correctly by recalculating from base values every second
  * FIXED: Interval properly restarts when base values change
+ * NEW: Added per 7 days, per month, until launch timeframes with USDT conversion
  */
 export function useVestingData() {
   const { user } = useAuth();
@@ -56,6 +71,9 @@ export function useVestingData() {
     mxiTournaments: number;
     accumulatedYield: number;
     lastUpdate: Date;
+    currentPhase: number;
+    currentPriceUsdt: number;
+    launchDate: Date;
   } | null>(null);
 
   // Track if component is mounted
@@ -87,6 +105,14 @@ export function useVestingData() {
 
       if (userError) throw userError;
 
+      // Fetch metrics for phase info and launch date
+      const { data: metricsData, error: metricsError } = await supabase
+        .from('metrics')
+        .select('current_phase, current_price_usdt, mxi_launch_date')
+        .single();
+
+      if (metricsError) throw metricsError;
+
       // Parse values safely - GUARANTEED NON-NEGATIVE
       const mxiPurchased = Math.max(0, safeParseNumeric(userData.mxi_purchased_directly, 0));
       const mxiCommissions = Math.max(0, safeParseNumeric(userData.mxi_from_unified_commissions, 0));
@@ -94,12 +120,24 @@ export function useVestingData() {
       const accumulatedYield = Math.max(0, safeParseNumeric(userData.accumulated_yield, 0));
       const lastUpdate = new Date(userData.last_yield_update || new Date());
 
+      // Parse phase info
+      const currentPhase = metricsData.current_phase || 1;
+      const currentPriceUsdt = Math.max(0, safeParseNumeric(metricsData.current_price_usdt, 0.40));
+      const launchDate = new Date(metricsData.mxi_launch_date || '2026-02-25T12:00:00Z');
+
+      // Calculate days until launch
+      const now = new Date();
+      const daysUntilLaunch = Math.max(0, Math.ceil((launchDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+
       console.log('✅ Loaded base values:', {
         mxiPurchased,
         mxiCommissions,
         mxiTournaments,
         accumulatedYield,
         lastUpdate: lastUpdate.toISOString(),
+        currentPhase,
+        currentPriceUsdt,
+        daysUntilLaunch,
       });
 
       // Store base values in ref for real-time updates
@@ -109,6 +147,9 @@ export function useVestingData() {
         mxiTournaments,
         accumulatedYield,
         lastUpdate,
+        currentPhase,
+        currentPriceUsdt,
+        launchDate,
       };
 
       // Calculate current yield - GUARANTEED NON-NEGATIVE
@@ -123,6 +164,17 @@ export function useVestingData() {
       const yieldPerMinute = Math.max(0, yieldCalc.yieldPerSecond * 60);
       const yieldPerHour = Math.max(0, yieldPerMinute * 60);
       const yieldPerDay = Math.max(0, yieldPerHour * 24);
+      const yieldPer7Days = Math.max(0, yieldPerDay * 7);
+      const yieldPerMonth = Math.max(0, yieldPerDay * 30); // 30 days
+      
+      // Calculate yield until launch
+      const yieldUntilLaunch = Math.max(0, yieldPerDay * daysUntilLaunch);
+
+      // Calculate USDT values based on current phase price
+      const yieldPerHourUsdt = Math.max(0, yieldPerHour * currentPriceUsdt);
+      const yieldPer7DaysUsdt = Math.max(0, yieldPer7Days * currentPriceUsdt);
+      const yieldPerMonthUsdt = Math.max(0, yieldPerMonth * currentPriceUsdt);
+      const yieldUntilLaunchUsdt = Math.max(0, yieldUntilLaunch * currentPriceUsdt);
 
       // Final validation before setting state
       const newVestingData: VestingData = {
@@ -137,6 +189,16 @@ export function useVestingData() {
         yieldPerMinute: Math.max(0, yieldPerMinute),
         yieldPerHour: Math.max(0, yieldPerHour),
         yieldPerDay: Math.max(0, yieldPerDay),
+        yieldPer7Days: Math.max(0, yieldPer7Days),
+        yieldPerMonth: Math.max(0, yieldPerMonth),
+        yieldUntilLaunch: Math.max(0, yieldUntilLaunch),
+        yieldPerHourUsdt: Math.max(0, yieldPerHourUsdt),
+        yieldPer7DaysUsdt: Math.max(0, yieldPer7DaysUsdt),
+        yieldPerMonthUsdt: Math.max(0, yieldPerMonthUsdt),
+        yieldUntilLaunchUsdt: Math.max(0, yieldUntilLaunchUsdt),
+        currentPhase,
+        currentPriceUsdt,
+        daysUntilLaunch,
         progressPercentage: Math.max(0, yieldCalc.progressPercentage),
         isNearCap: yieldCalc.progressPercentage >= 95,
         hasBalance: mxiPurchased > 0,
@@ -146,7 +208,10 @@ export function useVestingData() {
       console.log('✅ Vesting data calculated:', {
         currentYield: newVestingData.currentYield.toFixed(8),
         sessionYield: newVestingData.sessionYield.toFixed(8),
-        yieldPerSecond: newVestingData.yieldPerSecond.toFixed(8),
+        yieldPerHour: newVestingData.yieldPerHour.toFixed(8),
+        yieldPer7Days: newVestingData.yieldPer7Days.toFixed(8),
+        yieldPerMonth: newVestingData.yieldPerMonth.toFixed(8),
+        yieldUntilLaunch: newVestingData.yieldUntilLaunch.toFixed(8),
       });
 
       if (isMountedRef.current) {
@@ -203,6 +268,19 @@ export function useVestingData() {
       const yieldPerMinute = Math.max(0, yieldCalc.yieldPerSecond * 60);
       const yieldPerHour = Math.max(0, yieldPerMinute * 60);
       const yieldPerDay = Math.max(0, yieldPerHour * 24);
+      const yieldPer7Days = Math.max(0, yieldPerDay * 7);
+      const yieldPerMonth = Math.max(0, yieldPerDay * 30);
+      
+      // Recalculate days until launch
+      const now = new Date();
+      const daysUntilLaunch = Math.max(0, Math.ceil((currentBaseValues.launchDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+      const yieldUntilLaunch = Math.max(0, yieldPerDay * daysUntilLaunch);
+
+      // Calculate USDT values
+      const yieldPerHourUsdt = Math.max(0, yieldPerHour * currentBaseValues.currentPriceUsdt);
+      const yieldPer7DaysUsdt = Math.max(0, yieldPer7Days * currentBaseValues.currentPriceUsdt);
+      const yieldPerMonthUsdt = Math.max(0, yieldPerMonth * currentBaseValues.currentPriceUsdt);
+      const yieldUntilLaunchUsdt = Math.max(0, yieldUntilLaunch * currentBaseValues.currentPriceUsdt);
 
       // Update state with new calculated values
       setVestingData(prev => {
@@ -218,6 +296,14 @@ export function useVestingData() {
           yieldPerMinute: Math.max(0, yieldPerMinute),
           yieldPerHour: Math.max(0, yieldPerHour),
           yieldPerDay: Math.max(0, yieldPerDay),
+          yieldPer7Days: Math.max(0, yieldPer7Days),
+          yieldPerMonth: Math.max(0, yieldPerMonth),
+          yieldUntilLaunch: Math.max(0, yieldUntilLaunch),
+          yieldPerHourUsdt: Math.max(0, yieldPerHourUsdt),
+          yieldPer7DaysUsdt: Math.max(0, yieldPer7DaysUsdt),
+          yieldPerMonthUsdt: Math.max(0, yieldPerMonthUsdt),
+          yieldUntilLaunchUsdt: Math.max(0, yieldUntilLaunchUsdt),
+          daysUntilLaunch,
         };
       });
     }, UPDATE_INTERVAL_MS);

@@ -58,9 +58,17 @@ export default function VestingScreen() {
     mxiCommissions,
     mxiTournaments,
     yieldPerSecond,
-    yieldPerMinute,
     yieldPerHour,
-    yieldPerDay,
+    yieldPer7Days,
+    yieldPerMonth,
+    yieldUntilLaunch,
+    yieldPerHourUsdt,
+    yieldPer7DaysUsdt,
+    yieldPerMonthUsdt,
+    yieldUntilLaunchUsdt,
+    currentPhase,
+    currentPriceUsdt,
+    daysUntilLaunch,
     maxMonthlyYield,
     progressPercentage,
     isNearCap,
@@ -68,7 +76,6 @@ export default function VestingScreen() {
   } = vestingData;
 
   const isLaunched = poolStatus?.is_mxi_launched || false;
-  const daysUntilLaunch = poolStatus?.days_until_launch || 0;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -207,33 +214,90 @@ export default function VestingScreen() {
           </View>
         )}
 
-        {/* Rate Information */}
+        {/* NEW: Rendimiento en MXI y USDT */}
         {hasBalance && (
-          <View style={styles.rateSection}>
-            <View style={styles.rateItem}>
-              <Text style={styles.rateLabel}>Por Segundo</Text>
-              <Text style={styles.rateValue}>{formatVestingValue(yieldPerSecond, 8)}</Text>
-            </View>
-            <View style={styles.rateDivider} />
-            <View style={styles.rateItem}>
-              <Text style={styles.rateLabel}>Por Minuto</Text>
-              <Text style={styles.rateValue}>{formatVestingValue(yieldPerMinute, 5)}</Text>
-            </View>
-            <View style={styles.rateDivider} />
-            <View style={styles.rateItem}>
-              <Text style={styles.rateLabel}>Por Hora</Text>
-              <Text style={styles.rateValue}>{formatVestingValue(yieldPerHour, 4)}</Text>
-            </View>
-          </View>
-        )}
-
-        {/* Daily Rate */}
-        {hasBalance && (
-          <View style={styles.dailyRate}>
-            <Text style={styles.dailyRateLabel}>Rendimiento Diario</Text>
-            <Text style={styles.dailyRateValue}>
-              {formatVestingValue(yieldPerDay, 4)} MXI
+          <View style={styles.performanceSection}>
+            <Text style={styles.performanceSectionTitle}>📊 Rendimiento Proyectado</Text>
+            <Text style={styles.phaseInfo}>
+              Fase {currentPhase} • 1 MXI = ${currentPriceUsdt.toFixed(2)} USDT
             </Text>
+
+            {/* Por Hora */}
+            <View style={styles.performanceCard}>
+              <View style={styles.performanceHeader}>
+                <IconSymbol 
+                  ios_icon_name="clock.fill" 
+                  android_material_icon_name="schedule" 
+                  size={20} 
+                  color={colors.primary} 
+                />
+                <Text style={styles.performanceLabel}>Por Hora</Text>
+              </View>
+              <View style={styles.performanceValues}>
+                <View style={styles.performanceValueRow}>
+                  <Text style={styles.performanceValue}>{formatVestingValue(yieldPerHour, 6)} MXI</Text>
+                  <Text style={styles.performanceValueUsdt}>≈ ${yieldPerHourUsdt.toFixed(4)} USDT</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Por 7 Días */}
+            <View style={styles.performanceCard}>
+              <View style={styles.performanceHeader}>
+                <IconSymbol 
+                  ios_icon_name="calendar.badge.clock" 
+                  android_material_icon_name="event" 
+                  size={20} 
+                  color={colors.success} 
+                />
+                <Text style={styles.performanceLabel}>Por 7 Días</Text>
+              </View>
+              <View style={styles.performanceValues}>
+                <View style={styles.performanceValueRow}>
+                  <Text style={styles.performanceValue}>{formatVestingValue(yieldPer7Days, 4)} MXI</Text>
+                  <Text style={styles.performanceValueUsdt}>≈ ${yieldPer7DaysUsdt.toFixed(2)} USDT</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Por 1 Mes */}
+            <View style={styles.performanceCard}>
+              <View style={styles.performanceHeader}>
+                <IconSymbol 
+                  ios_icon_name="calendar" 
+                  android_material_icon_name="calendar_month" 
+                  size={20} 
+                  color={colors.accent} 
+                />
+                <Text style={styles.performanceLabel}>Por 1 Mes (30 días)</Text>
+              </View>
+              <View style={styles.performanceValues}>
+                <View style={styles.performanceValueRow}>
+                  <Text style={styles.performanceValue}>{formatVestingValue(yieldPerMonth, 4)} MXI</Text>
+                  <Text style={styles.performanceValueUsdt}>≈ ${yieldPerMonthUsdt.toFixed(2)} USDT</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Hasta Lanzamiento */}
+            <View style={[styles.performanceCard, styles.performanceCardHighlight]}>
+              <View style={styles.performanceHeader}>
+                <IconSymbol 
+                  ios_icon_name="rocket.fill" 
+                  android_material_icon_name="rocket_launch" 
+                  size={20} 
+                  color={colors.warning} 
+                />
+                <Text style={styles.performanceLabel}>Hasta Lanzamiento</Text>
+              </View>
+              <Text style={styles.daysUntilLaunch}>{daysUntilLaunch} días restantes</Text>
+              <View style={styles.performanceValues}>
+                <View style={styles.performanceValueRow}>
+                  <Text style={styles.performanceValue}>{formatVestingValue(yieldUntilLaunch, 2)} MXI</Text>
+                  <Text style={styles.performanceValueUsdt}>≈ ${yieldUntilLaunchUsdt.toFixed(2)} USDT</Text>
+                </View>
+              </View>
+            </View>
           </View>
         )}
 
@@ -302,6 +366,16 @@ export default function VestingScreen() {
           </View>
 
           <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Fase Actual</Text>
+            <Text style={styles.infoValue}>Fase {currentPhase}</Text>
+          </View>
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Precio MXI</Text>
+            <Text style={styles.infoValue}>${currentPriceUsdt.toFixed(2)} USDT</Text>
+          </View>
+
+          <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>{t('withdrawalStatusText')}</Text>
             <Text style={[styles.infoValue, { color: isLaunched ? colors.success : colors.error }]}>
               {isLaunched ? t('enabledText') : t('blockedUntilLaunchShortText')}
@@ -316,6 +390,9 @@ export default function VestingScreen() {
           </Text>
           <Text style={styles.descriptionText}>
             El rendimiento se calcula automáticamente cada segundo y se acumula en tu cuenta. Puedes ver el progreso en tiempo real.
+          </Text>
+          <Text style={styles.descriptionText}>
+            Los valores en USDT son aproximados y se basan en el precio actual de la Fase {currentPhase} (${currentPriceUsdt.toFixed(2)} USDT por MXI). El precio puede cambiar según la fase de la preventa.
           </Text>
           <Text style={[styles.descriptionText, styles.importantNote]}>
             ⚠️ Importante: Para retirar el vesting debes tener al menos 7 referidos activos (con compras). Solo el MXI comprado directamente o añadido por el administrador con comisión genera vesting del 3% mensual. Las comisiones y premios de torneos NO generan vesting.
@@ -396,7 +473,7 @@ export default function VestingScreen() {
           <Text style={styles.infoBoxText}>
             {!hasBalance
               ? 'Compra MXI para comenzar a generar rendimientos del 3% mensual.'
-              : 'El vesting se genera automáticamente desde tu MXI comprado. Puedes reclamarlo una vez que cumplas los requisitos de retiro.'}
+              : 'El vesting se genera automáticamente desde tu MXI comprado. Los valores en USDT son aproximados según el precio de la Fase ' + currentPhase + '. Puedes reclamarlo una vez que cumplas los requisitos de retiro.'}
           </Text>
         </View>
       </ScrollView>
@@ -685,58 +762,76 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontFamily: 'monospace',
   },
-  rateSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    backgroundColor: colors.background,
+  performanceSection: {
+    backgroundColor: `${colors.primary}10`,
     borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: `${colors.primary}30`,
+  },
+  performanceSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  phaseInfo: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 16,
+    fontWeight: '600',
+  },
+  performanceCard: {
+    backgroundColor: colors.card,
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  rateItem: {
-    flex: 1,
-    alignItems: 'center',
+  performanceCardHighlight: {
+    backgroundColor: `${colors.warning}15`,
+    borderColor: colors.warning,
+    borderWidth: 2,
   },
-  rateDivider: {
-    width: 1,
-    backgroundColor: colors.border,
-    marginHorizontal: 8,
-  },
-  rateLabel: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginBottom: 4,
-    fontWeight: '600',
-  },
-  rateValue: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.text,
-    fontFamily: 'monospace',
-  },
-  dailyRate: {
-    backgroundColor: `${colors.primary}20`,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
+  performanceHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.primary,
+    gap: 8,
+    marginBottom: 8,
   },
-  dailyRateLabel: {
+  performanceLabel: {
     fontSize: 14,
     fontWeight: '700',
     color: colors.text,
   },
-  dailyRateValue: {
+  daysUntilLaunch: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginBottom: 8,
+    fontStyle: 'italic',
+  },
+  performanceValues: {
+    gap: 4,
+  },
+  performanceValueRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  performanceValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.primary,
+    color: colors.text,
+    fontFamily: 'monospace',
+  },
+  performanceValueUsdt: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.success,
     fontFamily: 'monospace',
   },
   monthlyMaxSection: {
