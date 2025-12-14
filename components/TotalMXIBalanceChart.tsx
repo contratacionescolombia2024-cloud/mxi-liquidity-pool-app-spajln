@@ -1,15 +1,17 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions, ActivityIndicator, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
 import { Svg, Rect, Line, Text as SvgText, G, Path, Defs, LinearGradient, Stop, Circle } from 'react-native-svg';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useVestingData } from '@/hooks/useVestingData';
+import { formatVestingValue } from '@/utils/safeNumericParse';
 
-const CHART_HEIGHT = 250; // Reduced from 320
-const PADDING = { top: 20, right: 10, bottom: 50, left: 50 }; // Reduced bottom padding
+const CHART_HEIGHT = 250;
+const PADDING = { top: 20, right: 10, bottom: 50, left: 50 };
 const MIN_CHART_WIDTH = Dimensions.get('window').width - 80;
 
 interface BalanceDataPoint {
@@ -26,40 +28,12 @@ interface BalanceDataPoint {
 export function TotalMXIBalanceChart() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const { vestingData } = useVestingData(); // ✅ USE SHARED VESTING DATA
   const [balanceData, setBalanceData] = useState<BalanceDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentVesting, setCurrentVesting] = useState(0);
 
-  // Real-time vesting counter (only from purchased MXI)
-  useEffect(() => {
-    if (!user) return;
-
-    const MONTHLY_YIELD_PERCENTAGE = 0.03;
-    const SECONDS_IN_MONTH = 2592000;
-    
-    // ONLY purchased MXI generates vesting (commissions do NOT count)
-    const mxiPurchased = user.mxiPurchasedDirectly || 0;
-    
-    if (mxiPurchased === 0) {
-      setCurrentVesting(0);
-      return;
-    }
-
-    const maxMonthlyYield = mxiPurchased * MONTHLY_YIELD_PERCENTAGE;
-    const yieldPerSecond = maxMonthlyYield / SECONDS_IN_MONTH;
-
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const lastUpdate = new Date(user.lastYieldUpdate);
-      const secondsElapsed = (now - lastUpdate.getTime()) / 1000;
-      const sessionYield = yieldPerSecond * secondsElapsed;
-      const totalYield = user.accumulatedYield + sessionYield;
-      const cappedTotalYield = Math.min(totalYield, maxMonthlyYield);
-      setCurrentVesting(cappedTotalYield);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [user]);
+  // ✅ REMOVED: Duplicate vesting calculation - now using shared hook
+  // All vesting data comes from useVestingData() hook
 
   useEffect(() => {
     if (user) {
@@ -96,14 +70,14 @@ export function TotalMXIBalanceChart() {
         return;
       }
 
-      // Transform data
+      // Transform data - ensure all values are non-negative
       const transformedData: BalanceDataPoint[] = historyData.map(item => ({
         timestamp: new Date(item.timestamp),
-        mxiPurchased: parseFloat(item.mxi_purchased || '0'),
-        mxiCommissions: parseFloat(item.mxi_commissions || '0'),
-        mxiTournaments: parseFloat(item.mxi_challenges || '0'),
-        mxiVesting: parseFloat(item.mxi_vesting || '0'),
-        totalBalance: parseFloat(item.total_balance || '0'),
+        mxiPurchased: Math.max(0, parseFloat(item.mxi_purchased || '0')),
+        mxiCommissions: Math.max(0, parseFloat(item.mxi_commissions || '0')),
+        mxiTournaments: Math.max(0, parseFloat(item.mxi_challenges || '0')),
+        mxiVesting: Math.max(0, parseFloat(item.mxi_vesting || '0')),
+        totalBalance: Math.max(0, parseFloat(item.total_balance || '0')),
         transactionType: item.transaction_type,
         transactionAmount: parseFloat(item.transaction_amount || '0'),
       }));
@@ -118,13 +92,13 @@ export function TotalMXIBalanceChart() {
   };
 
   const generateInitialDataPoint = () => {
-    if (!user) return;
+    if (!user || !vestingData) return;
 
     const now = new Date();
-    const mxiPurchased = user.mxiPurchasedDirectly || 0;
-    const mxiCommissions = user.mxiFromUnifiedCommissions || 0;
-    const mxiTournaments = user.mxiFromChallenges || 0;
-    const mxiVesting = currentVesting || 0;
+    const mxiPurchased = Math.max(0, user.mxiPurchasedDirectly || 0);
+    const mxiCommissions = Math.max(0, user.mxiFromUnifiedCommissions || 0);
+    const mxiTournaments = Math.max(0, user.mxiFromChallenges || 0);
+    const mxiVesting = Math.max(0, vestingData.currentYield || 0); // ✅ USE SHARED VESTING DATA
 
     const initialPoint: BalanceDataPoint = {
       timestamp: now,
@@ -147,13 +121,13 @@ export function TotalMXIBalanceChart() {
       );
     }
 
-    // Calculate total MXI from all sources
-    const currentTotal = balanceData.length > 0 
+    // Calculate total MXI from all sources - ensure non-negative
+    const currentTotal = Math.max(0, balanceData.length > 0 
       ? balanceData[balanceData.length - 1].totalBalance 
-      : 0;
+      : 0);
 
     // Find min and max values for better scaling
-    const allBalances = balanceData.map(d => d.totalBalance);
+    const allBalances = balanceData.map(d => Math.max(0, d.totalBalance));
     const minBalance = Math.min(...allBalances);
     const maxBalance = Math.max(...allBalances);
     
@@ -188,15 +162,13 @@ export function TotalMXIBalanceChart() {
       
       balanceData.forEach((point, index) => {
         const x = xScale(index);
-        const y = yScale(point.totalBalance);
+        const y = yScale(Math.max(0, point.totalBalance));
         
         if (index === 0) {
-          // Start from first point
           path += `M ${x} ${y}`;
         } else {
-          // Smooth curve to next point
           const prevX = xScale(index - 1);
-          const prevY = yScale(balanceData[index - 1].totalBalance);
+          const prevY = yScale(Math.max(0, balanceData[index - 1].totalBalance));
           const cpX = (prevX + x) / 2;
           path += ` Q ${cpX} ${prevY}, ${x} ${y}`;
         }
@@ -211,7 +183,6 @@ export function TotalMXIBalanceChart() {
       
       let path = createSmoothPath();
       
-      // Close the path to create filled area
       const lastX = xScale(balanceData.length - 1);
       const firstX = xScale(0);
       const baseY = yScale(minY);
@@ -222,7 +193,7 @@ export function TotalMXIBalanceChart() {
       return path;
     };
 
-    // Format timestamp for display - show only date
+    // Format timestamp for display
     const formatTimestamp = (date: Date) => {
       const day = date.getDate().toString().padStart(2, '0');
       const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -241,13 +212,11 @@ export function TotalMXIBalanceChart() {
       <View>
         <Svg width={MIN_CHART_WIDTH} height={CHART_HEIGHT}>
           <Defs>
-            {/* Green gradient for main line */}
             <LinearGradient id="greenGradient" x1="0" y1="0" x2="0" y2="1">
               <Stop offset="0%" stopColor="#00ff88" stopOpacity="1" />
               <Stop offset="100%" stopColor="#00cc66" stopOpacity="1" />
             </LinearGradient>
             
-            {/* Area fill gradient */}
             <LinearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
               <Stop offset="0%" stopColor="#00ff88" stopOpacity="0.3" />
               <Stop offset="50%" stopColor="#00cc66" stopOpacity="0.15" />
@@ -255,7 +224,7 @@ export function TotalMXIBalanceChart() {
             </LinearGradient>
           </Defs>
 
-          {/* Grid lines - Y axis (only 3 lines) */}
+          {/* Grid lines - Y axis */}
           {[0, 0.5, 1].map((ratio, i) => {
             const y = PADDING.top + chartHeight * ratio;
             const value = maxY - ((maxY - minY) * ratio);
@@ -304,11 +273,10 @@ export function TotalMXIBalanceChart() {
           {[0, balanceData.length - 1].map((index) => {
             if (index >= balanceData.length) return null;
             const x = xScale(index);
-            const y = yScale(balanceData[index].totalBalance);
+            const y = yScale(Math.max(0, balanceData[index].totalBalance));
             
             return (
               <G key={`point-${index}`}>
-                {/* Outer glow */}
                 <Circle
                   cx={x}
                   cy={y}
@@ -316,7 +284,6 @@ export function TotalMXIBalanceChart() {
                   fill="#ffdd00"
                   opacity={0.3}
                 />
-                {/* Inner point */}
                 <Circle
                   cx={x}
                   cy={y}
@@ -328,7 +295,7 @@ export function TotalMXIBalanceChart() {
             );
           })}
 
-          {/* X-axis labels - only show selected labels */}
+          {/* X-axis labels */}
           {visibleLabels.map((index) => {
             const x = xScale(index);
             const formattedTime = formatTimestamp(balanceData[index].timestamp);
@@ -368,8 +335,8 @@ export function TotalMXIBalanceChart() {
 
   const getChangeData = () => {
     if (balanceData.length < 2) return { change: 0, percentage: 0 };
-    const first = balanceData[0].totalBalance;
-    const last = balanceData[balanceData.length - 1].totalBalance;
+    const first = Math.max(0, balanceData[0].totalBalance);
+    const last = Math.max(0, balanceData[balanceData.length - 1].totalBalance);
     const change = last - first;
     const percentage = first > 0 ? (change / first) * 100 : 0;
     return { change, percentage };
@@ -378,18 +345,21 @@ export function TotalMXIBalanceChart() {
   const { change, percentage } = getChangeData();
   const isPositive = change >= 0;
 
-  // Calculate the TOTAL MXI balance from ALL sources
-  const currentTotal = (user?.mxiPurchasedDirectly || 0) + 
-                       (user?.mxiFromUnifiedCommissions || 0) + 
-                       (user?.mxiFromChallenges || 0) + 
-                       currentVesting;
+  // ✅ USE SHARED VESTING DATA - Calculate the TOTAL MXI balance from ALL sources
+  const currentVesting = Math.max(0, vestingData?.currentYield || 0);
+  const currentTotal = Math.max(0, 
+    (user?.mxiPurchasedDirectly || 0) + 
+    (user?.mxiFromUnifiedCommissions || 0) + 
+    (user?.mxiFromChallenges || 0) + 
+    currentVesting
+  );
 
   const currentBreakdown = {
-    mxiPurchased: user?.mxiPurchasedDirectly || 0,
-    mxiCommissions: user?.mxiFromUnifiedCommissions || 0,
-    mxiTournaments: user?.mxiFromChallenges || 0,
-    mxiVesting: currentVesting,
-    totalBalance: currentTotal,
+    mxiPurchased: Math.max(0, user?.mxiPurchasedDirectly || 0),
+    mxiCommissions: Math.max(0, user?.mxiFromUnifiedCommissions || 0),
+    mxiTournaments: Math.max(0, user?.mxiFromChallenges || 0),
+    mxiVesting: Math.max(0, currentVesting),
+    totalBalance: Math.max(0, currentTotal),
   };
 
   return (
@@ -479,7 +449,7 @@ export function TotalMXIBalanceChart() {
                 style={[
                   styles.breakdownBarFill, 
                   { 
-                    width: `${currentTotal > 0 ? (currentBreakdown.mxiPurchased / currentTotal) * 100 : 0}%`,
+                    width: `${currentTotal > 0 ? Math.min(100, (currentBreakdown.mxiPurchased / currentTotal) * 100) : 0}%`,
                     backgroundColor: '#00ff88'
                   }
                 ]} 
@@ -509,7 +479,7 @@ export function TotalMXIBalanceChart() {
                 style={[
                   styles.breakdownBarFill, 
                   { 
-                    width: `${currentTotal > 0 ? (currentBreakdown.mxiCommissions / currentTotal) * 100 : 0}%`,
+                    width: `${currentTotal > 0 ? Math.min(100, (currentBreakdown.mxiCommissions / currentTotal) * 100) : 0}%`,
                     backgroundColor: '#A855F7'
                   }
                 ]} 
@@ -539,7 +509,7 @@ export function TotalMXIBalanceChart() {
                 style={[
                   styles.breakdownBarFill, 
                   { 
-                    width: `${currentTotal > 0 ? (currentBreakdown.mxiTournaments / currentTotal) * 100 : 0}%`,
+                    width: `${currentTotal > 0 ? Math.min(100, (currentBreakdown.mxiTournaments / currentTotal) * 100) : 0}%`,
                     backgroundColor: '#ffdd00'
                   }
                 ]} 
@@ -550,7 +520,7 @@ export function TotalMXIBalanceChart() {
             </Text>
           </View>
 
-          {/* MXI Vesting - Real-time updates */}
+          {/* MXI Vesting - Real-time updates using SHARED DATA */}
           <View style={styles.breakdownCard}>
             <View style={styles.breakdownHeader}>
               <View style={[styles.breakdownIcon, { backgroundColor: '#6366F120' }]}>
@@ -559,17 +529,14 @@ export function TotalMXIBalanceChart() {
               <Text style={styles.breakdownLabel}>{t('vestingRealTimeLabel')}</Text>
             </View>
             <Text style={styles.breakdownValue}>
-              {currentBreakdown.mxiVesting.toLocaleString('es-ES', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 6,
-              })}
+              {formatVestingValue(currentBreakdown.mxiVesting, 6)}
             </Text>
             <View style={styles.breakdownBar}>
               <View 
                 style={[
                   styles.breakdownBarFill, 
                   { 
-                    width: `${currentTotal > 0 ? (currentBreakdown.mxiVesting / currentTotal) * 100 : 0}%`,
+                    width: `${currentTotal > 0 ? Math.min(100, (currentBreakdown.mxiVesting / currentTotal) * 100) : 0}%`,
                     backgroundColor: '#6366F1'
                   }
                 ]} 
@@ -584,6 +551,14 @@ export function TotalMXIBalanceChart() {
             </View>
           </View>
         </View>
+      </View>
+
+      {/* Info Box - Clarification */}
+      <View style={styles.infoBox}>
+        <Text style={styles.infoIcon}>ℹ️</Text>
+        <Text style={styles.infoText}>
+          El vesting se calcula en tiempo real y se actualiza cada segundo. Solo el MXI comprado genera vesting del 3% mensual. Todos los displays de vesting en la app muestran los mismos datos sincronizados.
+        </Text>
       </View>
     </View>
   );
@@ -813,5 +788,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(0, 255, 136, 0.1)',
+    padding: 12,
+    borderRadius: 8,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 136, 0.3)',
+    marginTop: 16,
+  },
+  infoIcon: {
+    fontSize: 16,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#00ff88',
+    lineHeight: 18,
   },
 });
