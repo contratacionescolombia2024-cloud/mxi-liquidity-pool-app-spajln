@@ -62,6 +62,10 @@ export function formatVestingValue(value: any, decimals: number = 8): string {
  * Calculate vesting yield with safety checks
  * This is the core calculation for vesting rewards
  * 
+ * CRITICAL FIX: Vesting calculation now properly accounts for time elapsed
+ * since purchase or last update. The yield accumulates continuously from
+ * the moment of purchase or when admin adds balance with commission.
+ * 
  * Returns only non-negative values with multiple safety layers:
  * 1. Input sanitization via safeParseNumeric
  * 2. Time validation (no negative elapsed time)
@@ -84,7 +88,7 @@ export function calculateVestingYield(
   const safeMxiPurchased = safeParseNumeric(mxiPurchased, 0);
   const safeAccumulatedYield = safeParseNumeric(accumulatedYield, 0);
 
-  // Calculate maximum monthly yield
+  // Calculate maximum monthly yield (3% of purchased MXI)
   const maxMonthlyYield = Math.max(0, safeMxiPurchased * monthlyYieldPercentage);
 
   // If no MXI purchased, return zeros
@@ -98,8 +102,8 @@ export function calculateVestingYield(
     };
   }
 
-  // Calculate yield per second
-  const SECONDS_IN_MONTH = 2592000; // 30 days
+  // Calculate yield per second (3% monthly / 30 days / 24 hours / 60 minutes / 60 seconds)
+  const SECONDS_IN_MONTH = 2592000; // 30 days * 24 hours * 60 minutes * 60 seconds
   const yieldPerSecond = Math.max(0, maxMonthlyYield / SECONDS_IN_MONTH);
 
   // Calculate time elapsed since last update
@@ -107,20 +111,21 @@ export function calculateVestingYield(
   const lastUpdate = new Date(lastYieldUpdate).getTime();
   
   // Ensure non-negative time elapsed
-  const secondsElapsed = Math.max(0, (now - lastUpdate) / 1000);
+  const millisecondsElapsed = Math.max(0, now - lastUpdate);
+  const secondsElapsed = Math.max(0, millisecondsElapsed / 1000);
   
   // Prevent calculation if time is in the future (clock skew)
-  if (secondsElapsed < 0) {
+  if (millisecondsElapsed < 0) {
     console.warn('⚠️ Negative time elapsed detected - clock skew?', {
       now: new Date(now).toISOString(),
       lastUpdate: new Date(lastUpdate).toISOString(),
     });
   }
 
-  // Calculate session yield - always non-negative
+  // Calculate session yield (yield generated since last update) - always non-negative
   const sessionYield = Math.max(0, yieldPerSecond * secondsElapsed);
 
-  // Calculate current total yield - always non-negative
+  // Calculate current total yield (accumulated + session) - always non-negative
   const totalYield = Math.max(0, safeAccumulatedYield + sessionYield);
 
   // Cap at monthly maximum - always non-negative
@@ -145,6 +150,17 @@ export function calculateVestingYield(
     if (value < 0) {
       console.error('❌ CRITICAL: Negative value in vesting calculation:', key, value);
     }
+  });
+
+  // Log calculation details for debugging
+  console.log('🔢 Vesting calculation:', {
+    mxiPurchased: safeMxiPurchased.toFixed(2),
+    accumulatedYield: safeAccumulatedYield.toFixed(8),
+    secondsElapsed: secondsElapsed.toFixed(0),
+    sessionYield: sessionYield.toFixed(8),
+    currentYield: currentYield.toFixed(8),
+    yieldPerSecond: yieldPerSecond.toFixed(10),
+    progressPercentage: progressPercentage.toFixed(2) + '%',
   });
 
   return result;

@@ -40,7 +40,7 @@ const PERSIST_INTERVAL_MS = 10000; // Persist every 10 seconds
  * Used by: Home page, Rewards page, Vesting page, VestingCounter component
  * 
  * CRITICAL: All values returned are guaranteed to be non-negative
- * FIXED: Real-time updates now work correctly by recalculating from base values
+ * FIXED: Real-time updates now work correctly by recalculating from base values every second
  */
 export function useVestingData() {
   const { user } = useAuth();
@@ -56,6 +56,9 @@ export function useVestingData() {
     accumulatedYield: number;
     lastUpdate: Date;
   } | null>(null);
+
+  // Track if component is mounted
+  const isMountedRef = useRef(true);
 
   // Load initial data from database
   const loadVestingData = useCallback(async () => {
@@ -141,32 +144,46 @@ export function useVestingData() {
         yieldPerSecond: newVestingData.yieldPerSecond.toFixed(8),
       });
 
-      setVestingData(newVestingData);
+      if (isMountedRef.current) {
+        setVestingData(newVestingData);
+      }
     } catch (err) {
       console.error('❌ Error loading vesting data:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      if (isMountedRef.current) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+      }
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   }, [user]);
 
-  // Real-time update effect - FIXED: Now recalculates from base values
+  // Real-time update effect - FIXED: Now recalculates from base values every second
   useEffect(() => {
-    if (!user || !baseValuesRef.current || !baseValuesRef.current.mxiPurchased) {
+    if (!user || !baseValuesRef.current) {
       return;
     }
 
-    console.log('⏱️ Starting real-time vesting updates');
+    const baseValues = baseValuesRef.current;
+    
+    // Don't start interval if no MXI purchased
+    if (!baseValues.mxiPurchased || baseValues.mxiPurchased <= 0) {
+      console.log('⏸️ No MXI purchased, skipping real-time updates');
+      return;
+    }
+
+    console.log('⏱️ Starting real-time vesting updates (every second)');
 
     const interval = setInterval(() => {
-      const baseValues = baseValuesRef.current;
-      if (!baseValues) return;
+      const currentBaseValues = baseValuesRef.current;
+      if (!currentBaseValues || !isMountedRef.current) return;
 
       // Recalculate yield based on current time and base values
       const yieldCalc = calculateVestingYield(
-        baseValues.mxiPurchased,
-        baseValues.accumulatedYield,
-        baseValues.lastUpdate,
+        currentBaseValues.mxiPurchased,
+        currentBaseValues.accumulatedYield,
+        currentBaseValues.lastUpdate,
         MONTHLY_YIELD_PERCENTAGE
       );
 
@@ -197,7 +214,7 @@ export function useVestingData() {
       console.log('🛑 Stopping real-time vesting updates');
       clearInterval(interval);
     };
-  }, [user, baseValuesRef.current?.mxiPurchased]);
+  }, [user]); // Only depend on user, not on baseValuesRef.current
 
   // Persist to database periodically
   useEffect(() => {
@@ -273,6 +290,13 @@ export function useVestingData() {
       supabase.removeChannel(channel);
     };
   }, [user, loadVestingData]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   return {
     vestingData,
