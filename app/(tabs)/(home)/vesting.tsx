@@ -13,62 +13,33 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, commonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useVestingData } from '@/hooks/useVestingData';
+import { formatVestingValue } from '@/utils/safeNumericParse';
 
 export default function VestingScreen() {
   const router = useRouter();
   const { user, getPoolStatus } = useAuth();
   const { t } = useLanguage();
-  const [loading, setLoading] = useState(true);
-  const [vestingData, setVestingData] = useState<any>(null);
-  const [userData, setUserData] = useState<any>(null);
+  const { vestingData, loading } = useVestingData();
   const [poolStatus, setPoolStatus] = useState<any>(null);
 
   useEffect(() => {
-    loadVestingData();
+    loadPoolStatus();
   }, []);
 
-  const loadVestingData = async () => {
+  const loadPoolStatus = async () => {
     try {
-      setLoading(true);
-
-      // Load user data
-      const { data: userInfo, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user?.id)
-        .single();
-
-      if (userError) throw userError;
-      setUserData(userInfo);
-
-      // Load vesting schedule
-      const { data: schedule, error: scheduleError } = await supabase
-        .from('mxi_withdrawal_schedule')
-        .select('*')
-        .eq('user_id', user?.id)
-        .single();
-
-      if (scheduleError && scheduleError.code !== 'PGRST116') {
-        throw scheduleError;
-      }
-
-      setVestingData(schedule);
-
-      // Load pool status
       const status = await getPoolStatus();
       setPoolStatus(status);
     } catch (error) {
-      console.error('Error loading vesting data:', error);
+      console.error('Error loading pool status:', error);
       Alert.alert(t('error'), t('couldNotLoadVestingInfo'));
-    } finally {
-      setLoading(false);
     }
   };
 
-  if (loading) {
+  if (loading || !vestingData) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
@@ -79,21 +50,25 @@ export default function VestingScreen() {
     );
   }
 
-  const totalMXI = vestingData?.total_mxi || 0;
-  const releasedMXI = vestingData?.released_mxi || 0;
-  const pendingMXI = vestingData?.pending_mxi || 0;
-  const releasePercentage = vestingData?.release_percentage || 10;
-  const nextReleaseDate = vestingData?.next_release_date
-    ? new Date(vestingData.next_release_date)
-    : null;
-  const releaseCount = vestingData?.release_count || 0;
+  const {
+    currentYield,
+    sessionYield,
+    accumulatedYield,
+    mxiPurchased,
+    mxiCommissions,
+    mxiTournaments,
+    yieldPerSecond,
+    yieldPerMinute,
+    yieldPerHour,
+    yieldPerDay,
+    maxMonthlyYield,
+    progressPercentage,
+    isNearCap,
+    hasBalance,
+  } = vestingData;
+
   const isLaunched = poolStatus?.is_mxi_launched || false;
   const daysUntilLaunch = poolStatus?.days_until_launch || 0;
-  
-  // FIXED: Only mxi_purchased_directly generates vesting
-  const mxiPurchased = userData?.mxi_purchased_directly || 0;
-  const mxiCommissions = userData?.mxi_from_unified_commissions || 0;
-  const mxiTournaments = userData?.mxi_from_challenges || 0;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -106,95 +81,176 @@ export default function VestingScreen() {
             color={colors.text}
           />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('mxiVestingBalance')}</Text>
+        <Text style={styles.headerTitle}>Vesting y Rendimiento</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={[styles.transparentCard, styles.sourceCard]}>
-          <View style={styles.sourceHeader}>
-            <IconSymbol
-              ios_icon_name="cart.fill"
-              android_material_icon_name="shopping_cart"
-              size={32}
-              color={colors.primary}
-            />
-            <Text style={styles.sourceTitle}>Fuente del Vesting</Text>
-          </View>
-          <Text style={styles.sourceText}>
-            ✅ El vesting genera rendimiento SOLO sobre MXI comprados directamente o añadidos por el administrador.
-          </Text>
-          <View style={styles.sourceValueBox}>
-            <Text style={styles.sourceLabel}>MXI Comprados (Genera Vesting)</Text>
-            <Text style={styles.sourceValue}>{mxiPurchased.toFixed(2)} MXI</Text>
+        {/* Real-time Counter Display - PROMINENT */}
+        <View style={styles.counterSection}>
+          <View style={styles.counterCard}>
+            <Text style={styles.counterLabel}>Rendimiento Acumulado Total</Text>
+            <Text style={styles.counterValue}>
+              {formatVestingValue(currentYield, 8)}
+            </Text>
+            <Text style={styles.counterUnit}>MXI</Text>
+            <View style={styles.liveIndicator}>
+              <View style={styles.liveDot} />
+              <Text style={styles.liveText}>Generando {formatVestingValue(yieldPerSecond, 8)} MXI por segundo</Text>
+            </View>
           </View>
         </View>
 
-        {/* Separate Balances - NOT generating vesting */}
-        {(mxiCommissions > 0 || mxiTournaments > 0) && (
-          <View style={[styles.transparentCard, styles.excludedCard]}>
-            <View style={styles.excludedHeader}>
-              <IconSymbol
-                ios_icon_name="xmark.circle.fill"
-                android_material_icon_name="cancel"
-                size={32}
-                color={colors.error}
-              />
-              <Text style={styles.excludedTitle}>Saldos Excluidos del Vesting</Text>
-            </View>
-            <Text style={styles.excludedText}>
-              ❌ Estos saldos NO generan rendimiento de vesting:
+        {/* MXI in Vesting Display */}
+        <View style={styles.vestingBalanceSection}>
+          <View style={styles.vestingBalanceCard}>
+            <Text style={styles.vestingBalanceLabel}>MXI Comprado (Base de Vesting)</Text>
+            <Text style={styles.vestingBalanceValue}>
+              {formatVestingValue(mxiPurchased, 2)}
             </Text>
+            <Text style={styles.vestingBalanceUnit}>MXI</Text>
+            <Text style={styles.vestingBalanceNote}>
+              ✅ Solo el MXI comprado genera vesting
+            </Text>
+          </View>
+        </View>
+
+        {/* Separate Balances Display - NOT generating vesting */}
+        {(mxiCommissions > 0 || mxiTournaments > 0) && (
+          <View style={styles.separateBalancesSection}>
+            <Text style={styles.separateBalancesTitle}>Saldos Separados (No generan vesting)</Text>
             
             {mxiCommissions > 0 && (
-              <View style={styles.excludedValueBox}>
-                <View style={styles.excludedValueHeader}>
-                  <IconSymbol
-                    ios_icon_name="person.2.fill"
-                    android_material_icon_name="people"
-                    size={20}
-                    color={colors.textSecondary}
+              <View style={styles.separateBalanceCard}>
+                <View style={styles.separateBalanceHeader}>
+                  <IconSymbol 
+                    ios_icon_name="person.2.fill" 
+                    android_material_icon_name="people" 
+                    size={20} 
+                    color={colors.success} 
                   />
-                  <Text style={styles.excludedLabel}>Comisiones</Text>
+                  <Text style={styles.separateBalanceLabel}>Comisiones</Text>
                 </View>
-                <Text style={styles.excludedValue}>{mxiCommissions.toFixed(2)} MXI</Text>
+                <Text style={styles.separateBalanceValue}>
+                  {formatVestingValue(mxiCommissions, 2)} MXI
+                </Text>
+                <Text style={styles.separateBalanceNote}>
+                  ❌ No genera rendimiento de vesting
+                </Text>
               </View>
             )}
 
             {mxiTournaments > 0 && (
-              <View style={styles.excludedValueBox}>
-                <View style={styles.excludedValueHeader}>
-                  <IconSymbol
-                    ios_icon_name="trophy.fill"
-                    android_material_icon_name="emoji_events"
-                    size={20}
-                    color={colors.textSecondary}
+              <View style={styles.separateBalanceCard}>
+                <View style={styles.separateBalanceHeader}>
+                  <IconSymbol 
+                    ios_icon_name="trophy.fill" 
+                    android_material_icon_name="emoji_events" 
+                    size={20} 
+                    color={colors.warning} 
                   />
-                  <Text style={styles.excludedLabel}>Torneos</Text>
+                  <Text style={styles.separateBalanceLabel}>Torneos</Text>
                 </View>
-                <Text style={styles.excludedValue}>{mxiTournaments.toFixed(2)} MXI</Text>
+                <Text style={styles.separateBalanceValue}>
+                  {formatVestingValue(mxiTournaments, 2)} MXI
+                </Text>
+                <Text style={styles.separateBalanceNote}>
+                  ❌ No genera rendimiento de vesting
+                </Text>
               </View>
             )}
           </View>
         )}
 
-        <View style={[styles.transparentCard, styles.mainCard]}>
-          <View style={styles.iconContainer}>
-            <IconSymbol
-              ios_icon_name="lock.fill"
-              android_material_icon_name="lock"
-              size={48}
-              color={colors.primary}
-            />
+        {/* Progress Bar for Monthly Cap */}
+        {hasBalance && (
+          <View style={styles.progressSection}>
+            <View style={styles.progressHeader}>
+              <Text style={styles.progressLabel}>Progreso Mensual (3% máx.)</Text>
+              <Text style={styles.progressPercentage}>{progressPercentage.toFixed(2)}%</Text>
+            </View>
+            <View style={styles.progressBarContainer}>
+              <View style={[styles.progressBar, { width: `${Math.min(progressPercentage, 100)}%` }]} />
+            </View>
+            <View style={styles.progressFooter}>
+              <Text style={styles.progressText}>{formatVestingValue(currentYield, 4)} MXI</Text>
+              <Text style={styles.progressText}>{formatVestingValue(maxMonthlyYield, 4)} MXI</Text>
+            </View>
+            {isNearCap && (
+              <View style={styles.capWarning}>
+                <IconSymbol 
+                  ios_icon_name="exclamationmark.triangle.fill" 
+                  android_material_icon_name="warning" 
+                  size={16} 
+                  color={colors.warning} 
+                />
+                <Text style={styles.capWarningText}>
+                  Cerca del límite mensual del 3%
+                </Text>
+              </View>
+            )}
           </View>
-          <Text style={styles.mainTitle}>{t('mxiInVestingText')}</Text>
-          <Text style={styles.mainAmount}>{totalMXI.toFixed(2)} MXI</Text>
-          <Text style={styles.mainSubtitle}>
-            {isLaunched 
-              ? t('availableForWithdrawalText')
-              : t('blockedUntilLaunchText') + ` (${daysUntilLaunch} ${t('daysRemainingText')})`}
-          </Text>
-        </View>
+        )}
+
+        {/* Yield Breakdown */}
+        {hasBalance && (
+          <View style={styles.yieldBreakdownSection}>
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Sesión Actual</Text>
+              <Text style={styles.breakdownValue}>{formatVestingValue(sessionYield, 8)} MXI</Text>
+            </View>
+            <View style={styles.breakdownDivider} />
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Total Acumulado</Text>
+              <Text style={styles.breakdownValue}>{formatVestingValue(currentYield, 8)} MXI</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Rate Information */}
+        {hasBalance && (
+          <View style={styles.rateSection}>
+            <View style={styles.rateItem}>
+              <Text style={styles.rateLabel}>Por Segundo</Text>
+              <Text style={styles.rateValue}>{formatVestingValue(yieldPerSecond, 8)}</Text>
+            </View>
+            <View style={styles.rateDivider} />
+            <View style={styles.rateItem}>
+              <Text style={styles.rateLabel}>Por Minuto</Text>
+              <Text style={styles.rateValue}>{formatVestingValue(yieldPerMinute, 5)}</Text>
+            </View>
+            <View style={styles.rateDivider} />
+            <View style={styles.rateItem}>
+              <Text style={styles.rateLabel}>Por Hora</Text>
+              <Text style={styles.rateValue}>{formatVestingValue(yieldPerHour, 4)}</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Daily Rate */}
+        {hasBalance && (
+          <View style={styles.dailyRate}>
+            <Text style={styles.dailyRateLabel}>Rendimiento Diario</Text>
+            <Text style={styles.dailyRateValue}>
+              {formatVestingValue(yieldPerDay, 4)} MXI
+            </Text>
+          </View>
+        )}
+
+        {/* Monthly Maximum Display */}
+        {hasBalance && (
+          <View style={styles.monthlyMaxSection}>
+            <View style={styles.monthlyMaxCard}>
+              <Text style={styles.monthlyMaxLabel}>Máximo Mensual (3%)</Text>
+              <Text style={styles.monthlyMaxValue}>
+                {formatVestingValue(maxMonthlyYield, 4)} MXI
+              </Text>
+              <Text style={styles.monthlyMaxNote}>
+                Basado en {formatVestingValue(mxiPurchased, 2)} MXI comprados
+              </Text>
+            </View>
+          </View>
+        )}
 
         {!isLaunched && (
           <View style={[styles.transparentCard, styles.warningCard]}>
@@ -208,7 +264,7 @@ export default function VestingScreen() {
               <Text style={styles.warningTitle}>{t('balanceBlockedTitle')}</Text>
             </View>
             <Text style={styles.warningText}>
-              {t('balanceBlockedDescriptionText')}
+              El saldo de vesting no se puede retirar hasta que se lance la moneda oficialmente.
             </Text>
             {daysUntilLaunch > 0 && (
               <View style={styles.countdownBox}>
@@ -218,32 +274,6 @@ export default function VestingScreen() {
             )}
           </View>
         )}
-
-        <View style={[styles.transparentCard, styles.statsCard]}>
-          <View style={styles.statRow}>
-            <View style={styles.statItem}>
-              <IconSymbol
-                ios_icon_name="checkmark.circle.fill"
-                android_material_icon_name="check_circle"
-                size={24}
-                color={colors.success}
-              />
-              <Text style={styles.statLabel}>{t('releasedText')}</Text>
-              <Text style={styles.statValue}>{releasedMXI.toFixed(2)} MXI</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <IconSymbol
-                ios_icon_name="clock.fill"
-                android_material_icon_name="schedule"
-                size={24}
-                color={colors.warning}
-              />
-              <Text style={styles.statLabel}>{t('pending')}</Text>
-              <Text style={styles.statValue}>{pendingMXI.toFixed(2)} MXI</Text>
-            </View>
-          </View>
-        </View>
 
         <View style={[styles.transparentCard, styles.infoCard]}>
           <View style={styles.infoHeader}>
@@ -257,27 +287,19 @@ export default function VestingScreen() {
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>{t('releasePercentageText')}</Text>
-            <Text style={styles.infoValue}>{releasePercentage}% {t('everyTenDaysText')}</Text>
+            <Text style={styles.infoLabel}>Rendimiento Mensual</Text>
+            <Text style={styles.infoValue}>3%</Text>
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>{t('releasesCompletedText')}</Text>
-            <Text style={styles.infoValue}>{releaseCount}</Text>
+            <Text style={styles.infoLabel}>Base de Cálculo</Text>
+            <Text style={styles.infoValue}>Solo MXI Comprado</Text>
           </View>
 
-          {nextReleaseDate && isLaunched && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>{t('nextReleaseText')}</Text>
-              <Text style={styles.infoValue}>
-                {nextReleaseDate.toLocaleDateString('es-ES', {
-                  day: '2-digit',
-                  month: 'long',
-                  year: 'numeric',
-                })}
-              </Text>
-            </View>
-          )}
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Actualización</Text>
+            <Text style={styles.infoValue}>Cada Segundo</Text>
+          </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>{t('withdrawalStatusText')}</Text>
@@ -290,19 +312,57 @@ export default function VestingScreen() {
         <View style={[styles.transparentCard, styles.descriptionCard]}>
           <Text style={styles.descriptionTitle}>{t('whatIsVestingText')}</Text>
           <Text style={styles.descriptionText}>
-            {t('vestingDescriptionText')}
+            El vesting es un sistema de rendimiento que genera un 3% mensual sobre tu MXI comprado directamente o asignado por el administrador con comisión.
           </Text>
           <Text style={styles.descriptionText}>
-            {isLaunched 
-              ? t('vestingReleaseInfoText', { percentage: releasePercentage })
-              : t('vestingReleaseInfoPreLaunchText', { percentage: releasePercentage })}
+            El rendimiento se calcula automáticamente cada segundo y se acumula en tu cuenta. Puedes ver el progreso en tiempo real.
           </Text>
           <Text style={[styles.descriptionText, styles.importantNote]}>
-            ⚠️ Importante: El vesting se puede desbloquear al tener al menos 7 referidos activos (con compras). Solo el MXI comprado directamente o añadido por el administrador con comisión genera vesting del 3% mensual. Las comisiones y premios de torneos NO generan vesting.
+            ⚠️ Importante: Para retirar el vesting debes tener al menos 7 referidos activos (con compras). Solo el MXI comprado directamente o añadido por el administrador con comisión genera vesting del 3% mensual. Las comisiones y premios de torneos NO generan vesting.
           </Text>
         </View>
 
-        {isLaunched && (
+        <View style={[styles.transparentCard, styles.requirementsCard]}>
+          <Text style={styles.requirementsTitle}>📋 Requisitos para Retirar</Text>
+          
+          <View style={styles.requirementItem}>
+            <IconSymbol
+              ios_icon_name={user?.activeReferrals >= 7 ? "checkmark.circle.fill" : "xmark.circle.fill"}
+              android_material_icon_name={user?.activeReferrals >= 7 ? "check_circle" : "cancel"}
+              size={20}
+              color={user?.activeReferrals >= 7 ? colors.success : colors.error}
+            />
+            <Text style={styles.requirementText}>
+              7 Referidos Activos para retiros de vesting ({user?.activeReferrals || 0}/7)
+            </Text>
+          </View>
+
+          <View style={styles.requirementItem}>
+            <IconSymbol
+              ios_icon_name={user?.kycStatus === 'approved' ? "checkmark.circle.fill" : "xmark.circle.fill"}
+              android_material_icon_name={user?.kycStatus === 'approved' ? "check_circle" : "cancel"}
+              size={20}
+              color={user?.kycStatus === 'approved' ? colors.success : colors.error}
+            />
+            <Text style={styles.requirementText}>
+              KYC Aprobado
+            </Text>
+          </View>
+
+          <View style={styles.requirementItem}>
+            <IconSymbol
+              ios_icon_name={isLaunched ? "checkmark.circle.fill" : "xmark.circle.fill"}
+              android_material_icon_name={isLaunched ? "check_circle" : "cancel"}
+              size={20}
+              color={isLaunched ? colors.success : colors.error}
+            />
+            <Text style={styles.requirementText}>
+              Lanzamiento de MXI
+            </Text>
+          </View>
+        </View>
+
+        {isLaunched && user?.activeReferrals >= 7 && user?.kycStatus === 'approved' && (
           <TouchableOpacity
             style={[styles.transparentCard, styles.actionCard]}
             onPress={() => router.push('/(tabs)/(home)/withdraw-mxi')}
@@ -329,6 +389,16 @@ export default function VestingScreen() {
             </View>
           </TouchableOpacity>
         )}
+
+        {/* Info Box */}
+        <View style={styles.infoBox}>
+          <Text style={styles.infoIcon}>ℹ️</Text>
+          <Text style={styles.infoBoxText}>
+            {!hasBalance
+              ? 'Compra MXI para comenzar a generar rendimientos del 3% mensual.'
+              : 'El vesting se genera automáticamente desde tu MXI comprado. Puedes reclamarlo una vez que cumplas los requisitos de retiro.'}
+          </Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -373,6 +443,333 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textSecondary,
   },
+  counterSection: {
+    marginBottom: 16,
+  },
+  counterCard: {
+    backgroundColor: `${colors.accent}20`,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: colors.accent,
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  counterLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 12,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  counterValue: {
+    fontSize: 40,
+    fontWeight: '700',
+    color: colors.accent,
+    fontFamily: 'monospace',
+    marginBottom: 6,
+    textShadowColor: `${colors.accent}40`,
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  counterUnit: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  liveIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: `${colors.success}20`,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.success,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.success,
+    shadowColor: colors.success,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  liveText: {
+    fontSize: 11,
+    color: colors.success,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  vestingBalanceSection: {
+    marginBottom: 16,
+  },
+  vestingBalanceCard: {
+    backgroundColor: `${colors.primary}20`,
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  vestingBalanceLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  vestingBalanceValue: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: colors.primary,
+    fontFamily: 'monospace',
+    marginBottom: 4,
+  },
+  vestingBalanceUnit: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  vestingBalanceNote: {
+    fontSize: 11,
+    color: colors.success,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  separateBalancesSection: {
+    marginBottom: 16,
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  separateBalancesTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  separateBalanceCard: {
+    backgroundColor: colors.card,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  separateBalanceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  separateBalanceLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  separateBalanceValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    fontFamily: 'monospace',
+    marginBottom: 4,
+  },
+  separateBalanceNote: {
+    fontSize: 10,
+    color: colors.error,
+    fontStyle: 'italic',
+  },
+  progressSection: {
+    marginBottom: 16,
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  progressLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  progressPercentage: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.accent,
+  },
+  progressBarContainer: {
+    height: 8,
+    backgroundColor: colors.border,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: colors.accent,
+    borderRadius: 4,
+  },
+  progressFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  progressText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontFamily: 'monospace',
+  },
+  capWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: `${colors.warning}20`,
+    borderRadius: 8,
+  },
+  capWarningText: {
+    fontSize: 11,
+    color: colors.warning,
+    fontWeight: '600',
+  },
+  yieldBreakdownSection: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  breakdownDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: 12,
+  },
+  breakdownLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '600',
+    flex: 1,
+  },
+  breakdownValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+    fontFamily: 'monospace',
+  },
+  rateSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  rateItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  rateDivider: {
+    width: 1,
+    backgroundColor: colors.border,
+    marginHorizontal: 8,
+  },
+  rateLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginBottom: 4,
+    fontWeight: '600',
+  },
+  rateValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.text,
+    fontFamily: 'monospace',
+  },
+  dailyRate: {
+    backgroundColor: `${colors.primary}20`,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  dailyRateLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  dailyRateValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.primary,
+    fontFamily: 'monospace',
+  },
+  monthlyMaxSection: {
+    marginBottom: 16,
+  },
+  monthlyMaxCard: {
+    backgroundColor: `${colors.success}20`,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.success,
+  },
+  monthlyMaxLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  monthlyMaxValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.success,
+    fontFamily: 'monospace',
+    marginBottom: 6,
+  },
+  monthlyMaxNote: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
   transparentCard: {
     backgroundColor: 'rgba(26, 31, 58, 0.3)',
     borderRadius: 12,
@@ -380,123 +777,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  sourceCard: {
-    backgroundColor: 'rgba(76, 175, 80, 0.08)',
-    borderColor: 'rgba(76, 175, 80, 0.3)',
-    borderWidth: 2,
-  },
-  sourceHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
-  },
-  sourceTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.success,
-  },
-  sourceText: {
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
-    marginBottom: 16,
-    fontWeight: '600',
-  },
-  sourceValueBox: {
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: 12,
-    alignItems: 'center',
-  },
-  sourceLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  sourceValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.success,
-  },
-  excludedCard: {
-    backgroundColor: 'rgba(244, 67, 54, 0.08)',
-    borderColor: 'rgba(244, 67, 54, 0.3)',
-    borderWidth: 2,
-  },
-  excludedHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
-  },
-  excludedTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.error,
-  },
-  excludedText: {
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
-    marginBottom: 16,
-    fontWeight: '600',
-  },
-  excludedValueBox: {
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-  },
-  excludedValueHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 6,
-  },
-  excludedLabel: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-  excludedValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-    fontFamily: 'monospace',
-  },
-  mainCard: {
-    alignItems: 'center',
-    paddingVertical: 32,
-    backgroundColor: 'rgba(255, 215, 0, 0.04)',
-    borderColor: 'rgba(255, 215, 0, 0.3)',
-  },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: `${colors.primary}15`,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  mainTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  mainAmount: {
-    fontSize: 36,
-    fontWeight: '700',
-    color: colors.primary,
-    marginBottom: 8,
-  },
-  mainSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
   },
   warningCard: {
     backgroundColor: 'rgba(255, 193, 7, 0.08)',
@@ -535,34 +815,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     color: colors.warning,
-  },
-  statsCard: {
-    padding: 0,
-    backgroundColor: 'rgba(26, 31, 58, 0.25)',
-  },
-  statRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 20,
-    gap: 8,
-  },
-  statDivider: {
-    width: 1,
-    height: 80,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  statValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
   },
   infoCard: {
     gap: 16,
@@ -621,6 +873,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 193, 7, 0.3)',
   },
+  requirementsCard: {
+    backgroundColor: 'rgba(99, 102, 241, 0.08)',
+    borderColor: 'rgba(99, 102, 241, 0.3)',
+  },
+  requirementsTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 16,
+  },
+  requirementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  requirementText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.text,
+  },
   actionCard: {
     backgroundColor: 'rgba(76, 175, 80, 0.08)',
     borderColor: 'rgba(76, 175, 80, 0.3)',
@@ -643,5 +916,24 @@ const styles = StyleSheet.create({
   actionSubtitle: {
     fontSize: 14,
     color: colors.textSecondary,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.highlight,
+    padding: 12,
+    borderRadius: 8,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  infoIcon: {
+    fontSize: 16,
+  },
+  infoBoxText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 18,
   },
 });

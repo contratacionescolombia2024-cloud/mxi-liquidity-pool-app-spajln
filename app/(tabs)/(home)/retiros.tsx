@@ -128,7 +128,7 @@ export default function RetirosScreen() {
       return false;
     }
 
-    // Vesting requires 7 active referrals (changed from 10)
+    // Vesting requires 7 active referrals (UPDATED from 5)
     if (type === 'vesting' && user.activeReferrals < 7) {
       return false;
     }
@@ -436,7 +436,7 @@ export default function RetirosScreen() {
                     {t('withdrawMXIVesting')}
                   </Text>
                   <Text style={styles.typeDescription}>
-                    {t('mxiGeneratedByYield')}
+                    {t('mxiGeneratedByYield')} (3% mensual)
                   </Text>
                 </View>
               </View>
@@ -451,7 +451,7 @@ export default function RetirosScreen() {
                   <Text style={styles.typeStatus}>{t('lockedUntilLaunch')}</Text>
                 ) : user.activeReferrals < 7 ? (
                   <Text style={styles.typeStatus}>
-                    7 Referidos Activos para retiros de vesting ({user.activeReferrals}/7)
+                    7 Referidos Activos requeridos ({user.activeReferrals}/7)
                   </Text>
                 ) : (
                   <Text style={[styles.typeStatus, { color: colors.success }]}>
@@ -636,6 +636,9 @@ export default function RetirosScreen() {
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoText}>• El vesting MXI requiere 7 referidos activos y el lanzamiento de MXI</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoText}>• El vesting genera un 3% mensual solo sobre MXI comprado directamente</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoText}>• {t('mxiPurchasedLockedUntilLaunch')}</Text>
