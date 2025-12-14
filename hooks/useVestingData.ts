@@ -41,6 +41,7 @@ const PERSIST_INTERVAL_MS = 10000; // Persist every 10 seconds
  * 
  * CRITICAL: All values returned are guaranteed to be non-negative
  * FIXED: Real-time updates now work correctly by recalculating from base values every second
+ * FIXED: Interval properly restarts when base values change
  */
 export function useVestingData() {
   const { user } = useAuth();
@@ -59,6 +60,10 @@ export function useVestingData() {
 
   // Track if component is mounted
   const isMountedRef = useRef(true);
+  
+  // Track the update interval ID
+  const updateIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const persistIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load initial data from database
   const loadVestingData = useCallback(async () => {
@@ -159,8 +164,14 @@ export function useVestingData() {
     }
   }, [user]);
 
-  // Real-time update effect - FIXED: Now recalculates from base values every second
+  // Real-time update effect - FIXED: Now properly restarts when base values change
   useEffect(() => {
+    // Clear any existing interval
+    if (updateIntervalRef.current) {
+      clearInterval(updateIntervalRef.current);
+      updateIntervalRef.current = null;
+    }
+
     if (!user || !baseValuesRef.current) {
       return;
     }
@@ -175,7 +186,8 @@ export function useVestingData() {
 
     console.log('⏱️ Starting real-time vesting updates (every second)');
 
-    const interval = setInterval(() => {
+    // Create a new interval that recalculates every second
+    updateIntervalRef.current = setInterval(() => {
       const currentBaseValues = baseValuesRef.current;
       if (!currentBaseValues || !isMountedRef.current) return;
 
@@ -212,24 +224,33 @@ export function useVestingData() {
 
     return () => {
       console.log('🛑 Stopping real-time vesting updates');
-      clearInterval(interval);
+      if (updateIntervalRef.current) {
+        clearInterval(updateIntervalRef.current);
+        updateIntervalRef.current = null;
+      }
     };
-  }, [user]); // Only depend on user, not on baseValuesRef.current
+  }, [user, baseValuesRef.current?.mxiPurchased, baseValuesRef.current?.lastUpdate]); // Restart when base values change
 
-  // Persist to database periodically
+  // Persist to database periodically - FIXED: Don't reload data after persist to avoid display jumps
   useEffect(() => {
+    // Clear any existing interval
+    if (persistIntervalRef.current) {
+      clearInterval(persistIntervalRef.current);
+      persistIntervalRef.current = null;
+    }
+
     if (!user || !vestingData || !vestingData.hasBalance) {
       return;
     }
 
-    const interval = setInterval(async () => {
+    persistIntervalRef.current = setInterval(async () => {
       try {
         // Ensure value is non-negative before persisting
         const safeCurrentYield = Math.max(0, vestingData.currentYield);
         
         console.log('💾 Persisting vesting yield:', safeCurrentYield.toFixed(8), 'MXI');
         
-        // Update database with current yield
+        // Update database with current yield - DON'T reload data after this
         const { error: updateError } = await supabase
           .from('users')
           .update({
@@ -243,7 +264,7 @@ export function useVestingData() {
         } else {
           console.log('✅ Vesting yield persisted successfully');
           
-          // Update base values ref after successful persist
+          // Update base values ref after successful persist WITHOUT reloading
           if (baseValuesRef.current) {
             baseValuesRef.current.accumulatedYield = safeCurrentYield;
             baseValuesRef.current.lastUpdate = new Date();
@@ -254,7 +275,12 @@ export function useVestingData() {
       }
     }, PERSIST_INTERVAL_MS);
 
-    return () => clearInterval(interval);
+    return () => {
+      if (persistIntervalRef.current) {
+        clearInterval(persistIntervalRef.current);
+        persistIntervalRef.current = null;
+      }
+    };
   }, [user, vestingData?.currentYield, vestingData?.hasBalance]);
 
   // Load data on mount and when user changes
@@ -262,7 +288,7 @@ export function useVestingData() {
     loadVestingData();
   }, [loadVestingData]);
 
-  // Subscribe to real-time updates from database
+  // Subscribe to real-time updates from database - ONLY for external changes
   useEffect(() => {
     if (!user) return;
 
@@ -279,8 +305,19 @@ export function useVestingData() {
           filter: `id=eq.${user.id}`,
         },
         (payload) => {
-          console.log('📨 Vesting data updated from database:', payload);
-          loadVestingData();
+          console.log('📨 Vesting data updated from database (external change):', payload);
+          
+          // Only reload if the change was external (not from our own persist)
+          // Check if mxi_purchased_directly changed (indicates external change like admin action or purchase)
+          const oldPurchased = baseValuesRef.current?.mxiPurchased || 0;
+          const newPurchased = payload.new?.mxi_purchased_directly || 0;
+          
+          if (Math.abs(oldPurchased - newPurchased) > 0.0001) {
+            console.log('🔄 External purchase detected, reloading vesting data');
+            loadVestingData();
+          } else {
+            console.log('⏭️ Skipping reload - change was from internal persist');
+          }
         }
       )
       .subscribe();
@@ -295,6 +332,12 @@ export function useVestingData() {
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
+      if (updateIntervalRef.current) {
+        clearInterval(updateIntervalRef.current);
+      }
+      if (persistIntervalRef.current) {
+        clearInterval(persistIntervalRef.current);
+      }
     };
   }, []);
 
