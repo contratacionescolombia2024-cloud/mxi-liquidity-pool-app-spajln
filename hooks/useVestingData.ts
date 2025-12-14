@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { calculateVestingYield, safeParseNumeric } from '@/utils/safeNumericParse';
@@ -40,12 +40,22 @@ const PERSIST_INTERVAL_MS = 10000; // Persist every 10 seconds
  * Used by: Home page, Rewards page, Vesting page, VestingCounter component
  * 
  * CRITICAL: All values returned are guaranteed to be non-negative
+ * FIXED: Real-time updates now work correctly by recalculating from base values
  */
 export function useVestingData() {
   const { user } = useAuth();
   const [vestingData, setVestingData] = useState<VestingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Store base values in refs to avoid stale closures
+  const baseValuesRef = useRef<{
+    mxiPurchased: number;
+    mxiCommissions: number;
+    mxiTournaments: number;
+    accumulatedYield: number;
+    lastUpdate: Date;
+  } | null>(null);
 
   // Load initial data from database
   const loadVestingData = useCallback(async () => {
@@ -57,6 +67,8 @@ export function useVestingData() {
     try {
       setLoading(true);
       setError(null);
+
+      console.log('🔄 Loading vesting data for user:', user.id);
 
       // Fetch user data
       const { data: userData, error: userError } = await supabase
@@ -74,15 +86,22 @@ export function useVestingData() {
       const accumulatedYield = Math.max(0, safeParseNumeric(userData.accumulated_yield, 0));
       const lastUpdate = new Date(userData.last_yield_update || new Date());
 
-      // Validate parsed values
-      if (mxiPurchased < 0 || mxiCommissions < 0 || mxiTournaments < 0 || accumulatedYield < 0) {
-        console.error('❌ CRITICAL: Negative values detected after parsing:', {
-          mxiPurchased,
-          mxiCommissions,
-          mxiTournaments,
-          accumulatedYield,
-        });
-      }
+      console.log('✅ Loaded base values:', {
+        mxiPurchased,
+        mxiCommissions,
+        mxiTournaments,
+        accumulatedYield,
+        lastUpdate: lastUpdate.toISOString(),
+      });
+
+      // Store base values in ref for real-time updates
+      baseValuesRef.current = {
+        mxiPurchased,
+        mxiCommissions,
+        mxiTournaments,
+        accumulatedYield,
+        lastUpdate,
+      };
 
       // Calculate current yield - GUARANTEED NON-NEGATIVE
       const yieldCalc = calculateVestingYield(
@@ -116,49 +135,69 @@ export function useVestingData() {
         lastUpdate,
       };
 
-      // Validate all values are non-negative
-      Object.entries(newVestingData).forEach(([key, value]) => {
-        if (typeof value === 'number' && value < 0) {
-          console.error('❌ CRITICAL: Negative value in vesting data:', key, value);
-        }
+      console.log('✅ Vesting data calculated:', {
+        currentYield: newVestingData.currentYield.toFixed(8),
+        sessionYield: newVestingData.sessionYield.toFixed(8),
+        yieldPerSecond: newVestingData.yieldPerSecond.toFixed(8),
       });
 
       setVestingData(newVestingData);
     } catch (err) {
-      console.error('Error loading vesting data:', err);
+      console.error('❌ Error loading vesting data:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setLoading(false);
     }
   }, [user]);
 
-  // Real-time update effect
+  // Real-time update effect - FIXED: Now recalculates from base values
   useEffect(() => {
-    if (!user || !vestingData || !vestingData.hasBalance) {
+    if (!user || !baseValuesRef.current || !baseValuesRef.current.mxiPurchased) {
       return;
     }
 
+    console.log('⏱️ Starting real-time vesting updates');
+
     const interval = setInterval(() => {
-      // Recalculate yield based on current time
+      const baseValues = baseValuesRef.current;
+      if (!baseValues) return;
+
+      // Recalculate yield based on current time and base values
       const yieldCalc = calculateVestingYield(
-        vestingData.mxiPurchased,
-        vestingData.accumulatedYield,
-        vestingData.lastUpdate,
+        baseValues.mxiPurchased,
+        baseValues.accumulatedYield,
+        baseValues.lastUpdate,
         MONTHLY_YIELD_PERCENTAGE
       );
 
-      // Ensure all values are non-negative
-      setVestingData(prev => prev ? {
-        ...prev,
-        currentYield: Math.max(0, yieldCalc.currentYield),
-        sessionYield: Math.max(0, yieldCalc.sessionYield),
-        progressPercentage: Math.max(0, yieldCalc.progressPercentage),
-        isNearCap: yieldCalc.progressPercentage >= 95,
-      } : null);
+      // Calculate additional rates
+      const yieldPerMinute = Math.max(0, yieldCalc.yieldPerSecond * 60);
+      const yieldPerHour = Math.max(0, yieldPerMinute * 60);
+      const yieldPerDay = Math.max(0, yieldPerHour * 24);
+
+      // Update state with new calculated values
+      setVestingData(prev => {
+        if (!prev) return null;
+        
+        return {
+          ...prev,
+          currentYield: Math.max(0, yieldCalc.currentYield),
+          sessionYield: Math.max(0, yieldCalc.sessionYield),
+          progressPercentage: Math.max(0, yieldCalc.progressPercentage),
+          isNearCap: yieldCalc.progressPercentage >= 95,
+          yieldPerSecond: Math.max(0, yieldCalc.yieldPerSecond),
+          yieldPerMinute: Math.max(0, yieldPerMinute),
+          yieldPerHour: Math.max(0, yieldPerHour),
+          yieldPerDay: Math.max(0, yieldPerDay),
+        };
+      });
     }, UPDATE_INTERVAL_MS);
 
-    return () => clearInterval(interval);
-  }, [user, vestingData?.hasBalance, vestingData?.mxiPurchased, vestingData?.accumulatedYield, vestingData?.lastUpdate]);
+    return () => {
+      console.log('🛑 Stopping real-time vesting updates');
+      clearInterval(interval);
+    };
+  }, [user, baseValuesRef.current?.mxiPurchased]);
 
   // Persist to database periodically
   useEffect(() => {
@@ -171,8 +210,10 @@ export function useVestingData() {
         // Ensure value is non-negative before persisting
         const safeCurrentYield = Math.max(0, vestingData.currentYield);
         
+        console.log('💾 Persisting vesting yield:', safeCurrentYield.toFixed(8), 'MXI');
+        
         // Update database with current yield
-        await supabase
+        const { error: updateError } = await supabase
           .from('users')
           .update({
             accumulated_yield: safeCurrentYield,
@@ -180,9 +221,19 @@ export function useVestingData() {
           })
           .eq('id', user.id);
 
-        console.log('✅ Vesting yield persisted:', safeCurrentYield.toFixed(8), 'MXI');
+        if (updateError) {
+          console.error('❌ Error persisting vesting yield:', updateError);
+        } else {
+          console.log('✅ Vesting yield persisted successfully');
+          
+          // Update base values ref after successful persist
+          if (baseValuesRef.current) {
+            baseValuesRef.current.accumulatedYield = safeCurrentYield;
+            baseValuesRef.current.lastUpdate = new Date();
+          }
+        }
       } catch (err) {
-        console.error('Error persisting vesting yield:', err);
+        console.error('❌ Error persisting vesting yield:', err);
       }
     }, PERSIST_INTERVAL_MS);
 
@@ -198,6 +249,8 @@ export function useVestingData() {
   useEffect(() => {
     if (!user) return;
 
+    console.log('📡 Subscribing to vesting updates');
+
     const channel = supabase
       .channel('vesting-updates')
       .on(
@@ -209,13 +262,14 @@ export function useVestingData() {
           filter: `id=eq.${user.id}`,
         },
         (payload) => {
-          console.log('Vesting data updated from database:', payload);
+          console.log('📨 Vesting data updated from database:', payload);
           loadVestingData();
         }
       )
       .subscribe();
 
     return () => {
+      console.log('📡 Unsubscribing from vesting updates');
       supabase.removeChannel(channel);
     };
   }, [user, loadVestingData]);

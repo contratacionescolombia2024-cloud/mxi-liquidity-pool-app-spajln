@@ -20,7 +20,9 @@ import { colors } from '../styles/commonStyles';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch((err) => {
+  console.error('❌ Error preventing splash screen auto-hide:', err);
+});
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -46,6 +48,10 @@ export default function RootLayout() {
       console.error('❌ Font loading error:', error);
       setInitError(error);
       setInitComplete(true);
+      // Still hide splash screen even on error
+      SplashScreen.hideAsync().catch((err) => {
+        console.error('❌ Error hiding splash screen after font error:', err);
+      });
     }
     
     if (loaded) {
@@ -55,6 +61,7 @@ export default function RootLayout() {
         setInitComplete(true);
       }).catch((err) => {
         console.error('❌ Error hiding splash screen:', err);
+        // Still mark as complete even if hiding fails
         setInitComplete(true);
       });
     }

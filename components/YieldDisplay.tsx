@@ -115,13 +115,13 @@ export function YieldDisplay() {
         onPress={handleViewDetails}
       >
         <IconSymbol 
-          ios_icon_name="arrow.right.circle.fill" 
-          android_material_icon_name="arrow_circle_right"
+          ios_icon_name="chart.line.uptrend.xyaxis" 
+          android_material_icon_name="trending_up"
           size={20} 
           color="#fff" 
         />
         <Text style={styles.viewDetailsButtonText}>
-          {t('claimYield')}
+          Rendimiento
         </Text>
       </TouchableOpacity>
 
@@ -137,13 +137,13 @@ export function YieldDisplay() {
           <Text style={styles.requirementsTitle}>📋 {t('requirementsToWithdraw')}</Text>
           <View style={styles.requirementItem}>
             <IconSymbol 
-              ios_icon_name={user.activeReferrals >= 5 ? "checkmark.circle.fill" : "xmark.circle.fill"}
-              android_material_icon_name={user.activeReferrals >= 5 ? "check_circle" : "cancel"}
+              ios_icon_name={user.activeReferrals >= 7 ? "checkmark.circle.fill" : "xmark.circle.fill"}
+              android_material_icon_name={user.activeReferrals >= 7 ? "check_circle" : "cancel"}
               size={20} 
-              color={user.activeReferrals >= 5 ? colors.success : colors.error} 
+              color={user.activeReferrals >= 7 ? colors.success : colors.error} 
             />
             <Text style={styles.requirementText}>
-              {t('activeReferralsForGeneralWithdrawals', { count: user.activeReferrals })}
+              7 Referidos Activos para retiros de vesting ({user.activeReferrals || 0}/7)
             </Text>
           </View>
           <View style={styles.requirementItem}>
