@@ -906,6 +906,16 @@ export default function AdminDashboard() {
               </View>
               <Text style={styles.actionLabel}>Bonos Embajadores</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => router.push('/(tabs)/(admin)/participation-bonus')}
+            >
+              <View style={[styles.actionIcon, { backgroundColor: '#9C27B0' + '20' }]}>
+                <IconSymbol ios_icon_name="ticket.fill" android_material_icon_name="confirmation_number" size={24} color="#9C27B0" />
+              </View>
+              <Text style={styles.actionLabel}>Bono de Participación</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>

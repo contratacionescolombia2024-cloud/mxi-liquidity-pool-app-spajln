@@ -513,15 +513,15 @@ export default function BonusParticipacionScreen() {
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoBullet}>4.</Text>
-              <Text style={styles.infoText}>{t('winnerReceives90PercentText')}</Text>
-            </View>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoBullet}>5.</Text>
               <Text style={styles.infoText}>{t('winnerAnnouncedOnSocialMediaText')}</Text>
             </View>
             <View style={styles.infoItem}>
-              <Text style={styles.infoBullet}>6.</Text>
+              <Text style={styles.infoBullet}>5.</Text>
               <Text style={styles.infoText}>{t('purchaseIsFinalNoRefundsText')}</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoBullet}>6.</Text>
+              <Text style={styles.infoText}>{t('onlyUsePurchasedCommissionsOrTournamentsText')}</Text>
             </View>
           </View>
         </View>

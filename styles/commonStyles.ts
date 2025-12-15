@@ -10,6 +10,7 @@ export const colors = {
   success: '#10b981',
   warning: '#FF9800',
   error: '#ff0044',
+  danger: '#ff0044',         // Same as error for consistency
   background: '#000000',     // Dark background
   card: '#001414',           // Dark teal card background
   cardBackground: 'rgba(0, 20, 20, 0.95)',  // Matching chart card
@@ -110,5 +111,20 @@ export const buttonStyles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.5,
+  },
+  danger: {
+    backgroundColor: colors.error,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  dangerText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

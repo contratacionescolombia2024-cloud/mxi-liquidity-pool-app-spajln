@@ -25,6 +25,7 @@ export default function AdminLayout() {
       <Stack.Screen name="vesting-analytics" />
       <Stack.Screen name="ambassador-withdrawals" />
       <Stack.Screen name="user-deletion" />
+      <Stack.Screen name="participation-bonus" />
     </Stack>
   );
 }
