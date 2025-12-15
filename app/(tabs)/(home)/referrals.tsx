@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRealtime } from '@/contexts/RealtimeContext';
 import { useRouter } from 'expo-router';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import * as Clipboard from 'expo-clipboard';
@@ -23,6 +24,7 @@ import { supabase } from '@/lib/supabase';
 export default function ReferralsScreen() {
   const { user, getCurrentYield, refreshUser } = useAuth();
   const { lastUpdate } = useRealtime();
+  const { t } = useLanguage();
   const router = useRouter();
   const [currentYield, setCurrentYield] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -49,7 +51,7 @@ export default function ReferralsScreen() {
   const handleCopyCode = async () => {
     if (!user?.referralCode) return;
     await Clipboard.setStringAsync(user.referralCode);
-    Alert.alert('¡Copiado!', 'Código de referido copiado al portapapeles');
+    Alert.alert(t('copied'), t('copiedToClipboard'));
   };
 
   const handleShare = async () => {
@@ -57,7 +59,7 @@ export default function ReferralsScreen() {
 
     try {
       await Share.share({
-        message: `Únete al Pool MXI con mi código de referido: ${user.referralCode}\n\n¡Gana tokens MXI y obtén recompensas!`,
+        message: t('shareReferralCodeMessage', { code: user.referralCode }),
       });
     } catch (error) {
       console.error('Error sharing:', error);
@@ -72,39 +74,39 @@ export default function ReferralsScreen() {
     
     // Validate amount
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Monto Inválido', 'Por favor ingresa un monto válido');
+      Alert.alert(t('invalidAmount'), t('pleaseEnterValidAmount'));
       return;
     }
 
     // Check minimum withdrawal
     if (amount < 50) {
-      Alert.alert('Monto Mínimo', 'El retiro mínimo es de 50 MXI');
+      Alert.alert(t('invalidAmount'), t('minimumWithdrawalIs50MXI'));
       return;
     }
 
     // Check available balance
     if (amount > mxiFromCommissions) {
-      Alert.alert('Saldo Insuficiente', `Solo tienes ${mxiFromCommissions.toFixed(2)} MXI disponibles de comisiones`);
+      Alert.alert(t('insufficientBalance'), t('insufficientBalanceOnly', { available: mxiFromCommissions.toFixed(2) }));
       return;
     }
 
     // Check active referrals requirement
     if (user.activeReferrals < 5) {
       Alert.alert(
-        'Requisitos No Cumplidos',
-        `Necesitas 5 referidos activos que hayan comprado el mínimo de MXI.\n\nActualmente tienes: ${user.activeReferrals} referidos activos`
+        t('requirementsNotMetTitle'),
+        t('need5ActiveReferralsMessage', { count: user.activeReferrals })
       );
       return;
     }
 
     // Confirm withdrawal
     Alert.alert(
-      'Confirmar Retiro a Balance MXI',
-      `¿Deseas transferir ${amount.toFixed(2)} MXI de comisiones a tu balance principal?\n\nEsto te permitirá usar estos MXI para compras y otras funciones.`,
+      t('confirmWithdrawToBalance'),
+      t('confirmWithdrawToBalanceMessage', { amount: amount.toFixed(2) }),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         {
-          text: 'Confirmar',
+          text: t('confirm'),
           onPress: async () => {
             setLoading(true);
             try {
@@ -115,18 +117,18 @@ export default function ReferralsScreen() {
 
               if (error) {
                 console.error('Withdrawal error:', error);
-                Alert.alert('Error', error.message || 'No se pudo completar el retiro');
+                Alert.alert(t('error'), error.message || t('failedToCompleteWithdrawal'));
                 return;
               }
 
               if (!data || !data.success) {
-                Alert.alert('Error', data?.error || 'No se pudo completar el retiro');
+                Alert.alert(t('error'), data?.error || t('failedToCompleteWithdrawal'));
                 return;
               }
 
               Alert.alert(
-                'Retiro Exitoso',
-                `Se han transferido ${amount.toFixed(2)} MXI a tu balance principal`
+                t('withdrawalSuccessful'),
+                t('transferredToMainBalance', { amount: amount.toFixed(2) })
               );
               
               setWithdrawAmount('');
@@ -136,7 +138,7 @@ export default function ReferralsScreen() {
               await refreshUser();
             } catch (error: any) {
               console.error('Exception during withdrawal:', error);
-              Alert.alert('Error', error.message || 'Ocurrió un error inesperado');
+              Alert.alert(t('error'), error.message || t('unexpectedError'));
             } finally {
               setLoading(false);
             }
@@ -155,7 +157,7 @@ export default function ReferralsScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Referidos</Text>
+        <Text style={styles.headerTitle}>{t('yourReferrals')}</Text>
         <TouchableOpacity onPress={() => refreshUser()} style={styles.refreshButton}>
           <IconSymbol ios_icon_name="arrow.clockwise" android_material_icon_name="refresh" size={24} color={colors.primary} />
         </TouchableOpacity>
@@ -171,9 +173,9 @@ export default function ReferralsScreen() {
             <View style={styles.ambassadorButtonLeft}>
               <Text style={styles.ambassadorButtonEmoji}>🏆</Text>
               <View>
-                <Text style={styles.ambassadorButtonTitle}>Embajadores MXI</Text>
+                <Text style={styles.ambassadorButtonTitle}>{t('ambassadorButtonTitle')}</Text>
                 <Text style={styles.ambassadorButtonSubtitle}>
-                  Gana bonos adicionales por tus referidos
+                  {t('earnAdditionalBonusesForReferrals')}
                 </Text>
               </View>
             </View>
@@ -195,7 +197,7 @@ export default function ReferralsScreen() {
               size={32} 
               color={colors.primary} 
             />
-            <Text style={styles.codeTitle}>Tu Código de Referido</Text>
+            <Text style={styles.codeTitle}>{t('yourReferralCode')}</Text>
           </View>
           <View style={styles.codeBox}>
             <Text style={styles.codeText}>{user?.referralCode || 'N/A'}</Text>
@@ -215,28 +217,28 @@ export default function ReferralsScreen() {
               size={20} 
               color="#fff" 
             />
-            <Text style={buttonStyles.primaryText}>Compartir Código</Text>
+            <Text style={buttonStyles.primaryText}>{t('shareCode')}</Text>
           </TouchableOpacity>
         </View>
 
         {/* Commission Stats - All in MXI */}
         <View style={commonStyles.card}>
-          <Text style={styles.sectionTitle}>Balance de Comisiones (MXI)</Text>
+          <Text style={styles.sectionTitle}>{t('commissionBalance')} (MXI)</Text>
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Total Ganado</Text>
+              <Text style={styles.statLabel}>{t('totalEarned')}</Text>
               <Text style={styles.statValue}>{mxiFromCommissions.toFixed(4)} MXI</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Disponible</Text>
+              <Text style={styles.statLabel}>{t('available')}</Text>
               <Text style={[styles.statValue, { color: colors.success }]}>
                 {mxiFromCommissions.toFixed(4)} MXI
               </Text>
             </View>
           </View>
           <Text style={styles.infoNote}>
-            💡 Todas las comisiones se manejan internamente en MXI
+            💡 {t('allCommissionsInMXI')}
           </Text>
 
           {/* Withdraw to Balance Button */}
@@ -249,10 +251,10 @@ export default function ReferralsScreen() {
                   size={24} 
                   color={colors.primary} 
                 />
-                <Text style={styles.withdrawTitle}>Retirar a Balance MXI</Text>
+                <Text style={styles.withdrawTitle}>{t('withdrawToMXIBalance')}</Text>
               </View>
               <Text style={styles.withdrawDescription}>
-                Transfiere tus comisiones a tu balance principal de MXI para usarlas en compras y otras funciones.
+                {t('transferCommissionsToMainBalance')}
               </Text>
               
               {!showWithdrawModal ? (
@@ -266,22 +268,22 @@ export default function ReferralsScreen() {
                     size={20} 
                     color="#fff" 
                   />
-                  <Text style={buttonStyles.primaryText}>Retirar a Balance</Text>
+                  <Text style={buttonStyles.primaryText}>{t('withdrawToBalance')}</Text>
                 </TouchableOpacity>
               ) : (
                 <View style={styles.withdrawForm}>
                   <View style={styles.inputContainer}>
-                    <Text style={styles.inputLabel}>Monto a Retirar (MXI)</Text>
+                    <Text style={styles.inputLabel}>{t('amountToWithdraw')}</Text>
                     <TextInput
                       style={styles.input}
                       value={withdrawAmount}
                       onChangeText={setWithdrawAmount}
                       keyboardType="decimal-pad"
-                      placeholder="Mínimo 50 MXI"
+                      placeholder={t('minimum50MXI')}
                       placeholderTextColor={colors.textSecondary}
                     />
                     <Text style={styles.inputHint}>
-                      Disponible: {mxiFromCommissions.toFixed(2)} MXI
+                      {t('availableAmount', { amount: mxiFromCommissions.toFixed(2) })}
                     </Text>
                   </View>
                   
@@ -294,7 +296,7 @@ export default function ReferralsScreen() {
                       }}
                       disabled={loading}
                     >
-                      <Text style={buttonStyles.secondaryText}>Cancelar</Text>
+                      <Text style={buttonStyles.secondaryText}>{t('cancel')}</Text>
                     </TouchableOpacity>
                     
                     <TouchableOpacity
@@ -305,7 +307,7 @@ export default function ReferralsScreen() {
                       {loading ? (
                         <ActivityIndicator color="#fff" />
                       ) : (
-                        <Text style={buttonStyles.primaryText}>Confirmar</Text>
+                        <Text style={buttonStyles.primaryText}>{t('confirm')}</Text>
                       )}
                     </TouchableOpacity>
                   </View>
@@ -313,7 +315,7 @@ export default function ReferralsScreen() {
               )}
 
               <View style={styles.requirementsBox}>
-                <Text style={styles.requirementsTitle}>Requisitos:</Text>
+                <Text style={styles.requirementsTitle}>{t('requirements')}</Text>
                 <View style={styles.requirementItem}>
                   <IconSymbol 
                     ios_icon_name={user && user.activeReferrals >= 5 ? 'checkmark.circle.fill' : 'xmark.circle.fill'} 
@@ -322,7 +324,7 @@ export default function ReferralsScreen() {
                     color={user && user.activeReferrals >= 5 ? colors.success : colors.error} 
                   />
                   <Text style={styles.requirementText}>
-                    5 referidos activos ({user?.activeReferrals || 0}/5)
+                    {t('activeReferrals5', { count: user?.activeReferrals || 0 })}
                   </Text>
                 </View>
                 <View style={styles.requirementItem}>
@@ -333,7 +335,7 @@ export default function ReferralsScreen() {
                     color={mxiFromCommissions >= 50 ? colors.success : colors.error} 
                   />
                   <Text style={styles.requirementText}>
-                    Mínimo 50 MXI
+                    {t('minimum50MXIRequired')}
                   </Text>
                 </View>
               </View>
@@ -343,39 +345,39 @@ export default function ReferralsScreen() {
 
         {/* Referral Stats - Updated commission rates */}
         <View style={commonStyles.card}>
-          <Text style={styles.sectionTitle}>👥 Tus Referidos</Text>
+          <Text style={styles.sectionTitle}>👥 {t('yourReferrals')}</Text>
           <View style={styles.referralsList}>
             {/* Level 1 - 5% Commission Rate */}
             <View style={styles.referralItem}>
               <View style={styles.referralLevel}>
-                <Text style={styles.referralLevelText}>Nivel 1</Text>
+                <Text style={styles.referralLevelText}>{t('level')} 1</Text>
                 <Text style={styles.referralRate}>5%</Text>
               </View>
-              <Text style={styles.referralCount}>{user?.referrals.level1 || 0} referidos</Text>
+              <Text style={styles.referralCount}>{user?.referrals.level1 || 0} {t('referralsText')}</Text>
             </View>
             {/* Level 2 - 2% Commission Rate */}
             <View style={styles.referralItem}>
               <View style={styles.referralLevel}>
-                <Text style={styles.referralLevelText}>Nivel 2</Text>
+                <Text style={styles.referralLevelText}>{t('level')} 2</Text>
                 <Text style={styles.referralRate}>2%</Text>
               </View>
-              <Text style={styles.referralCount}>{user?.referrals.level2 || 0} referidos</Text>
+              <Text style={styles.referralCount}>{user?.referrals.level2 || 0} {t('referralsText')}</Text>
             </View>
             {/* Level 3 - 1% Commission Rate */}
             <View style={styles.referralItem}>
               <View style={styles.referralLevel}>
-                <Text style={styles.referralLevelText}>Nivel 3</Text>
+                <Text style={styles.referralLevelText}>{t('level')} 3</Text>
                 <Text style={styles.referralRate}>1%</Text>
               </View>
-              <Text style={styles.referralCount}>{user?.referrals.level3 || 0} referidos</Text>
+              <Text style={styles.referralCount}>{user?.referrals.level3 || 0} {t('referralsText')}</Text>
             </View>
           </View>
           <View style={styles.activeReferrals}>
-            <Text style={styles.activeLabel}>Referidos Activos (Nivel 1):</Text>
+            <Text style={styles.activeLabel}>{t('activeReferralsLevel1')}:</Text>
             <Text style={styles.activeValue}>{user?.activeReferrals || 0}</Text>
           </View>
           <Text style={styles.activeReferralsNote}>
-            * Referidos activos son aquellos que han realizado al menos una compra de 50 USDT o más
+            {t('activeReferralsNote')}
           </Text>
         </View>
 
@@ -388,16 +390,16 @@ export default function ReferralsScreen() {
               size={24} 
               color={colors.primary} 
             />
-            <Text style={styles.infoTitle}>Cómo Funcionan los Referidos</Text>
+            <Text style={styles.infoTitle}>{t('howReferralsWork')}</Text>
           </View>
           <View style={styles.infoList}>
-            <Text style={styles.infoItem}>- Comparte tu código de referido con amigos</Text>
-            <Text style={styles.infoItem}>- Gana 5% en MXI de referidos de Nivel 1</Text>
-            <Text style={styles.infoItem}>- Gana 2% en MXI de referidos de Nivel 2</Text>
-            <Text style={styles.infoItem}>- Gana 1% en MXI de referidos de Nivel 3</Text>
-            <Text style={styles.infoItem}>- Todas las comisiones se acreditan directamente en MXI</Text>
-            <Text style={styles.infoItem}>- Necesitas 5 referidos activos de Nivel 1 para retirar</Text>
-            <Text style={styles.infoItem}>- Los referidos activos deben haber comprado al menos 50 USDT</Text>
+            <Text style={styles.infoItem}>- {t('shareYourReferralCode')}</Text>
+            <Text style={styles.infoItem}>- {t('earn5PercentMXILevel1')}</Text>
+            <Text style={styles.infoItem}>- {t('earn2PercentMXILevel2')}</Text>
+            <Text style={styles.infoItem}>- {t('earn1PercentMXILevel3')}</Text>
+            <Text style={styles.infoItem}>- {t('allCommissionsCreditedMXI')}</Text>
+            <Text style={styles.infoItem}>- {t('need5ActiveReferrals')}</Text>
+            <Text style={styles.infoItem}>- {t('activeReferralsNote')}</Text>
           </View>
         </View>
       </ScrollView>

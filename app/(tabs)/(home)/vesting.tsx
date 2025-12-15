@@ -88,7 +88,7 @@ export default function VestingScreen() {
             color={colors.text}
           />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Vesting y Rendimiento</Text>
+        <Text style={styles.headerTitle}>{t('vestingAndPerformance')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -96,14 +96,14 @@ export default function VestingScreen() {
         {/* Real-time Counter Display - PROMINENT */}
         <View style={styles.counterSection}>
           <View style={styles.counterCard}>
-            <Text style={styles.counterLabel}>Rendimiento Acumulado Total</Text>
+            <Text style={styles.counterLabel}>{t('accumulatedTotalYield')}</Text>
             <Text style={styles.counterValue}>
               {formatVestingValue(currentYield, 8)}
             </Text>
             <Text style={styles.counterUnit}>MXI</Text>
             <View style={styles.liveIndicator}>
               <View style={styles.liveDot} />
-              <Text style={styles.liveText}>Generando {formatVestingValue(yieldPerSecond, 8)} MXI por segundo</Text>
+              <Text style={styles.liveText}>{t('generatingPerSecondValue', { rate: formatVestingValue(yieldPerSecond, 8) })}</Text>
             </View>
           </View>
         </View>
@@ -111,13 +111,13 @@ export default function VestingScreen() {
         {/* MXI in Vesting Display */}
         <View style={styles.vestingBalanceSection}>
           <View style={styles.vestingBalanceCard}>
-            <Text style={styles.vestingBalanceLabel}>MXI Comprado (Base de Vesting)</Text>
+            <Text style={styles.vestingBalanceLabel}>{t('mxiPurchasedVestingBase')}</Text>
             <Text style={styles.vestingBalanceValue}>
               {formatVestingValue(mxiPurchased, 2)}
             </Text>
             <Text style={styles.vestingBalanceUnit}>MXI</Text>
             <Text style={styles.vestingBalanceNote}>
-              ✅ Solo el MXI comprado genera vesting
+              ✅ {t('onlyPurchasedMXIGeneratesVesting')}
             </Text>
           </View>
         </View>
@@ -125,7 +125,7 @@ export default function VestingScreen() {
         {/* Separate Balances Display - NOT generating vesting */}
         {(mxiCommissions > 0 || mxiTournaments > 0) && (
           <View style={styles.separateBalancesSection}>
-            <Text style={styles.separateBalancesTitle}>Saldos Separados (No generan vesting)</Text>
+            <Text style={styles.separateBalancesTitle}>{t('separateBalances')}</Text>
             
             {mxiCommissions > 0 && (
               <View style={styles.separateBalanceCard}>
@@ -136,13 +136,13 @@ export default function VestingScreen() {
                     size={20} 
                     color={colors.success} 
                   />
-                  <Text style={styles.separateBalanceLabel}>Comisiones</Text>
+                  <Text style={styles.separateBalanceLabel}>{t('commissions')}</Text>
                 </View>
                 <Text style={styles.separateBalanceValue}>
                   {formatVestingValue(mxiCommissions, 2)} MXI
                 </Text>
                 <Text style={styles.separateBalanceNote}>
-                  ❌ No genera rendimiento de vesting
+                  ❌ {t('doesNotGenerateVesting')}
                 </Text>
               </View>
             )}
@@ -156,13 +156,13 @@ export default function VestingScreen() {
                     size={20} 
                     color={colors.warning} 
                   />
-                  <Text style={styles.separateBalanceLabel}>Torneos</Text>
+                  <Text style={styles.separateBalanceLabel}>{t('tournaments')}</Text>
                 </View>
                 <Text style={styles.separateBalanceValue}>
                   {formatVestingValue(mxiTournaments, 2)} MXI
                 </Text>
                 <Text style={styles.separateBalanceNote}>
-                  ❌ No genera rendimiento de vesting
+                  ❌ {t('doesNotGenerateVesting')}
                 </Text>
               </View>
             )}
@@ -173,7 +173,7 @@ export default function VestingScreen() {
         {hasBalance && (
           <View style={styles.progressSection}>
             <View style={styles.progressHeader}>
-              <Text style={styles.progressLabel}>Progreso Mensual (3% máx.)</Text>
+              <Text style={styles.progressLabel}>{t('monthlyProgress')}</Text>
               <Text style={styles.progressPercentage}>{progressPercentage.toFixed(2)}%</Text>
             </View>
             <View style={styles.progressBarContainer}>
@@ -192,7 +192,7 @@ export default function VestingScreen() {
                   color={colors.warning} 
                 />
                 <Text style={styles.capWarningText}>
-                  Cerca del límite mensual del 3%
+                  {t('nearMonthlyLimit')}
                 </Text>
               </View>
             )}
@@ -203,12 +203,12 @@ export default function VestingScreen() {
         {hasBalance && (
           <View style={styles.yieldBreakdownSection}>
             <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>Sesión Actual</Text>
+              <Text style={styles.breakdownLabel}>{t('currentSession')}</Text>
               <Text style={styles.breakdownValue}>{formatVestingValue(sessionYield, 8)} MXI</Text>
             </View>
             <View style={styles.breakdownDivider} />
             <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>Total Acumulado</Text>
+              <Text style={styles.breakdownLabel}>{t('totalAccumulated')}</Text>
               <Text style={styles.breakdownValue}>{formatVestingValue(currentYield, 8)} MXI</Text>
             </View>
           </View>
@@ -217,9 +217,9 @@ export default function VestingScreen() {
         {/* NEW: Rendimiento en MXI y USDT */}
         {hasBalance && (
           <View style={styles.performanceSection}>
-            <Text style={styles.performanceSectionTitle}>📊 Rendimiento Proyectado</Text>
+            <Text style={styles.performanceSectionTitle}>📊 {t('performanceProjected')}</Text>
             <Text style={styles.phaseInfo}>
-              Fase {currentPhase} • 1 MXI = ${currentPriceUsdt.toFixed(2)} USDT
+              {t('phaseInfo', { phase: currentPhase, price: currentPriceUsdt.toFixed(2) })}
             </Text>
 
             {/* Por Hora */}
@@ -231,7 +231,7 @@ export default function VestingScreen() {
                   size={20} 
                   color={colors.primary} 
                 />
-                <Text style={styles.performanceLabel}>Por Hora</Text>
+                <Text style={styles.performanceLabel}>{t('perHour')}</Text>
               </View>
               <View style={styles.performanceValues}>
                 <View style={styles.performanceValueRow}>
@@ -250,7 +250,7 @@ export default function VestingScreen() {
                   size={20} 
                   color={colors.success} 
                 />
-                <Text style={styles.performanceLabel}>Por 7 Días</Text>
+                <Text style={styles.performanceLabel}>{t('per7Days')}</Text>
               </View>
               <View style={styles.performanceValues}>
                 <View style={styles.performanceValueRow}>
@@ -269,7 +269,7 @@ export default function VestingScreen() {
                   size={20} 
                   color={colors.accent} 
                 />
-                <Text style={styles.performanceLabel}>Por 1 Mes (30 días)</Text>
+                <Text style={styles.performanceLabel}>{t('per1Month')}</Text>
               </View>
               <View style={styles.performanceValues}>
                 <View style={styles.performanceValueRow}>
@@ -288,9 +288,9 @@ export default function VestingScreen() {
                   size={20} 
                   color={colors.warning} 
                 />
-                <Text style={styles.performanceLabel}>Hasta Lanzamiento</Text>
+                <Text style={styles.performanceLabel}>{t('untilLaunch')}</Text>
               </View>
-              <Text style={styles.daysUntilLaunch}>{daysUntilLaunch} días restantes</Text>
+              <Text style={styles.daysUntilLaunch}>{t('daysRemaining', { days: daysUntilLaunch })}</Text>
               <View style={styles.performanceValues}>
                 <View style={styles.performanceValueRow}>
                   <Text style={styles.performanceValue}>{formatVestingValue(yieldUntilLaunch, 2)} MXI</Text>
@@ -305,12 +305,12 @@ export default function VestingScreen() {
         {hasBalance && (
           <View style={styles.monthlyMaxSection}>
             <View style={styles.monthlyMaxCard}>
-              <Text style={styles.monthlyMaxLabel}>Máximo Mensual (3%)</Text>
+              <Text style={styles.monthlyMaxLabel}>{t('monthlyMaximum')}</Text>
               <Text style={styles.monthlyMaxValue}>
                 {formatVestingValue(maxMonthlyYield, 4)} MXI
               </Text>
               <Text style={styles.monthlyMaxNote}>
-                Basado en {formatVestingValue(mxiPurchased, 2)} MXI comprados
+                {t('basedOnPurchased', { amount: formatVestingValue(mxiPurchased, 2) })}
               </Text>
             </View>
           </View>
@@ -325,10 +325,10 @@ export default function VestingScreen() {
                 size={32}
                 color={colors.warning}
               />
-              <Text style={styles.warningTitle}>{t('balanceBlockedTitle')}</Text>
+              <Text style={styles.warningTitle}>{t('balanceBlocked')}</Text>
             </View>
             <Text style={styles.warningText}>
-              El saldo de vesting no se puede retirar hasta que se lance la moneda oficialmente.
+              {t('vestingCannotBeWithdrawn')}
             </Text>
             {daysUntilLaunch > 0 && (
               <View style={styles.countdownBox}>
@@ -351,27 +351,27 @@ export default function VestingScreen() {
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Rendimiento Mensual</Text>
+            <Text style={styles.infoLabel}>{t('monthlyYield')}</Text>
             <Text style={styles.infoValue}>3%</Text>
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Base de Cálculo</Text>
-            <Text style={styles.infoValue}>Solo MXI Comprado</Text>
+            <Text style={styles.infoLabel}>{t('calculationBase')}</Text>
+            <Text style={styles.infoValue}>{t('onlyPurchasedMXI')}</Text>
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Actualización</Text>
-            <Text style={styles.infoValue}>Cada Segundo</Text>
+            <Text style={styles.infoLabel}>{t('update')}</Text>
+            <Text style={styles.infoValue}>{t('everySecond')}</Text>
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Fase Actual</Text>
-            <Text style={styles.infoValue}>Fase {currentPhase}</Text>
+            <Text style={styles.infoLabel}>{t('currentPhaseLabel')}</Text>
+            <Text style={styles.infoValue}>{t('phase')} {currentPhase}</Text>
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Precio MXI</Text>
+            <Text style={styles.infoLabel}>{t('mxiPrice')}</Text>
             <Text style={styles.infoValue}>${currentPriceUsdt.toFixed(2)} USDT</Text>
           </View>
 
@@ -386,21 +386,21 @@ export default function VestingScreen() {
         <View style={[styles.transparentCard, styles.descriptionCard]}>
           <Text style={styles.descriptionTitle}>{t('whatIsVestingText')}</Text>
           <Text style={styles.descriptionText}>
-            El vesting es un sistema de rendimiento que genera un 3% mensual sobre tu MXI comprado directamente o asignado por el administrador con comisión.
+            {t('vestingDescriptionText')}
           </Text>
           <Text style={styles.descriptionText}>
-            El rendimiento se calcula automáticamente cada segundo y se acumula en tu cuenta. Puedes ver el progreso en tiempo real.
+            {t('yieldInfo')}
           </Text>
           <Text style={styles.descriptionText}>
-            Los valores en USDT son aproximados y se basan en el precio actual de la Fase {currentPhase} (${currentPriceUsdt.toFixed(2)} USDT por MXI). El precio puede cambiar según la fase de la preventa.
+            {t('conversionInfo')}
           </Text>
           <Text style={[styles.descriptionText, styles.importantNote]}>
-            ⚠️ Importante: Para retirar el vesting debes tener al menos 7 referidos activos (con compras). Solo el MXI comprado directamente o añadido por el administrador con comisión genera vesting del 3% mensual. Las comisiones y premios de torneos NO generan vesting.
+            {t('vestingImportantNoteText')}
           </Text>
         </View>
 
         <View style={[styles.transparentCard, styles.requirementsCard]}>
-          <Text style={styles.requirementsTitle}>📋 Requisitos para Retirar</Text>
+          <Text style={styles.requirementsTitle}>📋 {t('requirementsToWithdraw')}</Text>
           
           <View style={styles.requirementItem}>
             <IconSymbol
@@ -410,7 +410,7 @@ export default function VestingScreen() {
               color={user?.activeReferrals >= 7 ? colors.success : colors.error}
             />
             <Text style={styles.requirementText}>
-              7 Referidos Activos para retiros de vesting ({user?.activeReferrals || 0}/7)
+              {t('activeReferralsVesting7', { count: user?.activeReferrals || 0 })}
             </Text>
           </View>
 
@@ -422,7 +422,7 @@ export default function VestingScreen() {
               color={user?.kycStatus === 'approved' ? colors.success : colors.error}
             />
             <Text style={styles.requirementText}>
-              KYC Aprobado
+              {t('kycApproved')}
             </Text>
           </View>
 
@@ -434,7 +434,7 @@ export default function VestingScreen() {
               color={isLaunched ? colors.success : colors.error}
             />
             <Text style={styles.requirementText}>
-              Lanzamiento de MXI
+              {t('mxiLaunchRequiredForPurchasedAndVesting')}
             </Text>
           </View>
         </View>
@@ -472,8 +472,8 @@ export default function VestingScreen() {
           <Text style={styles.infoIcon}>ℹ️</Text>
           <Text style={styles.infoBoxText}>
             {!hasBalance
-              ? 'Compra MXI para comenzar a generar rendimientos del 3% mensual.'
-              : 'El vesting se genera automáticamente desde tu MXI comprado. Los valores en USDT son aproximados según el precio de la Fase ' + currentPhase + '. Puedes reclamarlo una vez que cumplas los requisitos de retiro.'}
+              ? t('yieldInfo')
+              : t('yieldInfo')}
           </Text>
         </View>
       </ScrollView>

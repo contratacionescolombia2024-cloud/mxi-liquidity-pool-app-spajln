@@ -181,10 +181,10 @@ export function FundraisingProgress() {
 
       console.log('✅ [FundraisingProgress] MXI distribution loaded:', totals);
       console.log('📊 [FundraisingProgress] MXI Breakdown:');
-      console.log(`   • Compras Directas: ${totals.total_mxi_purchased.toFixed(2)} MXI (${totals.users_with_purchased} usuarios)`);
-      console.log(`   • Comisiones: ${totals.total_mxi_commissions.toFixed(2)} MXI (${totals.users_with_commissions} usuarios)`);
-      console.log(`   • Desafíos: ${totals.total_mxi_challenges.toFixed(2)} MXI (${totals.users_with_challenges} usuarios)`);
-      console.log(`   • Vesting: ${totals.total_mxi_vesting.toFixed(2)} MXI (${totals.users_with_vesting} usuarios)`);
+      console.log(`   • ${t('directPurchases')}: ${totals.total_mxi_purchased.toFixed(2)} MXI (${totals.users_with_purchased} ${t('users').toLowerCase()})`);
+      console.log(`   • ${t('commissions')}: ${totals.total_mxi_commissions.toFixed(2)} MXI (${totals.users_with_commissions} ${t('users').toLowerCase()})`);
+      console.log(`   • ${t('challenges')}: ${totals.total_mxi_challenges.toFixed(2)} MXI (${totals.users_with_challenges} ${t('users').toLowerCase()})`);
+      console.log(`   • Vesting: ${totals.total_mxi_vesting.toFixed(2)} MXI (${totals.users_with_vesting} ${t('users').toLowerCase()})`);
       console.log(`   • TOTAL: ${totals.total_mxi_all_sources.toFixed(2)} MXI`);
       
       setMxiDistribution(totals as MXIDistribution);
@@ -303,12 +303,12 @@ export function FundraisingProgress() {
     await loadFundraisingData();
     
     Alert.alert(
-      'Actualizado',
-      `Total recaudado: $${totalRaised.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT\n\n` +
-      `Desglose MXI:\n` +
-      `• Compras: ${mxiDistribution.total_mxi_purchased.toLocaleString('es-ES', { minimumFractionDigits: 2 })} MXI\n` +
-      `• Comisiones: ${mxiDistribution.total_mxi_commissions.toLocaleString('es-ES', { minimumFractionDigits: 2 })} MXI\n` +
-      `• Desafíos: ${mxiDistribution.total_mxi_challenges.toLocaleString('es-ES', { minimumFractionDigits: 2 })} MXI\n` +
+      t('updated'),
+      `${t('totalRaised')}: $${totalRaised.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT\n\n` +
+      `${t('mxiBreakdown')}:\n` +
+      `• ${t('purchases')}: ${mxiDistribution.total_mxi_purchased.toLocaleString('es-ES', { minimumFractionDigits: 2 })} MXI\n` +
+      `• ${t('commissions')}: ${mxiDistribution.total_mxi_commissions.toLocaleString('es-ES', { minimumFractionDigits: 2 })} MXI\n` +
+      `• ${t('challenges')}: ${mxiDistribution.total_mxi_challenges.toLocaleString('es-ES', { minimumFractionDigits: 2 })} MXI\n` +
       `• Vesting: ${mxiDistribution.total_mxi_vesting.toLocaleString('es-ES', { minimumFractionDigits: 2 })} MXI\n` +
       `• Total MXI: ${mxiDistribution.total_mxi_all_sources.toLocaleString('es-ES', { minimumFractionDigits: 2 })} MXI`,
       [{ text: 'OK' }]
@@ -332,7 +332,7 @@ export function FundraisingProgress() {
     return (
       <View style={styles.container}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Cargando datos de recaudación...</Text>
+        <Text style={styles.loadingText}>{t('loadingFundraisingData')}</Text>
       </View>
     );
   }
@@ -350,8 +350,8 @@ export function FundraisingProgress() {
               color="#00ff88" 
             />
             <View style={styles.headerTextContainer}>
-              <Text style={styles.title}>Recaudación Total del Proyecto</Text>
-              <Text style={styles.subtitle}>Progreso de la preventa MXI</Text>
+              <Text style={styles.title}>{t('totalFundraisingProject')}</Text>
+              <Text style={styles.subtitle}>{t('presaleProgress')}</Text>
             </View>
           </View>
           <TouchableOpacity 
@@ -380,7 +380,7 @@ export function FundraisingProgress() {
                   color="#00ff88" 
                 />
                 <View style={styles.dateTextContainer}>
-                  <Text style={styles.dateLabel}>Inicio de Preventa</Text>
+                  <Text style={styles.dateLabel}>{t('presaleStartDate')}</Text>
                   <Text style={styles.dateValue}>
                     {presaleStartDate.toLocaleDateString('es-ES', {
                       year: 'numeric',
@@ -400,7 +400,7 @@ export function FundraisingProgress() {
                   color="#ffdd00" 
                 />
                 <View style={styles.dateTextContainer}>
-                  <Text style={styles.dateLabel}>Finalización de Preventa</Text>
+                  <Text style={styles.dateLabel}>{t('presaleEndDate')}</Text>
                   <Text style={styles.dateValue}>
                     {presaleEndDate.toLocaleDateString('es-ES', {
                       year: 'numeric',
@@ -417,7 +417,7 @@ export function FundraisingProgress() {
         {/* Main Stats */}
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Total Recaudado</Text>
+            <Text style={styles.statLabel}>{t('totalRaised')}</Text>
             <Text style={styles.statValue}>
               ${formatLargeNumber(totalRaised, 2)}
             </Text>
@@ -431,7 +431,7 @@ export function FundraisingProgress() {
           </View>
 
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Meta Total</Text>
+            <Text style={styles.statLabel}>{t('meta')}</Text>
             <Text style={styles.statValue}>
               ${formatLargeNumber(MAX_FUNDRAISING_GOAL, 1)}
             </Text>
@@ -442,7 +442,7 @@ export function FundraisingProgress() {
           </View>
 
           <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Restante</Text>
+            <Text style={styles.statLabel}>{t('remaining')}</Text>
             <Text style={styles.statValue}>
               ${formatLargeNumber(remaining, 2)}
             </Text>
@@ -456,7 +456,7 @@ export function FundraisingProgress() {
         {/* Fundraising Breakdown - UNIFIED */}
         {(debugInfo.userTotal > 0 || debugInfo.adminTotal > 0) && (
           <View style={styles.breakdownSection}>
-            <Text style={styles.breakdownTitle}>📊 Desglose de Recaudación</Text>
+            <Text style={styles.breakdownTitle}>📊 {t('fundraisingBreakdown')}</Text>
             
             <View style={styles.breakdownCard}>
               <View style={styles.breakdownRow}>
@@ -469,9 +469,9 @@ export function FundraisingProgress() {
                   />
                 </View>
                 <View style={styles.breakdownContent}>
-                  <Text style={styles.breakdownLabel}>MXI Comprados</Text>
+                  <Text style={styles.breakdownLabel}>{t('purchasedMXI')}</Text>
                   <Text style={styles.breakdownDescription}>
-                    Total de MXI vendidos (incluye pagos de usuarios y ventas manuales)
+                    {t('totalMXISold')}
                   </Text>
                 </View>
                 <View style={styles.breakdownValue}>
@@ -479,14 +479,14 @@ export function FundraisingProgress() {
                     ${formatNumberWithCommas(totalRaised, 2)}
                   </Text>
                   <Text style={styles.breakdownCount}>
-                    {debugInfo.totalCount} transacción{debugInfo.totalCount !== 1 ? 'es' : ''}
+                    {debugInfo.totalCount} {debugInfo.totalCount !== 1 ? t('transactions') : t('transaction')}
                   </Text>
                 </View>
               </View>
             </View>
 
             <View style={styles.breakdownTotal}>
-              <Text style={styles.breakdownTotalLabel}>Total Recaudado</Text>
+              <Text style={styles.breakdownTotalLabel}>{t('totalRaised')}</Text>
               <Text style={styles.breakdownTotalAmount}>
                 ${formatNumberWithCommas(totalRaised, 2)} USDT
               </Text>
@@ -497,7 +497,7 @@ export function FundraisingProgress() {
         {/* Progress Bar */}
         <View style={styles.progressSection}>
           <View style={styles.progressHeader}>
-            <Text style={styles.progressLabel}>Progreso General</Text>
+            <Text style={styles.progressLabel}>{t('generalProgressLabel')}</Text>
             <Text style={styles.progressPercentage}>
               {progressPercentage.toFixed(2)}%
             </Text>
@@ -541,9 +541,9 @@ export function FundraisingProgress() {
               color="#00ff88" 
             />
             <View style={styles.mxiBreakdownHeaderText}>
-              <Text style={styles.mxiBreakdownTitle}>Desglose de MXI Entregado</Text>
+              <Text style={styles.mxiBreakdownTitle}>{t('mxiDistributionBreakdown')}</Text>
               <Text style={styles.mxiBreakdownSubtitle}>
-                Total: {formatNumberWithCommas(mxiDistribution.total_mxi_all_sources, 2)} MXI
+                {t('total')}: {formatNumberWithCommas(mxiDistribution.total_mxi_all_sources, 2)} MXI
               </Text>
             </View>
             <IconSymbol 
@@ -566,17 +566,17 @@ export function FundraisingProgress() {
                   size={20} 
                   color="#00ff88" 
                 />
-                <Text style={styles.mxiBreakdownCardTitle}>MXI por Compras Directas</Text>
+                <Text style={styles.mxiBreakdownCardTitle}>{t('directPurchases')}</Text>
               </View>
               <Text style={styles.mxiBreakdownCardValue}>
                 {formatNumberWithCommas(mxiDistribution.total_mxi_purchased, 2)} MXI
               </Text>
               <Text style={styles.mxiBreakdownCardDescription}>
-                MXI adquirido mediante pagos en USDT. Los usuarios reciben MXI según el precio de la fase actual.
+                {t('mxiAcquiredViaUSDT')}
               </Text>
               <View style={styles.mxiBreakdownCardStats}>
                 <Text style={styles.mxiBreakdownCardStat}>
-                  📊 {mxiDistribution.total_mxi_all_sources > 0 ? ((mxiDistribution.total_mxi_purchased / mxiDistribution.total_mxi_all_sources) * 100).toFixed(1) : '0.0'}% del total
+                  📊 {mxiDistribution.total_mxi_all_sources > 0 ? ((mxiDistribution.total_mxi_purchased / mxiDistribution.total_mxi_all_sources) * 100).toFixed(1) : '0.0'}% {t('ofTotal')}
                 </Text>
               </View>
             </View>
@@ -590,17 +590,17 @@ export function FundraisingProgress() {
                   size={20} 
                   color="#ffdd00" 
                 />
-                <Text style={styles.mxiBreakdownCardTitle}>MXI por Comisiones de Referidos</Text>
+                <Text style={styles.mxiBreakdownCardTitle}>{t('referralCommissions')}</Text>
               </View>
               <Text style={styles.mxiBreakdownCardValue}>
                 {formatNumberWithCommas(mxiDistribution.total_mxi_commissions, 2)} MXI
               </Text>
               <Text style={styles.mxiBreakdownCardDescription}>
-                MXI generado por el sistema de referidos (3% nivel 1, 2% nivel 2, 1% nivel 3). Se calcula automáticamente cuando los referidos realizan compras.
+                {t('mxiGeneratedByReferrals')}
               </Text>
               <View style={styles.mxiBreakdownCardStats}>
                 <Text style={styles.mxiBreakdownCardStat}>
-                  📊 {mxiDistribution.total_mxi_all_sources > 0 ? ((mxiDistribution.total_mxi_commissions / mxiDistribution.total_mxi_all_sources) * 100).toFixed(1) : '0.0'}% del total
+                  📊 {mxiDistribution.total_mxi_all_sources > 0 ? ((mxiDistribution.total_mxi_commissions / mxiDistribution.total_mxi_all_sources) * 100).toFixed(1) : '0.0'}% {t('ofTotal')}
                 </Text>
               </View>
             </View>
@@ -614,17 +614,17 @@ export function FundraisingProgress() {
                   size={20} 
                   color="#ff6b6b" 
                 />
-                <Text style={styles.mxiBreakdownCardTitle}>MXI por Desafíos y Torneos</Text>
+                <Text style={styles.mxiBreakdownCardTitle}>{t('challengesAndTournaments')}</Text>
               </View>
               <Text style={styles.mxiBreakdownCardValue}>
                 {formatNumberWithCommas(mxiDistribution.total_mxi_challenges, 2)} MXI
               </Text>
               <Text style={styles.mxiBreakdownCardDescription}>
-                MXI ganado en torneos y desafíos. Requiere 5 referidos activos para poder retirar.
+                {t('mxiWonInTournamentsDesc')}
               </Text>
               <View style={styles.mxiBreakdownCardStats}>
                 <Text style={styles.mxiBreakdownCardStat}>
-                  📊 {mxiDistribution.total_mxi_all_sources > 0 ? ((mxiDistribution.total_mxi_challenges / mxiDistribution.total_mxi_all_sources) * 100).toFixed(1) : '0.0'}% del total
+                  📊 {mxiDistribution.total_mxi_all_sources > 0 ? ((mxiDistribution.total_mxi_challenges / mxiDistribution.total_mxi_all_sources) * 100).toFixed(1) : '0.0'}% {t('ofTotal')}
                 </Text>
               </View>
             </View>
@@ -638,17 +638,17 @@ export function FundraisingProgress() {
                   size={20} 
                   color="#9b59b6" 
                 />
-                <Text style={styles.mxiBreakdownCardTitle}>MXI por Vesting (Bloqueado)</Text>
+                <Text style={styles.mxiBreakdownCardTitle}>{t('vestingLocked')}</Text>
               </View>
               <Text style={styles.mxiBreakdownCardValue}>
                 {formatNumberWithCommas(mxiDistribution.total_mxi_vesting, 2)} MXI
               </Text>
               <Text style={styles.mxiBreakdownCardDescription}>
-                MXI generado por el sistema de vesting/yield. Bloqueado hasta la fecha de lanzamiento oficial de MXI.
+                {t('mxiGeneratedByVestingSystem')}
               </Text>
               <View style={styles.mxiBreakdownCardStats}>
                 <Text style={styles.mxiBreakdownCardStat}>
-                  📊 {mxiDistribution.total_mxi_all_sources > 0 ? ((mxiDistribution.total_mxi_vesting / mxiDistribution.total_mxi_all_sources) * 100).toFixed(1) : '0.0'}% del total
+                  📊 {mxiDistribution.total_mxi_all_sources > 0 ? ((mxiDistribution.total_mxi_vesting / mxiDistribution.total_mxi_all_sources) * 100).toFixed(1) : '0.0'}% {t('ofTotal')}
                 </Text>
               </View>
             </View>
@@ -663,7 +663,7 @@ export function FundraisingProgress() {
               />
               <View style={styles.mxiExplanationText}>
                 <Text style={styles.mxiExplanationDescription}>
-                  Las comisiones, premios y vesting se generan como incentivos adicionales del ecosistema MXI.
+                  {t('commissionsAndPrizesGenerated')}
                 </Text>
               </View>
             </View>
@@ -679,28 +679,26 @@ export function FundraisingProgress() {
             color="#00ff88" 
           />
           <Text style={styles.infoText}>
-            Esta métrica muestra el progreso total de la recaudación del proyecto MXI. 
-            Incluye todas las compras de MXI confirmadas. 
-            El objetivo máximo es de 17,500,000 USDT para el desarrollo completo del ecosistema (3 fases de preventa).
+            {t('thisMetricShowsProgress')}
           </Text>
         </View>
 
         {/* Last Update */}
         <View style={styles.lastUpdateContainer}>
           <Text style={styles.lastUpdateText}>
-            Última actualización: {lastUpdate.toLocaleTimeString('es-ES')} (Refresh #{refreshCount})
+            {t('lastUpdate', { time: lastUpdate.toLocaleTimeString('es-ES'), count: refreshCount })}
           </Text>
         </View>
 
         {/* Milestones - Updated for 3 phases */}
         <View style={styles.milestonesSection}>
-          <Text style={styles.milestonesTitle}>Hitos de Recaudación</Text>
+          <Text style={styles.milestonesTitle}>{t('fundraisingMilestones')}</Text>
           
           <View style={styles.milestonesList}>
             {[
-              { amount: 3333333, label: 'Fase 1 - 3.33M USDT (0.40 USDT/MXI)', reached: totalRaised >= 3333333 },
-              { amount: 9166666, label: 'Fase 2 - 9.17M USDT (0.70 USDT/MXI)', reached: totalRaised >= 9166666 },
-              { amount: 17500000, label: 'Fase 3 - 17.5M USDT (1.00 USDT/MXI)', reached: totalRaised >= 17500000 },
+              { amount: 3333333, label: t('phase1Milestone'), reached: totalRaised >= 3333333 },
+              { amount: 9166666, label: t('phase2Milestone'), reached: totalRaised >= 9166666 },
+              { amount: 17500000, label: t('phase3Milestone'), reached: totalRaised >= 17500000 },
             ].map((milestone, index) => (
               <View key={index} style={styles.milestoneItem}>
                 <View style={[

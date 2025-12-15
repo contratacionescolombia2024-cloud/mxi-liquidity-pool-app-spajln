@@ -111,7 +111,7 @@ export default function RetirosScreen() {
       case 'commissions':
         return t('mxiFromReferralCommissions');
       case 'vesting':
-        return t('mxiGeneratedByYield');
+        return t('mxiGeneratedByYield') + ' (3% ' + t('monthlyYield').toLowerCase() + ')';
       case 'tournaments':
         return t('mxiWonInTournamentsAndChallenges');
       default:
@@ -187,7 +187,7 @@ export default function RetirosScreen() {
       if (selectedType === 'vesting' && user.activeReferrals < 7) {
         showAlert(
           'Error',
-          `Los retiros de vesting requieren 7 referidos activos. Actualmente tienes ${user.activeReferrals}.`,
+          t('vestingRequires7Referrals', { count: user.activeReferrals }),
           undefined,
           'error'
         );
@@ -209,7 +209,7 @@ export default function RetirosScreen() {
     const usdtAmount = mxiAmount * MXI_TO_USDT_RATE;
 
     showConfirm({
-      title: '⚠️ Confirmar Retiro',
+      title: '⚠️ ' + t('confirmWithdrawal'),
       message: t('confirmWithdrawalMessage', {
         mxi: mxiAmount.toFixed(2),
         label: getTypeLabel(selectedType),
@@ -263,7 +263,7 @@ export default function RetirosScreen() {
           if (updateError) throw updateError;
 
           showAlert(
-            '✅ Solicitud Enviada',
+            '✅ ' + t('requestSent'),
             t('withdrawalRequestSent', {
               mxi: mxiAmount.toFixed(2),
               label: getTypeLabel(selectedType),
@@ -436,7 +436,7 @@ export default function RetirosScreen() {
                     {t('withdrawMXIVesting')}
                   </Text>
                   <Text style={styles.typeDescription}>
-                    {t('mxiGeneratedByYield')} (3% mensual)
+                    {t('mxiGeneratedByYield')} (3% {t('monthlyYield').toLowerCase()})
                   </Text>
                 </View>
               </View>
@@ -451,7 +451,7 @@ export default function RetirosScreen() {
                   <Text style={styles.typeStatus}>{t('lockedUntilLaunch')}</Text>
                 ) : user.activeReferrals < 7 ? (
                   <Text style={styles.typeStatus}>
-                    7 Referidos Activos requeridos ({user.activeReferrals}/7)
+                    {t('activeReferrals7Required', { count: user.activeReferrals })}
                   </Text>
                 ) : (
                   <Text style={[styles.typeStatus, { color: colors.success }]}>
@@ -509,7 +509,7 @@ export default function RetirosScreen() {
           {isTypeAvailable(selectedType) && (
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>{t('withdrawalDetails')}</Text>
-              <Text style={styles.sectionSubtitle}>Los retiros se procesarán en USDT por la red TRC20 (Tron)</Text>
+              <Text style={styles.sectionSubtitle}>{t('networkTRC20')}</Text>
 
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>{t('amountMXI')}</Text>
@@ -542,10 +542,10 @@ export default function RetirosScreen() {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Dirección de Billetera USDT (TRC20)</Text>
+                <Text style={styles.inputLabel}>{t('walletAddressTRC20')}</Text>
                 <TextInput
                   style={[styles.input, styles.addressInput]}
-                  placeholder="Ingresa tu dirección de billetera USDT TRC20 (Tron)"
+                  placeholder={t('enterTRC20WalletAddress')}
                   placeholderTextColor={colors.textSecondary}
                   value={walletAddress}
                   onChangeText={setWalletAddress}
@@ -590,7 +590,7 @@ export default function RetirosScreen() {
                 color={user.activeReferrals >= 5 ? colors.success : colors.error}
               />
               <Text style={styles.requirementText}>
-                5 Referidos Activos para retiros generales ({user.activeReferrals}/5)
+                {t('activeReferralsGeneral5', { count: user.activeReferrals })}
               </Text>
             </View>
 
@@ -602,7 +602,7 @@ export default function RetirosScreen() {
                 color={user.activeReferrals >= 7 ? colors.success : colors.error}
               />
               <Text style={styles.requirementText}>
-                7 Referidos Activos para retiros de vesting ({user.activeReferrals}/7)
+                {t('activeReferralsVesting7', { count: user.activeReferrals })}
               </Text>
             </View>
 
@@ -623,7 +623,7 @@ export default function RetirosScreen() {
             <Text style={styles.infoTitle}>{t('importantInformation')}</Text>
             
             <View style={styles.infoItem}>
-              <Text style={styles.infoText}>• Los retiros se procesarán en USDT por la red TRC20 (Tron)</Text>
+              <Text style={styles.infoText}>• {t('networkTRC20')}</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoText}>• {t('conversionInfo')}</Text>
@@ -635,10 +635,7 @@ export default function RetirosScreen() {
               <Text style={styles.infoText}>• {t('mxiTournamentsAvailableSameAsCommissions')}</Text>
             </View>
             <View style={styles.infoItem}>
-              <Text style={styles.infoText}>• El vesting MXI requiere 7 referidos activos y el lanzamiento de MXI</Text>
-            </View>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoText}>• El vesting genera un 3% mensual solo sobre MXI comprado directamente</Text>
+              <Text style={styles.infoText}>• {t('vestingGenerates3Percent')}</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoText}>• {t('mxiPurchasedLockedUntilLaunch')}</Text>
@@ -650,7 +647,7 @@ export default function RetirosScreen() {
               <Text style={styles.infoText}>• {t('processingTimeInfo')}</Text>
             </View>
             <View style={styles.infoItem}>
-              <Text style={styles.infoText}>• Verifica que tu dirección de billetera sea correcta y compatible con la red TRC20 (Tron)</Text>
+              <Text style={styles.infoText}>• {t('verifyWalletAddressCarefully')}</Text>
             </View>
           </View>
 

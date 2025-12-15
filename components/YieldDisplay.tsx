@@ -121,7 +121,7 @@ export function YieldDisplay() {
           color="#fff" 
         />
         <Text style={styles.viewDetailsButtonText}>
-          Rendimiento
+          {t('vestingAndYield')}
         </Text>
       </TouchableOpacity>
 
@@ -143,7 +143,7 @@ export function YieldDisplay() {
               color={user.activeReferrals >= 7 ? colors.success : colors.error} 
             />
             <Text style={styles.requirementText}>
-              7 Referidos Activos para retiros de vesting ({user.activeReferrals || 0}/7)
+              {t('activeReferralsVesting7', { count: user.activeReferrals || 0 })}
             </Text>
           </View>
           <View style={styles.requirementItem}>

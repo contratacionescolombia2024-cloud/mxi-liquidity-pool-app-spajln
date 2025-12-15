@@ -321,6 +321,27 @@ const getShortName = (fullName: string): string => {
   return `${nameParts[0]} ${nameParts[nameParts.length - 1]}`;
 };
 
+// Helper function to format date based on language
+const formatDate = (dateString: string, language: string): string => {
+  const date = new Date(dateString);
+  
+  const localeMap: { [key: string]: string } = {
+    en: 'en-US',
+    es: 'es-ES',
+    pt: 'pt-BR',
+  };
+  
+  const locale = localeMap[language] || 'es-ES';
+  
+  return date.toLocaleDateString(locale, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
 export default function HomeScreen() {
   const { user, loading, checkWithdrawalEligibility, getPhaseInfo } = useAuth();
   const { t, language } = useLanguage();
@@ -596,10 +617,10 @@ export default function HomeScreen() {
                 </View>
                 <View style={styles.phaseStats}>
                   <Text style={styles.phaseValue}>
-                    {t('sold')}: {(phaseInfo.phase1.sold || 0).toLocaleString('es-ES', { maximumFractionDigits: 2 })}
+                    {t('sold')}: {(phaseInfo.phase1.sold || 0).toLocaleString(language === 'en' ? 'en-US' : language === 'pt' ? 'pt-BR' : 'es-ES', { maximumFractionDigits: 2 })}
                   </Text>
                   <Text style={styles.phaseValue}>
-                    {t('remaining')}: {(phaseInfo.phase1.remaining || 8333333).toLocaleString('es-ES', { maximumFractionDigits: 0 })}
+                    {t('remaining')}: {(phaseInfo.phase1.remaining || 8333333).toLocaleString(language === 'en' ? 'en-US' : language === 'pt' ? 'pt-BR' : 'es-ES', { maximumFractionDigits: 0 })}
                   </Text>
                 </View>
               </View>
@@ -622,10 +643,10 @@ export default function HomeScreen() {
                 </View>
                 <View style={styles.phaseStats}>
                   <Text style={styles.phaseValue}>
-                    {t('sold')}: {(phaseInfo.phase2.sold || 0).toLocaleString('es-ES', { maximumFractionDigits: 2 })}
+                    {t('sold')}: {(phaseInfo.phase2.sold || 0).toLocaleString(language === 'en' ? 'en-US' : language === 'pt' ? 'pt-BR' : 'es-ES', { maximumFractionDigits: 2 })}
                   </Text>
                   <Text style={styles.phaseValue}>
-                    {t('remaining')}: {(phaseInfo.phase2.remaining || 8333333).toLocaleString('es-ES', { maximumFractionDigits: 0 })}
+                    {t('remaining')}: {(phaseInfo.phase2.remaining || 8333333).toLocaleString(language === 'en' ? 'en-US' : language === 'pt' ? 'pt-BR' : 'es-ES', { maximumFractionDigits: 0 })}
                   </Text>
                 </View>
               </View>
@@ -648,10 +669,10 @@ export default function HomeScreen() {
                 </View>
                 <View style={styles.phaseStats}>
                   <Text style={styles.phaseValue}>
-                    {t('sold')}: {(phaseInfo.phase3.sold || 0).toLocaleString('es-ES', { maximumFractionDigits: 2 })}
+                    {t('sold')}: {(phaseInfo.phase3.sold || 0).toLocaleString(language === 'en' ? 'en-US' : language === 'pt' ? 'pt-BR' : 'es-ES', { maximumFractionDigits: 2 })}
                   </Text>
                   <Text style={styles.phaseValue}>
-                    {t('remaining')}: {(phaseInfo.phase3.remaining || 8333334).toLocaleString('es-ES', { maximumFractionDigits: 0 })}
+                    {t('remaining')}: {(phaseInfo.phase3.remaining || 8333334).toLocaleString(language === 'en' ? 'en-US' : language === 'pt' ? 'pt-BR' : 'es-ES', { maximumFractionDigits: 0 })}
                   </Text>
                 </View>
               </View>
@@ -676,7 +697,7 @@ export default function HomeScreen() {
               </View>
               <View style={styles.progressStats}>
                 <Text style={styles.progressText}>
-                  {(phaseInfo.totalSold || 0).toLocaleString('es-ES', { maximumFractionDigits: 2 })} MXI
+                  {(phaseInfo.totalSold || 0).toLocaleString(language === 'en' ? 'en-US' : language === 'pt' ? 'pt-BR' : 'es-ES', { maximumFractionDigits: 2 })} MXI
                 </Text>
                 <Text style={styles.progressSubtext}>
                   {t('of')} 25,000,000 MXI
@@ -698,7 +719,7 @@ export default function HomeScreen() {
                 </Text>
               </View>
               <Text style={styles.totalMxiDeliveredValue}>
-                {totalMxiDelivered.toLocaleString('es-ES', {
+                {totalMxiDelivered.toLocaleString(language === 'en' ? 'en-US' : language === 'pt' ? 'pt-BR' : 'es-ES', {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
@@ -716,13 +737,7 @@ export default function HomeScreen() {
                 color={colors.textSecondary} 
               />
               <Text style={styles.poolCloseText}>
-                {t('poolClose')}: {new Date(phaseInfo.poolCloseDate || '2026-02-15T12:00:00Z').toLocaleDateString('es-ES', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+                {t('poolClose')}: {formatDate(phaseInfo.poolCloseDate || '2026-02-15T12:00:00Z', language)}
               </Text>
             </View>
           </View>
@@ -740,9 +755,9 @@ export default function HomeScreen() {
             <View style={styles.ambassadorButtonLeft}>
               <Text style={styles.ambassadorButtonEmoji}>🏆</Text>
               <View>
-                <Text style={styles.ambassadorButtonTitle}>Embajadores MXI</Text>
+                <Text style={styles.ambassadorButtonTitle}>{t('ambassadorButtonTitle')}</Text>
                 <Text style={styles.ambassadorButtonSubtitle}>
-                  Gana bonos por tus referidos
+                  {t('ambassadorButtonSubtitle')}
                 </Text>
               </View>
             </View>
