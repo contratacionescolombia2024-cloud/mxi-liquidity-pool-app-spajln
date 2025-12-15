@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import type { SupabaseClient as SupabaseClientType } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { APP_VERSION } from '@/constants/AppVersion';
 
 // Supabase configuration
@@ -34,7 +34,7 @@ const storage = {
 };
 
 // Create the Supabase client immediately for web
-export const supabase: SupabaseClientType = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: storage,
     autoRefreshToken: true,
