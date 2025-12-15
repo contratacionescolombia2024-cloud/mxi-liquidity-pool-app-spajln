@@ -1,5 +1,6 @@
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { APP_VERSION } from '@/constants/AppVersion';
 
 // Supabase configuration
