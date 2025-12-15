@@ -1,3 +1,4 @@
+
 {
   "expo": {
     "name": "MXI Liquidity Pool",
@@ -18,7 +19,10 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSMicrophoneUsageDescription": "This app needs access to your microphone to play the AirBall game where you blow to keep the ball in the air."
-      }
+      },
+      "associatedDomains": [
+        "applinks:aeyfnjuatbtcauiumbhn.supabase.co"
+      ]
     },
     "android": {
       "adaptiveIcon": {
@@ -39,8 +43,17 @@
               "pathPrefix": "/email-confirmed"
             },
             {
+              "scheme": "https",
+              "host": "aeyfnjuatbtcauiumbhn.supabase.co",
+              "pathPrefix": "/auth/v1/verify"
+            },
+            {
               "scheme": "mxiliquiditypool",
               "host": "reset-password"
+            },
+            {
+              "scheme": "mxiliquiditypool",
+              "host": "password-reset"
             }
           ],
           "category": [

@@ -193,7 +193,8 @@ export default function LoginScreen() {
       console.log('Timestamp:', new Date().toISOString());
       
       // Use the app's deep link URL for password reset
-      const redirectUrl = 'mxiliquiditypool://reset-password';
+      // This will open the app directly when clicked from email
+      const redirectUrl = 'mxiliquiditypool://password-reset';
       
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
         redirectTo: redirectUrl,

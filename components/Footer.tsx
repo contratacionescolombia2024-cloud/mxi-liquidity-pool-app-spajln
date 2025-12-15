@@ -35,7 +35,7 @@ export default function Footer() {
     },
     {
       id: 'telegram',
-      url: 'https://t.me/mxistrategic_latam',
+      url: 'https://t.me/mxistrategic',
       icon: 'paperplane.fill',
       androidIcon: 'send',
       label: 'Telegram',
