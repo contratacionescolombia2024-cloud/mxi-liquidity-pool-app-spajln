@@ -42,6 +42,8 @@ export default function AdminMessagesScreen() {
     try {
       setLoading(true);
 
+      // Only fetch from messages table (user support messages)
+      // System notifications are in system_notifications table
       let query = supabase
         .from('messages')
         .select(`
@@ -100,7 +102,7 @@ export default function AdminMessagesScreen() {
         </TouchableOpacity>
         <View style={styles.headerText}>
           <Text style={styles.title}>User Messages</Text>
-          <Text style={styles.subtitle}>{messages.length} message(s)</Text>
+          <Text style={styles.subtitle}>Support messages from users • {messages.length} message(s)</Text>
         </View>
       </View>
 
@@ -130,7 +132,10 @@ export default function AdminMessagesScreen() {
       ) : messages.length === 0 ? (
         <View style={styles.emptyContainer}>
           <IconSymbol name="envelope.open" size={64} color={colors.textSecondary} />
-          <Text style={styles.emptyText}>No messages to display</Text>
+          <Text style={styles.emptyText}>No user support messages</Text>
+          <Text style={styles.emptySubtext}>
+            System notifications are in the System Notifications section
+          </Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -225,7 +230,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   filterTextActive: {
-    color: '#fff',
+    color: '#000',
   },
   loadingContainer: {
     flex: 1,
@@ -237,10 +242,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 16,
+    paddingHorizontal: 40,
   },
   emptyText: {
     fontSize: 16,
     color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   scrollContent: {
     padding: 24,

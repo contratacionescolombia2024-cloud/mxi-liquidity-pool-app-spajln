@@ -43,6 +43,8 @@ export default function SystemNotificationsScreen() {
     try {
       setLoading(true);
 
+      // Only fetch from system_notifications table (automated system messages)
+      // User support messages are in messages table
       let query = supabase
         .from('system_notifications')
         .select(`
@@ -134,7 +136,7 @@ export default function SystemNotificationsScreen() {
         </TouchableOpacity>
         <View style={styles.headerText}>
           <Text style={styles.title}>System Notifications</Text>
-          <Text style={styles.subtitle}>Automated system messages</Text>
+          <Text style={styles.subtitle}>Automated system messages (payments, balances, etc.)</Text>
         </View>
       </View>
 
@@ -181,6 +183,9 @@ export default function SystemNotificationsScreen() {
         <View style={styles.emptyContainer}>
           <IconSymbol name="bell.slash" size={64} color={colors.textSecondary} />
           <Text style={styles.emptyText}>No system notifications</Text>
+          <Text style={styles.emptySubtext}>
+            User support messages are in the User Messages section
+          </Text>
         </View>
       ) : (
         <ScrollView
@@ -304,10 +309,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 16,
+    paddingHorizontal: 40,
   },
   emptyText: {
     fontSize: 16,
     color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   scrollContent: {
     padding: 24,

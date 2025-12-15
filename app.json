@@ -1,7 +1,8 @@
+
 {
   "expo": {
-    "name": "MXI Liquidity Pool",
-    "slug": "MXI Liquidity Pool",
+    "name": "MXI Strategic",
+    "slug": "MXI Strategic",
     "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/04a4d9ac-4539-41d2-bafd-67dd75925bde.png",
@@ -14,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.maxcoinpool.app",
+      "bundleIdentifier": "com.mxistrategic.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSMicrophoneUsageDescription": "This app needs access to your microphone to play the AirBall game where you blow to keep the ball in the air."
@@ -29,8 +30,8 @@
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.mxistrategicholdings.mxistrategicpresaleone",
-      "versionCode": 1,
+      "package": "com.mxistrategic.app",
+      "versionCode": 2,
       "intentFilters": [
         {
           "action": "VIEW",
@@ -47,11 +48,11 @@
               "pathPrefix": "/auth/v1/verify"
             },
             {
-              "scheme": "mxiliquiditypool",
+              "scheme": "mxistrategic",
               "host": "reset-password"
             },
             {
-              "scheme": "mxiliquiditypool",
+              "scheme": "mxistrategic",
               "host": "password-reset"
             }
           ],
@@ -91,11 +92,11 @@
       [
         "expo-av",
         {
-          "microphonePermission": "Allow MXI Strategic-presale to access your microphone for the AirBall game."
+          "microphonePermission": "Allow MXI Strategic to access your microphone for the AirBall game."
         }
       ]
     ],
-    "scheme": "mxiliquiditypool",
+    "scheme": "mxistrategic",
     "experiments": {
       "typedRoutes": true
     },
@@ -107,5 +108,5 @@
       "**/*"
     ]
   },
-  "scheme": "MXI Liquidity Pool"
+  "scheme": "MXI Strategic"
 }
