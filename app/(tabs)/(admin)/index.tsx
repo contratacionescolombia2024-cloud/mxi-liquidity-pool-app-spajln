@@ -849,6 +849,16 @@ export default function AdminDashboard() {
 
             <TouchableOpacity
               style={styles.actionButton}
+              onPress={() => router.push('/(tabs)/(admin)/system-notifications')}
+            >
+              <View style={[styles.actionIcon, { backgroundColor: colors.primary + '20' }]}>
+                <IconSymbol ios_icon_name="bell.badge.fill" android_material_icon_name="notifications_active" size={24} color={colors.primary} />
+              </View>
+              <Text style={styles.actionLabel}>Notificaciones Sistema</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionButton}
               onPress={() => router.push('/(tabs)/(admin)/user-management')}
             >
               <View style={[styles.actionIcon, { backgroundColor: colors.primary + '20' }]}>

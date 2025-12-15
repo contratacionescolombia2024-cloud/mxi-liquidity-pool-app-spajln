@@ -255,6 +255,34 @@ export default function AdminSettingsScreen() {
       'withdrawal_release_percentage',
       'withdrawal_release_days',
       'min_active_referrals',
+      'commission_level_1_percentage',
+      'commission_level_2_percentage',
+      'commission_level_3_percentage',
+      'phase_1_price',
+      'phase_2_price',
+      'phase_3_price',
+      'phase_1_allocation',
+      'phase_2_allocation',
+      'phase_3_allocation',
+      'total_presale_allocation',
+      'vesting_monthly_percentage',
+      'ambassador_level_1_threshold',
+      'ambassador_level_1_bonus',
+      'ambassador_level_2_threshold',
+      'ambassador_level_2_bonus',
+      'ambassador_level_3_threshold',
+      'ambassador_level_3_bonus',
+      'ambassador_level_4_threshold',
+      'ambassador_level_4_bonus',
+      'ambassador_level_5_threshold',
+      'ambassador_level_5_bonus',
+      'ambassador_level_6_threshold',
+      'ambassador_level_6_bonus',
+      'pool_member_count_start',
+      'pool_member_count_max',
+      'tournament_entry_fee',
+      'tournament_winner_percentage',
+      'tournament_admin_percentage',
     ].includes(key);
   };
 
@@ -410,6 +438,265 @@ export default function AdminSettingsScreen() {
 
           {settings
             .filter(s => ['withdrawal_release_percentage', 'withdrawal_release_days', 'min_active_referrals'].includes(s.setting_key))
+            .map((setting) => (
+              <TouchableOpacity
+                key={setting.id}
+                style={[commonStyles.card, styles.settingCard]}
+                onPress={() => isEditableSetting(setting.setting_key) && handleEditSetting(setting)}
+                disabled={!isEditableSetting(setting.setting_key)}
+              >
+                <View style={styles.settingContent}>
+                  <View style={[styles.iconContainer, { backgroundColor: getSettingColor(setting.setting_key) + '20' }]}>
+                    <IconSymbol
+                      name={getSettingIcon(setting.setting_key)}
+                      size={24}
+                      color={getSettingColor(setting.setting_key)}
+                    />
+                  </View>
+                  <View style={styles.settingInfo}>
+                    <Text style={styles.settingLabel}>{setting.description}</Text>
+                    <Text style={styles.settingValue}>{getSettingDisplayValue(setting)}</Text>
+                    <Text style={styles.settingKey}>{setting.setting_key}</Text>
+                  </View>
+                  {isEditableSetting(setting.setting_key) && (
+                    <IconSymbol name="pencil.circle.fill" size={24} color={colors.primary} />
+                  )}
+                </View>
+              </TouchableOpacity>
+            ))}
+        </View>
+
+        {/* Commission Settings */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Commission Percentages</Text>
+          <Text style={styles.sectionDescription}>
+            Referral commission rates for each level
+          </Text>
+
+          {settings
+            .filter(s => ['commission_level_1_percentage', 'commission_level_2_percentage', 'commission_level_3_percentage'].includes(s.setting_key))
+            .map((setting) => (
+              <TouchableOpacity
+                key={setting.id}
+                style={[commonStyles.card, styles.settingCard]}
+                onPress={() => isEditableSetting(setting.setting_key) && handleEditSetting(setting)}
+                disabled={!isEditableSetting(setting.setting_key)}
+              >
+                <View style={styles.settingContent}>
+                  <View style={[styles.iconContainer, { backgroundColor: getSettingColor(setting.setting_key) + '20' }]}>
+                    <IconSymbol
+                      name={getSettingIcon(setting.setting_key)}
+                      size={24}
+                      color={getSettingColor(setting.setting_key)}
+                    />
+                  </View>
+                  <View style={styles.settingInfo}>
+                    <Text style={styles.settingLabel}>{setting.description}</Text>
+                    <Text style={styles.settingValue}>{getSettingDisplayValue(setting)}</Text>
+                    <Text style={styles.settingKey}>{setting.setting_key}</Text>
+                  </View>
+                  {isEditableSetting(setting.setting_key) && (
+                    <IconSymbol name="pencil.circle.fill" size={24} color={colors.primary} />
+                  )}
+                </View>
+              </TouchableOpacity>
+            ))}
+        </View>
+
+        {/* Phase Prices */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Phase Prices</Text>
+          <Text style={styles.sectionDescription}>
+            MXI token price for each presale phase
+          </Text>
+
+          {settings
+            .filter(s => ['phase_1_price', 'phase_2_price', 'phase_3_price'].includes(s.setting_key))
+            .map((setting) => (
+              <TouchableOpacity
+                key={setting.id}
+                style={[commonStyles.card, styles.settingCard]}
+                onPress={() => isEditableSetting(setting.setting_key) && handleEditSetting(setting)}
+                disabled={!isEditableSetting(setting.setting_key)}
+              >
+                <View style={styles.settingContent}>
+                  <View style={[styles.iconContainer, { backgroundColor: getSettingColor(setting.setting_key) + '20' }]}>
+                    <IconSymbol
+                      name={getSettingIcon(setting.setting_key)}
+                      size={24}
+                      color={getSettingColor(setting.setting_key)}
+                    />
+                  </View>
+                  <View style={styles.settingInfo}>
+                    <Text style={styles.settingLabel}>{setting.description}</Text>
+                    <Text style={styles.settingValue}>{getSettingDisplayValue(setting)}</Text>
+                    <Text style={styles.settingKey}>{setting.setting_key}</Text>
+                  </View>
+                  {isEditableSetting(setting.setting_key) && (
+                    <IconSymbol name="pencil.circle.fill" size={24} color={colors.primary} />
+                  )}
+                </View>
+              </TouchableOpacity>
+            ))}
+        </View>
+
+        {/* Phase Allocations */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Phase Allocations</Text>
+          <Text style={styles.sectionDescription}>
+            Token allocation for each presale phase
+          </Text>
+
+          {settings
+            .filter(s => ['phase_1_allocation', 'phase_2_allocation', 'phase_3_allocation', 'total_presale_allocation'].includes(s.setting_key))
+            .map((setting) => (
+              <TouchableOpacity
+                key={setting.id}
+                style={[commonStyles.card, styles.settingCard]}
+                onPress={() => isEditableSetting(setting.setting_key) && handleEditSetting(setting)}
+                disabled={!isEditableSetting(setting.setting_key)}
+              >
+                <View style={styles.settingContent}>
+                  <View style={[styles.iconContainer, { backgroundColor: getSettingColor(setting.setting_key) + '20' }]}>
+                    <IconSymbol
+                      name={getSettingIcon(setting.setting_key)}
+                      size={24}
+                      color={getSettingColor(setting.setting_key)}
+                    />
+                  </View>
+                  <View style={styles.settingInfo}>
+                    <Text style={styles.settingLabel}>{setting.description}</Text>
+                    <Text style={styles.settingValue}>{getSettingDisplayValue(setting)}</Text>
+                    <Text style={styles.settingKey}>{setting.setting_key}</Text>
+                  </View>
+                  {isEditableSetting(setting.setting_key) && (
+                    <IconSymbol name="pencil.circle.fill" size={24} color={colors.primary} />
+                  )}
+                </View>
+              </TouchableOpacity>
+            ))}
+        </View>
+
+        {/* Vesting Settings */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Vesting Configuration</Text>
+          <Text style={styles.sectionDescription}>
+            Vesting percentage and calculation frequency
+          </Text>
+
+          {settings
+            .filter(s => ['vesting_monthly_percentage', 'vesting_calculation_frequency'].includes(s.setting_key))
+            .map((setting) => (
+              <TouchableOpacity
+                key={setting.id}
+                style={[commonStyles.card, styles.settingCard]}
+                onPress={() => isEditableSetting(setting.setting_key) && handleEditSetting(setting)}
+                disabled={!isEditableSetting(setting.setting_key)}
+              >
+                <View style={styles.settingContent}>
+                  <View style={[styles.iconContainer, { backgroundColor: getSettingColor(setting.setting_key) + '20' }]}>
+                    <IconSymbol
+                      name={getSettingIcon(setting.setting_key)}
+                      size={24}
+                      color={getSettingColor(setting.setting_key)}
+                    />
+                  </View>
+                  <View style={styles.settingInfo}>
+                    <Text style={styles.settingLabel}>{setting.description}</Text>
+                    <Text style={styles.settingValue}>{getSettingDisplayValue(setting)}</Text>
+                    <Text style={styles.settingKey}>{setting.setting_key}</Text>
+                  </View>
+                  {isEditableSetting(setting.setting_key) && (
+                    <IconSymbol name="pencil.circle.fill" size={24} color={colors.primary} />
+                  )}
+                </View>
+              </TouchableOpacity>
+            ))}
+        </View>
+
+        {/* Ambassador Program */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Ambassador Program</Text>
+          <Text style={styles.sectionDescription}>
+            Thresholds and bonuses for ambassador levels
+          </Text>
+
+          {settings
+            .filter(s => s.setting_key.startsWith('ambassador_'))
+            .map((setting) => (
+              <TouchableOpacity
+                key={setting.id}
+                style={[commonStyles.card, styles.settingCard]}
+                onPress={() => isEditableSetting(setting.setting_key) && handleEditSetting(setting)}
+                disabled={!isEditableSetting(setting.setting_key)}
+              >
+                <View style={styles.settingContent}>
+                  <View style={[styles.iconContainer, { backgroundColor: getSettingColor(setting.setting_key) + '20' }]}>
+                    <IconSymbol
+                      name={getSettingIcon(setting.setting_key)}
+                      size={24}
+                      color={getSettingColor(setting.setting_key)}
+                    />
+                  </View>
+                  <View style={styles.settingInfo}>
+                    <Text style={styles.settingLabel}>{setting.description}</Text>
+                    <Text style={styles.settingValue}>{getSettingDisplayValue(setting)}</Text>
+                    <Text style={styles.settingKey}>{setting.setting_key}</Text>
+                  </View>
+                  {isEditableSetting(setting.setting_key) && (
+                    <IconSymbol name="pencil.circle.fill" size={24} color={colors.primary} />
+                  )}
+                </View>
+              </TouchableOpacity>
+            ))}
+        </View>
+
+        {/* Pool Settings */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Pool Member Count</Text>
+          <Text style={styles.sectionDescription}>
+            Starting and maximum pool member count
+          </Text>
+
+          {settings
+            .filter(s => ['pool_member_count_start', 'pool_member_count_max'].includes(s.setting_key))
+            .map((setting) => (
+              <TouchableOpacity
+                key={setting.id}
+                style={[commonStyles.card, styles.settingCard]}
+                onPress={() => isEditableSetting(setting.setting_key) && handleEditSetting(setting)}
+                disabled={!isEditableSetting(setting.setting_key)}
+              >
+                <View style={styles.settingContent}>
+                  <View style={[styles.iconContainer, { backgroundColor: getSettingColor(setting.setting_key) + '20' }]}>
+                    <IconSymbol
+                      name={getSettingIcon(setting.setting_key)}
+                      size={24}
+                      color={getSettingColor(setting.setting_key)}
+                    />
+                  </View>
+                  <View style={styles.settingInfo}>
+                    <Text style={styles.settingLabel}>{setting.description}</Text>
+                    <Text style={styles.settingValue}>{getSettingDisplayValue(setting)}</Text>
+                    <Text style={styles.settingKey}>{setting.setting_key}</Text>
+                  </View>
+                  {isEditableSetting(setting.setting_key) && (
+                    <IconSymbol name="pencil.circle.fill" size={24} color={colors.primary} />
+                  )}
+                </View>
+              </TouchableOpacity>
+            ))}
+        </View>
+
+        {/* Tournament Settings */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Tournament Configuration</Text>
+          <Text style={styles.sectionDescription}>
+            Entry fees and prize distribution
+          </Text>
+
+          {settings
+            .filter(s => ['tournament_entry_fee', 'tournament_winner_percentage', 'tournament_admin_percentage'].includes(s.setting_key))
             .map((setting) => (
               <TouchableOpacity
                 key={setting.id}
