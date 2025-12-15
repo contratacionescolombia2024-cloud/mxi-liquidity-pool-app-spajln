@@ -1,8 +1,7 @@
-
 {
   "expo": {
-    "name": "MXI Strategic",
-    "slug": "MXI Strategic",
+    "name": "MXI Liquidity Pool",
+    "slug": "MXI Liquidity Pool",
     "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/04a4d9ac-4539-41d2-bafd-67dd75925bde.png",
@@ -108,5 +107,5 @@
       "**/*"
     ]
   },
-  "scheme": "MXI Strategic"
+  "scheme": "MXI Liquidity Pool"
 }
