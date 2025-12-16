@@ -19,6 +19,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { colors, commonStyles, buttonStyles } from '@/styles/commonStyles';
 import { supabase } from '@/lib/supabase';
 import { UniversalMXICounter } from '@/components/UniversalMXICounter';
+import { i18n } from '@/constants/i18n';
 
 interface AdminStats {
   pendingKYC: number;
@@ -419,6 +420,54 @@ const styles = StyleSheet.create({
   disabledButton: {
     opacity: 0.5,
   },
+  updateModalContent: {
+    borderColor: colors.primary,
+  },
+  updateModalIcon: {
+    backgroundColor: colors.primary + '20',
+  },
+  updateModalTitle: {
+    color: colors.primary,
+  },
+  updateConfirmButton: {
+    backgroundColor: colors.primary,
+  },
+  messageInput: {
+    backgroundColor: colors.background,
+    borderWidth: 2,
+    borderColor: colors.border,
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 14,
+    color: colors.text,
+    minHeight: 100,
+    textAlignVertical: 'top',
+    marginBottom: 16,
+  },
+  messagePreview: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  messagePreviewLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  messagePreviewText: {
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
+  },
+  messageInfo: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 16,
+    lineHeight: 18,
+  },
 });
 
 export default function AdminDashboard() {
@@ -430,8 +479,11 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [phaseMetrics, setPhaseMetrics] = useState<PhaseMetrics | null>(null);
   const [resetModalVisible, setResetModalVisible] = useState(false);
+  const [updateModalVisible, setUpdateModalVisible] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
   const [resetting, setResetting] = useState(false);
+  const [sendingUpdate, setSendingUpdate] = useState(false);
+  const [updateMessage, setUpdateMessage] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -448,7 +500,7 @@ export default function AdminDashboard() {
         .single();
 
       if (error || !data) {
-        Alert.alert('Acceso Denegado', 'No tienes permisos de administrador');
+        Alert.alert(i18n.t('accessDenied'), i18n.t('noAdminPermissions'));
         router.replace('/(tabs)/(home)');
         return;
       }
@@ -568,9 +620,79 @@ export default function AdminDashboard() {
     loadStats();
   };
 
+  const handleSendUpdateNotification = async () => {
+    if (!updateMessage.trim()) {
+      Alert.alert(i18n.t('error'), i18n.t('pleaseEnterUpdateMessage'));
+      return;
+    }
+
+    try {
+      setSendingUpdate(true);
+
+      // Get all users
+      const { data: users, error: usersError } = await supabase
+        .from('users')
+        .select('id');
+
+      if (usersError) throw usersError;
+
+      if (!users || users.length === 0) {
+        Alert.alert(i18n.t('error'), i18n.t('noUsersToNotify'));
+        return;
+      }
+
+      // Create system notifications for all users
+      const notifications = users.map(user => ({
+        user_id: user.id,
+        notification_type: 'system_announcement',
+        title: i18n.t('appUpdateAvailable'),
+        message: updateMessage.trim(),
+        metadata: {
+          type: 'app_update',
+          sent_at: new Date().toISOString(),
+          sent_by: user?.id,
+        },
+        is_read: false,
+      }));
+
+      // Insert notifications in batches of 100
+      const batchSize = 100;
+      for (let i = 0; i < notifications.length; i += batchSize) {
+        const batch = notifications.slice(i, i + batchSize);
+        const { error: insertError } = await supabase
+          .from('system_notifications')
+          .insert(batch);
+
+        if (insertError) {
+          console.error('Error inserting batch:', insertError);
+          throw insertError;
+        }
+      }
+
+      Alert.alert(
+        i18n.t('success'),
+        i18n.t('updateNotificationSentToAllUsers', { count: users.length }),
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              setUpdateModalVisible(false);
+              setUpdateMessage('');
+            },
+          },
+        ]
+      );
+    } catch (error: any) {
+      console.error('Error sending update notification:', error);
+      Alert.alert(i18n.t('error'), error.message || i18n.t('errorSendingUpdateNotification'));
+    } finally {
+      setSendingUpdate(false);
+    }
+  };
+
   const handleResetAllUsers = async () => {
     if (confirmationText !== 'RESETEAR') {
-      Alert.alert('Error', 'Debes escribir "RESETEAR" para confirmar');
+      Alert.alert(i18n.t('error'), i18n.t('mustTypeReset'));
       return;
     }
 
@@ -585,8 +707,8 @@ export default function AdminDashboard() {
 
       if (data?.success) {
         Alert.alert(
-          '✅ Sistema Reiniciado',
-          data.message + '\n\nLa página se recargará para actualizar los datos.',
+          i18n.t('systemReset'),
+          data.message + '\n\n' + i18n.t('systemResetSuccess'),
           [
             {
               text: 'OK',
@@ -607,8 +729,8 @@ export default function AdminDashboard() {
                 await loadStats();
                 
                 Alert.alert(
-                  '✅ Actualización Completa',
-                  'Todos los datos han sido actualizados. El balance del administrador ahora es 0.',
+                  i18n.t('updateComplete'),
+                  i18n.t('allDataUpdated'),
                   [{ text: 'OK' }]
                 );
               },
@@ -616,11 +738,11 @@ export default function AdminDashboard() {
           ]
         );
       } else {
-        Alert.alert('❌ Error', data?.error || 'Error al reiniciar el sistema');
+        Alert.alert(i18n.t('error'), data?.error || i18n.t('resetError'));
       }
     } catch (error: any) {
       console.error('Error resetting users:', error);
-      Alert.alert('❌ Error', error.message || 'Error al reiniciar el sistema');
+      Alert.alert(i18n.t('error'), error.message || i18n.t('resetError'));
     } finally {
       setResetting(false);
     }
@@ -666,12 +788,12 @@ export default function AdminDashboard() {
               size={20} 
               color={colors.primary} 
             />
-            <Text style={styles.backButtonText}>Volver al Inicio</Text>
+            <Text style={styles.backButtonText}>{i18n.t('backToHome')}</Text>
           </TouchableOpacity>
 
           <View style={styles.header}>
-            <Text style={styles.welcomeText}>Panel de Administración</Text>
-            <Text style={styles.subtitleText}>Bienvenido, {user?.name}</Text>
+            <Text style={styles.welcomeText}>{i18n.t('adminDashboard')}</Text>
+            <Text style={styles.subtitleText}>{i18n.t('welcome')}, {user?.name}</Text>
           </View>
         </View>
 
@@ -679,11 +801,34 @@ export default function AdminDashboard() {
           <UniversalMXICounter isAdmin={true} />
         </View>
 
+        {/* Update Notification Button */}
         <View style={styles.dangerZone}>
-          <Text style={styles.dangerZoneTitle}>⚠️ ZONA DE PELIGRO</Text>
+          <Text style={[styles.dangerZoneTitle, { color: colors.primary }]}>
+            📢 {i18n.t('sendUpdateNotification')}
+          </Text>
           <Text style={styles.dangerZoneSubtitle}>
-            Reinicia todos los contadores de MXI a 0 (INCLUYENDO EL ADMINISTRADOR). 
-            Las relaciones de referidos se preservarán. Esta acción es IRREVERSIBLE.
+            {i18n.t('sendUpdateNotificationDescription')}
+          </Text>
+          <TouchableOpacity
+            style={[styles.resetButton, { backgroundColor: colors.primary }]}
+            onPress={() => setUpdateModalVisible(true)}
+          >
+            <IconSymbol 
+              ios_icon_name="megaphone.fill" 
+              android_material_icon_name="campaign" 
+              size={24} 
+              color="#000" 
+            />
+            <Text style={[styles.resetButtonText, { color: '#000' }]}>
+              {i18n.t('sendUpdateNotificationButton')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.dangerZone}>
+          <Text style={styles.dangerZoneTitle}>⚠️ {i18n.t('dangerZone')}</Text>
+          <Text style={styles.dangerZoneSubtitle}>
+            {i18n.t('dangerZoneSubtitle')}
           </Text>
           <TouchableOpacity
             style={styles.resetButton}
@@ -695,31 +840,31 @@ export default function AdminDashboard() {
               size={24} 
               color="#fff" 
             />
-            <Text style={styles.resetButtonText}>Reiniciar Todo</Text>
+            <Text style={styles.resetButtonText}>{i18n.t('resetAll')}</Text>
           </TouchableOpacity>
         </View>
 
         {phaseMetrics && (
           <View style={styles.phaseSection}>
-            <Text style={styles.sectionTitle}>Métricas de Preventa</Text>
+            <Text style={styles.sectionTitle}>{i18n.t('presaleMetrics')}</Text>
             <View style={styles.phaseCard}>
               <View style={styles.phaseHeader}>
-                <Text style={styles.phaseTitle}>Fase {phaseMetrics.currentPhase}</Text>
+                <Text style={styles.phaseTitle}>{i18n.t('phase')} {phaseMetrics.currentPhase}</Text>
                 <View style={styles.phaseBadge}>
                   <Text style={styles.phaseBadgeText}>${phaseMetrics.currentPriceUsdt} USDT</Text>
                 </View>
               </View>
               <View style={styles.phaseStats}>
                 <View style={styles.phaseStatRow}>
-                  <Text style={styles.phaseStatLabel}>Total Vendido</Text>
+                  <Text style={styles.phaseStatLabel}>{i18n.t('totalSold')}</Text>
                   <Text style={styles.phaseStatValue}>{formatNumber(phaseMetrics.totalTokensSold)} MXI</Text>
                 </View>
                 <View style={styles.phaseStatRow}>
-                  <Text style={styles.phaseStatLabel}>Total Miembros</Text>
+                  <Text style={styles.phaseStatLabel}>{i18n.t('totalMembers')}</Text>
                   <Text style={styles.phaseStatValue}>{formatNumber(phaseMetrics.totalMembers)}</Text>
                 </View>
                 <View style={styles.phaseStatRow}>
-                  <Text style={styles.phaseStatLabel}>Progreso</Text>
+                  <Text style={styles.phaseStatLabel}>{i18n.t('progress')}</Text>
                   <Text style={styles.phaseStatValue}>{getPhaseProgress()}%</Text>
                 </View>
               </View>
@@ -734,7 +879,7 @@ export default function AdminDashboard() {
           <View style={styles.statCard}>
             <View style={styles.statHeader}>
               <IconSymbol ios_icon_name="person.3.fill" android_material_icon_name="people" size={20} color={colors.primary} />
-              <Text style={styles.statLabel}>Usuarios</Text>
+              <Text style={styles.statLabel}>{i18n.t('users')}</Text>
             </View>
             <Text style={styles.statValue}>{stats?.totalUsers || 0}</Text>
           </View>
@@ -742,7 +887,7 @@ export default function AdminDashboard() {
           <View style={styles.statCard}>
             <View style={styles.statHeader}>
               <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={20} color={colors.success} />
-              <Text style={styles.statLabel}>Activos</Text>
+              <Text style={styles.statLabel}>{i18n.t('active')}</Text>
             </View>
             <Text style={styles.statValue}>{stats?.activeContributors || 0}</Text>
           </View>
@@ -750,7 +895,7 @@ export default function AdminDashboard() {
           <View style={styles.statCard}>
             <View style={styles.statHeader}>
               <IconSymbol ios_icon_name="dollarsign.circle.fill" android_material_icon_name="attach_money" size={20} color={colors.warning} />
-              <Text style={styles.statLabel}>Total USDT</Text>
+              <Text style={styles.statLabel}>{i18n.t('totalUSDT')}</Text>
             </View>
             <Text style={styles.statValue}>{formatNumber(stats?.totalUSDT || 0)}</Text>
           </View>
@@ -758,14 +903,14 @@ export default function AdminDashboard() {
           <View style={styles.statCard}>
             <View style={styles.statHeader}>
               <IconSymbol ios_icon_name="star.fill" android_material_icon_name="star" size={20} color={colors.accent} />
-              <Text style={styles.statLabel}>Total MXI</Text>
+              <Text style={styles.statLabel}>{i18n.t('totalMXI')}</Text>
             </View>
             <Text style={styles.statValue}>{formatNumber(stats?.totalMXI || 0)}</Text>
           </View>
         </View>
 
         <View style={styles.quickActionsSection}>
-          <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
+          <Text style={styles.sectionTitle}>{i18n.t('quickActions')}</Text>
           <View style={styles.quickActionsGrid}>
             <TouchableOpacity
               style={styles.actionButton}
@@ -779,7 +924,7 @@ export default function AdminDashboard() {
               <View style={[styles.actionIcon, { backgroundColor: '#FF9800' + '20' }]}>
                 <IconSymbol ios_icon_name="person.fill.checkmark" android_material_icon_name="admin_panel_settings" size={24} color="#FF9800" />
               </View>
-              <Text style={styles.actionLabel}>Verificaciones Manuales</Text>
+              <Text style={styles.actionLabel}>{i18n.t('manualVerifications')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -789,7 +934,7 @@ export default function AdminDashboard() {
               <View style={[styles.actionIcon, { backgroundColor: colors.primary + '20' }]}>
                 <IconSymbol ios_icon_name="person.crop.circle.badge.checkmark" android_material_icon_name="manage_accounts" size={24} color={colors.primary} />
               </View>
-              <Text style={styles.actionLabel}>Gestión Avanzada</Text>
+              <Text style={styles.actionLabel}>{i18n.t('advancedManagement')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -799,7 +944,7 @@ export default function AdminDashboard() {
               <View style={[styles.actionIcon, { backgroundColor: colors.warning + '20' }]}>
                 <IconSymbol ios_icon_name="creditcard.fill" android_material_icon_name="payment" size={24} color={colors.warning} />
               </View>
-              <Text style={styles.actionLabel}>Acreditar Pago Manual</Text>
+              <Text style={styles.actionLabel}>{i18n.t('creditManualPayment')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -814,7 +959,7 @@ export default function AdminDashboard() {
               <View style={[styles.actionIcon, { backgroundColor: colors.primary + '20' }]}>
                 <IconSymbol ios_icon_name="person.badge.shield.checkmark.fill" android_material_icon_name="verified_user" size={24} color={colors.primary} />
               </View>
-              <Text style={styles.actionLabel}>Aprobar KYC</Text>
+              <Text style={styles.actionLabel}>{i18n.t('approveKYC')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -829,7 +974,7 @@ export default function AdminDashboard() {
               <View style={[styles.actionIcon, { backgroundColor: colors.warning + '20' }]}>
                 <IconSymbol ios_icon_name="arrow.up.circle.fill" android_material_icon_name="upload" size={24} color={colors.warning} />
               </View>
-              <Text style={styles.actionLabel}>Retiros</Text>
+              <Text style={styles.actionLabel}>{i18n.t('withdrawals')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -844,7 +989,7 @@ export default function AdminDashboard() {
               <View style={[styles.actionIcon, { backgroundColor: colors.accent + '20' }]}>
                 <IconSymbol ios_icon_name="envelope.fill" android_material_icon_name="mail" size={24} color={colors.accent} />
               </View>
-              <Text style={styles.actionLabel}>Mensajes Soporte</Text>
+              <Text style={styles.actionLabel}>{i18n.t('supportMessages')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -854,7 +999,7 @@ export default function AdminDashboard() {
               <View style={[styles.actionIcon, { backgroundColor: colors.primary + '20' }]}>
                 <IconSymbol ios_icon_name="bell.badge.fill" android_material_icon_name="notifications_active" size={24} color={colors.primary} />
               </View>
-              <Text style={styles.actionLabel}>Notificaciones Sistema</Text>
+              <Text style={styles.actionLabel}>{i18n.t('systemNotifications')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -864,7 +1009,7 @@ export default function AdminDashboard() {
               <View style={[styles.actionIcon, { backgroundColor: colors.primary + '20' }]}>
                 <IconSymbol ios_icon_name="person.crop.circle" android_material_icon_name="person" size={24} color={colors.primary} />
               </View>
-              <Text style={styles.actionLabel}>Usuarios Básico</Text>
+              <Text style={styles.actionLabel}>{i18n.t('basicUsers')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -874,7 +1019,7 @@ export default function AdminDashboard() {
               <View style={[styles.actionIcon, { backgroundColor: colors.error + '20' }]}>
                 <IconSymbol ios_icon_name="trash.fill" android_material_icon_name="delete_forever" size={24} color={colors.error} />
               </View>
-              <Text style={styles.actionLabel}>Eliminar Cuentas</Text>
+              <Text style={styles.actionLabel}>{i18n.t('deleteAccounts')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -884,7 +1029,7 @@ export default function AdminDashboard() {
               <View style={[styles.actionIcon, { backgroundColor: colors.success + '20' }]}>
                 <IconSymbol ios_icon_name="chart.xyaxis.line" android_material_icon_name="show_chart" size={24} color={colors.success} />
               </View>
-              <Text style={styles.actionLabel}>Vesting Analytics</Text>
+              <Text style={styles.actionLabel}>{i18n.t('vestingAnalytics')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -894,7 +1039,7 @@ export default function AdminDashboard() {
               <View style={[styles.actionIcon, { backgroundColor: colors.textSecondary + '20' }]}>
                 <IconSymbol ios_icon_name="gearshape.fill" android_material_icon_name="settings" size={24} color={colors.textSecondary} />
               </View>
-              <Text style={styles.actionLabel}>Configuración</Text>
+              <Text style={styles.actionLabel}>{i18n.t('settings')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -904,7 +1049,7 @@ export default function AdminDashboard() {
               <View style={[styles.actionIcon, { backgroundColor: colors.primary + '20' }]}>
                 <IconSymbol ios_icon_name="trophy.fill" android_material_icon_name="emoji_events" size={24} color={colors.primary} />
               </View>
-              <Text style={styles.actionLabel}>Bonos Embajadores</Text>
+              <Text style={styles.actionLabel}>{i18n.t('ambassadorBonuses')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -914,12 +1059,13 @@ export default function AdminDashboard() {
               <View style={[styles.actionIcon, { backgroundColor: '#9C27B0' + '20' }]}>
                 <IconSymbol ios_icon_name="ticket.fill" android_material_icon_name="confirmation_number" size={24} color="#9C27B0" />
               </View>
-              <Text style={styles.actionLabel}>Bono de Participación</Text>
+              <Text style={styles.actionLabel}>{i18n.t('participationBonus')}</Text>
             </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
 
+      {/* Reset Modal */}
       <Modal
         visible={resetModalVisible}
         transparent
@@ -937,56 +1083,56 @@ export default function AdminDashboard() {
                   color={colors.error} 
                 />
               </View>
-              <Text style={styles.modalTitle}>¿Reiniciar Todo el Sistema?</Text>
+              <Text style={styles.modalTitle}>{i18n.t('resetSystemTitle')}</Text>
             </View>
 
             <Text style={styles.modalMessage}>
-              Esta acción es IRREVERSIBLE y reiniciará todos los contadores a 0 (INCLUYENDO EL ADMINISTRADOR):
+              {i18n.t('resetSystemMessage')}
             </Text>
 
             <View style={styles.warningList}>
               <View style={styles.warningItem}>
                 <Text style={styles.warningBullet}>•</Text>
-                <Text style={styles.warningText}>Todos los saldos MXI y USDT se pondrán en 0 (incluyendo admin)</Text>
+                <Text style={styles.warningText}>{i18n.t('allBalancesReset')}</Text>
               </View>
               <View style={styles.warningItem}>
                 <Text style={styles.warningBullet}>•</Text>
-                <Text style={styles.warningText}>Se eliminarán todas las comisiones</Text>
+                <Text style={styles.warningText}>{i18n.t('allCommissionsDeleted')}</Text>
               </View>
               <View style={styles.warningItem}>
                 <Text style={styles.warningBullet}>•</Text>
-                <Text style={styles.warningText}>Se eliminarán todas las contribuciones</Text>
+                <Text style={styles.warningText}>{i18n.t('allContributionsDeleted')}</Text>
               </View>
               <View style={styles.warningItem}>
                 <Text style={styles.warningBullet}>•</Text>
-                <Text style={styles.warningText}>Se eliminarán todos los retiros</Text>
+                <Text style={styles.warningText}>{i18n.t('allWithdrawalsDeleted')}</Text>
               </View>
               <View style={styles.warningItem}>
                 <Text style={styles.warningBullet}>•</Text>
-                <Text style={styles.warningText}>Se eliminarán todos los pagos y órdenes</Text>
+                <Text style={styles.warningText}>{i18n.t('allPaymentsDeleted')}</Text>
               </View>
               <View style={styles.warningItem}>
                 <Text style={styles.warningBullet}>•</Text>
-                <Text style={styles.warningText}>Las métricas de preventa se reiniciarán a 0</Text>
+                <Text style={styles.warningText}>{i18n.t('presaleMetricsReset')}</Text>
               </View>
               <View style={styles.warningItem}>
                 <Text style={styles.warningBullet}>•</Text>
-                <Text style={styles.warningText}>Todo el vesting se eliminará</Text>
+                <Text style={styles.warningText}>{i18n.t('allVestingDeleted')}</Text>
               </View>
               <View style={styles.warningItem}>
                 <Text style={styles.warningBullet}>•</Text>
-                <Text style={styles.warningText}>El balance del administrador también se reiniciará a 0</Text>
+                <Text style={styles.warningText}>{i18n.t('adminBalanceReset')}</Text>
               </View>
               
               <View style={styles.preservedItem}>
                 <Text style={styles.preservedBullet}>✓</Text>
-                <Text style={styles.preservedText}>Las relaciones de referidos SE PRESERVARÁN</Text>
+                <Text style={styles.preservedText}>{i18n.t('referralRelationsPreserved')}</Text>
               </View>
             </View>
 
             <View style={styles.confirmationSection}>
               <Text style={styles.confirmationLabel}>
-                Escribe "RESETEAR" para confirmar:
+                {i18n.t('typeResetToConfirm')}
               </Text>
               <TextInput
                 style={styles.confirmationInput}
@@ -1009,7 +1155,7 @@ export default function AdminDashboard() {
                 disabled={resetting}
               >
                 <Text style={[styles.modalButtonText, styles.cancelButtonText]}>
-                  Cancelar
+                  {i18n.t('cancel')}
                 </Text>
               </TouchableOpacity>
 
@@ -1026,7 +1172,93 @@ export default function AdminDashboard() {
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text style={[styles.modalButtonText, styles.confirmButtonText]}>
-                    Confirmar Reset
+                    {i18n.t('confirmReset')}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Update Notification Modal */}
+      <Modal
+        visible={updateModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setUpdateModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, styles.updateModalContent]}>
+            <View style={styles.modalHeader}>
+              <View style={[styles.modalIcon, styles.updateModalIcon]}>
+                <IconSymbol 
+                  ios_icon_name="megaphone.fill" 
+                  android_material_icon_name="campaign" 
+                  size={48} 
+                  color={colors.primary} 
+                />
+              </View>
+              <Text style={[styles.modalTitle, styles.updateModalTitle]}>
+                {i18n.t('sendUpdateNotification')}
+              </Text>
+            </View>
+
+            <Text style={styles.messageInfo}>
+              {i18n.t('updateNotificationWillBeSentToAll')}
+            </Text>
+
+            <View style={styles.confirmationSection}>
+              <Text style={styles.confirmationLabel}>
+                {i18n.t('updateMessageLabel')}
+              </Text>
+              <TextInput
+                style={styles.messageInput}
+                value={updateMessage}
+                onChangeText={setUpdateMessage}
+                placeholder={i18n.t('updateMessagePlaceholder')}
+                placeholderTextColor={colors.textSecondary}
+                multiline
+                numberOfLines={4}
+                editable={!sendingUpdate}
+              />
+            </View>
+
+            {updateMessage.trim() && (
+              <View style={styles.messagePreview}>
+                <Text style={styles.messagePreviewLabel}>{i18n.t('messagePreview')}</Text>
+                <Text style={styles.messagePreviewText}>{updateMessage.trim()}</Text>
+              </View>
+            )}
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setUpdateModalVisible(false);
+                  setUpdateMessage('');
+                }}
+                disabled={sendingUpdate}
+              >
+                <Text style={[styles.modalButtonText, styles.cancelButtonText]}>
+                  {i18n.t('cancel')}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.updateConfirmButton,
+                  (!updateMessage.trim() || sendingUpdate) && styles.disabledButton,
+                ]}
+                onPress={handleSendUpdateNotification}
+                disabled={!updateMessage.trim() || sendingUpdate}
+              >
+                {sendingUpdate ? (
+                  <ActivityIndicator color="#000" />
+                ) : (
+                  <Text style={[styles.modalButtonText, styles.confirmButtonText, { color: '#000' }]}>
+                    {i18n.t('sendToAllUsers')}
                   </Text>
                 )}
               </TouchableOpacity>
