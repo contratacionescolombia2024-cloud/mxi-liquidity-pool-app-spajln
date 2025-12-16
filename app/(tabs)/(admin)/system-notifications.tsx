@@ -132,7 +132,7 @@ export default function SystemNotificationsScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <IconSymbol name="chevron.left" size={24} color={colors.primary} />
+          <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <View style={styles.headerText}>
           <Text style={styles.title}>System Notifications</Text>
@@ -181,7 +181,7 @@ export default function SystemNotificationsScreen() {
         </View>
       ) : notifications.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <IconSymbol name="bell.slash" size={64} color={colors.textSecondary} />
+          <IconSymbol ios_icon_name="bell.slash" android_material_icon_name="notifications_off" size={64} color={colors.textSecondary} />
           <Text style={styles.emptyText}>No system notifications</Text>
           <Text style={styles.emptySubtext}>
             User support messages are in the User Messages section
@@ -199,7 +199,8 @@ export default function SystemNotificationsScreen() {
               <View style={styles.notificationHeader}>
                 <View style={[styles.iconContainer, { backgroundColor: getNotificationColor(notification.notification_type) + '20' }]}>
                   <IconSymbol 
-                    name={getNotificationIcon(notification.notification_type)} 
+                    ios_icon_name={getNotificationIcon(notification.notification_type)} 
+                    android_material_icon_name="notifications"
                     size={24} 
                     color={getNotificationColor(notification.notification_type)} 
                   />

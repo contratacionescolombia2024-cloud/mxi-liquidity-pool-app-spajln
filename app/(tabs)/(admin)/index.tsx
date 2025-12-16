@@ -420,54 +420,6 @@ const styles = StyleSheet.create({
   disabledButton: {
     opacity: 0.5,
   },
-  updateModalContent: {
-    borderColor: colors.primary,
-  },
-  updateModalIcon: {
-    backgroundColor: colors.primary + '20',
-  },
-  updateModalTitle: {
-    color: colors.primary,
-  },
-  updateConfirmButton: {
-    backgroundColor: colors.primary,
-  },
-  messageInput: {
-    backgroundColor: colors.background,
-    borderWidth: 2,
-    borderColor: colors.border,
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 14,
-    color: colors.text,
-    minHeight: 100,
-    textAlignVertical: 'top',
-    marginBottom: 16,
-  },
-  messagePreview: {
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  messagePreviewLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  messagePreviewText: {
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
-  },
-  messageInfo: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 16,
-    lineHeight: 18,
-  },
 });
 
 export default function AdminDashboard() {
@@ -479,11 +431,8 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [phaseMetrics, setPhaseMetrics] = useState<PhaseMetrics | null>(null);
   const [resetModalVisible, setResetModalVisible] = useState(false);
-  const [updateModalVisible, setUpdateModalVisible] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
   const [resetting, setResetting] = useState(false);
-  const [sendingUpdate, setSendingUpdate] = useState(false);
-  const [updateMessage, setUpdateMessage] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -620,76 +569,6 @@ export default function AdminDashboard() {
     loadStats();
   };
 
-  const handleSendUpdateNotification = async () => {
-    if (!updateMessage.trim()) {
-      Alert.alert(i18n.t('error'), i18n.t('pleaseEnterUpdateMessage'));
-      return;
-    }
-
-    try {
-      setSendingUpdate(true);
-
-      // Get all users
-      const { data: users, error: usersError } = await supabase
-        .from('users')
-        .select('id');
-
-      if (usersError) throw usersError;
-
-      if (!users || users.length === 0) {
-        Alert.alert(i18n.t('error'), i18n.t('noUsersToNotify'));
-        return;
-      }
-
-      // Create system notifications for all users
-      const notifications = users.map(user => ({
-        user_id: user.id,
-        notification_type: 'system_announcement',
-        title: i18n.t('appUpdateAvailable'),
-        message: updateMessage.trim(),
-        metadata: {
-          type: 'app_update',
-          sent_at: new Date().toISOString(),
-          sent_by: user?.id,
-        },
-        is_read: false,
-      }));
-
-      // Insert notifications in batches of 100
-      const batchSize = 100;
-      for (let i = 0; i < notifications.length; i += batchSize) {
-        const batch = notifications.slice(i, i + batchSize);
-        const { error: insertError } = await supabase
-          .from('system_notifications')
-          .insert(batch);
-
-        if (insertError) {
-          console.error('Error inserting batch:', insertError);
-          throw insertError;
-        }
-      }
-
-      Alert.alert(
-        i18n.t('success'),
-        i18n.t('updateNotificationSentToAllUsers', { count: users.length }),
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              setUpdateModalVisible(false);
-              setUpdateMessage('');
-            },
-          },
-        ]
-      );
-    } catch (error: any) {
-      console.error('Error sending update notification:', error);
-      Alert.alert(i18n.t('error'), error.message || i18n.t('errorSendingUpdateNotification'));
-    } finally {
-      setSendingUpdate(false);
-    }
-  };
-
   const handleResetAllUsers = async () => {
     if (confirmationText !== 'RESETEAR') {
       Alert.alert(i18n.t('error'), i18n.t('mustTypeReset'));
@@ -799,30 +678,6 @@ export default function AdminDashboard() {
 
         <View style={styles.counterSection}>
           <UniversalMXICounter isAdmin={true} />
-        </View>
-
-        {/* Update Notification Button */}
-        <View style={styles.dangerZone}>
-          <Text style={[styles.dangerZoneTitle, { color: colors.primary }]}>
-            📢 {i18n.t('sendUpdateNotification')}
-          </Text>
-          <Text style={styles.dangerZoneSubtitle}>
-            {i18n.t('sendUpdateNotificationDescription')}
-          </Text>
-          <TouchableOpacity
-            style={[styles.resetButton, { backgroundColor: colors.primary }]}
-            onPress={() => setUpdateModalVisible(true)}
-          >
-            <IconSymbol 
-              ios_icon_name="megaphone.fill" 
-              android_material_icon_name="campaign" 
-              size={24} 
-              color="#000" 
-            />
-            <Text style={[styles.resetButtonText, { color: '#000' }]}>
-              {i18n.t('sendUpdateNotificationButton')}
-            </Text>
-          </TouchableOpacity>
         </View>
 
         <View style={styles.dangerZone}>
@@ -990,6 +845,16 @@ export default function AdminDashboard() {
                 <IconSymbol ios_icon_name="envelope.fill" android_material_icon_name="mail" size={24} color={colors.accent} />
               </View>
               <Text style={styles.actionLabel}>{i18n.t('supportMessages')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => router.push('/(tabs)/(admin)/notification-center')}
+            >
+              <View style={[styles.actionIcon, { backgroundColor: colors.primary + '20' }]}>
+                <IconSymbol ios_icon_name="megaphone.fill" android_material_icon_name="campaign" size={24} color={colors.primary} />
+              </View>
+              <Text style={styles.actionLabel}>{i18n.t('notificationCenter')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -1181,91 +1046,6 @@ export default function AdminDashboard() {
         </View>
       </Modal>
 
-      {/* Update Notification Modal */}
-      <Modal
-        visible={updateModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setUpdateModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, styles.updateModalContent]}>
-            <View style={styles.modalHeader}>
-              <View style={[styles.modalIcon, styles.updateModalIcon]}>
-                <IconSymbol 
-                  ios_icon_name="megaphone.fill" 
-                  android_material_icon_name="campaign" 
-                  size={48} 
-                  color={colors.primary} 
-                />
-              </View>
-              <Text style={[styles.modalTitle, styles.updateModalTitle]}>
-                {i18n.t('sendUpdateNotification')}
-              </Text>
-            </View>
-
-            <Text style={styles.messageInfo}>
-              {i18n.t('updateNotificationWillBeSentToAll')}
-            </Text>
-
-            <View style={styles.confirmationSection}>
-              <Text style={styles.confirmationLabel}>
-                {i18n.t('updateMessageLabel')}
-              </Text>
-              <TextInput
-                style={styles.messageInput}
-                value={updateMessage}
-                onChangeText={setUpdateMessage}
-                placeholder={i18n.t('updateMessagePlaceholder')}
-                placeholderTextColor={colors.textSecondary}
-                multiline
-                numberOfLines={4}
-                editable={!sendingUpdate}
-              />
-            </View>
-
-            {updateMessage.trim() && (
-              <View style={styles.messagePreview}>
-                <Text style={styles.messagePreviewLabel}>{i18n.t('messagePreview')}</Text>
-                <Text style={styles.messagePreviewText}>{updateMessage.trim()}</Text>
-              </View>
-            )}
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => {
-                  setUpdateModalVisible(false);
-                  setUpdateMessage('');
-                }}
-                disabled={sendingUpdate}
-              >
-                <Text style={[styles.modalButtonText, styles.cancelButtonText]}>
-                  {i18n.t('cancel')}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.modalButton,
-                  styles.updateConfirmButton,
-                  (!updateMessage.trim() || sendingUpdate) && styles.disabledButton,
-                ]}
-                onPress={handleSendUpdateNotification}
-                disabled={!updateMessage.trim() || sendingUpdate}
-              >
-                {sendingUpdate ? (
-                  <ActivityIndicator color="#000" />
-                ) : (
-                  <Text style={[styles.modalButtonText, styles.confirmButtonText, { color: '#000' }]}>
-                    {i18n.t('sendToAllUsers')}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }

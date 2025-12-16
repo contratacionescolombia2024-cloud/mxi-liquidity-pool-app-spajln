@@ -26,6 +26,8 @@ export default function AdminLayout() {
       <Stack.Screen name="ambassador-withdrawals" />
       <Stack.Screen name="user-deletion" />
       <Stack.Screen name="participation-bonus" />
+      <Stack.Screen name="notification-center" />
+      <Stack.Screen name="system-notifications" />
     </Stack>
   );
 }
