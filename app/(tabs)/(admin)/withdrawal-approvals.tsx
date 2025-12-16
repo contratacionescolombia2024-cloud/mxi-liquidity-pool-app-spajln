@@ -29,9 +29,6 @@ interface Withdrawal {
   user_email: string;
   user_name: string;
   admin_notes: string | null;
-  withdrawal_type: string | null;
-  mxi_amount: number;
-  usdt_amount: number;
 }
 
 export default function WithdrawalApprovalsScreen() {
@@ -132,7 +129,7 @@ export default function WithdrawalApprovalsScreen() {
   const handleComplete = async (withdrawalId: string) => {
     Alert.alert(
       'Complete Withdrawal',
-      'Mark this withdrawal as completed? This means the funds have been sent to the TRC20 address.',
+      'Mark this withdrawal as completed? This means the funds have been sent.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -220,32 +217,11 @@ export default function WithdrawalApprovalsScreen() {
     );
   };
 
-  const getWithdrawalTypeLabel = (type: string | null): string => {
-    if (!type) return 'General';
-    switch (type) {
-      case 'purchased':
-        return 'Purchased MXI';
-      case 'commissions':
-        return 'Commission MXI';
-      case 'vesting':
-        return 'Vesting MXI';
-      case 'tournaments':
-        return 'Tournament MXI';
-      default:
-        return type;
-    }
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <IconSymbol 
-            ios_icon_name="chevron.left" 
-            android_material_icon_name="arrow_back" 
-            size={24} 
-            color={colors.primary} 
-          />
+          <IconSymbol name="chevron.left" size={24} color={colors.primary} />
         </TouchableOpacity>
         <View style={styles.headerText}>
           <Text style={styles.title}>Withdrawal Approvals</Text>
@@ -278,12 +254,7 @@ export default function WithdrawalApprovalsScreen() {
         </View>
       ) : withdrawals.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <IconSymbol 
-            ios_icon_name="checkmark.seal" 
-            android_material_icon_name="verified" 
-            size={64} 
-            color={colors.textSecondary} 
-          />
+          <IconSymbol name="checkmark.seal" size={64} color={colors.textSecondary} />
           <Text style={styles.emptyText}>No withdrawal requests to review</Text>
         </View>
       ) : (
@@ -307,35 +278,19 @@ export default function WithdrawalApprovalsScreen() {
                 </View>
               </View>
               <View style={styles.withdrawalDetails}>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Type:</Text>
-                  <Text style={styles.detailValue}>
-                    {getWithdrawalTypeLabel(withdrawal.withdrawal_type)}
-                  </Text>
-                </View>
                 <View style={styles.amountRow}>
                   <IconSymbol 
-                    ios_icon_name="bitcoinsign.circle" 
-                    android_material_icon_name="currency_bitcoin" 
+                    name={withdrawal.currency === 'MXI' ? 'bitcoinsign.circle' : 'dollarsign.circle'} 
                     size={24} 
                     color={colors.primary} 
                   />
                   <Text style={styles.amount}>
-                    {withdrawal.mxi_amount?.toFixed(2) || withdrawal.amount.toFixed(2)} MXI
+                    {withdrawal.amount.toFixed(2)} {withdrawal.currency}
                   </Text>
                 </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>USDT Equivalent:</Text>
-                  <Text style={styles.detailValue}>
-                    {withdrawal.usdt_amount?.toFixed(2) || (withdrawal.amount * 0.4).toFixed(2)} USDT
-                  </Text>
-                </View>
-                <View style={styles.addressRow}>
-                  <Text style={styles.addressLabel}>TRC20 Address:</Text>
-                  <Text style={styles.walletAddress} numberOfLines={1}>
-                    {withdrawal.wallet_address}
-                  </Text>
-                </View>
+                <Text style={styles.walletAddress} numberOfLines={1}>
+                  To: {withdrawal.wallet_address}
+                </Text>
               </View>
               <Text style={styles.withdrawalDate}>
                 Requested: {new Date(withdrawal.created_at).toLocaleString()}
@@ -357,62 +312,44 @@ export default function WithdrawalApprovalsScreen() {
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Withdrawal Review</Text>
                 <TouchableOpacity onPress={() => setSelectedWithdrawal(null)}>
-                  <IconSymbol 
-                    ios_icon_name="xmark.circle.fill" 
-                    android_material_icon_name="cancel" 
-                    size={28} 
-                    color={colors.textSecondary} 
-                  />
+                  <IconSymbol name="xmark.circle.fill" size={28} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
 
               {selectedWithdrawal && (
                 <>
                   <View style={styles.detailSection}>
-                    <Text style={styles.detailSectionLabel}>User</Text>
-                    <Text style={styles.detailSectionValue}>{selectedWithdrawal.user_name}</Text>
-                    <Text style={styles.detailSectionSubvalue}>{selectedWithdrawal.user_email}</Text>
+                    <Text style={styles.detailLabel}>User</Text>
+                    <Text style={styles.detailValue}>{selectedWithdrawal.user_name}</Text>
+                    <Text style={styles.detailSubvalue}>{selectedWithdrawal.user_email}</Text>
                   </View>
 
                   <View style={styles.detailSection}>
-                    <Text style={styles.detailSectionLabel}>Withdrawal Type</Text>
-                    <Text style={styles.detailSectionValue}>
-                      {getWithdrawalTypeLabel(selectedWithdrawal.withdrawal_type)}
+                    <Text style={styles.detailLabel}>Amount</Text>
+                    <Text style={styles.detailValue}>
+                      {selectedWithdrawal.amount.toFixed(2)} {selectedWithdrawal.currency}
                     </Text>
                   </View>
 
                   <View style={styles.detailSection}>
-                    <Text style={styles.detailSectionLabel}>Amount</Text>
-                    <Text style={styles.detailSectionValue}>
-                      {selectedWithdrawal.mxi_amount?.toFixed(2) || selectedWithdrawal.amount.toFixed(2)} MXI
-                    </Text>
-                    <Text style={styles.detailSectionSubvalue}>
-                      ≈ {selectedWithdrawal.usdt_amount?.toFixed(2) || (selectedWithdrawal.amount * 0.4).toFixed(2)} USDT
-                    </Text>
+                    <Text style={styles.detailLabel}>Wallet Address</Text>
+                    <Text style={styles.detailValue}>{selectedWithdrawal.wallet_address}</Text>
                   </View>
 
                   <View style={styles.detailSection}>
-                    <Text style={styles.detailSectionLabel}>TRC20 Wallet Address (Tron)</Text>
-                    <Text style={[styles.detailSectionValue, { fontFamily: 'monospace', fontSize: 13 }]}>
-                      {selectedWithdrawal.wallet_address}
-                    </Text>
-                    <Text style={styles.networkBadge}>🌐 TRON Network (TRC20)</Text>
+                    <Text style={styles.detailLabel}>Status</Text>
+                    <Text style={styles.detailValue}>{selectedWithdrawal.status.toUpperCase()}</Text>
                   </View>
 
                   <View style={styles.detailSection}>
-                    <Text style={styles.detailSectionLabel}>Status</Text>
-                    <Text style={styles.detailSectionValue}>{selectedWithdrawal.status.toUpperCase()}</Text>
-                  </View>
-
-                  <View style={styles.detailSection}>
-                    <Text style={styles.detailSectionLabel}>Requested At</Text>
-                    <Text style={styles.detailSectionValue}>
+                    <Text style={styles.detailLabel}>Requested At</Text>
+                    <Text style={styles.detailValue}>
                       {new Date(selectedWithdrawal.created_at).toLocaleString()}
                     </Text>
                   </View>
 
                   <View style={styles.detailSection}>
-                    <Text style={styles.detailSectionLabel}>Admin Notes</Text>
+                    <Text style={styles.detailLabel}>Admin Notes</Text>
                     <TextInput
                       style={styles.notesInput}
                       placeholder="Add notes or rejection reason..."
@@ -436,12 +373,7 @@ export default function WithdrawalApprovalsScreen() {
                             <ActivityIndicator color="#fff" />
                           ) : (
                             <>
-                              <IconSymbol 
-                                ios_icon_name="checkmark.circle.fill" 
-                                android_material_icon_name="check_circle" 
-                                size={20} 
-                                color="#fff" 
-                              />
+                              <IconSymbol name="checkmark.circle.fill" size={20} color="#fff" />
                               <Text style={styles.buttonText}>Approve</Text>
                             </>
                           )}
@@ -456,12 +388,7 @@ export default function WithdrawalApprovalsScreen() {
                             <ActivityIndicator color="#fff" />
                           ) : (
                             <>
-                              <IconSymbol 
-                                ios_icon_name="xmark.circle.fill" 
-                                android_material_icon_name="cancel" 
-                                size={20} 
-                                color="#fff" 
-                              />
+                              <IconSymbol name="xmark.circle.fill" size={20} color="#fff" />
                               <Text style={styles.buttonText}>Reject</Text>
                             </>
                           )}
@@ -479,12 +406,7 @@ export default function WithdrawalApprovalsScreen() {
                           <ActivityIndicator color="#fff" />
                         ) : (
                           <>
-                            <IconSymbol 
-                              ios_icon_name="checkmark.seal.fill" 
-                              android_material_icon_name="verified" 
-                              size={20} 
-                              color="#fff" 
-                            />
+                            <IconSymbol name="checkmark.seal.fill" size={20} color="#fff" />
                             <Text style={styles.buttonText}>Mark as Completed</Text>
                           </>
                         )}
@@ -551,7 +473,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   filterTextActive: {
-    color: '#000',
+    color: '#fff',
   },
   loadingContainer: {
     flex: 1,
@@ -618,44 +540,21 @@ const styles = StyleSheet.create({
   },
   withdrawalDetails: {
     marginBottom: 12,
-    gap: 8,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  detailLabel: {
-    fontSize: 13,
-    color: colors.textSecondary,
-  },
-  detailValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.text,
   },
   amountRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 4,
+    marginBottom: 8,
   },
   amount: {
     fontSize: 20,
     fontWeight: '700',
     color: colors.text,
   },
-  addressRow: {
-    marginTop: 4,
-  },
-  addressLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
   walletAddress: {
     fontSize: 12,
-    color: colors.text,
+    color: colors.textSecondary,
     fontFamily: 'monospace',
   },
   withdrawalDate: {
@@ -688,32 +587,21 @@ const styles = StyleSheet.create({
   detailSection: {
     marginBottom: 20,
   },
-  detailSectionLabel: {
+  detailLabel: {
     fontSize: 12,
     fontWeight: '600',
     color: colors.textSecondary,
     marginBottom: 8,
     textTransform: 'uppercase',
   },
-  detailSectionValue: {
+  detailValue: {
     fontSize: 16,
     color: colors.text,
   },
-  detailSectionSubvalue: {
+  detailSubvalue: {
     fontSize: 14,
     color: colors.textSecondary,
     marginTop: 4,
-  },
-  networkBadge: {
-    fontSize: 12,
-    color: '#00D4AA',
-    fontWeight: '700',
-    marginTop: 6,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    backgroundColor: '#00D4AA20',
-    borderRadius: 6,
-    alignSelf: 'flex-start',
   },
   notesInput: {
     backgroundColor: colors.card,
