@@ -22,35 +22,10 @@ const MXI_TO_USDT_RATE = 0.4;
 
 type WithdrawalType = 'purchased' | 'commissions' | 'vesting' | 'tournaments';
 
-// 🔥 DRASTIC FIX: Hardcoded TRC20 text that NEVER depends on translations
-const TRC20_TEXTS = {
-  es: {
-    network: 'Los retiros se procesarán en USDT por la red TRC20 (Tron)',
-    walletLabel: 'Dirección de Billetera USDT (TRC20)',
-    walletPlaceholder: 'Ingresa tu dirección de billetera USDT TRC20 (Tron)',
-    warning: 'Solo direcciones TRC20 (Tron). No envíes a direcciones ETH.',
-    verify: 'Verifica que tu dirección de billetera sea correcta y compatible con la red TRC20 (Tron)',
-  },
-  en: {
-    network: 'Withdrawals will be processed in USDT via TRC20 network (Tron)',
-    walletLabel: 'USDT Wallet Address (TRC20)',
-    walletPlaceholder: 'Enter your USDT TRC20 wallet address (Tron)',
-    warning: 'Only TRC20 (Tron) addresses. Do not send to ETH addresses.',
-    verify: 'Make sure your wallet address is correct and TRC20 (Tron) compatible',
-  },
-  pt: {
-    network: 'As retiradas serão processadas em USDT pela rede TRC20 (Tron)',
-    walletLabel: 'Endereço da Carteira USDT (TRC20)',
-    walletPlaceholder: 'Digite seu endereço de carteira USDT TRC20 (Tron)',
-    warning: 'Apenas endereços TRC20 (Tron). Não envie para endereços ETH.',
-    verify: 'Verifique se seu endereço de carteira está correto e compatível com a rede TRC20 (Tron)',
-  },
-};
-
 export default function RetirosScreen() {
   const router = useRouter();
   const { user, getPoolStatus, getCurrentYield } = useAuth();
-  const { t, currentLanguage } = useLanguage();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [selectedType, setSelectedType] = useState<WithdrawalType>('commissions');
@@ -59,16 +34,8 @@ export default function RetirosScreen() {
   const [poolStatus, setPoolStatus] = useState<any>(null);
   const [currentYield, setCurrentYield] = useState(0);
 
-  // 🔥 DRASTIC FIX: Get TRC20 text based on current language
-  const trc20Text = TRC20_TEXTS[currentLanguage as keyof typeof TRC20_TEXTS] || TRC20_TEXTS.es;
-
-  // 🔥 DRASTIC FIX: Force re-render with timestamp
-  const [forceRenderKey, setForceRenderKey] = useState(Date.now());
-
   useEffect(() => {
     loadData();
-    // Force re-render every time component mounts
-    setForceRenderKey(Date.now());
   }, []);
 
   useEffect(() => {
@@ -325,16 +292,8 @@ export default function RetirosScreen() {
                    currentYield +
                    (user.mxiTournaments || 0);
 
-  // 🔥 DRASTIC FIX: Log to verify TRC20 text is being used
-  console.log('🔥 RETIROS TRC20 CHECK:', {
-    currentLanguage,
-    networkText: trc20Text.network,
-    walletLabel: trc20Text.walletLabel,
-    forceRenderKey,
-  });
-
   return (
-    <SafeAreaView key={forceRenderKey} style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <IconSymbol
@@ -550,22 +509,7 @@ export default function RetirosScreen() {
           {isTypeAvailable(selectedType) && (
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>{t('withdrawalDetails')}</Text>
-              
-              {/* 🔥 DRASTIC FIX: Hardcoded TRC20 banner - NO TRANSLATIONS */}
-              <View style={styles.trc20MegaBanner}>
-                <View style={styles.trc20IconContainer}>
-                  <IconSymbol
-                    ios_icon_name="network"
-                    android_material_icon_name="lan"
-                    size={28}
-                    color="#00D4AA"
-                  />
-                </View>
-                <View style={styles.trc20TextContainer}>
-                  <Text style={styles.trc20BannerTitle}>RED TRC20 (TRON)</Text>
-                  <Text style={styles.trc20BannerText}>{trc20Text.network}</Text>
-                </View>
-              </View>
+              <Text style={styles.sectionSubtitle}>{t('networkTRC20')}</Text>
 
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>{t('amountMXI')}</Text>
@@ -598,32 +542,16 @@ export default function RetirosScreen() {
               </View>
 
               <View style={styles.inputContainer}>
-                {/* 🔥 DRASTIC FIX: Hardcoded TRC20 label - NO TRANSLATIONS */}
-                <View style={styles.trc20LabelContainer}>
-                  <Text style={styles.trc20InputLabel}>{trc20Text.walletLabel}</Text>
-                  <View style={styles.trc20SuperBadge}>
-                    <Text style={styles.trc20SuperBadgeText}>TRC20 TRON</Text>
-                  </View>
-                </View>
+                <Text style={styles.inputLabel}>{t('walletAddressTRC20')}</Text>
                 <TextInput
                   style={[styles.input, styles.addressInput]}
-                  placeholder={trc20Text.walletPlaceholder}
+                  placeholder={t('enterTRC20WalletAddress')}
                   placeholderTextColor={colors.textSecondary}
                   value={walletAddress}
                   onChangeText={setWalletAddress}
                   autoCapitalize="none"
                   multiline
                 />
-                {/* 🔥 DRASTIC FIX: Hardcoded TRC20 warning - NO TRANSLATIONS */}
-                <View style={styles.trc20MegaWarning}>
-                  <IconSymbol
-                    ios_icon_name="exclamationmark.triangle.fill"
-                    android_material_icon_name="warning"
-                    size={20}
-                    color="#FF6B00"
-                  />
-                  <Text style={styles.trc20MegaWarningText}>{trc20Text.warning}</Text>
-                </View>
               </View>
 
               <TouchableOpacity
@@ -691,38 +619,12 @@ export default function RetirosScreen() {
             </View>
           </View>
 
-          <View style={[styles.card, styles.trc20InfoCard]}>
-            <View style={styles.trc20InfoHeader}>
-              <IconSymbol
-                ios_icon_name="info.circle.fill"
-                android_material_icon_name="info"
-                size={24}
-                color="#00D4AA"
-              />
-              <Text style={styles.trc20InfoTitle}>{t('importantInformation')}</Text>
-            </View>
+          <View style={[styles.card, styles.infoCard]}>
+            <Text style={styles.infoTitle}>{t('importantInformation')}</Text>
             
-            {/* 🔥 DRASTIC FIX: Hardcoded TRC20 info - NO TRANSLATIONS */}
-            <View style={styles.trc20InfoHighlight}>
-              <IconSymbol
-                ios_icon_name="network"
-                android_material_icon_name="lan"
-                size={18}
-                color="#00D4AA"
-              />
-              <Text style={styles.trc20InfoHighlightText}>{trc20Text.network}</Text>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoText}>• {t('networkTRC20')}</Text>
             </View>
-            
-            <View style={styles.trc20InfoHighlight}>
-              <IconSymbol
-                ios_icon_name="exclamationmark.triangle.fill"
-                android_material_icon_name="warning"
-                size={18}
-                color="#FF6B00"
-              />
-              <Text style={styles.trc20InfoHighlightText}>{trc20Text.verify}</Text>
-            </View>
-            
             <View style={styles.infoItem}>
               <Text style={styles.infoText}>• {t('conversionInfo')}</Text>
             </View>
@@ -743,6 +645,9 @@ export default function RetirosScreen() {
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoText}>• {t('processingTimeInfo')}</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoText}>• {t('verifyWalletAddressCarefully')}</Text>
             </View>
           </View>
 
@@ -842,6 +747,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.text,
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
     marginBottom: 16,
   },
   typeButton: {
@@ -897,78 +807,14 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontStyle: 'italic',
   },
-  // 🔥 DRASTIC FIX: New TRC20 mega banner styles
-  trc20MegaBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 212, 170, 0.2)',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-    borderWidth: 3,
-    borderColor: '#00D4AA',
-    shadowColor: '#00D4AA',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  trc20IconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#00D4AA',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  trc20TextContainer: {
-    flex: 1,
-  },
-  trc20BannerTitle: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#00D4AA',
-    marginBottom: 4,
-    letterSpacing: 1,
-  },
-  trc20BannerText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#00D4AA',
-    lineHeight: 18,
-  },
   inputContainer: {
     marginBottom: 16,
   },
-  // 🔥 DRASTIC FIX: New TRC20 label container
-  trc20LabelContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
     marginBottom: 8,
-  },
-  trc20InputLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#00D4AA',
-  },
-  trc20SuperBadge: {
-    backgroundColor: '#00D4AA',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 6,
-    shadowColor: '#00D4AA',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  trc20SuperBadgeText: {
-    fontSize: 11,
-    fontWeight: '900',
-    color: '#000000',
-    letterSpacing: 0.5,
   },
   inputWrapper: {
     position: 'relative',
@@ -985,32 +831,6 @@ const styles = StyleSheet.create({
   addressInput: {
     minHeight: 80,
     textAlignVertical: 'top',
-    borderWidth: 2,
-    borderColor: '#00D4AA',
-  },
-  // 🔥 DRASTIC FIX: New TRC20 mega warning
-  trc20MegaWarning: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 12,
-    padding: 12,
-    backgroundColor: 'rgba(255, 107, 0, 0.15)',
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#FF6B00',
-    shadowColor: '#FF6B00',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  trc20MegaWarningText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FF6B00',
-    lineHeight: 18,
   },
   maxButton: {
     position: 'absolute',
@@ -1087,40 +907,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
   },
-  // 🔥 DRASTIC FIX: New TRC20 info card styles
-  trc20InfoCard: {
-    backgroundColor: 'rgba(0, 212, 170, 0.08)',
-    borderColor: '#00D4AA',
-    borderWidth: 2,
+  infoCard: {
+    backgroundColor: 'rgba(33, 150, 243, 0.08)',
+    borderColor: 'rgba(33, 150, 243, 0.3)',
   },
-  trc20InfoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
-  },
-  trc20InfoTitle: {
-    fontSize: 17,
+  infoTitle: {
+    fontSize: 16,
     fontWeight: '700',
     color: colors.text,
-  },
-  trc20InfoHighlight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    padding: 12,
-    backgroundColor: 'rgba(0, 212, 170, 0.15)',
-    borderRadius: 8,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 212, 170, 0.3)',
-  },
-  trc20InfoHighlightText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#00D4AA',
-    lineHeight: 18,
   },
   infoItem: {
     marginBottom: 8,
