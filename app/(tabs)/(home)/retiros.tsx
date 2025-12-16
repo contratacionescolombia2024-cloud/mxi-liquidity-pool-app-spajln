@@ -153,6 +153,17 @@ export default function RetirosScreen() {
       return;
     }
 
+    // Validate TRC20 address format (starts with T and is 34 characters)
+    if (!walletAddress.startsWith('T') || walletAddress.length !== 34) {
+      showAlert(
+        'Error',
+        t('pleaseEnterValidTRC20Address'),
+        undefined,
+        'error'
+      );
+      return;
+    }
+
     const mxiAmount = parseFloat(amount);
     const availableBalance = getBalanceForType(selectedType);
 
@@ -230,6 +241,7 @@ export default function RetirosScreen() {
               wallet_address: walletAddress,
               withdrawal_type: selectedType,
               status: 'pending',
+              currency: 'USDT',
               created_at: new Date().toISOString(),
             })
             .select()
@@ -552,6 +564,9 @@ export default function RetirosScreen() {
                   autoCapitalize="none"
                   multiline
                 />
+                <Text style={styles.addressHint}>
+                  {t('trc20AddressValidation')}
+                </Text>
               </View>
 
               <TouchableOpacity
@@ -831,6 +846,12 @@ const styles = StyleSheet.create({
   addressInput: {
     minHeight: 80,
     textAlignVertical: 'top',
+  },
+  addressHint: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 6,
+    fontStyle: 'italic',
   },
   maxButton: {
     position: 'absolute',
