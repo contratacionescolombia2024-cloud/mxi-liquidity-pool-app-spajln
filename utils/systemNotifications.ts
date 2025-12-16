@@ -1,5 +1,6 @@
 
 import { supabase } from '@/lib/supabase';
+import { notificationDedup } from './notificationDeduplication';
 
 interface SystemNotificationData {
   userId: string;
@@ -12,9 +13,26 @@ interface SystemNotificationData {
 /**
  * Send a system notification to a user
  * These are automated notifications separate from user support messages
+ * Now includes deduplication to prevent multiple notifications for the same event
  */
 export async function sendSystemNotification(data: SystemNotificationData): Promise<boolean> {
   try {
+    // Check for duplicates
+    const metadataStr = data.metadata ? JSON.stringify(data.metadata) : '';
+    const shouldSend = notificationDedup.shouldSendNotification({
+      type: `system_${data.type}`,
+      userId: data.userId,
+      metadata: metadataStr,
+    });
+
+    if (!shouldSend) {
+      console.log('[SystemNotifications] Duplicate notification blocked:', {
+        type: data.type,
+        userId: data.userId,
+      });
+      return false;
+    }
+
     console.log('[SystemNotifications] Sending notification:', {
       type: data.type,
       userId: data.userId,

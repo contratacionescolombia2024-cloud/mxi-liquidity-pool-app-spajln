@@ -19,6 +19,7 @@ const corsHeaders = {
  * 6. Provides detailed logging and error handling
  * 7. Prevents double-crediting
  * 8. Admin can approve without NowPayments API for manual verification
+ * 9. Sends only ONE notification per balance update
  */
 Deno.serve(async (req) => {
   // Handle CORS
@@ -563,6 +564,29 @@ Deno.serve(async (req) => {
         .eq('order_id', order_id);
 
       console.log(`[${requestId}] ✅ Payment marked as confirmed at ${confirmTimestamp}`);
+
+      // Send ONE system notification
+      console.log(`[${requestId}] Sending system notification...`);
+      try {
+        await supabase
+          .from('system_notifications')
+          .insert({
+            user_id: payment.user_id,
+            notification_type: 'payment_verified',
+            title: '✅ Pago Verificado',
+            message: `Tu pago de ${actualUsdtAmount} USDT ha sido verificado. Recibiste ${actualMxiAmount.toFixed(2)} MXI.`,
+            metadata: {
+              order_id: payment.order_id,
+              usdt_amount: actualUsdtAmount,
+              mxi_amount: actualMxiAmount,
+            },
+            is_read: false,
+          });
+        console.log(`[${requestId}] ✅ System notification sent`);
+      } catch (notifError) {
+        console.error(`[${requestId}] ⚠️ Failed to send system notification:`, notifError);
+        // Don't fail the whole operation if notification fails
+      }
 
       console.log(`[${requestId}] ========== SUCCESS - PAYMENT CREDITED ==========\n`);
 

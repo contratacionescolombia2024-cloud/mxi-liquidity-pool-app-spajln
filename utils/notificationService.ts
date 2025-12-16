@@ -2,6 +2,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform, Alert } from 'react-native';
 import { supabase } from '@/lib/supabase';
+import { notificationDedup } from './notificationDeduplication';
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -85,10 +86,23 @@ class NotificationService {
   }
 
   /**
-   * Send local notification
+   * Send local notification with deduplication
    */
   async sendLocalNotification(config: NotificationConfig) {
     try {
+      // Check for duplicates
+      const metadataStr = config.data ? JSON.stringify(config.data) : config.body;
+      const shouldSend = notificationDedup.shouldSendNotification({
+        type: `local_${config.data?.type || 'notification'}`,
+        userId: config.data?.userId || 'unknown',
+        metadata: metadataStr,
+      });
+
+      if (!shouldSend) {
+        console.log('[NotificationService] Duplicate notification blocked:', config.title);
+        return;
+      }
+
       // For web, use browser Alert API
       if (Platform.OS === 'web') {
         // Use a custom alert that works on web
@@ -106,6 +120,8 @@ class NotificationService {
         },
         trigger: null, // Show immediately
       });
+
+      console.log('[NotificationService] Notification sent:', config.title);
     } catch (error) {
       console.error('Error sending notification:', error);
     }
@@ -148,7 +164,7 @@ class NotificationService {
   /**
    * Notify about balance change
    */
-  async notifyBalanceChange(oldBalance: number, newBalance: number, source: string) {
+  async notifyBalanceChange(oldBalance: number, newBalance: number, source: string, userId: string) {
     const change = newBalance - oldBalance;
     const changeText = change > 0 ? `+${change.toFixed(2)}` : change.toFixed(2);
     
@@ -160,6 +176,7 @@ class NotificationService {
         oldBalance,
         newBalance,
         source,
+        userId,
       },
     });
   }
@@ -167,13 +184,14 @@ class NotificationService {
   /**
    * Notify about new message
    */
-  async notifyNewMessage(from: string, preview: string) {
+  async notifyNewMessage(from: string, preview: string, userId: string) {
     await this.sendLocalNotification({
       title: `📨 New Message from ${from}`,
       body: preview,
       data: {
         type: 'new_message',
         from,
+        userId,
       },
     });
   }
@@ -181,7 +199,7 @@ class NotificationService {
   /**
    * Notify about payment confirmation
    */
-  async notifyPaymentConfirmed(amount: number, mxiAmount: number) {
+  async notifyPaymentConfirmed(amount: number, mxiAmount: number, userId: string) {
     await this.sendLocalNotification({
       title: '✅ Payment Confirmed',
       body: `Your payment of ${amount} USDT has been confirmed. You received ${mxiAmount.toFixed(2)} MXI.`,
@@ -189,6 +207,7 @@ class NotificationService {
         type: 'payment_confirmed',
         amount,
         mxiAmount,
+        userId,
       },
     });
   }
@@ -196,7 +215,7 @@ class NotificationService {
   /**
    * Notify about withdrawal approval
    */
-  async notifyWithdrawalApproved(amount: number, currency: string) {
+  async notifyWithdrawalApproved(amount: number, currency: string, userId: string) {
     await this.sendLocalNotification({
       title: '✅ Withdrawal Approved',
       body: `Your withdrawal of ${amount} ${currency} has been approved and is being processed.`,
@@ -204,6 +223,7 @@ class NotificationService {
         type: 'withdrawal_approved',
         amount,
         currency,
+        userId,
       },
     });
   }
@@ -211,7 +231,7 @@ class NotificationService {
   /**
    * Notify about KYC status change
    */
-  async notifyKYCStatusChange(status: string) {
+  async notifyKYCStatusChange(status: string, userId: string) {
     const statusEmoji = status === 'approved' ? '✅' : status === 'rejected' ? '❌' : '⏳';
     const statusText = status === 'approved' ? 'Approved' : status === 'rejected' ? 'Rejected' : 'Pending';
     
@@ -221,6 +241,7 @@ class NotificationService {
       data: {
         type: 'kyc_status',
         status,
+        userId,
       },
     });
   }
@@ -228,7 +249,7 @@ class NotificationService {
   /**
    * Notify about referral commission
    */
-  async notifyReferralCommission(amount: number, level: number, referralName: string) {
+  async notifyReferralCommission(amount: number, level: number, referralName: string, userId: string) {
     await this.sendLocalNotification({
       title: '💵 New Commission Earned',
       body: `You earned ${amount.toFixed(2)} MXI commission from ${referralName} (Level ${level})`,
@@ -236,6 +257,7 @@ class NotificationService {
         type: 'referral_commission',
         amount,
         level,
+        userId,
       },
     });
   }
@@ -243,13 +265,14 @@ class NotificationService {
   /**
    * Notify about vesting milestone
    */
-  async notifyVestingMilestone(totalVested: number) {
+  async notifyVestingMilestone(totalVested: number, userId: string) {
     await this.sendLocalNotification({
       title: '🔒 Vesting Milestone',
       body: `You've accumulated ${totalVested.toFixed(2)} MXI through vesting!`,
       data: {
         type: 'vesting_milestone',
         totalVested,
+        userId,
       },
     });
   }
@@ -268,6 +291,7 @@ class NotificationService {
 
   /**
    * Subscribe to real-time balance changes
+   * NOTE: This is now handled by RealtimeContext with deduplication
    */
   subscribeToBalanceChanges(userId: string, onBalanceChange: (oldBalance: number, newBalance: number) => void) {
     const channel = supabase
@@ -299,7 +323,7 @@ class NotificationService {
               source = 'Vesting';
             }
             
-            this.notifyBalanceChange(oldBalance, newBalance, source);
+            this.notifyBalanceChange(oldBalance, newBalance, source, userId);
           }
         }
       )
@@ -329,7 +353,7 @@ class NotificationService {
           
           // Only notify if message is from admin
           if (payload.new?.is_admin_message) {
-            this.notifyNewMessage('Support Team', payload.new?.message || 'You have a new message');
+            this.notifyNewMessage('Support Team', payload.new?.message || 'You have a new message', userId);
           }
         }
       )
