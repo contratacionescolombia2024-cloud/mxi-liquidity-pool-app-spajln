@@ -113,8 +113,8 @@ export const useAuth = () => {
 
 // Helper function to wait with exponential backoff
 const waitWithBackoff = (attempt: number) => {
-  const baseDelay = 1000; // 1 second
-  const delay = baseDelay * Math.pow(2, attempt); // Exponential backoff: 1s, 2s, 4s, 8s, 16s
+  const baseDelay = 500; // Reduced from 1000ms to 500ms
+  const delay = baseDelay * Math.pow(1.5, attempt); // Reduced exponential factor from 2 to 1.5
   return new Promise(resolve => setTimeout(resolve, delay));
 };
 
@@ -309,9 +309,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     setInitializationAttempted(true);
     
-    // Reduced timeout to 8 seconds for faster feedback
+    // Reduced timeout to 5 seconds for faster feedback
     const loadingTimeout = setTimeout(() => {
-      console.warn('⚠️ Auth initialization timeout (8s) - forcing loading to false');
+      console.warn('⚠️ Auth initialization timeout (5s) - forcing loading to false');
       if (loading) {
         console.log('Setting loading to false due to timeout');
         setLoading(false);
@@ -319,16 +319,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(null);
         setSession(null);
       }
-    }, 8000);
+    }, 5000);
 
     const initializeAuth = async () => {
       try {
         console.log('🔄 Starting auth session check...');
         console.log('Timestamp:', new Date().toISOString());
         
-        // Create a promise that rejects after 6 seconds
+        // Create a promise that rejects after 4 seconds
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Session check timeout')), 6000);
+          setTimeout(() => reject(new Error('Session check timeout')), 4000);
         });
 
         // Race between getting session and timeout
@@ -425,7 +425,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Add timeout for user data loading
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('User data loading timeout')), 5000);
+        setTimeout(() => reject(new Error('User data loading timeout')), 4000);
       });
 
       const userDataPromise = supabase
@@ -775,7 +775,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Step 5: Create auth user with timeout
       console.log('Step 5: Creating auth user...');
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Registration timeout')), 15000);
+        setTimeout(() => reject(new Error('Registration timeout')), 12000);
       });
 
       const signUpPromise = supabase.auth.signUp({
@@ -844,11 +844,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       console.log('✅ Auth user created successfully:', authData.user.id);
 
-      // Step 6: Wait for trigger and verify profile creation with reduced retries for faster response
+      // Step 6: Wait for trigger and verify profile creation with REDUCED retries for faster response
       console.log('Step 6: Waiting for database trigger to create profile...');
       let profileCreated = false;
       let profileData = null;
-      const maxRetries = 5; // Reduced from 10 to 5 for faster response
+      const maxRetries = 3; // REDUCED from 5 to 3 for faster response
       
       for (let attempt = 0; attempt < maxRetries; attempt++) {
         console.log(`Profile check attempt ${attempt + 1}/${maxRetries}...`);
@@ -857,8 +857,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (attempt > 0) {
           await waitWithBackoff(attempt - 1);
         } else {
-          // First check after 500ms
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // First check after 300ms (reduced from 500ms)
+          await new Promise(resolve => setTimeout(resolve, 300));
         }
         
         const profileExists = await checkProfileExists(authData.user.id);
@@ -952,10 +952,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // Step 10: Final verification - reduced retries for faster response
+      // Step 10: Final verification - REDUCED retries for faster response
       console.log('Step 10: Performing final verification...');
       let finalCheck = null;
-      const finalMaxRetries = 3; // Reduced from 5 to 3
+      const finalMaxRetries = 2; // REDUCED from 3 to 2
       
       for (let attempt = 0; attempt < finalMaxRetries; attempt++) {
         console.log(`Final verification attempt ${attempt + 1}/${finalMaxRetries}...`);
@@ -1089,24 +1089,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('=== LOGOUT START ===');
           console.log('Current session:', session?.user?.id);
           console.log('Current user:', user?.id);
+          console.log('Timestamp:', new Date().toISOString());
           
-          // Sign out from Supabase FIRST
-          const { error } = await supabase.auth.signOut({ scope: 'local' });
-          
-          if (error) {
-            console.error('Supabase signOut error:', error);
-            // Continue anyway to clear local state
-          } else {
-            console.log('Supabase signOut successful');
+          // Create a timeout promise for signOut
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Logout timeout')), 5000);
+          });
+
+          const signOutPromise = supabase.auth.signOut({ scope: 'local' });
+
+          // Race between signOut and timeout
+          try {
+            const { error } = await Promise.race([
+              signOutPromise,
+              timeoutPromise
+            ]) as { error: any };
+            
+            if (error) {
+              console.error('Supabase signOut error:', error);
+              // Continue anyway to clear local state
+            } else {
+              console.log('Supabase signOut successful');
+            }
+          } catch (timeoutError) {
+            console.error('Logout timeout, clearing local state anyway');
           }
           
-          // Then clear local state - this will trigger the navigation in _layout.tsx
+          // Clear local state - this will trigger the navigation in _layout.tsx
           setUser(null);
           setSession(null);
           setIsAuthenticated(false);
           
           console.log('Local state cleared');
           console.log('=== LOGOUT COMPLETE ===');
+          console.log('Timestamp:', new Date().toISOString());
         } catch (error) {
           console.error('=== LOGOUT EXCEPTION ===');
           console.error('Logout error:', error);
@@ -1115,6 +1131,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(null);
           setSession(null);
           setIsAuthenticated(false);
+          
+          // Show error to user
+          showAlert(
+            'Error al Cerrar Sesión',
+            'Hubo un problema al cerrar sesión, pero tu sesión local ha sido eliminada. Si el problema persiste, intenta cerrar y volver a abrir la aplicación.',
+            undefined,
+            'warning'
+          );
         }
       },
       onCancel: () => {
